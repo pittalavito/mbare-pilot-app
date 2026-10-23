@@ -15,7 +15,7 @@ src/service/
   pipeline_runner.py        esegue le run in coda (lo usa il worker)
   project_service.py        progetti: apri cartella, crea da zero, modifica, rimuovi
   chatbot_service.py        chatbot di un progetto, conversazioni e messaggi
-  atlassian_service.py      sito Jira + Confluence di un progetto  (in arrivo)
+  atlassian_service.py      sito Jira + Confluence di un progetto
 ```
 
 Chi crea i service e li collega tra loro è il Container (`core/container.py`, in arrivo): ogni service riceve nel costruttore quelli che usa.
@@ -56,6 +56,14 @@ worker ──► PipelineRunner.run_next ──► claim (running) ──► ste
 - **Se l'agente non risponde** (errore del modello, tool, modello disattivato…) la risposta è un messaggio di tipo `error`: si vede in chat ma non viene rimandato all'agente nei turni successivi.
 - **Run registrate** come `chatbot/<nome>`, con ruolo `chatbot` e la versione del prompt: si trovano in Admin → Observability.
 
+## Atlassian
+
+**`AtlassianService`**: un sito Jira + Confluence **per progetto** (tabella `project_atlassian`), sopra i [client Atlassian](../domain/client/atlassian/README.md). Testato con risposte finte, non ancora su un sito vero.
+
+- **Impostazioni**: URL del sito (`https://…`), email, API token, progetto Jira e spazio Confluence predefiniti (facoltativi). Il token è salvato **cifrato** con `SecretBox`; un token vuoto al salvataggio tiene quello già salvato. Se la chiave di cifratura cambia, il token non si legge più e il progetto risulta non configurato.
+- **`site(progetto)`** → `AtlassianSite`: il punto unico per usare Jira e Confluence di quel progetto (`check_connection`, issue, ricerca JQL, spazi, pagine, ricerca testo). Viene ricostruito quando cambiano le impostazioni. Senza configurazione: `ValidationError` che dice dove impostarla.
+- **Input validati prima di ogni richiesta**: chiavi di progetto (`PROJ`), di issue (`PROJ-123`) e di spazio, id di pagina, JQL e testo non vuoti. Le chiavi omesse usano i predefiniti del progetto.
+
 ## Progetti
 
 **`ProjectService`**: ogni percorso passa da `FolderBrowser`, quindi resta dentro `PROJECT_ROOTS`.
@@ -77,4 +85,4 @@ Un progetto nuovo viene rifiutato se il nome contiene `/` o `\` (finisce negli U
 
 ## Test
 
-In `test/unit/service/`: `test_store_service`, `test_model_service`, `test_agent_config_service`, `test_agent_scope` (globali e di progetto), `test_activation` (disattivazioni), `test_agent_service`, `test_git_service`, `test_pipeline` (definizioni, coda, esecuzione, heartbeat), `test_function_steps`, `test_project_service`, `test_project_data_service`, `test_chatbot_service`. Gli agenti sono finti (`FakeAgent`), il DB è SQLite in memoria e Redis è fakeredis: le fixture stanno in `test/conftest.py`.
+In `test/unit/service/`: `test_store_service`, `test_model_service`, `test_agent_config_service`, `test_agent_scope` (globali e di progetto), `test_activation` (disattivazioni), `test_agent_service`, `test_git_service`, `test_pipeline` (definizioni, coda, esecuzione, heartbeat), `test_function_steps`, `test_project_service`, `test_project_data_service`, `test_chatbot_service`, `test_atlassian_service`. Gli agenti sono finti (`FakeAgent`), il DB è SQLite in memoria e Redis è fakeredis: le fixture stanno in `test/conftest.py`.

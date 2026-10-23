@@ -13,6 +13,7 @@ src/
     agent/              → src/domain/agent/README.md  costruzione agenti, token e costi delle run
     project/            → src/domain/project/README.md  dati del progetto, cartelle del PC
     client/git/         → src/domain/client/git/README.md  comandi git in sola lettura
+    client/atlassian/   → src/domain/client/atlassian/README.md  Jira e Confluence Cloud
     store/files/        → src/domain/store/files/README.md  file su disco sotto una radice
     store/redis/        → src/domain/store/redis/README.md  trace delle run, heartbeat dei worker
     store/db/           → src/domain/store/db/README.md  Postgres: schema, repository, conversioni
@@ -32,6 +33,7 @@ src/
 | [src/domain/agent](src/domain/agent/README.md) | `Factory` dell'agente, memoria, tracing di token e costi, agenti di default |
 | [src/domain/project](src/domain/project/README.md) | codice vs dati del progetto, nomi di note e file, `FolderBrowser` |
 | [src/domain/client/git](src/domain/client/git/README.md) | `GitClient`: log, status, come esegue git, errori |
+| [src/domain/client/atlassian](src/domain/client/atlassian/README.md) | client Jira e Confluence, autenticazione, errori, paginazione |
 | [src/domain/store/files](src/domain/store/files/README.md) | `file_id`, percorsi sicuri, metodi di `LocalFileRepository` |
 | [src/domain/store/redis](src/domain/store/redis/README.md) | keyspace, divisione con Postgres, repository, come aggiungere un uso |
 | [src/domain/store/db](src/domain/store/db/README.md) | schema senza migrazioni, `SqlRepository`, coda del worker, come aggiungere una tabella |
