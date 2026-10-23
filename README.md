@@ -29,5 +29,4 @@ In arrivo.
 
 ## Documentazione
 
-- [UI: struttura e nuove pagine](resource/doc/ui.md)
-- [Backend: config e fondamenta](resource/doc/core.md)
+Indice in [resource/doc](resource/doc/README.md): un file per package, con la stessa struttura del progetto.
