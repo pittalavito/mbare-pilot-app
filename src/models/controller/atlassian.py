@@ -5,7 +5,9 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from models.domain.atlassian import AtlassianSettings, AtlassianUser, ConfluencePage, ConfluenceSearchHit, JiraIssue
+from models.domain.atlassian import (
+    AtlassianFavorite, AtlassianSettings, AtlassianUser, ConfluencePage, ConfluenceSearchHit, FavoriteKind, JiraIssue,
+)
 
 
 class AtlassianSettingsResponse(BaseModel):
@@ -79,3 +81,25 @@ class ConfluenceSearchHitResponse(BaseModel):
     @classmethod
     def from_hit(cls, hit: ConfluenceSearchHit) -> "ConfluenceSearchHitResponse":
         return cls(**hit.model_dump())
+
+
+class FavoriteResponse(BaseModel):
+    id: int
+    kind: str
+    """``jira_issue`` | ``confluence_page``."""
+    ref: str
+    """Issue key or page id."""
+    title: str
+    url: str
+    created_at: datetime
+
+    @classmethod
+    def from_favorite(cls, favorite: AtlassianFavorite) -> "FavoriteResponse":
+        return cls(**favorite.model_dump())
+
+
+class FavoriteRequest(BaseModel):
+    kind: FavoriteKind
+    ref: str
+    title: str
+    url: str = ""

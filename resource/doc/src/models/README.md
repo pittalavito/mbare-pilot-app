@@ -31,7 +31,7 @@ API ── controller/* ──► controller ──► domain/* ──► servic
 | `pipeline.py` | automation: `Pipeline`, `PipelineStep` (`AGENT`, `AGENT_CONFIG`, `FUNCTION`), `StepAgent`; esecuzioni: `PipelineRun`, `PipelineStepRun`, `RunStatus`; placeholder `{input}` e `{pipeline_input}` |
 | `worker.py` | `WorkerStatus` (heartbeat del worker) |
 | `git.py` | `GitRepository`, `GitCommit`, `GitStatus`, `GitChange` |
-| `atlassian.py` | `AtlassianSettings` (token `SecretStr`), Jira (`JiraProject`, `JiraIssue`), Confluence (`ConfluenceSpace`, `ConfluencePage`, `ConfluenceSearchHit`) |
+| `atlassian.py` | `AtlassianSettings` (token `SecretStr`), Jira (`JiraProject`, `JiraIssue`), Confluence (`ConfluenceSpace`, `ConfluencePage`, `ConfluenceSearchHit`), preferiti (`AtlassianFavorite`, `FavoriteKind`) |
 | `tool.py` | output dei tool degli agenti, uno per tool |
 
 Tipi condivisi: `Name` (`agent.py`: stringa obbligatoria, ripulita, max 100) e `ModelKey` (`chat.py`: validata come `fornitore/modello`).

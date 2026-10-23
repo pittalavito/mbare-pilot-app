@@ -2,7 +2,7 @@
 maps them to and from domain models.
 
 Schema overview (project-centric):
-  project ─┬─ project_atlassian                             (Jira + Confluence site)
+  project ─┬─ project_atlassian, atlassian_favorite         (Jira + Confluence site, favorites)
            ├─ agent_role / system_prompt / agent_config   (project_name NULL = global)
            ├─ chatbot (with its own agent) ── conversation ── message
            ├─ pipeline ── pipeline_step
@@ -61,6 +61,22 @@ class ProjectAtlassianTable(SQLModel, table=True):
     """Encrypted with MBARE_PILOT_SECRET_KEY (core/secret_box.py)."""
     jira_project_key: str = ""
     confluence_space_key: str = ""
+
+
+class AtlassianFavoriteTable(SQLModel, table=True):
+    """A project's favorite Jira issues and Confluence pages."""
+    __tablename__ = "atlassian_favorite"
+    __table_args__ = (UniqueConstraint("project_name", "kind", "ref"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    project_name: str = _project_fk(nullable=False)
+    kind: str
+    """FavoriteKind value: jira_issue | confluence_page."""
+    ref: str
+    """Issue key or page id."""
+    title: str
+    url: str
+    created_at: datetime = _timestamp()
 
 
 # ------------------------------------------------------------------- agents

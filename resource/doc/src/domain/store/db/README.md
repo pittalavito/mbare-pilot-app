@@ -7,6 +7,7 @@ src/domain/store/db/
   repository.py               Engine (connessione + schema), SqlRepository (base)
   project_repository.py       progetti
   atlassian_repository.py     sito Atlassian di un progetto (token cifrato)
+  atlassian_favorite_repository.py  issue e pagine preferite di un progetto
   role_repository.py          ruoli degli agenti
   prompt_repository.py        versioni dei system prompt
   agent_config_repository.py  agenti (Libreria e di progetto)
@@ -61,7 +62,7 @@ Il token Atlassian entra e esce già cifrato: la cifratura con [`SecretBox`](../
 
 ## Cose da sapere
 
-- **Cancellazione a cascata**: rimuovere un progetto cancella dal DB quello che gli appartiene (agenti, chatbot con le conversazioni, automation con le loro esecuzioni, sito Atlassian). Restano le run degli agenti (`agent_run`, `tool_call`: lo storico di Observability, senza chiave esterna verso il progetto) e le cartelle sul disco.
+- **Cancellazione a cascata**: rimuovere un progetto cancella dal DB quello che gli appartiene (agenti, chatbot con le conversazioni, automation con le loro esecuzioni, sito e preferiti Atlassian). Restano le run degli agenti (`agent_run`, `tool_call`: lo storico di Observability, senza chiave esterna verso il progetto) e le cartelle sul disco.
 - **RAG non ancora implementato**: le tabelle `document` e `chunk` (con l'embedding pgvector) esistono, ma non hanno repository né codice che le usi.
 
 ## Aggiungere una tabella

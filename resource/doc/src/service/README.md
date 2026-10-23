@@ -62,6 +62,7 @@ worker ──► PipelineRunner.run_next ──► claim (running) ──► ste
 
 - **Impostazioni**: URL del sito (`https://…`), email, API token, progetto Jira e spazio Confluence predefiniti (facoltativi). Il token è salvato **cifrato** con `SecretBox`; un token vuoto al salvataggio tiene quello già salvato. Se la chiave di cifratura cambia, il token non si legge più e il progetto risulta non configurato.
 - **`site(progetto)`** → `AtlassianSite`: il punto unico per usare Jira e Confluence di quel progetto (`check_connection`, issue, ricerca JQL, spazi, pagine, ricerca testo). Viene ricostruito quando cambiano le impostazioni. Senza configurazione: `ValidationError` che dice dove impostarla.
+- **Preferiti** (`list_favorites`, `add_favorite`, `remove_favorite`): issue Jira e pagine Confluence salvate come preferite **per progetto** (tabella `atlassian_favorite`), con chiave o id, titolo e link come erano al salvataggio: elencarli non chiama Atlassian. Aggiungere un preferito che c'è già restituisce quello salvato; spariscono insieme al progetto.
 - **Input validati prima di ogni richiesta**: chiavi di progetto (`PROJ`), di issue (`PROJ-123`) e di spazio, id di pagina, JQL e testo non vuoti. Le chiavi omesse usano i predefiniti del progetto.
 
 ## Progetti

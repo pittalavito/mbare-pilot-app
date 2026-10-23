@@ -1,13 +1,14 @@
 """A project's Atlassian site, under /projects/{project}/atlassian: its
 settings (the API token is write-only: GET says whether one is saved, never
-returns it) and read-only access to its Jira issues and Confluence pages."""
+returns it), read-only access to its Jira issues and Confluence pages, and the
+project's favorite issues and pages."""
 from fastapi import APIRouter, Depends, Response, status
 
 from controller.dependencies import atlassian_service
 from core.error import NotFoundError
 from models.controller.atlassian import (
     AtlassianSettingsRequest, AtlassianSettingsResponse, AtlassianUserResponse, ConfluencePageResponse,
-    ConfluenceSearchHitResponse, JiraIssueResponse,
+    ConfluenceSearchHitResponse, FavoriteRequest, FavoriteResponse, JiraIssueResponse,
 )
 from service.atlassian_service import AtlassianService
 
@@ -73,3 +74,25 @@ def search_pages(project: str, q: str, space: str | None = None, limit: int = 25
     """Full-text search, in ``space`` or in every space."""
     hits = service.site(project).search_pages(q, space, limit)
     return [ConfluenceSearchHitResponse.from_hit(hit) for hit in hits]
+
+
+# ---------------------------------------------------------------- favorites
+
+@router.get("/favorites")
+def list_favorites(project: str, service: AtlassianService = Depends(atlassian_service)) -> list[FavoriteResponse]:
+    """Saved in the app: listing them never calls Atlassian."""
+    return [FavoriteResponse.from_favorite(favorite) for favorite in service.list_favorites(project)]
+
+
+@router.post("/favorites", status_code=status.HTTP_201_CREATED)
+def add_favorite(project: str, request: FavoriteRequest,
+                 service: AtlassianService = Depends(atlassian_service)) -> FavoriteResponse:
+    """Already a favorite: the saved one comes back."""
+    favorite = service.add_favorite(project, request.kind, request.ref, request.title, request.url)
+    return FavoriteResponse.from_favorite(favorite)
+
+
+@router.delete("/favorites/{favorite_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_favorite(project: str, favorite_id: int, service: AtlassianService = Depends(atlassian_service)) -> Response:
+    service.remove_favorite(project, favorite_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

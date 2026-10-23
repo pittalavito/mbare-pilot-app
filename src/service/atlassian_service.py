@@ -13,11 +13,13 @@ from core.error import NotFoundError, ValidationError
 from core.observability import LogPrefix, observed
 from domain.client.atlassian.client import AtlassianHttp, ConfluenceClient, JiraClient
 from models.domain.atlassian import (
+    AtlassianFavorite,
     AtlassianSettings,
     AtlassianUser,
     ConfluencePage,
     ConfluenceSearchHit,
     ConfluenceSpace,
+    FavoriteKind,
     JiraIssue,
     JiraProject,
 )
@@ -81,6 +83,31 @@ class AtlassianService:
     def remove_settings(self, project_name: str) -> bool:
         self._sites.pop(project_name, None)
         return self._store.delete_atlassian_settings(project_name)
+
+    # ------------------------------------------------------------ favorites
+    def list_favorites(self, project_name: str) -> list[AtlassianFavorite]:
+        """The project's favorite issues and pages, oldest first."""
+        return self._store.list_atlassian_favorites(project_name)
+
+    def add_favorite(self, project_name: str, kind: FavoriteKind, ref: str, title: str, url: str) -> AtlassianFavorite:
+        """Save an issue or page as a favorite; already a favorite = returned as it is."""
+        if self._store.get_project(project_name) is None:
+            raise NotFoundError(f"Progetto non trovato: {project_name}")
+        ref = ref.strip().upper() if kind is FavoriteKind.JIRA_ISSUE else ref.strip()
+        if not ref or not title.strip():
+            raise ValidationError("Il preferito deve avere un riferimento e un titolo.")
+        existing = self._store.find_atlassian_favorite(project_name, kind, ref)
+        if existing is not None:
+            return existing
+        return self._store.save_atlassian_favorite(AtlassianFavorite(
+            project_name=project_name, kind=kind, ref=ref, title=title.strip(), url=url.strip(),
+        ))
+
+    def remove_favorite(self, project_name: str, favorite_id: int) -> None:
+        favorite = self._store.get_atlassian_favorite(favorite_id)
+        if favorite is None or favorite.project_name != project_name:
+            raise NotFoundError(f"Preferito non trovato: {favorite_id}")
+        self._store.delete_atlassian_favorite(favorite_id)
 
     def site(self, project_name: str) -> "AtlassianSite":
         """The project's Atlassian site; ValidationError when not configured."""

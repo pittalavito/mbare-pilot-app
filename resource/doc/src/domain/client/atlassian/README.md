@@ -12,7 +12,7 @@ src/domain/client/atlassian/
 
 I modelli (`JiraProject`, `JiraIssue`, `ConfluenceSpace`, `ConfluencePage`, …) stanno in [`models/domain/atlassian.py`](../../../models/README.md). Chi li usa è `AtlassianService`, che aggiunge le impostazioni per progetto e valida gli input prima che arrivino alle query.
 
-**Stato**: testato con risposte HTTP finte, **non ancora provato su un sito Atlassian vero**. Oggi dalla UI si usa solo la configurazione e «Verifica connessione»; nessun tool degli agenti lo usa ancora.
+**Stato**: testato con risposte HTTP finte, **non ancora provato su un sito Atlassian vero**. Dalla UI: configurazione e «Verifica connessione» in Impostazioni, e il tab **Atlassian** del progetto (issue per chiave, pagine Confluence, preferiti). Nessun tool degli agenti lo usa ancora.
 
 ## Connessione (`http.py`)
 

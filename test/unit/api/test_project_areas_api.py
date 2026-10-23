@@ -213,6 +213,21 @@ def test_jira_and_confluence_reads(client, monkeypatch):
     assert client.get("/projects/acme/atlassian/confluence/search", params={"q": " "}).status_code == 400
 
 
+def test_favorites(client):
+    issue = {"kind": "jira_issue", "ref": "proj-3", "title": "Bug", "url": "https://acme.atlassian.net/browse/PROJ-3"}
+
+    created = client.post("/projects/acme/atlassian/favorites", json=issue)
+    page = client.post("/projects/acme/atlassian/favorites",
+                       json={"kind": "confluence_page", "ref": "9", "title": "Setup"}).json()
+
+    assert created.status_code == 201 and created.json()["ref"] == "PROJ-3"
+    assert client.post("/projects/acme/atlassian/favorites", json=issue).json()["id"] == created.json()["id"]
+    assert [f["kind"] for f in client.get("/projects/acme/atlassian/favorites").json()] == ["jira_issue", "confluence_page"]
+    assert client.post("/projects/acme/atlassian/favorites", json={**issue, "kind": "nope"}).status_code == 422
+    assert client.delete(f"/projects/acme/atlassian/favorites/{page['id']}").status_code == 204
+    assert client.delete(f"/projects/acme/atlassian/favorites/{page['id']}").status_code == 404
+
+
 def test_jira_without_atlassian_configured(client):
     response = client.get("/projects/acme/atlassian/jira/issues/PROJ-1")
 

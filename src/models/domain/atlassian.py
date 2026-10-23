@@ -1,8 +1,9 @@
 """Atlassian Cloud domain models (Jira projects/issues, Confluence spaces/pages),
 already flattened from the REST payloads: rich text comes as plain text."""
-from datetime import datetime
+from datetime import datetime, timezone
+from enum import StrEnum
 
-from pydantic import BaseModel, SecretStr
+from pydantic import BaseModel, Field, SecretStr
 
 
 class AtlassianSettings(BaseModel):
@@ -76,3 +77,23 @@ class ConfluenceSearchHit(BaseModel):
     title: str
     excerpt: str = ""
     url: str
+
+
+# ---------------------------------------------------------------- favorites
+
+class FavoriteKind(StrEnum):
+    JIRA_ISSUE = "jira_issue"
+    CONFLUENCE_PAGE = "confluence_page"
+
+
+class AtlassianFavorite(BaseModel):
+    """A Jira issue or Confluence page saved as a favorite of a project."""
+    id: int | None = None
+    project_name: str
+    kind: FavoriteKind
+    ref: str
+    """Issue key (``PROJ-123``) or page id."""
+    title: str
+    """As it was when saved (Atlassian is not called to list the favorites)."""
+    url: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

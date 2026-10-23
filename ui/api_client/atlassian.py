@@ -1,7 +1,7 @@
-"""A project's Atlassian site, typed: settings (the token is write-only) and
-read-only Jira issues and Confluence pages."""
+"""A project's Atlassian site, typed: settings (the token is write-only),
+read-only Jira issues and Confluence pages, favorites."""
 from api_client.http import ApiClient, segment
-from api_client.models import AtlassianSettings, AtlassianUser, ConfluencePage, ConfluenceSearchHit, JiraIssue
+from api_client.models import AtlassianSettings, AtlassianUser, ConfluencePage, ConfluenceSearchHit, Favorite, JiraIssue
 
 
 class AtlassianApi:
@@ -37,6 +37,17 @@ class AtlassianApi:
     def search_pages(self, project: str, text: str) -> list[ConfluenceSearchHit]:
         hits = self._client.get(f"{_base(project)}/confluence/search", params={"q": text})
         return [ConfluenceSearchHit.model_validate(item) for item in hits]
+
+    def favorites(self, project: str) -> list[Favorite]:
+        """Saved in the app: no call to Atlassian."""
+        return [Favorite.model_validate(item) for item in self._client.get(f"{_base(project)}/favorites")]
+
+    def add_favorite(self, project: str, kind: str, ref: str, title: str, url: str) -> Favorite:
+        body = {"kind": kind, "ref": ref, "title": title, "url": url}
+        return Favorite.model_validate(self._client.post(f"{_base(project)}/favorites", json=body))
+
+    def remove_favorite(self, project: str, favorite_id: int) -> None:
+        self._client.delete(f"{_base(project)}/favorites/{favorite_id}")
 
 
 def _base(project: str) -> str:

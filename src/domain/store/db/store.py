@@ -7,6 +7,7 @@ static-method classes: ``Adapter`` (rows -> domain models, reads) and
 from datetime import datetime, timezone
 
 from domain.store.db.agent_config_repository import DbAgentConfigRepository
+from domain.store.db.atlassian_favorite_repository import DbAtlassianFavoriteRepository
 from domain.store.db.atlassian_repository import DbAtlassianRepository
 from domain.store.db.chatbot_repository import DbChatbotRepository, DbConversationRepository, DbMessageRepository
 from domain.store.db.pipeline_repository import (
@@ -32,7 +33,7 @@ from models.domain.agent import (
     ToolCallSummary,
     ToolInfo,
 )
-from models.domain.atlassian import AtlassianSettings
+from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
 from models.domain.chat import ChatModel, EmbeddingModelName
 from models.domain.chatbot import ChatMessage, Chatbot, Conversation, MessageRole
 from models.domain.pipeline import (
@@ -49,6 +50,7 @@ from models.store.db import (
     AgentConfigTable,
     AgentRoleTable,
     AgentRunTable,
+    AtlassianFavoriteTable,
     ChatbotTable,
     ConversationTable,
     MessageTable,
@@ -67,6 +69,7 @@ from models.store.db import (
 __all__ = [
     "Engine",
     "DbAgentConfigRepository",
+    "DbAtlassianFavoriteRepository",
     "DbAtlassianRepository",
     "DbChatbotRepository",
     "DbConversationRepository",
@@ -275,6 +278,12 @@ class Adapter:
         """``api_token`` is the decrypted ``row.api_token``."""
         return AtlassianSettings.model_validate({**row.model_dump(), "api_token": api_token})
 
+    @staticmethod
+    def to_atlassian_favorite(row: AtlassianFavoriteTable) -> AtlassianFavorite:
+        favorite = AtlassianFavorite.model_validate({**row.model_dump(), "kind": FavoriteKind(row.kind)})
+        favorite.created_at = _as_utc(favorite.created_at)
+        return favorite
+
 
 class Factory:
     """Write seam: domain models -> DB rows."""
@@ -335,6 +344,10 @@ class Factory:
             jira_project_key=settings.jira_project_key,
             confluence_space_key=settings.confluence_space_key,
         )
+
+    @staticmethod
+    def to_atlassian_favorite_row(favorite: AtlassianFavorite) -> AtlassianFavoriteTable:
+        return AtlassianFavoriteTable(**{**favorite.model_dump(), "kind": favorite.kind.value})
 
     @staticmethod
     def to_project_row(project: Project) -> ProjectTable:

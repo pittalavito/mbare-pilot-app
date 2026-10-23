@@ -6,6 +6,7 @@ from core.error import NotFoundError, ValidationError
 from core.secret_box import SecretBox
 from domain.client.atlassian.client import AtlassianHttp, ConfluenceClient, JiraClient
 from domain.store.db.store import DbAtlassianRepository
+from models.domain.atlassian import FavoriteKind
 from models.domain.project import Project, ProjectSource
 from service.atlassian_service import AtlassianService, AtlassianSite
 
@@ -185,3 +186,23 @@ def test_list_space_pages_unknown_space():
 def test_empty_or_invalid_inputs_rejected(call):
     with pytest.raises(ValidationError):
         call(_site(lambda request: httpx.Response(200, json={})))
+
+
+# ---------------------------------------------------------------- favorites
+
+def test_favorites_per_project_without_duplicates(service, store_service):
+    issue = service.add_favorite("Alpha", FavoriteKind.JIRA_ISSUE, " proj-1 ", "Login rotto", "https://x/browse/PROJ-1")
+    page = service.add_favorite("Alpha", FavoriteKind.CONFLUENCE_PAGE, "42", "Setup", "https://x/wiki/42")
+    again = service.add_favorite("Alpha", FavoriteKind.JIRA_ISSUE, "PROJ-1", "Altro titolo", "")
+
+    assert issue.ref == "PROJ-1" and again.id == issue.id and again.title == "Login rotto"
+    assert [(f.kind, f.ref) for f in service.list_favorites("Alpha")] == [
+        (FavoriteKind.JIRA_ISSUE, "PROJ-1"), (FavoriteKind.CONFLUENCE_PAGE, "42"),
+    ]
+    with pytest.raises(NotFoundError):
+        service.remove_favorite("Beta", page.id)  # another project's favorite
+    service.remove_favorite("Alpha", page.id)
+    assert [f.ref for f in service.list_favorites("Alpha")] == ["PROJ-1"]
+    with pytest.raises(ValidationError):
+        service.add_favorite("Alpha", FavoriteKind.JIRA_ISSUE, " ", "x", "")
+

@@ -86,6 +86,15 @@ def test_atlassian_reads(api, monkeypatch):
     assert api.atlassian.search_pages(PROJECT, "setup")[0].title == "Setup"
 
 
+def test_atlassian_favorites(api):
+    issue = api.atlassian.add_favorite(PROJECT, "jira_issue", "proj-1", "Bug", "https://acme.atlassian.net/browse/PROJ-1")
+    api.atlassian.add_favorite(PROJECT, "confluence_page", "9", "Setup", "")
+
+    assert [(f.kind, f.ref) for f in api.atlassian.favorites(PROJECT)] == [("jira_issue", "PROJ-1"), ("confluence_page", "9")]
+    api.atlassian.remove_favorite(PROJECT, issue.id)
+    assert [f.ref for f in api.atlassian.favorites(PROJECT)] == ["9"]
+
+
 class _FakeJira:
     def get_issue(self, key):
         return JiraIssue(key=key, summary="Bug", url=f"https://acme.atlassian.net/browse/{key}")

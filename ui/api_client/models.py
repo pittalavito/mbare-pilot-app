@@ -270,6 +270,17 @@ class ConfluencePage(BaseModel):
     """Empty in listings."""
 
 
+class Favorite(BaseModel):
+    id: int
+    kind: str
+    """``jira_issue`` | ``confluence_page``."""
+    ref: str
+    """Issue key or page id."""
+    title: str
+    url: str
+    created_at: datetime
+
+
 class ConfluenceSearchHit(BaseModel):
     id: str
     title: str

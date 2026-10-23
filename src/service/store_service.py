@@ -16,6 +16,7 @@ from domain.chat.pricing import PriceList
 from domain.store.db.store import (
     Adapter as DbAdapter,
     DbAgentConfigRepository,
+    DbAtlassianFavoriteRepository,
     DbAtlassianRepository,
     DbChatbotRepository,
     DbConversationRepository,
@@ -38,7 +39,7 @@ from domain.store.redis.store import (
     Adapter as RedisAdapter, Client as RedisClient, Factory as RedisFactory, RedisTraceRepository, RedisWorkerRepository,
 )
 from models.domain.agent import AgentConfig, AgentRole, AgentRunRecord, AgentRunSummary, SystemPrompt, ToolCallSummary, ToolInfo
-from models.domain.atlassian import AtlassianSettings
+from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
 from models.domain.chat import ChatModel
 from models.domain.chatbot import ChatMessage, Chatbot, Conversation
 from models.domain.pipeline import Pipeline, PipelineRun, PipelineStepRun, RunStatus
@@ -66,6 +67,7 @@ class StoreService:
         self._agent_config_repository = DbAgentConfigRepository(engine)
         self._project_repository = DbProjectRepository(engine)
         self._atlassian_repository = DbAtlassianRepository(engine)
+        self._atlassian_favorite_repository = DbAtlassianFavoriteRepository(engine)
         self._chatbot_repository = DbChatbotRepository(engine)
         self._conversation_repository = DbConversationRepository(engine)
         self._message_repository = DbMessageRepository(engine)
@@ -330,6 +332,24 @@ class StoreService:
 
     def delete_atlassian_settings(self, project_name: str) -> bool:
         return self._atlassian_repository.delete(project_name)
+
+    def list_atlassian_favorites(self, project_name: str) -> list[AtlassianFavorite]:
+        return [DbAdapter.to_atlassian_favorite(row) for row in self._atlassian_favorite_repository.list_for_project(project_name)]
+
+    def find_atlassian_favorite(self, project_name: str, kind: FavoriteKind, ref: str) -> AtlassianFavorite | None:
+        row = self._atlassian_favorite_repository.find(project_name, kind.value, ref)
+        return DbAdapter.to_atlassian_favorite(row) if row else None
+
+    def get_atlassian_favorite(self, favorite_id: int) -> AtlassianFavorite | None:
+        row = self._atlassian_favorite_repository.get(favorite_id)
+        return DbAdapter.to_atlassian_favorite(row) if row else None
+
+    def save_atlassian_favorite(self, favorite: AtlassianFavorite) -> AtlassianFavorite:
+        row = self._atlassian_favorite_repository.save(DbFactory.to_atlassian_favorite_row(favorite))
+        return DbAdapter.to_atlassian_favorite(row)
+
+    def delete_atlassian_favorite(self, favorite_id: int) -> bool:
+        return self._atlassian_favorite_repository.delete(favorite_id)
 
     # ----------------------------------------------------------------- files
     def list_files(self, prefix: str = "") -> list[StoredFile]:
