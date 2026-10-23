@@ -93,6 +93,9 @@ class AtlassianFavorite(BaseModel):
     kind: FavoriteKind
     ref: str
     """Issue key (``PROJ-123``) or page id."""
+    site: str
+    """Base URL of the Atlassian site it belongs to: favorites of another site
+    are dropped when the project switches site."""
     title: str
     """As it was when saved (Atlassian is not called to list the favorites)."""
     url: str

@@ -1,6 +1,6 @@
 """Favorite Jira issues and Confluence pages of each project (table atlassian_favorite)."""
 from sqlalchemy.engine import Engine
-from sqlmodel import select
+from sqlmodel import delete, select
 
 from domain.store.db.repository import SqlRepository
 from models.store.db import AtlassianFavoriteTable
@@ -28,3 +28,13 @@ class DbAtlassianFavoriteRepository(SqlRepository[AtlassianFavoriteTable]):
         )
         with self._session() as session:
             return session.exec(statement).first()
+
+    def delete_other_sites(self, project_name: str, site: str) -> int:
+        """Remove the project's favorites of any site but ``site``; how many."""
+        statement = delete(AtlassianFavoriteTable).where(
+            AtlassianFavoriteTable.project_name == project_name, AtlassianFavoriteTable.site != site,
+        )
+        with self._session() as session:
+            removed = session.exec(statement).rowcount
+            session.commit()
+            return removed

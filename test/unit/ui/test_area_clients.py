@@ -87,6 +87,7 @@ def test_atlassian_reads(api, monkeypatch):
 
 
 def test_atlassian_favorites(api):
+    api.atlassian.save(PROJECT, {"base_url": "https://acme.atlassian.net", "email": "a@b.it", "api_token": "x"})
     issue = api.atlassian.add_favorite(PROJECT, "jira_issue", "proj-1", "Bug", "https://acme.atlassian.net/browse/PROJ-1")
     api.atlassian.add_favorite(PROJECT, "confluence_page", "9", "Setup", "")
 

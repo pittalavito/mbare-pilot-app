@@ -191,6 +191,7 @@ def test_empty_or_invalid_inputs_rejected(call):
 # ---------------------------------------------------------------- favorites
 
 def test_favorites_per_project_without_duplicates(service, store_service):
+    _save(service)
     issue = service.add_favorite("Alpha", FavoriteKind.JIRA_ISSUE, " proj-1 ", "Login rotto", "https://x/browse/PROJ-1")
     page = service.add_favorite("Alpha", FavoriteKind.CONFLUENCE_PAGE, "42", "Setup", "https://x/wiki/42")
     again = service.add_favorite("Alpha", FavoriteKind.JIRA_ISSUE, "PROJ-1", "Altro titolo", "")
@@ -199,6 +200,7 @@ def test_favorites_per_project_without_duplicates(service, store_service):
     assert [(f.kind, f.ref) for f in service.list_favorites("Alpha")] == [
         (FavoriteKind.JIRA_ISSUE, "PROJ-1"), (FavoriteKind.CONFLUENCE_PAGE, "42"),
     ]
+    assert issue.site == "https://alpha.atlassian.net"
     with pytest.raises(NotFoundError):
         service.remove_favorite("Beta", page.id)  # another project's favorite
     service.remove_favorite("Alpha", page.id)
@@ -206,3 +208,21 @@ def test_favorites_per_project_without_duplicates(service, store_service):
     with pytest.raises(ValidationError):
         service.add_favorite("Alpha", FavoriteKind.JIRA_ISSUE, " ", "x", "")
 
+
+
+def test_favorites_need_atlassian_configured(service):
+    with pytest.raises(ValidationError, match="Impostazioni"):
+        service.add_favorite("Alpha", FavoriteKind.JIRA_ISSUE, "PROJ-1", "Bug", "")
+
+
+def test_favorites_follow_the_site(service):
+    _save(service)
+    service.add_favorite("Alpha", FavoriteKind.JIRA_ISSUE, "PROJ-1", "Bug", "")
+
+    _save(service, email="other@alpha.com")  # same site, other settings: kept
+    service.remove_settings("Alpha")
+    _save(service)  # removed and added again, same site: kept
+    assert [f.ref for f in service.list_favorites("Alpha")] == ["PROJ-1"]
+
+    _save(service, base_url="https://beta.atlassian.net")  # another site: gone
+    assert service.list_favorites("Alpha") == []

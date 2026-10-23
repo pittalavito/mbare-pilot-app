@@ -74,6 +74,8 @@ class AtlassianFavoriteTable(SQLModel, table=True):
     """FavoriteKind value: jira_issue | confluence_page."""
     ref: str
     """Issue key or page id."""
+    site: str
+    """Base URL of the Atlassian site the favorite belongs to."""
     title: str
     url: str
     created_at: datetime = _timestamp()

@@ -55,7 +55,9 @@ class AtlassianService:
         jira_project_key: str = "",
         confluence_space_key: str = "",
     ) -> AtlassianSettings:
-        """Set the project's site. An empty ``api_token`` keeps the saved one."""
+        """Set the project's site. An empty ``api_token`` keeps the saved one.
+        The favorites of any other site are dropped (same site = kept, also
+        after removing and adding the settings again)."""
         if self._store.get_project(project_name) is None:
             raise NotFoundError(f"Progetto non trovato: {project_name}")
         base_url = base_url.strip().rstrip("/")
@@ -71,7 +73,7 @@ class AtlassianService:
             raise ValidationError("L'API token è obbligatorio.")
         jira_key = _project_key(jira_project_key) if jira_project_key.strip() else ""
         space_key = _space_key(confluence_space_key) if confluence_space_key.strip() else ""
-        return self._store.save_atlassian_settings(AtlassianSettings(
+        settings = self._store.save_atlassian_settings(AtlassianSettings(
             project_name=project_name,
             base_url=base_url,
             email=email.strip(),
@@ -79,6 +81,8 @@ class AtlassianService:
             jira_project_key=jira_key,
             confluence_space_key=space_key,
         ))
+        self._store.delete_atlassian_favorites_of_other_sites(project_name, base_url)
+        return settings
 
     def remove_settings(self, project_name: str) -> bool:
         self._sites.pop(project_name, None)
@@ -90,9 +94,11 @@ class AtlassianService:
         return self._store.list_atlassian_favorites(project_name)
 
     def add_favorite(self, project_name: str, kind: FavoriteKind, ref: str, title: str, url: str) -> AtlassianFavorite:
-        """Save an issue or page as a favorite; already a favorite = returned as it is."""
+        """Save an issue or page of the project's site as a favorite; already a
+        favorite = returned as it is. ValidationError when Atlassian is not configured."""
         if self._store.get_project(project_name) is None:
             raise NotFoundError(f"Progetto non trovato: {project_name}")
+        settings = self._require_settings(project_name)
         ref = ref.strip().upper() if kind is FavoriteKind.JIRA_ISSUE else ref.strip()
         if not ref or not title.strip():
             raise ValidationError("Il preferito deve avere un riferimento e un titolo.")
@@ -100,7 +106,8 @@ class AtlassianService:
         if existing is not None:
             return existing
         return self._store.save_atlassian_favorite(AtlassianFavorite(
-            project_name=project_name, kind=kind, ref=ref, title=title.strip(), url=url.strip(),
+            project_name=project_name, kind=kind, ref=ref, site=settings.base_url, title=title.strip(),
+            url=url.strip(),
         ))
 
     def remove_favorite(self, project_name: str, favorite_id: int) -> None:
@@ -111,17 +118,21 @@ class AtlassianService:
 
     def site(self, project_name: str) -> "AtlassianSite":
         """The project's Atlassian site; ValidationError when not configured."""
-        settings = self.get_settings(project_name)
-        if settings is None or not settings.is_complete:
-            raise ValidationError(
-                f"Atlassian non configurato per il progetto {project_name}: impostalo in Impostazioni → Atlassian."
-            )
+        settings = self._require_settings(project_name)
         cached = self._sites.get(project_name)
         if cached and cached[0] == settings:
             return cached[1]
         site = build_site(settings)
         self._sites[project_name] = (settings, site)
         return site
+
+    def _require_settings(self, project_name: str) -> AtlassianSettings:
+        settings = self.get_settings(project_name)
+        if settings is None or not settings.is_complete:
+            raise ValidationError(
+                f"Atlassian non configurato per il progetto {project_name}: impostalo in Impostazioni → Atlassian."
+            )
+        return settings
 
 
 def build_site(settings: AtlassianSettings) -> "AtlassianSite":

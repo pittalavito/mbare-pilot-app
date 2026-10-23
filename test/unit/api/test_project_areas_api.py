@@ -214,6 +214,8 @@ def test_jira_and_confluence_reads(client, monkeypatch):
 
 
 def test_favorites(client):
+    site = {"base_url": "https://acme.atlassian.net", "email": "a@b.it", "api_token": "t"}
+    client.put("/projects/acme/atlassian", json=site)
     issue = {"kind": "jira_issue", "ref": "proj-3", "title": "Bug", "url": "https://acme.atlassian.net/browse/PROJ-3"}
 
     created = client.post("/projects/acme/atlassian/favorites", json=issue)

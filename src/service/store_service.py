@@ -351,6 +351,9 @@ class StoreService:
     def delete_atlassian_favorite(self, favorite_id: int) -> bool:
         return self._atlassian_favorite_repository.delete(favorite_id)
 
+    def delete_atlassian_favorites_of_other_sites(self, project_name: str, site: str) -> int:
+        return self._atlassian_favorite_repository.delete_other_sites(project_name, site)
+
     # ----------------------------------------------------------------- files
     def list_files(self, prefix: str = "") -> list[StoredFile]:
         return self._files_repository.list(prefix)
