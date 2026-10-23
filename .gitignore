@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+
+# Environment variables
+.env
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backend processes started from the UI (PID files, logs)
+resource/run/
+resource/logs/
+
+# IDEs and editors
+.vscode/
+
