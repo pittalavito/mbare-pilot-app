@@ -15,6 +15,12 @@ class AskAgentResponse(BaseModel):
     answer: str = Field(..., description="Its answer.")
 
 
+class RunAutomationResponse(BaseModel):
+    automation: str = Field(..., description="The automation started.")
+    run_id: int = Field(..., description="Id of its run (Automation tab).")
+    status: str = Field(..., description="'queued': the worker runs it in the background.")
+
+
 class HelloWorldResponse(BaseModel):
     response: str = Field(..., description="The greeting message.")
 

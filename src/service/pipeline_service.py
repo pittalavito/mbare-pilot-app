@@ -81,6 +81,10 @@ class PipelineService:
         """With its runs. The agent runs of its steps stay in the history."""
         return self._store.delete_pipeline(pipeline_id)
 
+    def runnable_pipelines(self, project_name: str) -> list[Pipeline]:
+        """The project's automations that can be started: active, with steps."""
+        return [pipeline for pipeline in self.list_pipelines(project_name) if pipeline.active and pipeline.steps]
+
     # ------------------------------------------------------------------ runs
     @observed(LogPrefix.PIPELINE_SERVICE)
     def enqueue(self, pipeline_id: int, pipeline_input: str = "") -> PipelineRun:

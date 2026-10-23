@@ -7,6 +7,7 @@ I tool che un agente può chiamare durante una run:
 | `hello_world` | **statico**: non usa nulla della run | saluta il nome che riceve (esempio) |
 | `git_status` | **con contesto**: usa i service e il progetto della run | branch, push/pull e file modificati di un repository del progetto (esempio) |
 | `ask_agent` | **con contesto** | delega una domanda a un altro agente e ne riporta la risposta |
+| `run_automation` | **con contesto** | lancia un'automation del progetto in background e riporta l'id dell'esecuzione |
 
 ```
 src/tool/
@@ -17,6 +18,8 @@ src/tool/
     hello_world.py      esempio statico
     agent/
       ask_agent.py      delega a un altro agente
+    automation/
+      run_automation.py lancia un'automation del progetto
     git/
       git_status.py     esempio con contesto
       params.py         argomenti dei tool git come li vede il modello
@@ -42,8 +45,9 @@ run:    AgentService ──build_tools(nomi, ToolContext)──► tool datapizz
 Creato da `AgentService` per ogni run:
 
 - `project_name`: il progetto della run (`None` fuori da un progetto);
-- i service che i tool possono usare: `git`, e `agents` (`AgentService`, per la delega);
-- `depth`: il livello di delega della run (0 = chiesta dall'utente, 1 = chiesta da un altro agente).
+- i service che i tool possono usare: `git`, `agents` (`AgentService`, per la delega), `pipelines` (`PipelineService`, per le automation);
+- `depth`: il livello di delega della run (0 = chiesta dall'utente, 1 = chiesta da un altro agente);
+- `origin`: cosa ha avviato la run (chat, automation, manuale, altro agente).
 
 `require_project()` restituisce il progetto o solleva un `ValidationError`: per i tool che hanno senso solo dentro un progetto.
 
@@ -59,6 +63,15 @@ Un agente chiede a un altro agente e riceve la sua risposta. È quello che serve
 - **Run separata**: l'agente chiamato gira sullo stesso progetto ed è registrato a parte, con origine `agent` (Admin → Observability). La risposta torna come JSON `{agent, run_id, answer}`.
 - **Un solo livello**: un agente chiamato con `ask_agent` non può delegare a sua volta (`MAX_DEPTH = 1`, profondità in `ToolContext.depth`).
 - **Errori** (agente sconosciuto, con l'elenco di quelli disponibili; domanda vuota; agente che fallisce): tornano all'agente come `{"error": ...}`, la run non si interrompe.
+
+## Automation: `run_automation(automation, input)`
+
+Un agente mette in coda un'esecuzione di un'automation del progetto e risponde **subito** con `{automation, run_id, status: "queued"}`: non aspetta la fine. L'automation la esegue il worker, il risultato si vede nel tab Automation.
+
+- **Quali**: le automation del progetto della run che si possono lanciare (attive e con almeno uno step), elencate con la loro descrizione nella descrizione del tool.
+- **Senza conferma**: l'agente le lancia da solo.
+- **Chi può usarlo**: solo un agente di un progetto chiamato dall'utente (chat, run manuale). Non un agente che gira **dentro un'automation** (potrebbe rilanciarla all'infinito), né uno chiamato da `ask_agent`, né una run fuori da un progetto: lì il tool non elenca niente e risponde con un errore.
+- **Errori** (automation sconosciuta, con l'elenco di quelle disponibili; automation non valida): tornano all'agente come `{"error": ...}`.
 
 ## Errori restituiti all'agente
 
@@ -92,6 +105,7 @@ In entrambi i casi: il modello di output in `models/domain/tool.py`.
 
 - `test/unit/tool/test_registry.py`: registry per nome, ogni tool si costruisce con nome e descrizione, ordine di `build_tools`, nome sconosciuto, `require_project`.
 - `test/unit/tool/test_hello_world.py`
+- `test/unit/tool/test_run_automation.py`: run messa in coda con risposta immediata, solo automation attive e con step nella descrizione, automation sconosciuta, niente lancio fuori da un progetto, da un agente delegato o da dentro un'automation (anche eseguita davvero dal runner).
 - `test/unit/tool/test_ask_agent.py`: delega sullo stesso progetto con run registrata a parte, niente secondo livello di delega, agente sconosciuto, elenco degli agenti nella descrizione (solo quelli che possono partire, solo globali fuori da un progetto).
 - `test/unit/tool/test_git_tools.py`: `git_status` su un repository vero; progetto deciso dalla run, errori con i repository disponibili, percorsi fuori dal progetto, run senza progetto, schema degli argomenti. Serve `git` nel PATH.
 

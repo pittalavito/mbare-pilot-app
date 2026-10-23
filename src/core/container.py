@@ -41,20 +41,21 @@ class Container:
         self.atlassian_service = AtlassianService(store_service=self.store_service)
         self.git_service = GitService(store_service=self.store_service)
         
+        self.pipeline_service = PipelineService(
+            store_service=self.store_service,
+            agent_config_service=self.agent_config_service,
+        )
         self.agent_service = AgentService(
             chat_service=self.chat_service,
             agent_config_service=self.agent_config_service,
             store_service=self.store_service,
             git_service=self.git_service,
+            pipeline_service=self.pipeline_service,
         )
         self.chatbot_service = ChatbotService(
             store_service=self.store_service,
             agent_config_service=self.agent_config_service,
             agent_service=self.agent_service,
-        )
-        self.pipeline_service = PipelineService(
-            store_service=self.store_service,
-            agent_config_service=self.agent_config_service,
         )
         self.pipeline_runner = PipelineRunner(
             store_service=self.store_service,

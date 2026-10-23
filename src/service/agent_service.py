@@ -14,6 +14,7 @@ from service.agent_config_service import AgentConfigService
 from service.chat_service import ChatService
 from service.git_service import GitService
 from service.model_service import require_usable_model
+from service.pipeline_service import PipelineService
 from service.store_service import StoreService
 from tool.context import ToolContext
 from tool.registry import build_tools
@@ -27,11 +28,14 @@ class AgentService:
         agent_config_service: AgentConfigService,
         store_service: StoreService,
         git_service: GitService,
+        pipeline_service: PipelineService | None = None,
     ):
+        """``pipeline_service`` lets the agents start automations (tool run_automation)."""
         self._chat_service = chat_service
         self._agent_config_service = agent_config_service
         self._store_service = store_service
         self._git_service = git_service
+        self._pipeline_service = pipeline_service
 
     def run(self, config_name: str, task_input: str, *, project_name: str | None = None,
             origin: RunOrigin = RunOrigin.MANUAL, history: list[ChatMessage] | None = None,
@@ -65,7 +69,10 @@ class AgentService:
         project_name = project_name or definition.project_name
         require_usable_model(self._store_service, definition.model)
         client = self._chat_service.get_client(definition.model)
-        context = ToolContext(project_name=project_name, git=self._git_service, agents=self, depth=depth)
+        context = ToolContext(
+            project_name=project_name, git=self._git_service, agents=self, depth=depth,
+            pipelines=self._pipeline_service, origin=origin,
+        )
         tools = build_tools(definition.tool_names, context)
         agent = AgentFactory.create_agent(definition, client, tools)
         prices = self._store_service.get_price_list()
