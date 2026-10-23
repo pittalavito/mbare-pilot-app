@@ -5,7 +5,7 @@ La logica che non è un servizio applicativo: come si parla con l'esterno (LLM, 
 ```
 src/domain/
   chat/       client LLM per modello del catalogo, costi, catalogo di default
-  agent/      costruzione ed esecuzione degli agenti, tracing        (in arrivo)
+  agent/      costruzione degli agenti, tracing di token e costi
   client/     client git e Atlassian                                  (in arrivo)
   project/    percorsi dei dati e navigazione delle cartelle          (in arrivo)
   store/      repository su Postgres, Redis e file                    (in arrivo)
@@ -14,3 +14,4 @@ src/domain/
 | Doc | Cosa trovi |
 |---|---|
 | [chat](chat/README.md) | come nasce un client LLM, fornitori, costo dei token, modelli di default |
+| [agent](agent/README.md) | costruire un agente, memoria, chi paga i token, agenti di default |

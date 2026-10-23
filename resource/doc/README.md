@@ -10,6 +10,7 @@ src/
   models/               → src/models/README.md  modelli dati: domain, store, controller
   domain/               → src/domain/README.md  integrazioni esterne e regole di dominio
     chat/               → src/domain/chat/README.md   client LLM, costi, catalogo di default
+    agent/              → src/domain/agent/README.md  costruzione agenti, token e costi delle run
 ```
 
 | Doc | Cosa trovi |
@@ -20,5 +21,6 @@ src/
 | [src/models](src/models/README.md) | le tre famiglie di modelli, perché separate, come aggiungerne uno |
 | [src/domain](src/domain/README.md) | i sottopackage di domain |
 | [src/domain/chat](src/domain/chat/README.md) | client per fornitore, chiave `fornitore/modello`, costi, modelli di default |
+| [src/domain/agent](src/domain/agent/README.md) | `Factory` dell'agente, memoria, tracing di token e costi, agenti di default |
 
 Una doc nuova va nella cartella che rispecchia il package (`src/<package>/README.md`) e in questo indice.
