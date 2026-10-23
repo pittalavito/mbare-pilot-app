@@ -12,6 +12,7 @@ src/
     chat/               → src/domain/chat/README.md   client LLM, costi, catalogo di default
     agent/              → src/domain/agent/README.md  costruzione agenti, token e costi delle run
     project/            → src/domain/project/README.md  dati del progetto, cartelle del PC
+    client/git/         → src/domain/client/git/README.md  comandi git in sola lettura
 ```
 
 | Doc | Cosa trovi |
@@ -24,5 +25,6 @@ src/
 | [src/domain/chat](src/domain/chat/README.md) | client per fornitore, chiave `fornitore/modello`, costi, modelli di default |
 | [src/domain/agent](src/domain/agent/README.md) | `Factory` dell'agente, memoria, tracing di token e costi, agenti di default |
 | [src/domain/project](src/domain/project/README.md) | codice vs dati del progetto, nomi di note e file, `FolderBrowser` |
+| [src/domain/client/git](src/domain/client/git/README.md) | `GitClient`: log, status, come esegue git, errori |
 
 Una doc nuova va nella cartella che rispecchia il package (`src/<package>/README.md`) e in questo indice.
