@@ -115,6 +115,15 @@ class _FakeConfluence:
         return [ConfluenceSearchHit(id="1", title="Setup", url="https://acme.atlassian.net/wiki/1")]
 
 
+def test_masking(api):
+    entry = api.masking.add(PROJECT, "term", "Grandi Navi")
+
+    assert (entry.alias, entry.manual) == ("TERMINE_1", True)
+    assert [e.value for e in api.masking.entries(PROJECT)] == ["Grandi Navi"]
+    api.masking.remove(PROJECT, entry.alias)
+    assert api.masking.entries(PROJECT) == []
+
+
 def test_admin(api, store_service):
     store_service.save_run(make_run_record("run 1"))
 

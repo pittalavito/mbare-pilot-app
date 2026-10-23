@@ -7,6 +7,7 @@ from api_client.automation import AutomationApi
 from api_client.chat import ChatApi
 from api_client.git import GitApi
 from api_client.http import ApiClient, ApiError, ApiUnavailable
+from api_client.masking import MaskingApi
 from api_client.project_data import ProjectDataApi
 from api_client.projects import ProjectsApi
 
@@ -25,6 +26,7 @@ class Api:
         self.automation = AutomationApi(self.http)
         self.atlassian = AtlassianApi(self.http)
         self.admin = AdminApi(self.http)
+        self.masking = MaskingApi(self.http)
 
     def health(self) -> bool:
         try:

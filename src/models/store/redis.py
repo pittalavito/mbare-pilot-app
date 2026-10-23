@@ -23,3 +23,11 @@ class WorkerHeartbeatRecord(BaseModel):
     started_at: datetime
     last_seen: datetime
     busy_run_id: int | None = None
+
+
+class MaskRecord(BaseModel):
+    """One value of a project's masking map (keyspace mask)."""
+    category: str
+    value: str
+    alias: str
+    manual: bool = False

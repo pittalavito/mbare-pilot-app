@@ -17,6 +17,7 @@ src/service/
   chatbot_service.py        chatbot di un progetto, conversazioni e messaggi
   atlassian_service.py      sito Jira + Confluence di un progetto
   backup_service.py         export del DB in SQL nella cartella di backup
+  masking_service.py        mascheramento dei dati sensibili verso i modelli
 ```
 
 Chi crea i service e li collega tra loro è il [Container](../core/README.md) (`core/container.py`): ogni service riceve nel costruttore quelli che usa.
@@ -66,6 +67,22 @@ worker ──► PipelineRunner.run_next ──► claim (running) ──► ste
 - **Preferiti** (`list_favorites`, `add_favorite`, `remove_favorite`): issue Jira e pagine Confluence salvate come preferite **per progetto** (tabella `atlassian_favorite`), con chiave o id, titolo e link come erano al salvataggio: elencarli non chiama Atlassian. Aggiungere un preferito che c'è già restituisce quello salvato. Ogni preferito ricorda il **sito** a cui appartiene: salvando le impostazioni con un sito diverso, i preferiti degli altri siti vengono cancellati (stesso sito = restano, anche dopo aver rimosso e rimesso le impostazioni). Spariscono anche insieme al progetto.
 - **Input validati prima di ogni richiesta**: chiavi di progetto (`PROJ`), di issue (`PROJ-123`) e di spazio, id di pagina, JQL e testo non vuoti. Le chiavi omesse usano i predefiniti del progetto.
 
+## Mascheramento
+
+**`MaskingService`**: i valori sensibili di un progetto (nomi dei repository, persone, email, altri termini) non arrivano mai al modello: al loro posto riceve un **alias** stabile (`REPO_1`, `PERSONA_2`, `EMAIL_1`, `TERMINE_3`), e nella risposta l'alias torna il valore vero.
+
+- **Mappa per progetto, permanente**, su Redis (keyspace `mask`). Un valore ha sempre lo stesso alias; un alias tolto non viene mai riusato. Rimuovere il progetto cancella la sua mappa.
+- **Come si riempie**:
+  - **repository del progetto**: all'inizio di ogni run di un progetto vengono registrati tutti (gli stessi del tab Git), quindi sono mascherati già dal primo messaggio;
+  - **dai tool**: registrano quello che leggono (`ToolContext.register_sensitive`);
+  - **a mano**: da **Impostazioni → Mascheramento dei dati**, per persone, clienti, altri termini. Minimo 3 caratteri.
+- **Dove si applica** (`AgentService`, quindi uguale per chat, automation e deleghe, solo per le run di un progetto):
+  - la domanda e la cronologia della conversazione sono **mascherate** prima di arrivare al modello;
+  - i tool ricevono gli argomenti **smascherati** (lavorano sui valori veri) e il loro output esce **mascherato**;
+  - la risposta è **smascherata** prima di essere salvata e mostrata.
+- **Regole**: maiuscole e minuscole indifferenti, solo parole intere (`api` non tocca `rapid`), i valori più lunghi vincono su quelli che contengono.
+- **Cosa resta in chiaro**: la run salvata ha input e output veri; il trace in Redis (tool call e chiamate del modello) contiene invece quello che il modello ha visto, cioè gli alias. Un valore che non è un repository e che il modello vede prima che qualcuno lo registri passa in chiaro: per i nomi noti in anticipo (persone, clienti), aggiungili a mano.
+
 ## Backup
 
 **`BackupService`**: esporta tutto il DB Postgres come file SQL (`pg_dump` eseguito nel container Postgres con `docker exec`, quindi niente da installare sul PC) in `<BACKUP_DIR>/db/mbare-pilot-db-<data>-<ora>.sql`. `BACKUP_DIR` vuoto = la cartella `mbare-pilot-back-up` accanto al progetto.
@@ -97,4 +114,4 @@ Un progetto nuovo viene rifiutato se il nome contiene `/` o `\` (finisce negli U
 
 ## Test
 
-In `test/unit/service/`: `test_store_service`, `test_model_service`, `test_agent_config_service`, `test_agent_scope` (globali e di progetto), `test_activation` (disattivazioni), `test_agent_service`, `test_git_service`, `test_pipeline` (definizioni, coda, esecuzione, heartbeat), `test_function_steps`, `test_project_service`, `test_project_data_service`, `test_chatbot_service`, `test_atlassian_service`, `test_backup_service`. Gli agenti sono finti (`FakeAgent`), il DB è SQLite in memoria e Redis è fakeredis: le fixture stanno in `test/conftest.py`.
+In `test/unit/service/`: `test_store_service`, `test_model_service`, `test_agent_config_service`, `test_agent_scope` (globali e di progetto), `test_activation` (disattivazioni), `test_agent_service`, `test_git_service`, `test_pipeline` (definizioni, coda, esecuzione, heartbeat), `test_function_steps`, `test_project_service`, `test_project_data_service`, `test_chatbot_service`, `test_atlassian_service`, `test_backup_service`, `test_masking` (mascheratore, mappa su Redis, giro completo in una run). Gli agenti sono finti (`FakeAgent`), il DB è SQLite in memoria e Redis è fakeredis: le fixture stanno in `test/conftest.py`.

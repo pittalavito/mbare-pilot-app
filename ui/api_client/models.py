@@ -330,6 +330,14 @@ class ToolCall(BaseModel):
     created_at: datetime
 
 
+class MaskEntry(BaseModel):
+    category: str
+    """``repository`` | ``person`` | ``email`` | ``term``."""
+    value: str
+    alias: str
+    manual: bool
+
+
 class Backup(BaseModel):
     name: str
     size: int

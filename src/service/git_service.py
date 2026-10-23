@@ -90,6 +90,12 @@ class GitService:
             raise ValidationError(f"{folder} non è dentro un repository git.")
         return self._git.status(folder, only_here=toplevel != folder)
 
+    def project_folder(self, project_name: str) -> Path | None:
+        """The project's code folder as saved (it may not exist any more); None
+        for an unknown project. For hiding it in messages."""
+        project = self._store.get_project(project_name)
+        return Path(project.root_path).resolve() if project else None
+
     # ------------------------------------------------------------- helpers
     def _root(self, project_name: str) -> Path:
         project = self._store.get_project(project_name)

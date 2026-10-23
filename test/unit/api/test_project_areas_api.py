@@ -237,6 +237,18 @@ def test_jira_without_atlassian_configured(client):
     assert response.status_code == 400 and "Impostazioni" in response.json()["detail"]
 
 
+# ------------------------------------------------------------------ masking
+
+def test_masking_map(client):
+    added = client.post("/projects/acme/masking", json={"category": "person", "value": "Mario Rossi"})
+
+    assert added.status_code == 201 and added.json()["alias"] == "PERSONA_1"
+    assert client.post("/projects/acme/masking", json={"value": "ab"}).status_code == 400
+    assert [e["alias"] for e in client.get("/projects/acme/masking").json()] == ["PERSONA_1"]
+    assert client.delete("/projects/acme/masking/PERSONA_1").status_code == 204
+    assert client.delete("/projects/acme/masking/PERSONA_1").status_code == 404
+
+
 # -------------------------------------------------------------------- admin
 
 def test_config_is_masked(client):

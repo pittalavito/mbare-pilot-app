@@ -30,6 +30,8 @@ API ── controller/* ──► controller ──► domain/* ──► servic
 | `chatbot.py` | `Chatbot` (con il suo agente), `Conversation`, `ChatMessage`, `MessageRole` |
 | `pipeline.py` | automation: `Pipeline`, `PipelineStep` (`AGENT`, `AGENT_CONFIG`, `FUNCTION`), `StepAgent`; esecuzioni: `PipelineRun`, `PipelineStepRun`, `RunStatus`; placeholder `{input}` e `{pipeline_input}` |
 | `worker.py` | `WorkerStatus` (heartbeat del worker) |
+| `masking.py` | `MaskCategory` (repository, persona, email, termine), `MaskEntry` (valore ↔ alias) |
+| `backup.py` | `BackupFile` (export del DB) |
 | `git.py` | `GitRepository`, `GitCommit`, `GitStatus`, `GitChange` |
 | `atlassian.py` | `AtlassianSettings` (token `SecretStr`), Jira (`JiraProject`, `JiraIssue`), Confluence (`ConfluenceSpace`, `ConfluencePage`, `ConfluenceSearchHit`), preferiti (`AtlassianFavorite`, `FavoriteKind`) |
 | `tool.py` | output dei tool degli agenti, uno per tool (`AskAgentResponse`, `RunAutomationResponse`, `GitStatusResponse`, …) |

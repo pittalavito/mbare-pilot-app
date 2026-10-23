@@ -10,6 +10,7 @@ from service.git_service import GitService
 
 if TYPE_CHECKING:  # AgentService builds the ToolContext: imported only for the type
     from service.agent_service import AgentService
+    from service.masking_service import MaskSession
     from service.pipeline_service import PipelineService
 
 
@@ -26,6 +27,13 @@ class ToolContext:
     """For starting the project's automations (tool run_automation); None = not possible."""
     origin: RunOrigin = RunOrigin.MANUAL
     """What triggered the run (a run inside an automation cannot start automations)."""
+    mask: "MaskSession | None" = None
+    """The run's masking (runs of a project): tools register sensitive values here."""
+
+    def register_sensitive(self, category, value: str) -> None:
+        """A sensitive value the tool read (e.g. a repository name): masked from now on."""
+        if self.mask is not None and value:
+            self.mask.register(category, value)
 
     def require_project(self) -> str:
         """The run's project; ValidationError for tools that need one."""

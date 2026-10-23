@@ -36,7 +36,8 @@ from domain.store.db.store import (
 )
 from domain.store.files.store import LocalFileRepository, StoredFile
 from domain.store.redis.store import (
-    Adapter as RedisAdapter, Client as RedisClient, Factory as RedisFactory, RedisTraceRepository, RedisWorkerRepository,
+    Adapter as RedisAdapter, Client as RedisClient, Factory as RedisFactory, RedisMaskRepository, RedisTraceRepository,
+    RedisWorkerRepository,
 )
 from models.domain.agent import AgentConfig, AgentRole, AgentRunRecord, AgentRunSummary, SystemPrompt, ToolCallSummary, ToolInfo
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
@@ -44,6 +45,7 @@ from models.domain.chat import ChatModel
 from models.domain.chatbot import ChatMessage, Chatbot, Conversation
 from models.domain.pipeline import Pipeline, PipelineRun, PipelineStepRun, RunStatus
 from models.domain.project import Project, ProjectSource
+from models.domain.masking import MaskCategory, MaskEntry
 from models.domain.worker import WorkerStatus
 from models.store.redis import AgentTraceRecord
 
@@ -77,6 +79,7 @@ class StoreService:
         self._pipeline_step_run_repository = DbPipelineStepRunRepository(engine)
         self._traces_repository = RedisTraceRepository(redis_client)
         self._workers_repository = RedisWorkerRepository(redis_client)
+        self._masks_repository = RedisMaskRepository(redis_client)
         self._files_repository = LocalFileRepository(config.projects_data_root)
         self._secret_box = SecretBox(config.secret_key)
 
@@ -311,6 +314,21 @@ class StoreService:
 
     def delete_worker(self, worker_id: str) -> None:
         self._workers_repository.delete(worker_id)
+
+    # --------------------------------------------------------------- masking
+    def list_masks(self, project_name: str) -> list[MaskEntry]:
+        entries = [RedisAdapter.to_mask_entry(record) for record in self._masks_repository.list(project_name)]
+        return sorted(entries, key=lambda entry: (entry.category.value, int(entry.alias.rsplit("_", 1)[1])))
+
+    def add_mask(self, project_name: str, category: MaskCategory, value: str, manual: bool) -> MaskEntry:
+        record = self._masks_repository.add(project_name, category.value, category.alias_prefix, value, manual)
+        return RedisAdapter.to_mask_entry(record)
+
+    def delete_mask(self, project_name: str, alias: str) -> bool:
+        return self._masks_repository.delete(project_name, alias)
+
+    def delete_masks(self, project_name: str) -> None:
+        self._masks_repository.delete_project(project_name)
 
     # ------------------------------------------------------------- atlassian
     def get_atlassian_settings(self, project_name: str) -> AtlassianSettings | None:

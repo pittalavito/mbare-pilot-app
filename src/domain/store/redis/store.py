@@ -4,14 +4,16 @@ Re-exports the Redis repositories and holds the translation seams:
 ``Factory`` (domain models -> Redis records, writes) and ``Adapter``
 (Redis records -> domain models, reads).
 """
+from domain.store.redis.mask_repository import RedisMaskRepository
 from domain.store.redis.repository import Client
 from domain.store.redis.trace_repository import RedisTraceRepository
 from domain.store.redis.worker_repository import RedisWorkerRepository
 from models.domain.agent import AgentRunRecord
+from models.domain.masking import MaskCategory, MaskEntry
 from models.domain.worker import WorkerStatus
-from models.store.redis import AgentTraceRecord, WorkerHeartbeatRecord
+from models.store.redis import AgentTraceRecord, MaskRecord, WorkerHeartbeatRecord
 
-__all__ = ["Client", "RedisTraceRepository", "RedisWorkerRepository", "Factory", "Adapter"]
+__all__ = ["Client", "RedisMaskRepository", "RedisTraceRepository", "RedisWorkerRepository", "Factory", "Adapter"]
 
 
 class Factory:
@@ -38,3 +40,8 @@ class Adapter:
     @staticmethod
     def to_worker_status(record: WorkerHeartbeatRecord) -> WorkerStatus:
         return WorkerStatus(**record.model_dump())
+
+    @staticmethod
+    def to_mask_entry(record: MaskRecord) -> MaskEntry:
+        return MaskEntry(category=MaskCategory(record.category), value=record.value, alias=record.alias,
+                         manual=record.manual)

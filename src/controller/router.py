@@ -10,6 +10,7 @@ from controller.catalog_controller import router as catalog_router
 from controller.chatbot_controller import router as chatbot_router
 from controller.folder_controller import router as folder_router
 from controller.git_controller import router as git_router
+from controller.masking_controller import router as masking_router
 from controller.pipeline_controller import router as pipeline_router
 from controller.project_controller import router as project_router
 from controller.project_data_controller import router as project_data_router
@@ -35,3 +36,4 @@ router.include_router(git_router)
 router.include_router(pipeline_router)
 router.include_router(atlassian_router)
 router.include_router(admin_router)
+router.include_router(masking_router)

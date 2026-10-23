@@ -50,6 +50,12 @@ WORKER_KEYSPACE = RedisKeyspace(
     default_ttl_seconds=10,
 )
 
+MASK_KEYSPACE = RedisKeyspace(
+    name="mask",
+    value="Masking map of a project: <project>:entries (alias -> models.store.redis.MaskRecord as JSON), "
+          "<project>:index (lowercased value -> alias), <project>:counter:<category>. Permanent.",
+)
+
 
 class Client:
     """Centralized Redis client creation. Redis is a hard dependency: an

@@ -4,6 +4,7 @@ from uuid import uuid4
 from datapizza.tracing import ContextTracing
 
 from core.error import AppError
+from models.domain.masking import MaskCategory
 from core.observability import LogPrefix, log_exception, observed
 from domain.agent.base import Factory as AgentFactory
 from domain.agent.tracing import Adapter as TracingAdapter
@@ -13,6 +14,7 @@ from models.domain.chatbot import ChatMessage
 from service.agent_config_service import AgentConfigService
 from service.chat_service import ChatService
 from service.git_service import GitService
+from service.masking_service import MaskingService
 from service.model_service import require_usable_model
 from service.pipeline_service import PipelineService
 from service.store_service import StoreService
@@ -29,13 +31,16 @@ class AgentService:
         store_service: StoreService,
         git_service: GitService,
         pipeline_service: PipelineService | None = None,
+        masking_service: MaskingService | None = None,
     ):
-        """``pipeline_service`` lets the agents start automations (tool run_automation)."""
+        """``pipeline_service`` lets the agents start automations (tool run_automation);
+        ``masking_service`` hides the project's sensitive values from the LLM."""
         self._chat_service = chat_service
         self._agent_config_service = agent_config_service
         self._store_service = store_service
         self._git_service = git_service
         self._pipeline_service = pipeline_service
+        self._masking_service = masking_service
 
     def run(self, config_name: str, task_input: str, *, project_name: str | None = None,
             origin: RunOrigin = RunOrigin.MANUAL, history: list[ChatMessage] | None = None,
@@ -65,13 +70,18 @@ class AgentService:
         ``ok=False``. The run's project (``project_name``, else the
         definition's) is the one its tools work on; ``history`` are the
         previous messages of a conversation, oldest first; ``depth`` the
-        delegation level (0 unless asked by another agent)."""
+        delegation level (0 unless asked by another agent). In a project with
+        masking, the LLM sees aliases instead of the sensitive values: input,
+        history and tool output are masked, the answer is unmasked."""
         project_name = project_name or definition.project_name
         require_usable_model(self._store_service, definition.model)
         client = self._chat_service.get_client(definition.model)
+        mask = self._masking_service.session(project_name) if self._masking_service and project_name else None
+        if mask:
+            self._register_repositories(mask, project_name)
         context = ToolContext(
             project_name=project_name, git=self._git_service, agents=self, depth=depth,
-            pipelines=self._pipeline_service, origin=origin,
+            pipelines=self._pipeline_service, origin=origin, mask=mask,
         )
         tools = build_tools(definition.tool_names, context)
         agent = AgentFactory.create_agent(definition, client, tools)
@@ -81,8 +91,8 @@ class AgentService:
         start = perf_counter()
         with ContextTracing().trace(f"agent.{definition.name}") as current_trace:
             try:
-                step = agent.run(task_input, memory=AgentFactory.create_memory(history or []))
-                output = step.text if step else ""
+                step = agent.run(_masked_text(mask, task_input), memory=AgentFactory.create_memory(_masked_history(mask, history)))
+                output = mask.unmask(step.text) if mask and step else (step.text if step else "")
             except AppError as exc:
                 error = str(exc)
             except Exception as exc:
@@ -110,3 +120,24 @@ class AgentService:
         )
         self._store_service.save_run(record)
         return record
+
+
+    def _register_repositories(self, mask, project_name: str) -> None:
+        """The project's repository names are masked from the first message on,
+        not only after a tool reads them. A project folder that is gone or
+        unreadable just registers nothing."""
+        try:
+            repositories = self._git_service.repositories(project_name)
+        except AppError:
+            return
+        mask.register_all(MaskCategory.REPOSITORY, [repo.path for repo in repositories])
+
+
+def _masked_text(mask, text: str) -> str:
+    return mask.mask(text) if mask else text
+
+
+def _masked_history(mask, history: list[ChatMessage] | None) -> list[ChatMessage]:
+    if not mask:
+        return history or []
+    return [message.model_copy(update={"content": mask.mask(message.content)}) for message in history or []]

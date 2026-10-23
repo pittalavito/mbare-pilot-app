@@ -8,6 +8,8 @@ description) is synced into the DB tool catalog, from which agent
 configurations pick their tools by name; AgentService builds the chosen ones
 for every run with ``build_tools``.
 """
+import copy
+
 from datapizza.tools import Tool
 
 from core.error import ValidationError
@@ -36,4 +38,21 @@ def build_tools(names: list[str], context: ToolContext) -> list[Tool]:
     missing = [name for name in names if name not in TOOL_REGISTRY]
     if missing:
         raise ValidationError(f"Tool non implementati nel codice: {', '.join(missing)}")
-    return [TOOL_REGISTRY[name].build(context) for name in names]
+    tools = [TOOL_REGISTRY[name].build(context) for name in names]
+    return [_masked(tool, context) for tool in tools] if context.mask else tools
+
+
+def _masked(tool: Tool, context: ToolContext) -> Tool:
+    """A copy of ``tool`` (static tools are shared) whose arguments arrive
+    unmasked and whose output leaves masked: the tool works on real values,
+    the LLM only sees aliases."""
+    original = tool.func
+    mask = context.mask
+
+    def run(*args, **kwargs):
+        result = original(*mask.unmask_value(args), **mask.unmask_value(kwargs))
+        return mask.mask(result) if isinstance(result, str) else result
+
+    masked = copy.copy(tool)
+    masked.func = run
+    return masked

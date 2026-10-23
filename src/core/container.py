@@ -16,6 +16,7 @@ from service.backup_service import BackupService
 from service.chat_service import ChatService
 from service.chatbot_service import ChatbotService
 from service.git_service import GitService
+from service.masking_service import MaskingService
 from service.model_service import ModelService
 from service.pipeline_runner import PipelineRunner
 from service.pipeline_service import PipelineService
@@ -45,12 +46,14 @@ class Container:
             store_service=self.store_service,
             agent_config_service=self.agent_config_service,
         )
+        self.masking_service = MaskingService(store_service=self.store_service)
         self.agent_service = AgentService(
             chat_service=self.chat_service,
             agent_config_service=self.agent_config_service,
             store_service=self.store_service,
             git_service=self.git_service,
             pipeline_service=self.pipeline_service,
+            masking_service=self.masking_service,
         )
         self.chatbot_service = ChatbotService(
             store_service=self.store_service,

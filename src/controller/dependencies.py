@@ -7,6 +7,7 @@ from service.atlassian_service import AtlassianService
 from service.backup_service import BackupService
 from service.chatbot_service import ChatbotService
 from service.git_service import GitService
+from service.masking_service import MaskingService
 from service.model_service import ModelService
 from service.pipeline_service import PipelineService
 from service.project_data_service import ProjectDataService
@@ -52,3 +53,7 @@ def store_service(request: Request) -> StoreService:
 
 def backup_service(request: Request) -> BackupService:
     return request.app.state.container.backup_service
+
+
+def masking_service(request: Request) -> MaskingService:
+    return request.app.state.container.masking_service

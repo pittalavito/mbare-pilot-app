@@ -3,6 +3,7 @@ run's project. The project comes from the run; the model picks the repository.""
 from datapizza.tools import Tool, tool
 
 from core.error import AppError
+from models.domain.masking import MaskCategory
 from models.domain.tool import GitStatusResponse
 from tool.context import ToolContext
 from tool.list.git.errors import git_error
@@ -21,6 +22,7 @@ def build(context: ToolContext) -> Tool:
             status = context.git.status(context.require_project(), repository)
         except AppError as exc:
             return git_error(context, exc)
+        context.register_sensitive(MaskCategory.REPOSITORY, repository)
         return GitStatusResponse(repository=repository, clean=status.is_clean, status=status).model_dump_json()
 
     return git_status

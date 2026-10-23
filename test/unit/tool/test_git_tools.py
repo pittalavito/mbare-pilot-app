@@ -3,6 +3,7 @@ bound to the run's project, errors returned to the agent as JSON."""
 import json
 import shutil
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -82,3 +83,22 @@ def test_tool_schema_requires_every_argument(git):
 
     assert built.required == ["repository"]
     assert all(not description["description"].startswith("Parameter ") for description in built.properties.values())
+
+
+def test_errors_hide_the_local_paths(git, tmp_path):
+    (tmp_path / "shop" / "plain").mkdir()
+
+    result = _call(GIT_STATUS.build(ToolContext("Shop", git)), repository="plain")
+
+    error = result["error"]
+    assert "non è dentro un repository git" in error and "<progetto>" in error
+    assert str(tmp_path) not in error and tmp_path.as_posix() not in error and str(Path.home()) not in error
+
+
+def test_hide_local_paths_any_separator_and_case(git, tmp_path):
+    from tool.list.git.errors import hide_local_paths
+
+    folder = str((tmp_path / "shop").resolve())
+    text = f"fatal: dubious ownership in '{folder.replace(chr(92), '/').upper()}/api' ({folder}) {Path.home()}\\x"
+
+    assert hide_local_paths(ToolContext("Shop", git), text) == "fatal: dubious ownership in '<progetto>/api' (<progetto>) ~\\x"

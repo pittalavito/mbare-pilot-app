@@ -1,12 +1,13 @@
 # `src/domain/store/redis`
 
-Lo store su Redis: dati che non servono in SQL perché sono grandi e si leggono uno alla volta (i trace delle run) o perché valgono solo pochi secondi (l'heartbeat dei worker).
+Lo store su Redis: dati che non servono in SQL perché sono grandi e si leggono uno alla volta (i trace delle run), perché valgono solo pochi secondi (l'heartbeat dei worker) o perché sono mappe da leggere a ogni run (il mascheramento).
 
 ```
 src/domain/store/redis/
   repository.py          keyspace, Client (connessione), RedisRepository (base)
   trace_repository.py    RedisTraceRepository: trace verbatim delle run
   worker_repository.py   RedisWorkerRepository: heartbeat dei worker
+  mask_repository.py     RedisMaskRepository: mappe di mascheramento dei progetti
   store.py               punto unico di import + Factory (scrittura) e Adapter (lettura)
 ```
 
@@ -20,6 +21,7 @@ Tutte le chiavi hanno la forma `app:<keyspace>:<suffisso>`. I keyspace sono defi
 |---|---|---|---|---|
 | `agent-trace` | `run_id` | `AgentTraceRecord`: input, output, tool call, chiamate LLM | nessuna | Admin → Observability, dettaglio di una run |
 | `worker` | `<host>-<pid>` | `WorkerHeartbeatRecord`: pid, avvio, ultimo segnale, run in corso | 10 s | `GET /workers`, tab Automation, pannello Backend |
+| `mask` | `<progetto>:entries`, `<progetto>:index`, `<progetto>:counter:<categoria>` | hash alias → `MaskRecord`; hash valore (minuscolo) → alias; contatore per categoria | nessuna | `MaskingService`: ogni run di un progetto, Impostazioni → Mascheramento |
 
 Divisione con Postgres: i **fatti** di una run (esito, token, costi, tool usati) stanno in SQL (`agent_run`, `tool_call`), per elencarli e filtrarli; il **trace verbatim** sta qui, con lo stesso `run_id`.
 
@@ -35,11 +37,12 @@ Divisione con Postgres: i **fatti** di una run (esito, token, costi, tool usati)
 |---|---|
 | `RedisTraceRepository` | `save(record)`, `load(run_id)`, `delete(run_id)` |
 | `RedisWorkerRepository` | `save(record)` (rinnova la scadenza), `list_alive()` (i worker con la chiave ancora valida), `delete(worker_id)` |
+| `RedisMaskRepository` | `list(progetto)`, `find(progetto, valore)`, `add(...)` (alias esistente o nuovo, con il contatore della categoria), `delete(progetto, alias)`, `delete_project(progetto)` |
 
 ## Conversioni (`store.py`)
 
 - **`Factory`** (dominio → record): `to_trace_record(AgentRunRecord)`, `to_heartbeat_record(WorkerStatus)`.
-- **`Adapter`** (record → dominio): `to_worker_status(record)`.
+- **`Adapter`** (record → dominio): `to_worker_status(record)`, `to_mask_entry(record)`.
 
 Il trace letto torna come `AgentTraceRecord`: l'API lo restituisce così com'è.
 

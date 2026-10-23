@@ -47,7 +47,10 @@ Creato da `AgentService` per ogni run:
 - `project_name`: il progetto della run (`None` fuori da un progetto);
 - i service che i tool possono usare: `git`, `agents` (`AgentService`, per la delega), `pipelines` (`PipelineService`, per le automation);
 - `depth`: il livello di delega della run (0 = chiesta dall'utente, 1 = chiesta da un altro agente);
-- `origin`: cosa ha avviato la run (chat, automation, manuale, altro agente).
+- `origin`: cosa ha avviato la run (chat, automation, manuale, altro agente);
+- `mask`: il mascheramento della run (solo nelle run di un progetto). Un tool che legge valori sensibili li registra con `context.register_sensitive(MaskCategory.X, valore)`: da lì in poi il modello vede l'alias.
+
+**Mascheramento**: `build_tools` avvolge ogni tool (su una copia, perché i tool statici sono condivisi) così che riceva gli argomenti smascherati e restituisca l'output mascherato. Il tool non deve fare niente, tranne registrare i valori sensibili che legge (vedi [service](../service/README.md#mascheramento)).
 
 `require_project()` restituisce il progetto o solleva un `ValidationError`: per i tool che hanno senso solo dentro un progetto.
 
@@ -76,6 +79,8 @@ Un agente mette in coda un'esecuzione di un'automation del progetto e risponde *
 ## Errori restituiti all'agente
 
 I tool git non interrompono la run quando qualcosa va storto: restituiscono un JSON `{"error": "..."}` con il problema e i repository disponibili (`errors.py`), così l'agente può correggersi e riprovare.
+
+I messaggi di git e di `GitService` contengono percorsi locali: negli errori la cartella del progetto diventa `<progetto>` e la home dell'utente `~` (`hide_local_paths`, con `\` o `/`, senza distinguere maiuscole e minuscole). Il modello non vede mai dove sta il codice sul PC; i nomi dei repository vengono poi mascherati come in ogni output.
 
 ## Argomenti (`params.py`)
 
@@ -107,6 +112,6 @@ In entrambi i casi: il modello di output in `models/domain/tool.py`.
 - `test/unit/tool/test_hello_world.py`
 - `test/unit/tool/test_run_automation.py`: run messa in coda con risposta immediata, solo automation attive e con step nella descrizione, automation sconosciuta, niente lancio fuori da un progetto, da un agente delegato o da dentro un'automation (anche eseguita davvero dal runner).
 - `test/unit/tool/test_ask_agent.py`: delega sullo stesso progetto con run registrata a parte, niente secondo livello di delega, agente sconosciuto, elenco degli agenti nella descrizione (solo quelli che possono partire, solo globali fuori da un progetto).
-- `test/unit/tool/test_git_tools.py`: `git_status` su un repository vero; progetto deciso dalla run, errori con i repository disponibili, percorsi fuori dal progetto, run senza progetto, schema degli argomenti. Serve `git` nel PATH.
+- `test/unit/tool/test_git_tools.py`: `git_status` su un repository vero; progetto deciso dalla run, errori con i repository disponibili, percorsi fuori dal progetto, run senza progetto, schema degli argomenti, percorsi locali nascosti negli errori. Serve `git` nel PATH.
 
 Usano `StoreService` e `GitService` sugli store in memoria di `test/conftest.py`.

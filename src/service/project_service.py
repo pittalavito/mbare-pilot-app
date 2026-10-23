@@ -65,8 +65,11 @@ class ProjectService:
     def remove(self, name: str) -> bool:
         """Remove the project and everything it owns in the DB (its agents,
         chatbots, pipelines, RAG index). Its code folder and its data folder
-        on disk are untouched."""
-        return self._store.delete_project(name)
+        on disk are untouched. Its masking map goes too."""
+        removed = self._store.delete_project(name)
+        if removed:
+            self._store.delete_masks(name)
+        return removed
 
     def folder_exists(self, project: Project) -> bool:
         return Path(project.root_path).is_dir()
