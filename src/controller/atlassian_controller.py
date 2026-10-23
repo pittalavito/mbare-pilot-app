@@ -1,10 +1,14 @@
-"""A project's Atlassian site, under /projects/{project}/atlassian. The API
-token is write-only: GET says whether one is saved, never returns it."""
+"""A project's Atlassian site, under /projects/{project}/atlassian: its
+settings (the API token is write-only: GET says whether one is saved, never
+returns it) and read-only access to its Jira issues and Confluence pages."""
 from fastapi import APIRouter, Depends, Response, status
 
 from controller.dependencies import atlassian_service
 from core.error import NotFoundError
-from models.controller.atlassian import AtlassianSettingsRequest, AtlassianSettingsResponse, AtlassianUserResponse
+from models.controller.atlassian import (
+    AtlassianSettingsRequest, AtlassianSettingsResponse, AtlassianUserResponse, ConfluencePageResponse,
+    ConfluenceSearchHitResponse, JiraIssueResponse,
+)
 from service.atlassian_service import AtlassianService
 
 router = APIRouter(prefix="/projects/{project}/atlassian", tags=["atlassian"])
@@ -36,3 +40,36 @@ def remove_settings(project: str, service: AtlassianService = Depends(atlassian_
 def check_connection(project: str, service: AtlassianService = Depends(atlassian_service)) -> AtlassianUserResponse:
     """The account the token belongs to; 502 when Atlassian refuses it."""
     return AtlassianUserResponse.from_user(service.site(project).check_connection())
+
+
+# --------------------------------------------------------------------- Jira
+
+@router.get("/jira/issues/{issue_key}")
+def get_issue(project: str, issue_key: str,
+              service: AtlassianService = Depends(atlassian_service)) -> JiraIssueResponse:
+    """One issue by key (``PROJ-123``), with its description as plain text."""
+    return JiraIssueResponse.from_issue(service.site(project).get_issue(issue_key))
+
+
+# --------------------------------------------------------------- Confluence
+
+@router.get("/confluence/pages")
+def list_pages(project: str, space: str | None = None, limit: int = 100,
+               service: AtlassianService = Depends(atlassian_service)) -> list[ConfluencePageResponse]:
+    """Pages of ``space`` (default: the project's space), without their body."""
+    return [ConfluencePageResponse.from_page(page) for page in service.site(project).list_space_pages(space, limit)]
+
+
+@router.get("/confluence/pages/{page_id}")
+def get_page(project: str, page_id: str,
+             service: AtlassianService = Depends(atlassian_service)) -> ConfluencePageResponse:
+    """One page with its body as plain text."""
+    return ConfluencePageResponse.from_page(service.site(project).get_page(page_id))
+
+
+@router.get("/confluence/search")
+def search_pages(project: str, q: str, space: str | None = None, limit: int = 25,
+                 service: AtlassianService = Depends(atlassian_service)) -> list[ConfluenceSearchHitResponse]:
+    """Full-text search, in ``space`` or in every space."""
+    hits = service.site(project).search_pages(q, space, limit)
+    return [ConfluenceSearchHitResponse.from_hit(hit) for hit in hits]

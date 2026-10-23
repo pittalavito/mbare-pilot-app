@@ -250,6 +250,33 @@ class AtlassianUser(BaseModel):
     email: str | None
 
 
+class JiraIssue(BaseModel):
+    key: str
+    summary: str
+    status: str | None
+    issue_type: str | None
+    priority: str | None
+    assignee: str | None
+    updated: datetime | None
+    description: str
+    url: str
+
+
+class ConfluencePage(BaseModel):
+    id: str
+    title: str
+    url: str
+    body: str
+    """Empty in listings."""
+
+
+class ConfluenceSearchHit(BaseModel):
+    id: str
+    title: str
+    excerpt: str
+    url: str
+
+
 # -------------------------------------------------------------------- admin
 
 class AppConfig(BaseModel):

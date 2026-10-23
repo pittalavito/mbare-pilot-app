@@ -9,8 +9,10 @@ from fastapi.testclient import TestClient
 from core.app import create_app
 from core.container import Container
 from fakes import FakeAgent, make_run_record
+from models.domain.atlassian import ConfluencePage, ConfluenceSearchHit, ConfluenceSpace, JiraIssue
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
+from service.atlassian_service import AtlassianSite
 
 MODEL = "openai/gpt-4o"
 
@@ -173,6 +175,48 @@ def test_atlassian_settings_never_return_the_token(client):
     assert client.put("/projects/acme/atlassian", json={**body, "base_url": "x"}).status_code == 400
     assert client.delete("/projects/acme/atlassian").status_code == 204
     assert client.post("/projects/acme/atlassian/check").status_code == 400
+
+
+class _FakeJira:
+    def get_issue(self, key):
+        return JiraIssue(key=key, summary="Login rotto", status="To Do", description="Non entra.",
+                         url=f"https://acme.atlassian.net/browse/{key}")
+
+
+class _FakeConfluence:
+    def get_space(self, key):
+        return ConfluenceSpace(id="7", key=key, name="Docs", url="https://acme.atlassian.net/wiki/spaces/DOC")
+
+    def list_pages(self, space_id, limit):
+        return [ConfluencePage(id="1", title="Setup", space_id=space_id, url="https://acme.atlassian.net/wiki/1")]
+
+    def get_page(self, page_id):
+        return ConfluencePage(id=page_id, title="Setup", url="https://acme.atlassian.net/wiki/1", body="Installa tutto.")
+
+    def search_pages(self, text, space_key, limit):
+        return [ConfluenceSearchHit(id="1", title="Setup", excerpt=f"...{text}...", url="https://acme.atlassian.net/wiki/1")]
+
+
+def test_jira_and_confluence_reads(client, monkeypatch):
+    site = AtlassianSite(_FakeJira(), _FakeConfluence(), confluence_space_key="DOC")
+    monkeypatch.setattr(client.app.state.container.atlassian_service, "site", lambda project: site)
+
+    issue = client.get("/projects/acme/atlassian/jira/issues/proj-12").json()
+    assert (issue["key"], issue["summary"], issue["description"]) == ("PROJ-12", "Login rotto", "Non entra.")
+    assert client.get("/projects/acme/atlassian/jira/issues/nope").status_code == 400
+
+    assert [p["title"] for p in client.get("/projects/acme/atlassian/confluence/pages").json()] == ["Setup"]
+    assert client.get("/projects/acme/atlassian/confluence/pages/1").json()["body"] == "Installa tutto."
+    assert client.get("/projects/acme/atlassian/confluence/pages/abc").status_code == 400
+    [hit] = client.get("/projects/acme/atlassian/confluence/search", params={"q": "install"}).json()
+    assert hit["excerpt"] == "...install..."
+    assert client.get("/projects/acme/atlassian/confluence/search", params={"q": " "}).status_code == 400
+
+
+def test_jira_without_atlassian_configured(client):
+    response = client.get("/projects/acme/atlassian/jira/issues/PROJ-1")
+
+    assert response.status_code == 400 and "Impostazioni" in response.json()["detail"]
 
 
 # -------------------------------------------------------------------- admin

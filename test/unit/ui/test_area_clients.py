@@ -10,8 +10,10 @@ from api_client.models import Step, StepAgent
 from core.app import create_app
 from core.container import Container
 from fakes import FakeAgent, make_run_record
+from models.domain.atlassian import ConfluencePage, ConfluenceSearchHit, ConfluenceSpace, JiraIssue
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
+from service.atlassian_service import AtlassianSite
 
 PROJECT = "acme corp"
 MODEL = "openai/gpt-4o"
@@ -72,6 +74,35 @@ def test_atlassian(api):
     assert saved.has_token
     api.atlassian.remove(PROJECT)
     assert api.atlassian.settings(PROJECT) is None
+
+
+def test_atlassian_reads(api, monkeypatch):
+    site = AtlassianSite(_FakeJira(), _FakeConfluence(), confluence_space_key="DOC")
+    monkeypatch.setattr(api.http._client.app.state.container.atlassian_service, "site", lambda project: site)
+
+    assert api.atlassian.issue(PROJECT, " proj-7 ").key == "PROJ-7"
+    [listed] = api.atlassian.pages(PROJECT)
+    assert api.atlassian.page(PROJECT, listed.id).body == "Testo."
+    assert api.atlassian.search_pages(PROJECT, "setup")[0].title == "Setup"
+
+
+class _FakeJira:
+    def get_issue(self, key):
+        return JiraIssue(key=key, summary="Bug", url=f"https://acme.atlassian.net/browse/{key}")
+
+
+class _FakeConfluence:
+    def get_space(self, key):
+        return ConfluenceSpace(id="7", key=key, name="Docs", url="https://acme.atlassian.net/wiki")
+
+    def list_pages(self, space_id, limit):
+        return [ConfluencePage(id="1", title="Setup", url="https://acme.atlassian.net/wiki/1")]
+
+    def get_page(self, page_id):
+        return ConfluencePage(id=page_id, title="Setup", url="https://acme.atlassian.net/wiki/1", body="Testo.")
+
+    def search_pages(self, text, space_key, limit):
+        return [ConfluenceSearchHit(id="1", title="Setup", url="https://acme.atlassian.net/wiki/1")]
 
 
 def test_admin(api, store_service):

@@ -1,8 +1,11 @@
-"""Request/response models of a project's Atlassian settings. The API token
-goes in only: responses say whether one is saved, never its value."""
+"""Request/response models of a project's Atlassian site: its settings (the
+API token goes in only: responses say whether one is saved, never its value)
+and what is read from Jira and Confluence."""
+from datetime import datetime
+
 from pydantic import BaseModel
 
-from models.domain.atlassian import AtlassianSettings, AtlassianUser
+from models.domain.atlassian import AtlassianSettings, AtlassianUser, ConfluencePage, ConfluenceSearchHit, JiraIssue
 
 
 class AtlassianSettingsResponse(BaseModel):
@@ -36,3 +39,43 @@ class AtlassianUserResponse(BaseModel):
     @classmethod
     def from_user(cls, user: AtlassianUser) -> "AtlassianUserResponse":
         return cls(display_name=user.display_name, email=user.email)
+
+
+class JiraIssueResponse(BaseModel):
+    key: str
+    summary: str
+    status: str | None
+    issue_type: str | None
+    priority: str | None
+    assignee: str | None
+    updated: datetime | None
+    description: str
+    """Plain text."""
+    url: str
+
+    @classmethod
+    def from_issue(cls, issue: JiraIssue) -> "JiraIssueResponse":
+        return cls(**issue.model_dump())
+
+
+class ConfluencePageResponse(BaseModel):
+    id: str
+    title: str
+    url: str
+    body: str
+    """Plain text; empty in listings."""
+
+    @classmethod
+    def from_page(cls, page: ConfluencePage) -> "ConfluencePageResponse":
+        return cls(**page.model_dump())
+
+
+class ConfluenceSearchHitResponse(BaseModel):
+    id: str
+    title: str
+    excerpt: str
+    url: str
+
+    @classmethod
+    def from_hit(cls, hit: ConfluenceSearchHit) -> "ConfluenceSearchHitResponse":
+        return cls(**hit.model_dump())

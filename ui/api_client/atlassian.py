@@ -1,6 +1,7 @@
-"""A project's Atlassian settings, typed. The token is write-only."""
+"""A project's Atlassian site, typed: settings (the token is write-only) and
+read-only Jira issues and Confluence pages."""
 from api_client.http import ApiClient, segment
-from api_client.models import AtlassianSettings, AtlassianUser
+from api_client.models import AtlassianSettings, AtlassianUser, ConfluencePage, ConfluenceSearchHit, JiraIssue
 
 
 class AtlassianApi:
@@ -22,6 +23,20 @@ class AtlassianApi:
 
     def check(self, project: str) -> AtlassianUser:
         return AtlassianUser.model_validate(self._client.post(f"{_base(project)}/check"))
+
+    def issue(self, project: str, key: str) -> JiraIssue:
+        return JiraIssue.model_validate(self._client.get(f"{_base(project)}/jira/issues/{segment(key.strip())}"))
+
+    def pages(self, project: str) -> list[ConfluencePage]:
+        """Pages of the project's Confluence space, without their body."""
+        return [ConfluencePage.model_validate(item) for item in self._client.get(f"{_base(project)}/confluence/pages")]
+
+    def page(self, project: str, page_id: str) -> ConfluencePage:
+        return ConfluencePage.model_validate(self._client.get(f"{_base(project)}/confluence/pages/{segment(page_id)}"))
+
+    def search_pages(self, project: str, text: str) -> list[ConfluenceSearchHit]:
+        hits = self._client.get(f"{_base(project)}/confluence/search", params={"q": text})
+        return [ConfluenceSearchHit.model_validate(item) for item in hits]
 
 
 def _base(project: str) -> str:

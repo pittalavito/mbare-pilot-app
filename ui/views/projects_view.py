@@ -8,7 +8,7 @@ import streamlit as st
 from api_client.client import ApiError
 from api_client.models import Project
 from views.agents_view import agents_section
-from views.atlassian_view import atlassian_section
+from views.atlassian_view import atlassian_section, atlassian_tab, is_configured
 from views.automation_view import automation_section
 from views.chat_view import chat_section
 from views.folder_picker import folder_picker
@@ -85,9 +85,15 @@ def _project_detail(name: str) -> None:
     if not project.folder_exists:
         st.warning("La cartella del progetto non esiste più sul disco.")
 
-    tab_chat, tab_automation, tab_data, tab_git, tab_settings = st.tabs(
-        ["💬 Chat", "⚙️ Automation", "🗂️ Dati", "🌿 Git", "🔧 Impostazioni"], key=f"project_tabs_{project.name}",
-    )
+    atlassian = api().atlassian.settings(project.name)
+    labels = ["💬 Chat", "⚙️ Automation", "🗂️ Dati", "🌿 Git"]
+    if is_configured(atlassian):  # the tab exists only for a configured site
+        labels.append("🔷 Atlassian")
+    tabs = st.tabs([*labels, "🔧 Impostazioni"], key=f"project_tabs_{project.name}")
+    tab_chat, tab_automation, tab_data, tab_git, tab_settings = *tabs[:4], tabs[-1]
+    if is_configured(atlassian):
+        with tabs[4]:
+            atlassian_tab(project.name, atlassian)
     with tab_chat:
         chat_section(project.name)
     with tab_automation:
