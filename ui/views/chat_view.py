@@ -1,6 +1,7 @@
-"""Chat tab of a project: its chatbots (created and edited here, each with its
-own agent: system prompt, model, tools), their conversations on the left and
-the open conversation on the right. A reply arrives whole (no streaming yet)."""
+"""Chat tab of a project: its chatbot (one per project, created and edited
+here, with its own agent: system prompt, model, tools), its conversations on
+the left and the open conversation on the right. A reply arrives whole (no
+streaming yet)."""
 import streamlit as st
 
 from api_client.client import ApiError
@@ -13,26 +14,16 @@ def chat_section(project_name: str) -> None:
     key = f"chat_{project_name}"
     chatbots = api().chat.chatbots(project_name)
     if not chatbots:
-        st.info("Nessun chatbot: creane uno e configura il suo agente (prompt, modello, tool).")
-        if st.button("➕ Nuovo chatbot", type="primary", key=f"{key}_first"):
+        st.info("Nessun chatbot: crea quello del progetto e configura il suo agente (prompt, modello, tool).")
+        if st.button("➕ Crea il chatbot", type="primary", key=f"{key}_first"):
             _chatbot_dialog(project_name, None)
         return
 
-    by_id = {chatbot.id: chatbot for chatbot in chatbots}
-    selected_key = f"{key}_chatbot"
-    if f"{key}_select" in st.session_state:  # a chatbot just created in the dialog
-        st.session_state[selected_key] = st.session_state.pop(f"{key}_select")
-    if st.session_state.get(selected_key) not in by_id:
-        st.session_state[selected_key] = chatbots[0].id
-
+    chatbot = chatbots[0]  # one chatbot per project (the first by name, if more were created before)
     col_side, col_chat = st.columns([1, 3], gap="medium")
     with col_side:
-        chatbot = by_id[st.selectbox(
-            "Chatbot", list(by_id), format_func=lambda chatbot_id: by_id[chatbot_id].name, key=selected_key,
-        )]
-        col_new, col_edit = st.columns(2)
-        if col_new.button("➕ Nuovo", width="stretch", key=f"{key}_new"):
-            _chatbot_dialog(project_name, None)
+        col_name, col_edit = st.columns([3, 2], vertical_alignment="center")
+        col_name.markdown(f"**{chatbot.name}**")
         if col_edit.button("✏️ Modifica", width="stretch", key=f"{key}_edit"):
             _chatbot_dialog(project_name, chatbot)
         tools = ", ".join(f"`{tool}`" for tool in chatbot.tool_names) or "nessun tool"
@@ -152,8 +143,7 @@ def _chatbot_dialog(project_name: str, current: Chatbot | None) -> None:
         )
         try:
             if current is None:
-                created = chat.create_chatbot(project_name, body)
-                st.session_state[f"chat_{project_name}_select"] = created.id
+                chat.create_chatbot(project_name, body)
             else:
                 chat.update_chatbot(current.id, body)
         except ApiError as exc:
