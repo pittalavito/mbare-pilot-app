@@ -14,7 +14,7 @@ src/service/
   pipeline_service.py       automation: definizioni, coda, worker attivi
   pipeline_runner.py        esegue le run in coda (lo usa il worker)
   project_service.py        progetti: apri cartella, crea da zero, modifica, rimuovi
-  chatbot_service.py        chatbot e conversazioni                (in arrivo)
+  chatbot_service.py        chatbot di un progetto, conversazioni e messaggi
   atlassian_service.py      sito Jira + Confluence di un progetto  (in arrivo)
 ```
 
@@ -46,6 +46,16 @@ worker ──► PipelineRunner.run_next ──► claim (running) ──► ste
 - **`AgentService`**: costruisce l'agente (client da `ChatService`, tool con il `ToolContext` della run), lo esegue dentro il tracing di datapizza e salva la run: fatti in Postgres, trace in Redis.
 - **`ModelService`**: il catalogo dei modelli; `require_usable_model` è il controllo che ogni service fa prima di salvare o eseguire un agente.
 
+## Chatbot
+
+**`ChatbotService`**: i chatbot di un progetto. Ognuno ha il **suo agente**, configurato nel chatbot stesso (system prompt, modello, max steps, tool) e separato dagli agenti della Libreria.
+
+- **Creare e modificare**: modello usabile, tool disponibili, nome unico nel progetto (senza distinguere maiuscole e minuscole). Se cambia il system prompt, sale `prompt_version`, così ogni run dice quale prompt ha risposto.
+- **Conversazioni**: dalla più recente; eliminarne una elimina i suoi messaggi.
+- **`send(conversazione, testo)`**: salva il messaggio dell'utente, esegue l'agente del chatbot con la conversazione precedente come memoria, **sul progetto del chatbot** (i tool git lavorano lì), e salva la risposta. Il primo messaggio diventa il titolo della conversazione (max 60 caratteri).
+- **Se l'agente non risponde** (errore del modello, tool, modello disattivato…) la risposta è un messaggio di tipo `error`: si vede in chat ma non viene rimandato all'agente nei turni successivi.
+- **Run registrate** come `chatbot/<nome>`, con ruolo `chatbot` e la versione del prompt: si trovano in Admin → Observability.
+
 ## Progetti
 
 **`ProjectService`**: ogni percorso passa da `FolderBrowser`, quindi resta dentro `PROJECT_ROOTS`.
@@ -67,4 +77,4 @@ Un progetto nuovo viene rifiutato se il nome contiene `/` o `\` (finisce negli U
 
 ## Test
 
-In `test/unit/service/`: `test_store_service`, `test_model_service`, `test_agent_config_service`, `test_agent_scope` (globali e di progetto), `test_activation` (disattivazioni), `test_agent_service`, `test_git_service`, `test_pipeline` (definizioni, coda, esecuzione, heartbeat), `test_function_steps`, `test_project_service`, `test_project_data_service`. Gli agenti sono finti (`FakeAgent`), il DB è SQLite in memoria e Redis è fakeredis: le fixture stanno in `test/conftest.py`.
+In `test/unit/service/`: `test_store_service`, `test_model_service`, `test_agent_config_service`, `test_agent_scope` (globali e di progetto), `test_activation` (disattivazioni), `test_agent_service`, `test_git_service`, `test_pipeline` (definizioni, coda, esecuzione, heartbeat), `test_function_steps`, `test_project_service`, `test_project_data_service`, `test_chatbot_service`. Gli agenti sono finti (`FakeAgent`), il DB è SQLite in memoria e Redis è fakeredis: le fixture stanno in `test/conftest.py`.
