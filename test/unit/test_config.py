@@ -26,3 +26,10 @@ def test_masked_keeps_empty_secrets_empty_and_plain_values():
     assert masked["redis_url"] == "redis://localhost:6380/0"
     assert masked["postgres_dashboard_port"] == 8084
     assert masked["redis_dashboard_port"] == 8083
+
+
+def test_backup_folder_defaults_next_to_the_project(config, tmp_path):
+    from config import PROJECT_ROOT
+
+    assert config.backup_path == PROJECT_ROOT.parent / "mbare-pilot-back-up"
+    assert config.model_copy(update={"backup_dir": str(tmp_path)}).backup_path == tmp_path

@@ -31,13 +31,19 @@ Test con coverage:
 python resource/scripts/run-test.py
 ```
 
+Export del DB in `../mbare-pilot-back-up/db/` (anche da **Admin → Backup**):
+
+```bash
+python resource/scripts/export-db.py
+```
+
 ## UI
 
 Frontend in `ui/`: parla **solo** con l'API del backend (`API_URL`), parte su `UI_PORT`.
 
 - **Progetti**: Chat, Automation, Dati, Git, Impostazioni (Atlassian, agenti del progetto)
 - **Libreria**: agenti, ruoli, prompt versionati, tool globali
-- **Admin**: Servizi, Observability, Modelli
+- **Admin**: Servizi, Observability, Modelli, Backup
 
 API e worker si accendono e spengono dal pannello **Backend** nella barra laterale (stato, ▶/⏹, log). Restano attivi anche se ricarichi o riavvii la UI (PID in `resource/run/`, log in `resource/logs/`).
 

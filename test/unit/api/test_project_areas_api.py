@@ -13,6 +13,7 @@ from models.domain.atlassian import ConfluencePage, ConfluenceSearchHit, Conflue
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
 from service.atlassian_service import AtlassianSite
+from service.backup_service import BackupService
 
 MODEL = "openai/gpt-4o"
 
@@ -253,6 +254,24 @@ def test_observability(client, store_service):
     assert client.get("/observability/runs/run-1/trace").json()["output"] == "Hello, Mario!"
     assert client.get("/observability/runs/missing/trace").status_code == 404
     assert client.get("/observability/tool-calls").json()[0]["tool_name"] == "hello_world"
+
+
+class _FakeDump:
+    def dump(self, user, database):
+        return b"-- dump"
+
+
+def test_backups(client, tmp_path):
+    client.app.state.container.backup_service = BackupService(tmp_path, "postgresql://app@localhost/app", _FakeDump())
+    assert client.get("/admin/backups").json()["backups"] == []
+
+    created = client.post("/admin/backups")
+
+    assert created.status_code == 201
+    name = created.json()["name"]
+    assert [b["name"] for b in client.get("/admin/backups").json()["backups"]] == [name]
+    assert client.get(f"/admin/backups/{name}").content == b"-- dump"
+    assert client.get("/admin/backups/nope.sql").status_code == 400
 
 
 def test_model_catalog_marks_and_protects_models_in_use(client):

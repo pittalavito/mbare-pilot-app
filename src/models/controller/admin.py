@@ -1,10 +1,11 @@
 """Response/request models of the Admin API: app config (secrets masked),
-observability facts and the model catalog."""
+observability facts, the model catalog and the DB backups."""
 from datetime import datetime
 
 from pydantic import BaseModel
 
 from models.domain.agent import AgentRunSummary, ToolCallSummary
+from models.domain.backup import BackupFile
 from models.domain.chat import ChatModel
 
 
@@ -73,3 +74,20 @@ class CatalogModelBody(BaseModel):
 
     def to_model(self) -> ChatModel:
         return ChatModel.model_validate(self.model_dump(exclude={"in_use"}))
+
+
+class BackupResponse(BaseModel):
+    name: str
+    size: int
+    created_at: datetime
+
+    @classmethod
+    def from_backup(cls, backup: BackupFile) -> "BackupResponse":
+        return cls(**backup.model_dump())
+
+
+class BackupsResponse(BaseModel):
+    folder: str
+    """Where the exports are written."""
+    backups: list[BackupResponse]
+    """Newest first."""

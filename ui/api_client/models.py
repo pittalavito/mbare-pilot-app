@@ -330,6 +330,18 @@ class ToolCall(BaseModel):
     created_at: datetime
 
 
+class Backup(BaseModel):
+    name: str
+    size: int
+    created_at: datetime
+
+
+class Backups(BaseModel):
+    folder: str
+    backups: list[Backup]
+    """Newest first."""
+
+
 class CatalogModel(BaseModel):
     provider: str
     model: str

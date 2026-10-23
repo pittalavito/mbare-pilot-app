@@ -12,6 +12,7 @@ from domain.project.folder_browser import FolderBrowser
 from service.agent_config_service import AgentConfigService
 from service.agent_service import AgentService
 from service.atlassian_service import AtlassianService
+from service.backup_service import BackupService
 from service.chat_service import ChatService
 from service.chatbot_service import ChatbotService
 from service.git_service import GitService
@@ -61,6 +62,7 @@ class Container:
             git_service=self.git_service,
             project_data_service=self.project_data_service,
         )
+        self.backup_service = BackupService.from_config()
         self.project_service = ProjectService(
             store_service=self.store_service,
             folder_browser=FolderBrowser(config.project_root_paths),

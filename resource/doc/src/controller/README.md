@@ -36,7 +36,7 @@ Documentazione interattiva con tutti gli endpoint: `http://<API_URL>/docs` (Swag
 | Git | `GET /projects/{p}/git/repositories`, `GET .../git/log?path=&limit=&author=&message=&commit=`, `GET .../git/status?path=` |
 | Automation | `GET/POST /projects/{p}/pipelines`, `PUT/DELETE /pipelines/{id}`, `GET/POST /pipelines/{id}/runs`, `DELETE /pipeline-runs/{id}`, `GET /functions`, `GET /workers`, `GET /workers/health` |
 | Atlassian | `GET/PUT/DELETE /projects/{p}/atlassian`, `POST .../atlassian/check`, `GET .../atlassian/jira/issues/{chiave}`, `GET .../atlassian/confluence/pages`, `GET .../atlassian/confluence/pages/{id}`, `GET .../atlassian/confluence/search?q=`, `GET/POST .../atlassian/favorites`, `DELETE .../atlassian/favorites/{id}` |
-| Admin | `GET /admin/config`, `GET /observability/runs`, `GET /observability/runs/{run_id}/trace`, `GET /observability/tool-calls` |
+| Admin | `GET /admin/config`, `GET /observability/runs`, `GET /observability/runs/{run_id}/trace`, `GET /observability/tool-calls`, `GET/POST /admin/backups`, `GET /admin/backups/{nome}` |
 
 ## Convenzioni
 

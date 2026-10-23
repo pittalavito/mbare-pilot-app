@@ -4,6 +4,7 @@ from fastapi import Request
 
 from service.agent_config_service import AgentConfigService
 from service.atlassian_service import AtlassianService
+from service.backup_service import BackupService
 from service.chatbot_service import ChatbotService
 from service.git_service import GitService
 from service.model_service import ModelService
@@ -47,3 +48,7 @@ def atlassian_service(request: Request) -> AtlassianService:
 
 def store_service(request: Request) -> StoreService:
     return request.app.state.container.store_service
+
+
+def backup_service(request: Request) -> BackupService:
+    return request.app.state.container.backup_service

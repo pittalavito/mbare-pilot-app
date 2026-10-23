@@ -42,6 +42,8 @@ class Config(BaseSettings):
 
     # --- Postgres ---
     database_url: str
+    postgres_container: str = "mbare-pilot-app-postgres"
+    """Docker container of Postgres (resource/docker/docker-compose.yml): the DB export runs pg_dump in it."""
     postgres_dashboard_port: int = 8084
     """Adminer (resource/docker/docker-compose.yml)."""
 
@@ -54,6 +56,11 @@ class Config(BaseSettings):
     mbare_pilot_home: str = ""
     """Where the app keeps the projects' data (notes, uploaded files), apart from
     their code folders. Empty = ``~/.mbare-pilot``."""
+
+    # --- Backups ---
+    backup_dir: str = ""
+    """Where DB exports are written (``<backup_dir>/db/``). Empty = the
+    ``mbare-pilot-back-up`` folder next to the project."""
 
     # --- Projects ---
     project_roots: str = ""
@@ -84,6 +91,10 @@ class Config(BaseSettings):
     def projects_data_root(self) -> Path:
         """Root of the projects' data folders (``<data_home>/projects``)."""
         return self.data_home / "projects"
+
+    @property
+    def backup_path(self) -> Path:
+        return Path(self.backup_dir).expanduser() if self.backup_dir else PROJECT_ROOT.parent / "mbare-pilot-back-up"
 
     @property
     def data_home(self) -> Path:

@@ -1,7 +1,7 @@
 """Admin page, one tab per area: services (app config with secrets masked +
 links to the service dashboards), observability (agent runs and tool calls,
-with the verbatim trace of a run) and the model catalog. Atlassian is
-configured per project (project page → Impostazioni)."""
+with the verbatim trace of a run), the model catalog and the DB backups.
+Atlassian is configured per project (project page → Impostazioni)."""
 from datetime import datetime
 
 import pandas as pd
@@ -17,13 +17,17 @@ _MODEL_COLUMNS = ["provider", "model", "input_per_1m", "output_per_1m", "active"
 
 def admin_page() -> None:
     st.title("Admin")
-    tab_services, tab_observability, tab_models = st.tabs(["Servizi", "Observability", "Modelli"], key="admin_tab")
+    tab_services, tab_observability, tab_models, tab_backup = st.tabs(
+        ["Servizi", "Observability", "Modelli", "Backup"], key="admin_tab",
+    )
     with tab_services:
         _services_section()
     with tab_observability:
         _observability_section()
     with tab_models:
         _models_section()
+    with tab_backup:
+        _backup_section()
 
 
 # ------------------------------------------------------------------ servizi
@@ -174,3 +178,44 @@ def _models_section() -> None:
         return
     st.success("Catalogo salvato.")
     st.rerun()
+
+
+# ------------------------------------------------------------------- backup
+
+def _backup_section() -> None:
+    backups = api().admin.backups()
+    st.caption(
+        f"Export completo del DB Postgres (SQL, ripristinabile con `psql`) nella cartella `{backups.folder}`. "
+        "Da terminale: `python resource/scripts/export-db.py`."
+    )
+    if st.button("💾 Esporta il DB", type="primary", key="backup_export"):
+        try:
+            with st.spinner("Export in corso…"):
+                backup = api().admin.export_db()
+        except ApiError as exc:
+            st.error(str(exc))
+        else:
+            st.success(f"DB esportato: {backup.name} ({_size(backup.size)}).")
+            st.rerun()
+
+    if not backups.backups:
+        st.info("Nessun export.")
+        return
+    st.caption(f"{len(backups.backups)} export, dal più recente")
+    for backup in backups.backups:
+        with st.container(border=True):
+            col_name, col_download = st.columns([4, 1], vertical_alignment="center")
+            col_name.markdown(f"**{backup.name}**")
+            col_name.caption(f"{_size(backup.size)} · {backup.created_at.astimezone():%d/%m/%Y %H:%M}")
+            col_download.download_button(
+                "Scarica", data=lambda name=backup.name: api().admin.read_backup(name),
+                file_name=backup.name, mime="application/sql", key=f"backup_download_{backup.name}", width="stretch",
+            )
+
+
+def _size(size: float) -> str:
+    for unit in ("B", "KB", "MB"):
+        if size < 1024:
+            return f"{size:.0f} {unit}"
+        size /= 1024
+    return f"{size:.1f} GB"

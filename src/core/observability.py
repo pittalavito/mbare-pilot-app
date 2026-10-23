@@ -29,6 +29,7 @@ class LogPrefix(StrEnum):
     PIPELINE_RUNNER = "PIPELINE_RUNNER"
     WORKER = "WORKER"
     MODEL_SERVICE = "MODEL_SERVICE"
+    BACKUP_SERVICE = "BACKUP_SERVICE"
 
 
 def configure_logging(log_level: str) -> None:

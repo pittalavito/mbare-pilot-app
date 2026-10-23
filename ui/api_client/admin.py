@@ -1,8 +1,8 @@
-"""Admin endpoints, typed: app config, observability, model catalog."""
+"""Admin endpoints, typed: app config, observability, model catalog, DB backups."""
 from typing import Any
 
 from api_client.http import ApiClient, segment
-from api_client.models import AppConfig, CatalogModel, RunSummary, ToolCall
+from api_client.models import AppConfig, Backup, Backups, CatalogModel, RunSummary, ToolCall
 
 
 class AdminApi:
@@ -30,3 +30,13 @@ class AdminApi:
         """``models`` becomes the whole catalog."""
         saved = self._client.put("/models", json=[model.model_dump() for model in models])
         return [CatalogModel.model_validate(item) for item in saved]
+
+    def backups(self) -> Backups:
+        return Backups.model_validate(self._client.get("/admin/backups"))
+
+    def export_db(self) -> Backup:
+        """Dump the whole DB into a new file of the backup folder."""
+        return Backup.model_validate(self._client.post("/admin/backups"))
+
+    def read_backup(self, name: str) -> bytes:
+        return self._client.get_bytes(f"/admin/backups/{segment(name)}")

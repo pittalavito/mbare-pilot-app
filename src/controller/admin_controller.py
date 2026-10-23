@@ -1,14 +1,15 @@
-"""Admin endpoints: the app config with secrets masked (/admin/config) and the
+"""Admin endpoints: the app config with secrets masked (/admin/config), the
 observability facts (/observability/...: runs and tool calls from Postgres,
-the verbatim trace of a run from Redis)."""
+the verbatim trace of a run from Redis) and the DB backups (/admin/backups)."""
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response, status
 
 from config import Config
-from controller.dependencies import store_service
+from controller.dependencies import backup_service, store_service
 from core.error import NotFoundError
-from models.controller.admin import ConfigResponse, RunSummaryResponse, ToolCallResponse
+from models.controller.admin import BackupResponse, BackupsResponse, ConfigResponse, RunSummaryResponse, ToolCallResponse
+from service.backup_service import BackupService
 from service.store_service import StoreService
 
 router = APIRouter(tags=["admin"])
@@ -42,3 +43,22 @@ def run_trace(run_id: str, store: StoreService = Depends(store_service)) -> dict
 @router.get("/observability/tool-calls")
 def list_tool_calls(limit: int = 100, store: StoreService = Depends(store_service)) -> list[ToolCallResponse]:
     return [ToolCallResponse.from_summary(summary) for summary in store.list_tool_calls(limit)]
+
+
+@router.get("/admin/backups")
+def list_backups(service: BackupService = Depends(backup_service)) -> BackupsResponse:
+    return BackupsResponse(
+        folder=str(Config.get().backup_path),
+        backups=[BackupResponse.from_backup(backup) for backup in service.list_backups()],
+    )
+
+
+@router.post("/admin/backups", status_code=status.HTTP_201_CREATED)
+def export_db(service: BackupService = Depends(backup_service)) -> BackupResponse:
+    """Dump the whole DB (pg_dump in the Postgres container) into a new SQL file."""
+    return BackupResponse.from_backup(service.export_db())
+
+
+@router.get("/admin/backups/{name}")
+def download_backup(name: str, service: BackupService = Depends(backup_service)) -> Response:
+    return Response(content=service.read_backup(name), media_type="application/sql")
