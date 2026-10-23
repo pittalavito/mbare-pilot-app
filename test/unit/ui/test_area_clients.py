@@ -63,7 +63,7 @@ def test_automation(api):
     run = api.automation.enqueue(pipeline.id, "ciao")
     assert not run.finished and api.automation.runs(pipeline.id)[0].id == run.id
     assert api.automation.workers() == []
-    assert "git_log" in {spec.name for spec in api.automation.functions()}
+    assert "git_status" in {spec.name for spec in api.automation.functions()}
 
 
 def test_atlassian(api):

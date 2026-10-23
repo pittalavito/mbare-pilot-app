@@ -17,6 +17,8 @@ src/
     store/redis/        → src/domain/store/redis/README.md  trace delle run, heartbeat dei worker
     store/db/           → src/domain/store/db/README.md  Postgres: schema, repository, conversioni
   tool/                 → src/tool/README.md    tool degli agenti: registry, contesto, esempi
+  function/             → src/function/README.md  funzioni degli step delle automation
+  service/              → src/service/README.md   servizi applicativi e motore delle automation
 ```
 
 | Doc | Cosa trovi |
@@ -34,5 +36,7 @@ src/
 | [src/domain/store/redis](src/domain/store/redis/README.md) | keyspace, divisione con Postgres, repository, come aggiungere un uso |
 | [src/domain/store/db](src/domain/store/db/README.md) | schema senza migrazioni, `SqlRepository`, coda del worker, come aggiungere una tabella |
 | [src/tool](src/tool/README.md) | registry e catalogo, `ToolContext`, errori all'agente, come aggiungere un tool |
+| [src/function](src/function/README.md) | funzioni senza LLM, parametri e form dell'editor, come aggiungerne una |
+| [src/service](src/service/README.md) | `StoreService`, motore delle automation, agenti, git e dati del progetto |
 
 Una doc nuova va nella cartella che rispecchia il package (`src/<package>/README.md`) e in questo indice.
