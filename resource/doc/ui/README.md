@@ -15,7 +15,8 @@ ui/
     router.py           sidebar (pannello Backend) + elenco pagine
     services.py         config() e api(), una istanza per processo Streamlit
     <ambito>_view.py    una vista per ambito
-  process_control/      avvio/arresto dei processi del backend (API, worker)
+  process_control/      avvio/arresto dei processi del backend (API, worker); api_reloader.py riavvia l'API
+                        quando cambia il codice (il --reload di uvicorn su Windows si blocca)
 test/unit/ui/           test del client (end-to-end sull'app FastAPI) e del process manager
 ```
 

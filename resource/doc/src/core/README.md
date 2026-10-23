@@ -20,7 +20,7 @@ Due processi separati, entrambi avviati dal pannello Backend della UI (o da term
 
 | Processo | Entry | Comando |
 |---|---|---|
-| API | `src/api.py` | `uvicorn api:app --app-dir src` (`API_APP`, `API_APP_DIR` nel `.env`; con `API_RELOAD=true` si riavvia da sola quando cambia `src/`) |
+| API | `src/api.py` | `uvicorn api:app --app-dir src` (`API_APP`, `API_APP_DIR` nel `.env`). Con `API_RELOAD=true` il pannello la avvia con `ui/process_control/api_reloader.py`, che la riavvia quando cambia un file Python in `src/` |
 | Worker | `src/worker.py` | `python src/worker.py` (`WORKER_SCRIPT`) |
 
 Ognuno costruisce il suo `Container`.

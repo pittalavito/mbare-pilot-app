@@ -107,7 +107,8 @@ def test_backend_services_follow_the_api_url():
 def test_api_reload_watches_src():
     reloading, _ = backend_services(_config(api_reload=True))
 
-    assert reloading.command[-3:] == ["--reload", "--reload-dir", "src"]
+    assert reloading.command[1].endswith("api_reloader.py")
+    assert reloading.command[2:] == ["api:app", "src", "127.0.0.1", "8010"]
 
 
 def test_entry_points_come_from_the_config():
