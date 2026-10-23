@@ -30,3 +30,4 @@ In arrivo.
 ## Documentazione
 
 - [UI: struttura e nuove pagine](resource/doc/ui.md)
+- [Backend: config e fondamenta](resource/doc/core.md)
