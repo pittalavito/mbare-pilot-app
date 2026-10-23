@@ -1,18 +1,23 @@
 """Executes pipeline runs, one at a time, for the worker: takes the oldest
-queued run, runs its steps in order (each output feeding the next step's
-input template) and records every step. The first failing step fails the run.
+queued run and walks its graph in topological order, one step at a time. A
+step runs when at least one edge into it let its source's output through
+(conditions on the output's text); its ``{input}`` is that output, or all of
+them joined under ``## <step>`` when more edges passed. A step no edge lets
+through is recorded as SKIPPED. Every step is recorded; the first failing step
+fails the run. The run output is the output of the last steps that ran.
 Agent steps run through AgentService, so their costs and traces are recorded
 like any other run (origin ``pipeline``); function steps run Python code from
 the function registry, without an LLM."""
 from collections.abc import Callable
 from datetime import datetime, timezone
 
-from core.error import AppError
+from core.error import AppError, ValidationError
+from domain.pipeline.graph import join_outputs, passing_targets, topological_order
 from core.observability import LogPrefix, log_exception, log_warning, observed
 from function.context import FunctionContext
 from function.registry import get_function
 from models.domain.agent import AgentDefinition, AgentRunRecord, RunOrigin
-from models.domain.pipeline import Pipeline, PipelineRun, PipelineStep, PipelineStepRun, RunStatus, StepKind
+from models.domain.pipeline import INPUT_NODE, Pipeline, PipelineRun, PipelineStep, PipelineStepRun, RunStatus, StepKind
 from service.agent_service import AgentService
 from service.git_service import GitService
 from service.project_data_service import ProjectDataService
@@ -68,11 +73,26 @@ class PipelineRunner:
         if pipeline is None:
             return self._finish(run, RunStatus.FAILED, error="L'automation è stata eliminata.")
 
-        output = run.input
-        for position, step in enumerate(pipeline.steps):
+        try:
+            order = topological_order(pipeline.steps, pipeline.edges)
+        except ValidationError as exc:
+            return self._finish(run, RunStatus.FAILED, error=str(exc))
+        steps = {step.name: step for step in pipeline.steps}
+        outputs: dict[str, str] = {INPUT_NODE: run.input}
+        arrived: dict[str, list[str]] = {}  # step -> the sources whose edge into it passed
+        for target in passing_targets(INPUT_NODE, run.input, pipeline.edges):
+            arrived.setdefault(target, []).append(INPUT_NODE)
+
+        for position, name in enumerate(order):
+            step = steps[name]
+            sources = arrived.get(name, [])
+            if not sources:
+                self._skip(run, step, position)
+                continue
+            previous = join_outputs([(source, outputs[source]) for source in sources])
             step_run = self._store.save_pipeline_step_run(PipelineStepRun(
                 pipeline_run_id=run.id, step_id=step.id, position=position, name=step.name, kind=step.kind,
-                input=step.render_input(output, run.input), started_at=_now(),
+                input=step.render_input(previous, run.input, outputs), started_at=_now(),
             ))
             try:
                 output, agent_run_id = self._run_step(pipeline, step, step_run.input, run.input)
@@ -80,7 +100,10 @@ class PipelineRunner:
                 self._finish_step(step_run, RunStatus.FAILED, error=exc.reason, agent_run_id=exc.agent_run_id)
                 return self._finish(run, RunStatus.FAILED, error=f"Step {position + 1} ({step.name}): {exc.reason}")
             self._finish_step(step_run, RunStatus.DONE, output=output, agent_run_id=agent_run_id)
-        return self._finish(run, RunStatus.DONE, output=output)
+            outputs[name] = output
+            for target in passing_targets(name, output, pipeline.edges):
+                arrived.setdefault(target, []).append(name)
+        return self._finish(run, RunStatus.DONE, output=_final_output(order, outputs, pipeline))
 
     # ------------------------------------------------------------- steps
     def _run_step(self, pipeline: Pipeline, step: PipelineStep, step_input: str,
@@ -110,6 +133,13 @@ class PipelineRunner:
         return _output(record)
 
     # ------------------------------------------------------------ records
+    def _skip(self, run: PipelineRun, step: PipelineStep, position: int) -> None:
+        """No edge into ``step`` let anything through: recorded as SKIPPED."""
+        self._store.save_pipeline_step_run(PipelineStepRun(
+            pipeline_run_id=run.id, step_id=step.id, position=position, name=step.name, kind=step.kind,
+            status=RunStatus.SKIPPED, finished_at=_now(),
+        ))
+
     def _finish_step(self, step_run: PipelineStepRun, status: RunStatus, *, output: str | None = None,
                      error: str | None = None, agent_run_id: str | None = None) -> None:
         self._store.save_pipeline_step_run(step_run.model_copy(update={
@@ -124,6 +154,14 @@ class PipelineRunner:
             "status": status, "output": output, "error": error, "finished_at": _now(),
         }))
         return self._store.get_pipeline_run(run.id)
+
+
+def _final_output(order: list[str], outputs: dict[str, str], pipeline: Pipeline) -> str:
+    """The output of the steps that ran and fed no other step that ran (the
+    ends of the paths taken), joined like a step's inputs."""
+    fed = {edge.source for edge in pipeline.edges if edge.target in outputs}
+    ends = [(name, outputs[name]) for name in order if name in outputs and name not in fed]
+    return join_outputs(ends) if ends else ""
 
 
 def _output(record: AgentRunRecord) -> tuple[str, str]:

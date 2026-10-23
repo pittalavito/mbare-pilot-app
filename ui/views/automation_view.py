@@ -17,7 +17,7 @@ _KIND_LABELS = {
     "agent_config": "Agente della Libreria",
     "function": "Funzione (codice)",
 }
-_STATUS_ICONS = {"queued": "⏳", "running": "🔄", "done": "✅", "failed": "❌"}
+_STATUS_ICONS = {"queued": "⏳", "running": "🔄", "done": "✅", "failed": "❌", "skipped": "⏭️"}
 _REFRESH_SECONDS = 2
 
 

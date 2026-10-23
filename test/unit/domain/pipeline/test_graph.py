@@ -2,7 +2,9 @@
 import pytest
 
 from core.error import ValidationError
-from domain.pipeline.graph import ancestors, linear_edges, topological_order, validate_graph
+from domain.pipeline.graph import (
+    ancestors, join_outputs, linear_edges, passing_targets, topological_order, validate_graph,
+)
 from models.domain.pipeline import INPUT_NODE, EdgeConditionKind, PipelineEdge, PipelineStep, StepAgent, StepKind
 
 
@@ -74,3 +76,24 @@ def test_invalid_graphs(steps, edges, message):
 
 def test_node_placeholder_of_an_ancestor_is_fine():
     validate_graph([_step("A"), _step("B", template="{nodo:A} e {input}")], [_edge(INPUT_NODE, "A"), _edge("A", "B")])
+
+
+# ----------------------------------------------------------- conditions
+
+def test_passing_targets_text_conditions_and_otherwise():
+    edges = [
+        _edge("A", "Ok", EdgeConditionKind.CONTAINS, "ok"),
+        _edge("A", "NoErr", EdgeConditionKind.NOT_CONTAINS, "errore"),
+        _edge("A", "Num", EdgeConditionKind.MATCHES, r"RESEVO-\d+"),
+        _edge("A", "Else", EdgeConditionKind.OTHERWISE),
+        _edge("A", "Sempre"),
+        _edge("B", "Altro"),
+    ]
+
+    assert passing_targets("A", "Tutto OK su resevo-12", edges) == ["Sempre", "Ok", "NoErr", "Num"]
+    assert passing_targets("A", "c'è un errore", edges) == ["Sempre", "Else"]
+
+
+def test_join_outputs():
+    assert join_outputs([("Jira", "j")]) == "j"
+    assert join_outputs([("Jira", "j"), ("Git", "g")]) == "## Jira\nj\n\n## Git\ng"

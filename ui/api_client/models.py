@@ -221,6 +221,7 @@ class PipelineRun(BaseModel):
     @property
     def finished(self) -> bool:
         return self.status in ("done", "failed")
+    """A run is never ``skipped``: only its steps can be."""
 
 
 class Worker(BaseModel):

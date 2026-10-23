@@ -63,8 +63,13 @@ class PipelineStep(BaseModel):
     position_y: float = 0.0
     """Where the node is drawn in the graph editor."""
 
-    def render_input(self, previous_output: str, pipeline_input: str) -> str:
-        return self.input_template.replace(PIPELINE_INPUT, pipeline_input).replace(INPUT, previous_output)
+    def render_input(self, previous_output: str, pipeline_input: str, node_outputs: dict[str, str] | None = None) -> str:
+        """The template with ``{pipeline_input}``, ``{nodo:Name}`` (empty for a
+        node that did not run) and ``{input}`` replaced."""
+        outputs = node_outputs or {}
+        text = self.input_template.replace(PIPELINE_INPUT, pipeline_input)
+        text = NODE_PLACEHOLDER.sub(lambda match: outputs.get(match.group(1), ""), text)
+        return text.replace(INPUT, previous_output)
 
 
 class EdgeConditionKind(StrEnum):
@@ -107,10 +112,12 @@ class RunStatus(StrEnum):
     RUNNING = "running"
     DONE = "done"
     FAILED = "failed"
+    SKIPPED = "skipped"
+    """Steps only: no edge into the step let anything through."""
 
     @property
     def finished(self) -> bool:
-        return self in (RunStatus.DONE, RunStatus.FAILED)
+        return self in (RunStatus.DONE, RunStatus.FAILED, RunStatus.SKIPPED)
 
 
 class PipelineStepRun(BaseModel):

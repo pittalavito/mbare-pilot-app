@@ -1,12 +1,22 @@
-"""Automations as graphs in PipelineService and the store: edges with
+"""Automations as graphs: PipelineService and the store (edges with
 conditions saved and read back by step name, node positions, renames, the
-chain default for automations saved without edges, invalid graphs rejected."""
+chain default, invalid graphs rejected) and PipelineRunner walking the graph
+(branches by condition, joins, skipped steps, ``{nodo:Name}``, failures)."""
 import pytest
 
 from core.error import ValidationError
-from models.domain.pipeline import INPUT_NODE, EdgeConditionKind, PipelineEdge, PipelineStep, StepAgent, StepKind
+from fakes import FakeAgent
+from models.domain.pipeline import (
+    INPUT_NODE, EdgeConditionKind, PipelineEdge, PipelineStep, RunStatus, StepAgent, StepKind,
+)
 from models.domain.project import Project, ProjectSource
+from service import agent_service as agent_service_module
+from service.agent_service import AgentService
+from service.chat_service import ChatService
+from service.git_service import GitService
+from service.pipeline_runner import PipelineRunner
 from service.pipeline_service import PipelineService
+from service.project_data_service import ProjectDataService
 
 MODEL = "openai/gpt-4o"
 
@@ -82,3 +92,97 @@ def test_invalid_graph_is_not_saved(service):
     with pytest.raises(ValidationError, match="Pull non ha collegamenti in ingresso"):
         service.create_pipeline("acme", "Rotto", steps=[_step("Check"), _step("Pull")], edges=BRANCHES[:1])
     assert service.list_pipelines("acme") == []
+
+
+# ------------------------------------------------------------ execution
+# Fake agents echo their input ("echo: <input>"); the steps in ``runner.failing`` raise.
+
+@pytest.fixture
+def runner(store_service, agent_config_service, monkeypatch):
+    failing: set[str] = set()
+
+    def create_agent(definition, client, tools):
+        return FakeAgent(RuntimeError("boom") if definition.name.rsplit("/", 1)[-1] in failing else None)
+
+    monkeypatch.setattr(agent_service_module.AgentFactory, "create_agent", staticmethod(create_agent))
+    chat = ChatService()
+    monkeypatch.setattr(chat, "get_client", lambda model: object())
+    git = GitService(store_service)
+    agents = AgentService(chat, agent_config_service, store_service, git)
+    runner = PipelineRunner(store_service, agents, git, ProjectDataService(store_service))
+    runner.failing = failing
+    return runner
+
+
+# input ─► Check ─(contains OK)─► Pull ─┐
+#                 └(otherwise)─► Avvisa ┴─► Fine
+GRAPH_STEPS = ["Check", "Pull", "Avvisa", "Fine"]
+GRAPH_EDGES = BRANCHES + _edges(
+    ("Pull", "Fine", EdgeConditionKind.ALWAYS, ""), ("Avvisa", "Fine", EdgeConditionKind.ALWAYS, ""),
+)
+
+
+def _run(service, runner, steps, edges, pipeline_input):
+    pipeline = service.create_pipeline("acme", "Grafo", steps=steps, edges=edges)
+    service.enqueue(pipeline.id, pipeline_input)
+    run = runner.run_next()
+    return run, {step.name: step for step in run.steps}
+
+
+def test_the_condition_picks_the_branch(service, runner):
+    run, steps = _run(service, runner, [_step(n) for n in GRAPH_STEPS], GRAPH_EDGES, "tutto OK")
+
+    assert run.status is RunStatus.DONE
+    assert {name: step.status for name, step in steps.items()} == {
+        "Check": RunStatus.DONE, "Pull": RunStatus.DONE, "Avvisa": RunStatus.SKIPPED, "Fine": RunStatus.DONE,
+    }
+    assert steps["Fine"].input == "echo: echo: tutto OK"  # only Pull's output arrived
+    assert run.output == "echo: echo: echo: tutto OK"
+
+
+def test_otherwise_when_no_text_condition_holds(service, runner):
+    run, steps = _run(service, runner, [_step(n) for n in GRAPH_STEPS], GRAPH_EDGES, "qualcosa è andato storto")
+
+    assert (steps["Pull"].status, steps["Avvisa"].status, steps["Fine"].status) == (
+        RunStatus.SKIPPED, RunStatus.DONE, RunStatus.DONE,
+    )
+
+
+def test_a_step_with_more_inputs_gets_them_all_by_name(service, runner):
+    edges = _edges(
+        (INPUT_NODE, "Jira", EdgeConditionKind.ALWAYS, ""), (INPUT_NODE, "Git", EdgeConditionKind.ALWAYS, ""),
+        ("Jira", "Riassumi", EdgeConditionKind.ALWAYS, ""), ("Git", "Riassumi", EdgeConditionKind.ALWAYS, ""),
+    )
+
+    run, steps = _run(service, runner, [_step("Jira"), _step("Git"), _step("Riassumi")], edges, "x")
+
+    assert steps["Riassumi"].input == "## Jira\necho: x\n\n## Git\necho: x"
+    assert run.output == "echo: ## Jira\necho: x\n\n## Git\necho: x"
+
+
+def test_nothing_arrives_so_the_rest_is_skipped(service, runner):
+    edges = BRANCHES[:2] + _edges(("Pull", "Fine", EdgeConditionKind.ALWAYS, ""))
+
+    run, steps = _run(service, runner, [_step("Check"), _step("Pull"), _step("Fine")], edges, "KO")
+
+    assert run.status is RunStatus.DONE
+    assert (steps["Pull"].status, steps["Fine"].status) == (RunStatus.SKIPPED, RunStatus.SKIPPED)
+    assert run.output == "echo: KO"  # the end of the path that ran
+
+
+def test_node_placeholder_gets_that_steps_output(service, runner):
+    steps = [_step("Check"), _step("Pull"), _step("Avvisa"),
+             _step("Fine").model_copy(update={"input_template": "check={nodo:Check} avvisa={nodo:Avvisa}"})]
+
+    _, by_name = _run(service, runner, steps, GRAPH_EDGES, "OK")
+
+    assert by_name["Fine"].input == "check=echo: OK avvisa="  # Avvisa was skipped
+
+
+def test_a_failing_branch_fails_the_run(service, runner):
+    runner.failing.add("Pull")
+
+    run, steps = _run(service, runner, [_step(n) for n in GRAPH_STEPS], GRAPH_EDGES, "OK")
+
+    assert run.status is RunStatus.FAILED and "Pull" in run.error
+    assert steps["Pull"].status is RunStatus.FAILED and "Fine" not in steps

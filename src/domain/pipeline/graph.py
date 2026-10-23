@@ -15,6 +15,33 @@ from models.domain.pipeline import INPUT_NODE, NODE_PLACEHOLDER, EdgeConditionKi
 _TEXT_CONDITIONS = {EdgeConditionKind.CONTAINS, EdgeConditionKind.NOT_CONTAINS, EdgeConditionKind.MATCHES}
 
 
+def passing_targets(source: str, output: str, edges: list[PipelineEdge]) -> list[str]:
+    """The targets of ``source`` whose edge lets ``output`` through: text
+    conditions are case-insensitive (``matches`` is a regex), ``otherwise``
+    passes when none of the text conditions of ``source`` passed."""
+    outgoing = [edge for edge in edges if edge.source == source]
+    passed = [edge for edge in outgoing if edge.condition in _TEXT_CONDITIONS and _holds(edge, output)]
+    targets = [edge.target for edge in outgoing if edge.condition is EdgeConditionKind.ALWAYS] + [edge.target for edge in passed]
+    if not passed:
+        targets += [edge.target for edge in outgoing if edge.condition is EdgeConditionKind.OTHERWISE]
+    return targets
+
+
+def join_outputs(outputs: list[tuple[str, str]]) -> str:
+    """One ``(node, output)``: the output itself. More: each under ``## node``."""
+    if len(outputs) == 1:
+        return outputs[0][1]
+    return "\n\n".join(f"## {name}\n{output}" for name, output in outputs)
+
+
+def _holds(edge: PipelineEdge, output: str) -> bool:
+    if edge.condition is EdgeConditionKind.CONTAINS:
+        return edge.value.lower() in output.lower()
+    if edge.condition is EdgeConditionKind.NOT_CONTAINS:
+        return edge.value.lower() not in output.lower()
+    return re.search(edge.value, output, re.IGNORECASE) is not None
+
+
 def linear_edges(steps: list[PipelineStep]) -> list[PipelineEdge]:
     """The chain ``input → first step → … → last step``: the graph of an
     automation saved without edges."""
