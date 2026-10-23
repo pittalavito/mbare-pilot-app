@@ -8,7 +8,7 @@ src/domain/
   agent/      costruzione degli agenti, tracing di token e costi
   client/     client git e Atlassian (Atlassian in arrivo)
   project/    percorsi dei dati e navigazione delle cartelle
-  store/      repository su Postgres, Redis e file (Postgres in arrivo)
+  store/      repository su Postgres, Redis e file
 ```
 
 | Doc | Cosa trovi |
@@ -19,3 +19,4 @@ src/domain/
 | [client/git](client/git/README.md) | comandi git in sola lettura e come vengono eseguiti |
 | [store/files](store/files/README.md) | file su disco confinati in una radice, indirizzati per `file_id` |
 | [store/redis](store/redis/README.md) | trace delle run e heartbeat dei worker, keyspace e scadenze |
+| [store/db](store/db/README.md) | Postgres: schema senza migrazioni, repository, Adapter/Factory |

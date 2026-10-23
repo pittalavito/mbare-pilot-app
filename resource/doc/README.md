@@ -15,6 +15,7 @@ src/
     client/git/         → src/domain/client/git/README.md  comandi git in sola lettura
     store/files/        → src/domain/store/files/README.md  file su disco sotto una radice
     store/redis/        → src/domain/store/redis/README.md  trace delle run, heartbeat dei worker
+    store/db/           → src/domain/store/db/README.md  Postgres: schema, repository, conversioni
 ```
 
 | Doc | Cosa trovi |
@@ -30,5 +31,6 @@ src/
 | [src/domain/client/git](src/domain/client/git/README.md) | `GitClient`: log, status, come esegue git, errori |
 | [src/domain/store/files](src/domain/store/files/README.md) | `file_id`, percorsi sicuri, metodi di `LocalFileRepository` |
 | [src/domain/store/redis](src/domain/store/redis/README.md) | keyspace, divisione con Postgres, repository, come aggiungere un uso |
+| [src/domain/store/db](src/domain/store/db/README.md) | schema senza migrazioni, `SqlRepository`, coda del worker, come aggiungere una tabella |
 
 Una doc nuova va nella cartella che rispecchia il package (`src/<package>/README.md`) e in questo indice.
