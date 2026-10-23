@@ -7,7 +7,7 @@ from core.error import AppError
 from core.observability import LogPrefix, log_exception, observed
 from domain.agent.base import Factory as AgentFactory
 from domain.agent.tracing import Adapter as TracingAdapter
-from models.domain.agent import AgentDefinition, AgentRunRecord, RunOrigin
+from models.domain.agent import AgentConfig, AgentDefinition, AgentRunRecord, RunOrigin
 from models.domain.chat import split_model_key
 from models.domain.chatbot import ChatMessage
 from service.agent_config_service import AgentConfigService
@@ -34,22 +34,39 @@ class AgentService:
         self._git_service = git_service
 
     def run(self, config_name: str, task_input: str, *, project_name: str | None = None,
-            origin: RunOrigin = RunOrigin.MANUAL, history: list[ChatMessage] | None = None) -> AgentRunRecord:
+            origin: RunOrigin = RunOrigin.MANUAL, history: list[ChatMessage] | None = None,
+            depth: int = 0) -> AgentRunRecord:
         """Run the agent configured as ``config_name`` (see ``run_definition``)."""
         definition = AgentDefinition.from_spec(self._agent_config_service.resolve(config_name))
-        return self.run_definition(definition, task_input, project_name=project_name, origin=origin, history=history)
+        return self.run_definition(definition, task_input, project_name=project_name, origin=origin, history=history,
+                                   depth=depth)
+
+    def delegable_agents(self, project_name: str | None) -> list[AgentConfig]:
+        """The agents another agent can delegate to (tool ask_agent): the
+        project's and the global ones (only the global ones outside a project),
+        those that can run right now."""
+        configs = self._agent_config_service.list_configs(project_name, include_global=True)
+        return [config for config in configs if self._agent_config_service.blocked_reason(config) is None]
+
+    def delegate(self, config_name: str, question: str, *, project_name: str | None, depth: int) -> AgentRunRecord:
+        """Run ``config_name`` on behalf of another agent, on the same project."""
+        return self.run(config_name, question, project_name=project_name, origin=RunOrigin.AGENT, depth=depth)
 
     @observed(LogPrefix.AGENT_SERVICE)
-    def run_definition(self, definition: AgentDefinition, task_input: str, *, project_name: str | None = None, origin: RunOrigin = RunOrigin.MANUAL, history: list[ChatMessage] | None = None) -> AgentRunRecord:
+    def run_definition(self, definition: AgentDefinition, task_input: str, *, project_name: str | None = None,
+                       origin: RunOrigin = RunOrigin.MANUAL, history: list[ChatMessage] | None = None,
+                       depth: int = 0) -> AgentRunRecord:
         """Run ``definition`` on ``task_input`` inside a datapizza trace and
         persist the run (facts + trace). A failed run is persisted too, with
         ``ok=False``. The run's project (``project_name``, else the
         definition's) is the one its tools work on; ``history`` are the
-        previous messages of a conversation, oldest first."""
+        previous messages of a conversation, oldest first; ``depth`` the
+        delegation level (0 unless asked by another agent)."""
         project_name = project_name or definition.project_name
         require_usable_model(self._store_service, definition.model)
         client = self._chat_service.get_client(definition.model)
-        tools = build_tools(definition.tool_names, ToolContext(project_name=project_name, git=self._git_service))
+        context = ToolContext(project_name=project_name, git=self._git_service, agents=self, depth=depth)
+        tools = build_tools(definition.tool_names, context)
         agent = AgentFactory.create_agent(definition, client, tools)
         prices = self._store_service.get_price_list()
 

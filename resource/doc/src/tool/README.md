@@ -1,11 +1,12 @@
 # `src/tool`
 
-I tool che un agente può chiamare durante una run. Due tool di esempio, uno per tipo:
+I tool che un agente può chiamare durante una run:
 
 | Tool | Tipo | Cosa fa |
 |---|---|---|
-| `hello_world` | **statico**: non usa nulla della run | saluta il nome che riceve |
-| `git_status` | **con contesto**: usa i service e il progetto della run | branch, push/pull e file modificati di un repository del progetto |
+| `hello_world` | **statico**: non usa nulla della run | saluta il nome che riceve (esempio) |
+| `git_status` | **con contesto**: usa i service e il progetto della run | branch, push/pull e file modificati di un repository del progetto (esempio) |
+| `ask_agent` | **con contesto** | delega una domanda a un altro agente e ne riporta la risposta |
 
 ```
 src/tool/
@@ -14,6 +15,8 @@ src/tool/
   context.py            ToolContext: quello che un tool può usare durante la run
   list/
     hello_world.py      esempio statico
+    agent/
+      ask_agent.py      delega a un altro agente
     git/
       git_status.py     esempio con contesto
       params.py         argomenti dei tool git come li vede il modello
@@ -39,11 +42,23 @@ run:    AgentService ──build_tools(nomi, ToolContext)──► tool datapizz
 Creato da `AgentService` per ogni run:
 
 - `project_name`: il progetto della run (`None` fuori da un progetto);
-- i service che i tool possono usare (oggi `git`).
+- i service che i tool possono usare: `git`, e `agents` (`AgentService`, per la delega);
+- `depth`: il livello di delega della run (0 = chiesta dall'utente, 1 = chiesta da un altro agente).
 
 `require_project()` restituisce il progetto o solleva un `ValidationError`: per i tool che hanno senso solo dentro un progetto.
 
 **Il progetto lo decide la run, non il modello**: `git_status` riceve dal modello solo `repository`, e lo cerca sempre dentro il progetto della run. Un agente di un progetto non può leggere i repository di un altro.
+
+## Delega: `ask_agent(agent, question)`
+
+Un agente chiede a un altro agente e riceve la sua risposta. È quello che serve a un chatbot orchestratore, che non legge le fonti ma delega agli specialisti.
+
+- **A chi può chiedere**: agli agenti del progetto della run e a quelli globali (Libreria), solo quelli che possono partire adesso (niente ruolo o prompt disattivati, modello usabile). Fuori da un progetto, solo ai globali.
+- **Come lo sa il modello**: l'elenco degli agenti disponibili, con la loro descrizione, è scritto nella descrizione del tool quando viene costruito per la run. La **descrizione di un agente** quindi conta: è quella che il modello legge per scegliere.
+- **La domanda** deve essere completa: l'agente chiamato non vede la conversazione.
+- **Run separata**: l'agente chiamato gira sullo stesso progetto ed è registrato a parte, con origine `agent` (Admin → Observability). La risposta torna come JSON `{agent, run_id, answer}`.
+- **Un solo livello**: un agente chiamato con `ask_agent` non può delegare a sua volta (`MAX_DEPTH = 1`, profondità in `ToolContext.depth`).
+- **Errori** (agente sconosciuto, con l'elenco di quelli disponibili; domanda vuota; agente che fallisce): tornano all'agente come `{"error": ...}`, la run non si interrompe.
 
 ## Errori restituiti all'agente
 
@@ -77,6 +92,7 @@ In entrambi i casi: il modello di output in `models/domain/tool.py`.
 
 - `test/unit/tool/test_registry.py`: registry per nome, ogni tool si costruisce con nome e descrizione, ordine di `build_tools`, nome sconosciuto, `require_project`.
 - `test/unit/tool/test_hello_world.py`
+- `test/unit/tool/test_ask_agent.py`: delega sullo stesso progetto con run registrata a parte, niente secondo livello di delega, agente sconosciuto, elenco degli agenti nella descrizione (solo quelli che possono partire, solo globali fuori da un progetto).
 - `test/unit/tool/test_git_tools.py`: `git_status` su un repository vero; progetto deciso dalla run, errori con i repository disponibili, percorsi fuori dal progetto, run senza progetto, schema degli argomenti. Serve `git` nel PATH.
 
 Usano `StoreService` e `GitService` sugli store in memoria di `test/conftest.py`.

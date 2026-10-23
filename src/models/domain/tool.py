@@ -9,6 +9,12 @@ class ToolErrorResponse(BaseModel):
     error: str = Field(..., description="What went wrong and how to fix the call.")
 
 
+class AskAgentResponse(BaseModel):
+    agent: str = Field(..., description="The agent that answered.")
+    run_id: str = Field(..., description="Its run, recorded on its own.")
+    answer: str = Field(..., description="Its answer.")
+
+
 class HelloWorldResponse(BaseModel):
     response: str = Field(..., description="The greeting message.")
 

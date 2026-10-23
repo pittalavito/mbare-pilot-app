@@ -12,6 +12,7 @@ from datapizza.tools import Tool
 
 from core.error import ValidationError
 from tool.context import ToolContext
+from tool.list.agent.ask_agent import ASK_AGENT
 from tool.list.git.git_status import GIT_STATUS
 from tool.list.hello_world import hello_world
 from tool.spec import ToolSpec, static
@@ -20,6 +21,7 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
     spec.name: spec
     for spec in (
         static(hello_world),
+        ASK_AGENT,
         GIT_STATUS,
     )
 }

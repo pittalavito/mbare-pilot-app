@@ -107,6 +107,8 @@ class RunOrigin(StrEnum):
     CHAT = "chat"
     PIPELINE = "pipeline"
     MANUAL = "manual"
+    AGENT = "agent"
+    """Delegated by another agent (tool ask_agent)."""
 
 
 

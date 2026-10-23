@@ -32,7 +32,7 @@ API ── controller/* ──► controller ──► domain/* ──► servic
 | `worker.py` | `WorkerStatus` (heartbeat del worker) |
 | `git.py` | `GitRepository`, `GitCommit`, `GitStatus`, `GitChange` |
 | `atlassian.py` | `AtlassianSettings` (token `SecretStr`), Jira (`JiraProject`, `JiraIssue`), Confluence (`ConfluenceSpace`, `ConfluencePage`, `ConfluenceSearchHit`), preferiti (`AtlassianFavorite`, `FavoriteKind`) |
-| `tool.py` | output dei tool degli agenti, uno per tool |
+| `tool.py` | output dei tool degli agenti, uno per tool (`AskAgentResponse`, `GitStatusResponse`, …) |
 
 Tipi condivisi: `Name` (`agent.py`: stringa obbligatoria, ripulita, max 100) e `ModelKey` (`chat.py`: validata come `fornitore/modello`).
 
