@@ -14,7 +14,7 @@ src/domain/store/db/
   tool_repository.py          catalogo dei tool
   chat_model_repository.py    catalogo dei modelli LLM
   chatbot_repository.py       chatbot, conversazioni, messaggi
-  pipeline_repository.py      automation, step, run (anche coda del worker), step delle run
+  pipeline_repository.py      automation, step, collegamenti del grafo, run (anche coda del worker), step delle run
   run_repository.py           run degli agenti e loro tool call
   store.py                    punto unico di import + Adapter (lettura) e Factory (scrittura)
 ```

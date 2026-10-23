@@ -6,7 +6,7 @@ from sqlalchemy.engine import Engine
 from sqlmodel import col, select
 
 from domain.store.db.repository import SqlRepository
-from models.store.db import PipelineRunTable, PipelineStepRunTable, PipelineStepTable, PipelineTable
+from models.store.db import PipelineEdgeTable, PipelineRunTable, PipelineStepRunTable, PipelineStepTable, PipelineTable
 
 
 class DbPipelineRepository(SqlRepository[PipelineTable]):
@@ -97,3 +97,25 @@ class DbPipelineStepRunRepository(SqlRepository[PipelineStepRunTable]):
         )
         with self._session() as session:
             return list(session.exec(statement).all())
+
+
+class DbPipelineEdgeRepository(SqlRepository[PipelineEdgeTable]):
+
+    def __init__(self, engine: Engine):
+        super().__init__(engine, PipelineEdgeTable)
+
+    def list_for_pipeline(self, pipeline_id: int) -> list[PipelineEdgeTable]:
+        statement = select(PipelineEdgeTable).where(PipelineEdgeTable.pipeline_id == pipeline_id).order_by(PipelineEdgeTable.id)
+        with self._session() as session:
+            return list(session.exec(statement).all())
+
+    def replace(self, pipeline_id: int, rows: list[PipelineEdgeTable]) -> list[PipelineEdgeTable]:
+        """Make ``rows`` the pipeline's edges, in one transaction."""
+        with self._session() as session:
+            for existing in session.exec(select(PipelineEdgeTable).where(PipelineEdgeTable.pipeline_id == pipeline_id)):
+                session.delete(existing)
+            session.add_all(rows)
+            session.commit()
+            for row in rows:
+                session.refresh(row)
+            return list(rows)

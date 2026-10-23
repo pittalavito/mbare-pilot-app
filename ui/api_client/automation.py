@@ -1,7 +1,7 @@
 """Automation endpoints, typed: pipelines, their runs and the functions a
 FUNCTION step can call."""
 from api_client.http import ApiClient, segment
-from api_client.models import Function, Pipeline, PipelineRun, Step, Worker
+from api_client.models import Edge, Function, Pipeline, PipelineRun, Step, Worker
 
 
 class AutomationApi:
@@ -12,12 +12,15 @@ class AutomationApi:
     def pipelines(self, project: str) -> list[Pipeline]:
         return [Pipeline.model_validate(item) for item in self._client.get(f"/projects/{segment(project)}/pipelines")]
 
-    def create_pipeline(self, project: str, name: str, description: str, active: bool, steps: list[Step]) -> Pipeline:
-        body = _body(name, description, active, steps)
+    def create_pipeline(self, project: str, name: str, description: str, active: bool, steps: list[Step],
+                        edges: list[Edge] | None = None) -> Pipeline:
+        """``edges`` None or empty = the chain of the steps."""
+        body = _body(name, description, active, steps, edges)
         return Pipeline.model_validate(self._client.post(f"/projects/{segment(project)}/pipelines", json=body))
 
-    def update_pipeline(self, pipeline_id: int, name: str, description: str, active: bool, steps: list[Step]) -> Pipeline:
-        body = _body(name, description, active, steps)
+    def update_pipeline(self, pipeline_id: int, name: str, description: str, active: bool, steps: list[Step],
+                        edges: list[Edge] | None = None) -> Pipeline:
+        body = _body(name, description, active, steps, edges)
         return Pipeline.model_validate(self._client.put(f"/pipelines/{pipeline_id}", json=body))
 
     def delete_pipeline(self, pipeline_id: int) -> None:
@@ -42,6 +45,6 @@ class AutomationApi:
         return [Function.model_validate(item) for item in self._client.get("/functions")]
 
 
-def _body(name: str, description: str, active: bool, steps: list[Step]) -> dict:
+def _body(name: str, description: str, active: bool, steps: list[Step], edges: list[Edge] | None) -> dict:
     return {"name": name, "description": description, "active": active,
-            "steps": [step.model_dump() for step in steps]}
+            "steps": [step.model_dump() for step in steps], "edges": [edge.model_dump() for edge in edges or []]}

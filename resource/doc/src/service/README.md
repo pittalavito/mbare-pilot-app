@@ -39,7 +39,8 @@ worker ──► PipelineRunner.run_next ──► claim (running) ──► ste
                                                          └─ FUNCTION       → function/ (senza LLM)
 ```
 
-- **`PipelineService`**: crea e modifica le automation validando ogni step (modello usabile, tool esistenti, agente della Libreria o del progetto, funzione e parametri validi), mette le run in coda, cancella lo storico, riceve l'heartbeat dei worker (`heartbeat`, `workers`, `worker_stopped`).
+- **Automation a grafo**: gli step sono i **nodi**, i **collegamenti** dicono quale output entra in quale step e a quale condizione. Ogni grafo parte dal nodo `input` (l'input della run). Un collegamento ha una condizione sul testo dell'output di partenza: `always`, `contains` / `not_contains` (testo, senza maiuscole), `matches` (regex), `otherwise` (nessuna delle altre condizioni dello stesso nodo). Le regole stanno in `domain/pipeline/graph.py`: nomi unici e diversi da `input`, niente cicli, ogni step raggiungibile da `input`, al massimo un `otherwise` per nodo e solo accanto a condizioni sul testo, `{nodo:Nome}` solo per uno step che precede. Un'automation salvata **senza collegamenti** è la catena dei suoi step, nell'ordine.
+- **`PipelineService`**: crea e modifica le automation validando ogni step e il grafo (modello usabile, tool esistenti, agente della Libreria o del progetto, funzione e parametri validi), mette le run in coda, cancella lo storico, riceve l'heartbeat dei worker (`heartbeat`, `workers`, `worker_stopped`).
 - **`PipelineRunner`**: prende la run più vecchia in coda, esegue gli step in ordine (l'output di uno diventa l'input del successivo tramite il template con `{input}` e `{pipeline_input}`), registra ogni step e si ferma al primo che fallisce. All'avvio del worker segna come fallite le run rimaste a metà (`fail_interrupted`).
 
 ## Agenti

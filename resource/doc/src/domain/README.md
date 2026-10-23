@@ -7,6 +7,7 @@ src/domain/
   chat/       client LLM per modello del catalogo, costi, catalogo di default
   agent/      costruzione degli agenti, tracing di token e costi
   client/     client git e Atlassian
+  pipeline/   regole del grafo delle automation (validazione, ordine di esecuzione)
   project/    percorsi dei dati e navigazione delle cartelle
   store/      repository su Postgres, Redis e file
 ```

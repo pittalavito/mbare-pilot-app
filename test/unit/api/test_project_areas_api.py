@@ -154,6 +154,33 @@ def test_pipeline_crud_and_runs(client):
     assert client.delete(f"/pipelines/{pipeline['id']}").status_code == 204
 
 
+def test_pipeline_graph_over_the_api(client):
+    agent = {"system_prompt": "Fai.", "model": MODEL}
+    body = _pipeline_body(name="Grafo", steps=[
+        {"name": "Check", "kind": "agent", "input_template": "{input}", "agent": agent, "position_x": 40, "position_y": 80},
+        {"name": "Pull", "kind": "agent", "input_template": "{input}", "agent": agent},
+        {"name": "Avvisa", "kind": "agent", "input_template": "{input}", "agent": agent},
+    ])
+    body["edges"] = [
+        {"source": "input", "target": "Check"},
+        {"source": "Check", "target": "Pull", "condition": "contains", "value": "OK"},
+        {"source": "Check", "target": "Avvisa", "condition": "otherwise"},
+    ]
+
+    created = client.post("/projects/acme/pipelines", json=body)
+
+    assert created.status_code == 201, created.text
+    pipeline = created.json()
+    assert [(e["source"], e["target"], e["condition"]) for e in pipeline["edges"]] == [
+        ("input", "Check", "always"), ("Check", "Pull", "contains"), ("Check", "Avvisa", "otherwise"),
+    ]
+    assert (pipeline["steps"][0]["position_x"], pipeline["steps"][0]["position_y"]) == (40, 80)
+    broken = {**body, "name": "Rotto", "edges": body["edges"][:1]}
+    assert client.post("/projects/acme/pipelines", json=broken).status_code == 400
+    assert client.post("/projects/acme/pipelines", json={**body, "name": "X", "edges": [
+        {"source": "input", "target": "Check", "condition": "boh"}]}).status_code == 422
+
+
 def test_functions_describe_their_params(client):
     functions = {f["name"]: f for f in client.get("/functions").json()}
 

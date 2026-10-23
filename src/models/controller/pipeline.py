@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from function.spec import FunctionSpec
-from models.domain.pipeline import Pipeline, PipelineRun, PipelineStep
+from models.domain.pipeline import EdgeConditionKind, Pipeline, PipelineEdge, PipelineRun, PipelineStep
 from models.domain.worker import WorkerStatus
 
 
@@ -29,9 +29,25 @@ class StepBody(BaseModel):
     agent_config_name: str | None = None
     function_name: str | None = None
     params: dict[str, Any] = Field(default_factory=dict)
+    position_x: float = 0.0
+    position_y: float = 0.0
+    """Where the node is drawn in the graph editor."""
 
     def to_step(self) -> PipelineStep:
         return PipelineStep.model_validate(self.model_dump())
+
+
+class EdgeBody(BaseModel):
+    """An edge of the graph, both ways."""
+    source: str
+    """A step name, or ``input``."""
+    target: str
+    condition: EdgeConditionKind = EdgeConditionKind.ALWAYS
+    """``always`` | ``contains`` | ``not_contains`` | ``matches`` | ``otherwise``."""
+    value: str = ""
+
+    def to_edge(self) -> PipelineEdge:
+        return PipelineEdge.model_validate(self.model_dump())
 
 
 class PipelineResponse(BaseModel):
@@ -41,6 +57,7 @@ class PipelineResponse(BaseModel):
     description: str
     active: bool
     steps: list[StepBody]
+    edges: list[EdgeBody]
 
     @classmethod
     def from_pipeline(cls, pipeline: Pipeline) -> "PipelineResponse":
@@ -53,6 +70,8 @@ class PipelineRequest(BaseModel):
     description: str = ""
     active: bool = True
     steps: list[StepBody] = Field(default_factory=list)
+    edges: list[EdgeBody] = Field(default_factory=list)
+    """Empty = the chain of the steps, in their order."""
 
 
 class StepRunResponse(BaseModel):

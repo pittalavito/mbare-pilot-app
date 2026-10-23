@@ -11,6 +11,7 @@ from domain.store.db.atlassian_favorite_repository import DbAtlassianFavoriteRep
 from domain.store.db.atlassian_repository import DbAtlassianRepository
 from domain.store.db.chatbot_repository import DbChatbotRepository, DbConversationRepository, DbMessageRepository
 from domain.store.db.pipeline_repository import (
+    DbPipelineEdgeRepository,
     DbPipelineRepository,
     DbPipelineRunRepository,
     DbPipelineStepRepository,
@@ -37,7 +38,10 @@ from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, Favori
 from models.domain.chat import ChatModel, EmbeddingModelName
 from models.domain.chatbot import ChatMessage, Chatbot, Conversation, MessageRole
 from models.domain.pipeline import (
+    INPUT_NODE,
+    EdgeConditionKind,
     Pipeline,
+    PipelineEdge,
     PipelineRun,
     PipelineStep,
     PipelineStepRun,
@@ -55,6 +59,7 @@ from models.store.db import (
     ConversationTable,
     MessageTable,
     ChatModelTable,
+    PipelineEdgeTable,
     PipelineRunTable,
     PipelineStepRunTable,
     PipelineStepTable,
@@ -74,6 +79,7 @@ __all__ = [
     "DbChatbotRepository",
     "DbConversationRepository",
     "DbMessageRepository",
+    "DbPipelineEdgeRepository",
     "DbPipelineRepository",
     "DbPipelineRunRepository",
     "DbPipelineStepRepository",
@@ -216,7 +222,9 @@ class Adapter:
         )
 
     @staticmethod
-    def to_pipeline(row: PipelineTable, step_rows: list[PipelineStepTable]) -> Pipeline:
+    def to_pipeline(row: PipelineTable, step_rows: list[PipelineStepTable],
+                    edge_rows: list[PipelineEdgeTable] | None = None) -> Pipeline:
+        names = {step_row.id: step_row.name for step_row in step_rows}
         return Pipeline(
             id=row.id,
             project_name=row.project_name,
@@ -224,6 +232,15 @@ class Adapter:
             description=row.description,
             active=row.active,
             steps=[Adapter.to_pipeline_step(step_row) for step_row in step_rows],
+            edges=[
+                PipelineEdge(
+                    source=INPUT_NODE if edge_row.source_step_id is None else names[edge_row.source_step_id],
+                    target=names[edge_row.target_step_id],
+                    condition=EdgeConditionKind(edge_row.condition), value=edge_row.value,
+                )
+                for edge_row in edge_rows or []
+                if edge_row.target_step_id in names and (edge_row.source_step_id is None or edge_row.source_step_id in names)
+            ],
             created_at=_as_utc(row.created_at),
             updated_at=_as_utc(row.updated_at),
         )
@@ -249,6 +266,8 @@ class Adapter:
             agent_config_name=row.agent_config_name,
             function_name=row.function_name,
             params=dict(row.params),
+            position_x=row.position_x,
+            position_y=row.position_y,
         )
 
     @staticmethod
@@ -298,7 +317,7 @@ class Factory:
 
     @staticmethod
     def to_pipeline_row(pipeline: Pipeline) -> PipelineTable:
-        return PipelineTable(**pipeline.model_dump(exclude={"steps"}))
+        return PipelineTable(**pipeline.model_dump(exclude={"steps", "edges"}))
 
     @staticmethod
     def to_pipeline_step_row(step: PipelineStep, pipeline_id: int, position: int) -> PipelineStepTable:
@@ -318,6 +337,19 @@ class Factory:
             agent_config_name=step.agent_config_name,
             function_name=step.function_name,
             params=dict(step.params),
+            position_x=step.position_x,
+            position_y=step.position_y,
+        )
+
+    @staticmethod
+    def to_pipeline_edge_row(edge: PipelineEdge, pipeline_id: int, step_ids: dict[str, int]) -> PipelineEdgeTable:
+        """``step_ids``: the saved steps' ids by name."""
+        return PipelineEdgeTable(
+            pipeline_id=pipeline_id,
+            source_step_id=None if edge.source == INPUT_NODE else step_ids[edge.source],
+            target_step_id=step_ids[edge.target],
+            condition=edge.condition.value,
+            value=edge.value,
         )
 
     @staticmethod

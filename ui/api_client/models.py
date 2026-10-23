@@ -169,6 +169,17 @@ class Step(BaseModel):
     agent_config_name: str | None = None
     function_name: str | None = None
     params: dict[str, Any] = {}
+    position_x: float = 0.0
+    position_y: float = 0.0
+
+
+class Edge(BaseModel):
+    source: str
+    """A step name, or ``input``."""
+    target: str
+    condition: str = "always"
+    """``always`` | ``contains`` | ``not_contains`` | ``matches`` | ``otherwise``."""
+    value: str = ""
 
 
 class Pipeline(BaseModel):
@@ -178,6 +189,7 @@ class Pipeline(BaseModel):
     description: str
     active: bool
     steps: list[Step]
+    edges: list[Edge] = []
 
 
 class StepRun(BaseModel):

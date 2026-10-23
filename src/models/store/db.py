@@ -5,7 +5,7 @@ Schema overview (project-centric):
   project ─┬─ project_atlassian, atlassian_favorite         (Jira + Confluence site, favorites)
            ├─ agent_role / system_prompt / agent_config   (project_name NULL = global)
            ├─ chatbot (with its own agent) ── conversation ── message
-           ├─ pipeline ── pipeline_step
+           ├─ pipeline ── pipeline_step, pipeline_edge (graph)
            │      └── pipeline_run (also the worker queue) ── pipeline_step_run
            ├─ document ── chunk (pgvector embedding)
            └─ agent_run ── tool_call                        (+ verbatim trace in Redis)
@@ -187,7 +187,7 @@ class MessageTable(SQLModel, table=True):
 # ---------------------------------------------------------------- pipelines
 
 class PipelineTable(SQLModel, table=True):
-    """A linear automation: steps run in order, each output feeds the next."""
+    """An automation: a graph of steps (pipeline_step) and edges (pipeline_edge)."""
     __tablename__ = "pipeline"
     __table_args__ = (UniqueConstraint("project_name", "name"),)
 
@@ -221,6 +221,23 @@ class PipelineStepTable(SQLModel, table=True):
     """Plain column, no FK: a deleted Library agent makes the step fail with a clear error."""
     function_name: str | None = None
     params: dict = Field(default_factory=dict, sa_type=JSON)
+    position_x: float = 0.0
+    position_y: float = 0.0
+    """Where the node is drawn in the graph editor."""
+
+
+class PipelineEdgeTable(SQLModel, table=True):
+    """An edge of a pipeline's graph: the output of ``source_step_id`` (NULL =
+    the run input) feeds ``target_step_id`` when ``condition`` holds."""
+    __tablename__ = "pipeline_edge"
+
+    id: int | None = Field(default=None, primary_key=True)
+    pipeline_id: int = Field(foreign_key="pipeline.id", index=True, ondelete="CASCADE")
+    source_step_id: int | None = Field(default=None, foreign_key="pipeline_step.id", ondelete="CASCADE")
+    target_step_id: int = Field(foreign_key="pipeline_step.id", ondelete="CASCADE")
+    condition: str = "always"
+    """EdgeConditionKind value."""
+    value: str = ""
 
 
 class PipelineRunTable(SQLModel, table=True):

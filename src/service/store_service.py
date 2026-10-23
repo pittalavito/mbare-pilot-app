@@ -21,6 +21,7 @@ from domain.store.db.store import (
     DbChatbotRepository,
     DbConversationRepository,
     DbMessageRepository,
+    DbPipelineEdgeRepository,
     DbPipelineRepository,
     DbPipelineRunRepository,
     DbPipelineStepRepository,
@@ -75,6 +76,7 @@ class StoreService:
         self._message_repository = DbMessageRepository(engine)
         self._pipeline_repository = DbPipelineRepository(engine)
         self._pipeline_step_repository = DbPipelineStepRepository(engine)
+        self._pipeline_edge_repository = DbPipelineEdgeRepository(engine)
         self._pipeline_run_repository = DbPipelineRunRepository(engine)
         self._pipeline_step_run_repository = DbPipelineStepRunRepository(engine)
         self._traces_repository = RedisTraceRepository(redis_client)
@@ -261,17 +263,23 @@ class StoreService:
         return self._with_steps(row) if row else None
 
     def save_pipeline(self, pipeline: Pipeline) -> Pipeline:
-        """The pipeline and exactly its steps, in their order."""
+        """The pipeline and exactly its steps (in their order) and edges."""
         row = self._pipeline_repository.save(DbFactory.to_pipeline_row(pipeline))
         step_rows = [DbFactory.to_pipeline_step_row(step, row.id, position) for position, step in enumerate(pipeline.steps)]
-        return DbAdapter.to_pipeline(row, self._pipeline_step_repository.replace(row.id, step_rows))
+        saved_steps = self._pipeline_step_repository.replace(row.id, step_rows)
+        step_ids = {step_row.name: step_row.id for step_row in saved_steps}
+        edge_rows = [DbFactory.to_pipeline_edge_row(edge, row.id, step_ids) for edge in pipeline.edges]
+        return DbAdapter.to_pipeline(row, saved_steps, self._pipeline_edge_repository.replace(row.id, edge_rows))
 
     def delete_pipeline(self, pipeline_id: int) -> bool:
         """Its steps and runs go with it (DB cascade)."""
         return self._pipeline_repository.delete(pipeline_id)
 
     def _with_steps(self, row) -> Pipeline:
-        return DbAdapter.to_pipeline(row, self._pipeline_step_repository.list_for_pipeline(row.id))
+        return DbAdapter.to_pipeline(
+            row, self._pipeline_step_repository.list_for_pipeline(row.id),
+            self._pipeline_edge_repository.list_for_pipeline(row.id),
+        )
 
     def save_pipeline_run(self, run: PipelineRun) -> PipelineRun:
         """The run only (its steps are saved one by one with ``save_pipeline_step_run``)."""

@@ -28,7 +28,7 @@ API ── controller/* ──► controller ──► domain/* ──► servic
 | `agent.py` | definizione: `AgentRole` → `SystemPrompt` (versioni immutabili) → `AgentConfig` (prompt + modello + tool); `AgentDefinition` (quello che serve per eseguire un agente, da config o da chatbot); run: `AgentRunRecord`, `RunTelemetry`, `TokenSummary`, `AgentRunSummary`, `ToolCallSummary` |
 | `chat.py` | catalogo LLM: `ModelProvider`, `ChatModel` (prezzo per 1M token), `ModelKey` (`fornitore/modello`), `EmbeddingModelName` |
 | `chatbot.py` | `Chatbot` (con il suo agente), `Conversation`, `ChatMessage`, `MessageRole` |
-| `pipeline.py` | automation: `Pipeline`, `PipelineStep` (`AGENT`, `AGENT_CONFIG`, `FUNCTION`), `StepAgent`; esecuzioni: `PipelineRun`, `PipelineStepRun`, `RunStatus`; placeholder `{input}` e `{pipeline_input}` |
+| `pipeline.py` | automation a grafo: `Pipeline` (step + collegamenti), `PipelineStep` (`AGENT`, `AGENT_CONFIG`, `FUNCTION`, con la posizione nel grafo), `PipelineEdge` con `EdgeConditionKind`, `StepAgent`; esecuzioni: `PipelineRun`, `PipelineStepRun`, `RunStatus`; placeholder `{input}`, `{pipeline_input}`, `{nodo:Nome}`; il nodo `input` |
 | `worker.py` | `WorkerStatus` (heartbeat del worker) |
 | `masking.py` | `MaskCategory` (repository, persona, email, termine), `MaskEntry` (valore ↔ alias) |
 | `backup.py` | `BackupFile` (export del DB) |

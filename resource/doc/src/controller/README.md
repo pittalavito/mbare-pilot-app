@@ -47,6 +47,7 @@ Documentazione interattiva con tutti gli endpoint: `http://<API_URL>/docs` (Swag
 - **Errori**: i controller non li gestiscono. Un `AppError` sollevato da un service diventa lo status HTTP giusto in `core/app.py` (404, 400, 409, 502) con il messaggio in `detail`; i dati rifiutati da un modello di dominio diventano 400; un body malformato è il 422 di FastAPI.
 - **Nomi negli URL**: i nomi dei progetti e degli agenti finiscono nei path, quindi non possono contenere `/` o `\`.
 - **File**: l'upload è il body grezzo di un `PUT` (niente multipart), il download restituisce i byte.
+- **Automation**: `steps` + `edges` (`source`, `target`, `condition`, `value`; `source` può essere `input`); `edges` vuoto = la catena degli step.
 - **Streaming**: non ancora. `POST /conversations/{id}/messages` aspetta la risposta intera dell'agente.
 
 ## Aggiungere un endpoint

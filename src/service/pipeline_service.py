@@ -1,14 +1,16 @@
-"""A project's automations: pipelines of ordered steps (own agent, Library
-agent or function), validated on save, and their runs. ``enqueue`` only puts a
-run in the queue: the worker (PipelineRunner) executes it."""
+"""A project's automations: graphs of steps (own agent, Library agent or
+function) joined by edges with conditions, validated on save, and their runs.
+``enqueue`` only puts a run in the queue: the worker (PipelineRunner) executes it.
+An automation saved without edges is the chain of its steps, in their order."""
 from datetime import datetime, timezone
 
 from core.error import ConflictError, NotFoundError, ValidationError
 from core.observability import LogPrefix, observed
+from domain.pipeline.graph import linear_edges, validate_graph
 from function.registry import FUNCTION_REGISTRY, get_function
 from function.spec import FunctionSpec
 from models.domain.agent import AgentConfig, ToolInfo
-from models.domain.pipeline import Pipeline, PipelineRun, PipelineStep, RunStatus, StepKind
+from models.domain.pipeline import Pipeline, PipelineEdge, PipelineRun, PipelineStep, RunStatus, StepKind
 from models.domain.worker import WorkerStatus
 from service.agent_config_service import AgentConfigService
 from service.model_service import require_usable_model
@@ -46,15 +48,15 @@ class PipelineService:
     @observed(LogPrefix.PIPELINE_SERVICE)
     def create_pipeline(
         self, project_name: str, name: str, *, description: str = "", active: bool = True,
-        steps: list[PipelineStep] | None = None,
+        steps: list[PipelineStep] | None = None, edges: list[PipelineEdge] | None = None,
     ) -> Pipeline:
+        """``edges`` empty = the chain of ``steps`` in their order."""
         if self._store.get_project(project_name) is None:
             raise NotFoundError(f"Progetto non trovato: {project_name}")
-        # Steps go in as dicts: after a Streamlit hot reload the caller's
-        # PipelineStep class is not this module's, and pydantic rejects it.
+        steps = [step.model_copy(update={"id": None}) for step in steps or []]
         pipeline = Pipeline(
             project_name=project_name, name=name, description=description.strip(), active=active,
-            steps=[{**step.model_dump(), "id": None} for step in steps or []],
+            steps=[step.model_dump() for step in steps], edges=[edge.model_dump() for edge in edges or linear_edges(steps)],
         )
         self._validate(pipeline)
         return self._store.save_pipeline(pipeline)
@@ -62,16 +64,19 @@ class PipelineService:
     @observed(LogPrefix.PIPELINE_SERVICE)
     def update_pipeline(
         self, pipeline_id: int, *, name: str, description: str = "", active: bool = True,
-        steps: list[PipelineStep] | None = None,
+        steps: list[PipelineStep] | None = None, edges: list[PipelineEdge] | None = None,
     ) -> Pipeline:
         """Everything but the project. Steps keep their id to be updated, the
-        others are added, the missing ones removed. An own agent whose system
-        prompt changed gets the next ``prompt_version``."""
+        others are added, the missing ones removed; the edges are replaced
+        (empty = the chain of the steps). An own agent whose system prompt
+        changed gets the next ``prompt_version``."""
         current = self.get_pipeline(pipeline_id)
+        steps = steps or []
         pipeline = Pipeline.model_validate({
-            **current.model_dump(exclude={"steps"}),
+            **current.model_dump(exclude={"steps", "edges"}),
             "name": name, "description": description.strip(), "active": active,
-            "steps": [step.model_dump() for step in _versioned(current.steps, steps or [])],
+            "steps": [step.model_dump() for step in _versioned(current.steps, steps)],
+            "edges": [edge.model_dump() for edge in edges or linear_edges(steps)],
             "updated_at": datetime.now(timezone.utc),
         })
         self._validate(pipeline)
@@ -159,6 +164,7 @@ class PipelineService:
                     get_function(step.function_name).validate_params(step.params)
                 except ValidationError as exc:
                     raise ValidationError(f"{label}: {exc}") from exc
+        validate_graph(pipeline.steps, pipeline.edges)
 
 
 def _versioned(current: list[PipelineStep], steps: list[PipelineStep]) -> list[PipelineStep]:
