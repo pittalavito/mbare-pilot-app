@@ -11,6 +11,7 @@ src/
   domain/               → src/domain/README.md  integrazioni esterne e regole di dominio
     chat/               → src/domain/chat/README.md   client LLM, costi, catalogo di default
     agent/              → src/domain/agent/README.md  costruzione agenti, token e costi delle run
+    project/            → src/domain/project/README.md  dati del progetto, cartelle del PC
 ```
 
 | Doc | Cosa trovi |
@@ -22,5 +23,6 @@ src/
 | [src/domain](src/domain/README.md) | i sottopackage di domain |
 | [src/domain/chat](src/domain/chat/README.md) | client per fornitore, chiave `fornitore/modello`, costi, modelli di default |
 | [src/domain/agent](src/domain/agent/README.md) | `Factory` dell'agente, memoria, tracing di token e costi, agenti di default |
+| [src/domain/project](src/domain/project/README.md) | codice vs dati del progetto, nomi di note e file, `FolderBrowser` |
 
 Una doc nuova va nella cartella che rispecchia il package (`src/<package>/README.md`) e in questo indice.
