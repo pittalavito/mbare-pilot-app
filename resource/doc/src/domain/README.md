@@ -8,7 +8,7 @@ src/domain/
   agent/      costruzione degli agenti, tracing di token e costi
   client/     client git e Atlassian (Atlassian in arrivo)
   project/    percorsi dei dati e navigazione delle cartelle
-  store/      repository su Postgres, Redis e file                    (in arrivo)
+  store/      repository su Postgres, Redis e file (Postgres e Redis in arrivo)
 ```
 
 | Doc | Cosa trovi |
@@ -17,3 +17,4 @@ src/domain/
 | [agent](agent/README.md) | costruire un agente, memoria, chi paga i token, agenti di default |
 | [project](project/README.md) | dove stanno codice e dati di un progetto, nomi validi, cartelle consentite |
 | [client/git](client/git/README.md) | comandi git in sola lettura e come vengono eseguiti |
+| [store/files](store/files/README.md) | file su disco confinati in una radice, indirizzati per `file_id` |

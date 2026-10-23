@@ -13,6 +13,7 @@ src/
     agent/              → src/domain/agent/README.md  costruzione agenti, token e costi delle run
     project/            → src/domain/project/README.md  dati del progetto, cartelle del PC
     client/git/         → src/domain/client/git/README.md  comandi git in sola lettura
+    store/files/        → src/domain/store/files/README.md  file su disco sotto una radice
 ```
 
 | Doc | Cosa trovi |
@@ -26,5 +27,6 @@ src/
 | [src/domain/agent](src/domain/agent/README.md) | `Factory` dell'agente, memoria, tracing di token e costi, agenti di default |
 | [src/domain/project](src/domain/project/README.md) | codice vs dati del progetto, nomi di note e file, `FolderBrowser` |
 | [src/domain/client/git](src/domain/client/git/README.md) | `GitClient`: log, status, come esegue git, errori |
+| [src/domain/store/files](src/domain/store/files/README.md) | `file_id`, percorsi sicuri, metodi di `LocalFileRepository` |
 
 Una doc nuova va nella cartella che rispecchia il package (`src/<package>/README.md`) e in questo indice.
