@@ -62,7 +62,7 @@ def test_automation(api):
 
     run = api.automation.enqueue(pipeline.id, "ciao")
     assert not run.finished and api.automation.runs(pipeline.id)[0].id == run.id
-    assert api.automation.waiting_too_long() is False
+    assert api.automation.workers() == []
     assert "git_log" in {spec.name for spec in api.automation.functions()}
 
 

@@ -8,6 +8,7 @@ import pytest
 
 from process_control.manager import ManagedService, ProcessManager, ServiceStatus
 from process_control.services import backend_services
+from ui_config import UiConfig
 
 _SLEEPER = [sys.executable, "-c", "import time; print('ciao', flush=True); time.sleep(60)"]
 _WITH_CHILD = [sys.executable, "-c", (
@@ -90,9 +91,26 @@ def test_health_check_decides_starting_running_and_external(manager, monkeypatch
     assert manager.status(service) is ServiceStatus.RUNNING
 
 
+def _config(**overrides) -> UiConfig:
+    return UiConfig(_env_file=None, api_url="http://127.0.0.1:8010", **overrides)
+
+
 def test_backend_services_follow_the_api_url():
-    api, worker = backend_services("http://127.0.0.1:8010")
+    api, worker = backend_services(_config())
 
     assert api.health_url == "http://127.0.0.1:8010/health"
     assert api.command[-4:] == ["--host", "127.0.0.1", "--port", "8010"]
-    assert worker.command[-1] == "src/worker.py" and worker.health_url is None
+    assert worker.command[-1] == "src/worker.py"
+    assert worker.health_url == "http://127.0.0.1:8010/workers/health"  # its heartbeat, through the API
+
+
+def test_api_reload_watches_src():
+    reloading, _ = backend_services(_config(api_reload=True))
+
+    assert reloading.command[-3:] == ["--reload", "--reload-dir", "src"]
+
+
+def test_entry_points_come_from_the_config():
+    api, worker = backend_services(_config(api_app="app:api", api_app_dir="backend", worker_script="backend/w.py"))
+
+    assert api.command[3:6] == ["app:api", "--app-dir", "backend"] and worker.command[-1] == "backend/w.py"

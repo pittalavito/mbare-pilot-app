@@ -211,6 +211,16 @@ class PipelineRun(BaseModel):
         return self.status in ("done", "failed")
 
 
+class Worker(BaseModel):
+    worker_id: str
+    host: str
+    pid: int
+    started_at: datetime
+    last_seen: datetime
+    busy_run_id: int | None
+    """None = waiting for the queue."""
+
+
 class FunctionParam(BaseModel):
     name: str
     type: str

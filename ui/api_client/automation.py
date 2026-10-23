@@ -1,7 +1,7 @@
 """Automation endpoints, typed: pipelines, their runs and the functions a
 FUNCTION step can call."""
 from api_client.http import ApiClient, segment
-from api_client.models import Function, Pipeline, PipelineRun, Step
+from api_client.models import Function, Pipeline, PipelineRun, Step, Worker
 
 
 class AutomationApi:
@@ -34,9 +34,9 @@ class AutomationApi:
     def delete_run(self, run_id: int) -> None:
         self._client.delete(f"/pipeline-runs/{run_id}")
 
-    def waiting_too_long(self) -> bool:
-        """Some run is queued for too long: the worker is probably not running."""
-        return self._client.get("/pipeline-runs/waiting")["waiting_too_long"]
+    def workers(self) -> list[Worker]:
+        """The running workers."""
+        return [Worker.model_validate(item) for item in self._client.get("/workers")]
 
     def functions(self) -> list[Function]:
         return [Function.model_validate(item) for item in self._client.get("/functions")]

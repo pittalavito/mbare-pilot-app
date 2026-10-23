@@ -71,9 +71,19 @@ def _run_form(pipeline: Pipeline, key: str) -> None:
                 st.error(str(exc))
             else:
                 st.toast("Esecuzione in coda: la esegue il worker.")
-    if api().automation.waiting_too_long():
-        st.warning("Ci sono esecuzioni in coda da più di 15 secondi: il worker è avviato? "
+    _worker_status()
+
+
+def _worker_status() -> None:
+    """Who executes the queue: the running workers, or a warning when there is none."""
+    workers = api().automation.workers()
+    if not workers:
+        st.warning("Nessun worker attivo: le esecuzioni restano in coda. "
                    "Avvialo dalla barra laterale (Backend → Worker automation).")
+        return
+    busy = [f"#{worker.busy_run_id}" for worker in workers if worker.busy_run_id is not None]
+    activity = f"esegue {', '.join(busy)}" if busy else "libero"
+    st.caption(f"🟢 {len(workers)} worker attivo{'i' if len(workers) > 1 else ''} · {activity}")
 
 
 def _runs(pipeline: Pipeline) -> None:
