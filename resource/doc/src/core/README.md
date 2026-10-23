@@ -1,15 +1,41 @@
 # `src/core`
 
-Le fondamenta del backend: errori, logging e cifratura. `error.py`, `observability.py` e `secret_box.py` non dipendono da nessun altro modulo di `src/`.
+Le fondamenta del backend: errori, logging, cifratura, e i due punti dove tutto viene montato (app FastAPI e Container). `error.py`, `observability.py` e `secret_box.py` non dipendono da nessun altro modulo di `src/`.
 
 ```
 src/core/
   error.py            AppError e sottoclassi: gli errori attesi
   observability.py    logging, LogPrefix, decoratore @observed
   secret_box.py       cifratura dei segreti salvati nel DB
-  app.py              app FastAPI (in arrivo)
-  container.py        composition root (in arrivo)
+  app.py              create_app(): l'app FastAPI, con errori → status HTTP e i router
+  container.py        Container: crea tutti i service una volta per processo
+src/
+  api.py              entry dell'API: app = create_app()
+  worker.py           entry del worker delle automation
 ```
+
+## Avvio: API e worker
+
+Due processi separati, entrambi avviati dal pannello Backend della UI (o da terminale):
+
+| Processo | Entry | Comando |
+|---|---|---|
+| API | `src/api.py` | `uvicorn api:app --app-dir src` (`API_APP`, `API_APP_DIR` nel `.env`; con `API_RELOAD=true` si riavvia da sola quando cambia `src/`) |
+| Worker | `src/worker.py` | `python src/worker.py` (`WORKER_SCRIPT`) |
+
+Ognuno costruisce il suo `Container`.
+
+## Container (`container.py`)
+
+L'unico posto che crea i service e li collega: ognuno riceve nel costruttore quelli che usa. Nient'altro crea service.
+
+- **All'avvio**: si connette a Postgres e Redis (`StoreService`), prepara lo schema e inserisce i default che mancano: prima i modelli del catalogo, poi ruoli, prompt e agenti. Quello che è stato modificato da UI non viene mai sovrascritto.
+- **Nei test**: `Container(store_service=...)` con gli store in memoria.
+- `DATAPIZZA_TRACE_SUMMARY=true` stampa in console il riepilogo di datapizza dopo ogni run.
+
+## App FastAPI (`app.py`)
+
+`create_app(container=None)`: costruisce il Container all'avvio (o usa quello passato dai test), registra la traduzione degli errori e include i [router](../controller/README.md).
 
 ## Errori (`error.py`)
 
@@ -68,4 +94,4 @@ Cambiare la chiave rende illeggibili i segreti già salvati.
 
 ## Test
 
-`test/unit/core/test_secret_box.py`: cifratura, chiave mancante o non valida.
+`test/unit/core/test_secret_box.py`: cifratura, chiave mancante o non valida. `test/unit/core/test_container.py`: riepilogo di datapizza acceso o spento dalla config, `Config.get()`/`set()`.

@@ -40,10 +40,6 @@ class Config(BaseSettings):
     # --- App ---
     app_log_level: str = "INFO"
 
-    # --- API (FastAPI backend, called by the UI in ui/) ---
-    api_host: str = "127.0.0.1"
-    api_port: int = 8000
-
     # --- Postgres ---
     database_url: str
     postgres_dashboard_port: int = 8084

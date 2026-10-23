@@ -40,4 +40,4 @@ Solo funzioni pure: decidono nomi e percorsi, non toccano il disco.
 
 ## Test
 
-`test/unit/domain/project/test_folder_browser.py`: percorsi dentro e fuori dalle radici, cartelle mancanti, ordinamento e cartelle nascoste, risalita fino alla radice, creazione. Le regole di `data_paths` sono coperte dai test di `ProjectDataService` (in arrivo con i service).
+`test/unit/domain/project/test_folder_browser.py`: percorsi dentro e fuori dalle radici, cartelle mancanti, ordinamento e cartelle nascoste, risalita fino alla radice, creazione. Le regole di `data_paths` sono coperte dai test di `ProjectDataService`.

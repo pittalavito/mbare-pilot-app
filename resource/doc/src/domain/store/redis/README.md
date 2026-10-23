@@ -52,4 +52,4 @@ Il trace letto torna come `AgentTraceRecord`: l'API lo restituisce così com'è.
 
 ## Test
 
-`test/unit/domain/store/redis/test_trace_repository.py`: salvataggio e lettura, trace mancante, valore illeggibile. Usano fakeredis tramite la fixture `redis_client` di `test/conftest.py` (in arrivo). L'heartbeat dei worker è coperto dai test di `PipelineService` (in arrivo con i service).
+`test/unit/domain/store/redis/test_trace_repository.py`: salvataggio e lettura, trace mancante, valore illeggibile. Usano fakeredis tramite la fixture `redis_client` di `test/conftest.py`. L'heartbeat dei worker è coperto dai test di `PipelineService`.

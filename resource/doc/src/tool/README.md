@@ -79,4 +79,4 @@ In entrambi i casi: il modello di output in `models/domain/tool.py`.
 - `test/unit/tool/test_hello_world.py`
 - `test/unit/tool/test_git_tools.py`: `git_status` su un repository vero; progetto deciso dalla run, errori con i repository disponibili, percorsi fuori dal progetto, run senza progetto, schema degli argomenti. Serve `git` nel PATH.
 
-Usano `StoreService` e `GitService` (in arrivo con i service).
+Usano `StoreService` e `GitService` sugli store in memoria di `test/conftest.py`.

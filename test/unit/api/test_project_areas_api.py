@@ -1,0 +1,204 @@
+"""Chat, Dati, Git, Automation, Atlassian and Admin endpoints over the
+in-memory store; agents are faked, git runs on a tmp repository."""
+import shutil
+import subprocess
+
+import pytest
+from fastapi.testclient import TestClient
+
+from core.app import create_app
+from core.container import Container
+from fakes import FakeAgent, make_run_record
+from models.domain.project import Project, ProjectSource
+from service import agent_service as agent_service_module
+
+MODEL = "openai/gpt-4o"
+
+
+@pytest.fixture
+def project_root(tmp_path):
+    root = tmp_path / "acme"
+    root.mkdir()
+    return root
+
+
+@pytest.fixture
+def client(store_service, project_root, monkeypatch):
+    store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(project_root)))
+    monkeypatch.setattr(agent_service_module.AgentFactory, "create_agent",
+                        staticmethod(lambda definition, client, tools: FakeAgent(None)))
+    container = Container(store_service=store_service)
+    monkeypatch.setattr(container.chat_service, "get_client", lambda model: object())
+    with TestClient(create_app(container)) as client:
+        yield client
+
+
+# --------------------------------------------------------------------- chat
+
+def _chatbot(client, name="Bot", **overrides) -> dict:
+    body = {"name": name, "system_prompt": "Sei l'assistente.", "model": MODEL, "tool_names": ["hello_world"]}
+    body.update(overrides)
+    response = client.post("/projects/acme/chatbots", json=body)
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def test_chatbot_crud_and_prompt_version(client):
+    bot = _chatbot(client)
+    assert [b["name"] for b in client.get("/projects/acme/chatbots").json()] == ["Bot"]
+
+    body = {"name": "Bot 2", "system_prompt": "Nuovo prompt.", "model": MODEL, "max_steps": 6}
+    updated = client.put(f"/chatbots/{bot['id']}", json=body).json()
+    assert (updated["name"], updated["prompt_version"], updated["max_steps"]) == ("Bot 2", 2, 6)
+
+    assert client.post("/projects/acme/chatbots", json={**body, "model": "nope"}).status_code == 400
+    assert client.delete(f"/chatbots/{bot['id']}").status_code == 204
+    assert client.delete(f"/chatbots/{bot['id']}").status_code == 404
+
+
+def test_conversation_send_and_messages(client):
+    bot = _chatbot(client)
+    conversation = client.post(f"/chatbots/{bot['id']}/conversations").json()
+
+    reply = client.post(f"/conversations/{conversation['id']}/messages", json={"text": "Ciao"})
+
+    assert reply.status_code == 200 and reply.json()["role"] == "assistant"
+    roles = [m["role"] for m in client.get(f"/conversations/{conversation['id']}/messages").json()]
+    assert roles == ["user", "assistant"]
+    assert client.get(f"/chatbots/{bot['id']}/conversations").json()[0]["title"] == "Ciao"
+    assert client.post(f"/conversations/{conversation['id']}/messages", json={"text": " "}).status_code == 400
+    assert client.delete(f"/conversations/{conversation['id']}").status_code == 204
+
+
+# --------------------------------------------------------------------- data
+
+def test_notes_crud(client):
+    assert client.put("/projects/acme/notes/Setup", json={"content": "# Setup"}).json()["name"] == "Setup.md"
+    assert client.get("/projects/acme/notes/Setup.md").json() == {"name": "Setup.md", "content": "# Setup"}
+    assert [n["name"] for n in client.get("/projects/acme/notes").json()] == ["Setup.md"]
+
+    assert client.delete("/projects/acme/notes/Setup").status_code == 204
+    assert client.get("/projects/acme/notes/Setup.md").status_code == 404
+    assert client.put("/projects/acme/notes/.hidden", json={"content": ""}).status_code == 400
+
+
+def test_files_upload_download_delete(client):
+    data = bytes(range(256))
+    uploaded = client.put("/projects/acme/files/report.bin", content=data).json()
+    assert (uploaded["name"], uploaded["kind"], uploaded["size"]) == ("report.bin", "file", 256)
+
+    assert client.get("/projects/acme/files/report.bin").content == data
+    assert [f["name"] for f in client.get("/projects/acme/files").json()] == ["report.bin"]
+    assert client.delete("/projects/acme/files/report.bin").status_code == 204
+    assert client.get("/projects/acme/files/report.bin").status_code == 404
+
+
+# ---------------------------------------------------------------------- git
+
+def _git(cwd, *args):
+    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
+def test_git_repositories_log_and_status(client, project_root):
+    repo = project_root / "api"
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    _git(repo, "config", "user.name", "Ada")
+    _git(repo, "config", "user.email", "ada@example.com")
+    (repo / "main.py").write_text("print()", encoding="utf-8")
+    _git(repo, "add", "main.py")
+    _git(repo, "commit", "-q", "-m", "first")
+    (repo / "new.py").write_text("", encoding="utf-8")
+
+    assert client.get("/projects/acme/git/repositories").json() == [{"path": "api", "name": "api"}]
+    [commit] = client.get("/projects/acme/git/log", params={"path": "api"}).json()
+    assert (commit["subject"], commit["author"]) == ("first", "Ada")
+    status = client.get("/projects/acme/git/status", params={"path": "api"}).json()
+    assert not status["is_clean"] and status["changes"][0]["kind"] == "untracked"
+    assert client.get("/projects/acme/git/log", params={"path": "api", "commit": "zz"}).status_code == 400
+
+
+# --------------------------------------------------------------- automation
+
+def _pipeline_body(**overrides) -> dict:
+    body = {"name": "Flow", "description": "", "active": True, "steps": [
+        {"name": "Scrivi", "kind": "agent", "input_template": "{input}",
+         "agent": {"system_prompt": "Scrivi.", "model": MODEL, "max_steps": 4, "tool_names": []}},
+        {"name": "Nota", "kind": "function", "input_template": "{input}", "function_name": "save_note",
+         "params": {"title": "Report"}},
+    ]}
+    body.update(overrides)
+    return body
+
+
+def test_pipeline_crud_and_runs(client):
+    created = client.post("/projects/acme/pipelines", json=_pipeline_body())
+    assert created.status_code == 201, created.text
+    pipeline = created.json()
+    assert [s["kind"] for s in pipeline["steps"]] == ["agent", "function"]
+    assert pipeline["steps"][1]["params"]["title"] == "Report"
+
+    renamed = client.put(f"/pipelines/{pipeline['id']}", json=_pipeline_body(name="Flow 2")).json()
+    assert renamed["name"] == "Flow 2"
+    assert client.post("/projects/acme/pipelines", json=_pipeline_body(name="Flow 2")).status_code == 409
+
+    run = client.post(f"/pipelines/{pipeline['id']}/runs", json={"input": "ciao"}).json()
+    assert (run["status"], run["input"]) == ("queued", "ciao")
+    assert [r["id"] for r in client.get(f"/pipelines/{pipeline['id']}/runs").json()] == [run["id"]]
+    assert client.get("/workers").json() == [] and client.get("/workers/health").status_code == 503
+    assert client.delete(f"/pipeline-runs/{run['id']}").status_code == 204
+    assert client.delete(f"/pipelines/{pipeline['id']}").status_code == 204
+
+
+def test_functions_describe_their_params(client):
+    functions = {f["name"]: f for f in client.get("/functions").json()}
+
+    [title] = functions["save_note"]["params"]
+    assert (title["name"], title["type"], title["default"]) == ("title", "str", "Automation {date} {time}")
+    assert [p["name"] for p in functions["git_status"]["params"]] == ["repository"]
+
+
+# ---------------------------------------------------------------- atlassian
+
+def test_atlassian_settings_never_return_the_token(client):
+    assert client.get("/projects/acme/atlassian").json() is None
+    body = {"base_url": "https://acme.atlassian.net", "email": "a@b.it", "api_token": "secret"}
+
+    saved = client.put("/projects/acme/atlassian", json=body).json()
+
+    assert saved["has_token"] and "secret" not in str(saved)
+    kept = client.put("/projects/acme/atlassian", json={**body, "api_token": ""}).json()
+    assert kept["has_token"]
+    assert client.put("/projects/acme/atlassian", json={**body, "base_url": "x"}).status_code == 400
+    assert client.delete("/projects/acme/atlassian").status_code == 204
+    assert client.post("/projects/acme/atlassian/check").status_code == 400
+
+
+# -------------------------------------------------------------------- admin
+
+def test_config_is_masked(client):
+    config = client.get("/admin/config").json()
+
+    assert config["settings"]["openai_api_key"] != "test"
+    assert config["redis_dashboard_port"] == 8083
+
+
+def test_observability(client, store_service):
+    store_service.save_run(make_run_record("run-1"))
+
+    [run] = client.get("/observability/runs").json()
+    assert (run["run_id"], run["total_tokens"]["input_tokens"]) == ("run-1", 150)
+    assert client.get("/observability/runs/run-1/trace").json()["output"] == "Hello, Mario!"
+    assert client.get("/observability/runs/missing/trace").status_code == 404
+    assert client.get("/observability/tool-calls").json()[0]["tool_name"] == "hello_world"
+
+
+def test_model_catalog_marks_and_protects_models_in_use(client):
+    catalog = client.get("/models").json()
+    in_use = next(m for m in catalog if m["in_use"])  # the default agent's model
+
+    assert client.put("/models", json=[m for m in catalog if m is not in_use]).status_code == 409
+    toggled = [{**m, "active": False} if m is in_use else m for m in catalog]
+    saved = client.put("/models", json=toggled).json()
+    assert next(m for m in saved if m["model"] == in_use["model"])["active"] is False

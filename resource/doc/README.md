@@ -20,13 +20,14 @@ src/
   tool/                 → src/tool/README.md    tool degli agenti: registry, contesto, esempi
   function/             → src/function/README.md  funzioni degli step delle automation
   service/              → src/service/README.md   servizi applicativi e motore delle automation
+  controller/           → src/controller/README.md  API HTTP: endpoint e convenzioni
 ```
 
 | Doc | Cosa trovi |
 |---|---|
 | [ui](ui/README.md) | struttura della UI, come aggiungere una pagina, convenzioni |
 | [src/config](src/config.md) | `Config`, valori obbligatori, segreti, `masked()`, aggiungere un'impostazione |
-| [src/core](src/core/README.md) | errori e status HTTP, `@observed`, `SecretBox` |
+| [src/core](src/core/README.md) | errori e status HTTP, `@observed`, `SecretBox`, Container, avvio di API e worker |
 | [src/models](src/models/README.md) | le tre famiglie di modelli, perché separate, come aggiungerne uno |
 | [src/domain](src/domain/README.md) | i sottopackage di domain |
 | [src/domain/chat](src/domain/chat/README.md) | client per fornitore, chiave `fornitore/modello`, costi, modelli di default |
@@ -39,6 +40,7 @@ src/
 | [src/domain/store/db](src/domain/store/db/README.md) | schema senza migrazioni, `SqlRepository`, coda del worker, come aggiungere una tabella |
 | [src/tool](src/tool/README.md) | registry e catalogo, `ToolContext`, errori all'agente, come aggiungere un tool |
 | [src/function](src/function/README.md) | funzioni senza LLM, parametri e form dell'editor, come aggiungerne una |
-| [src/service](src/service/README.md) | `StoreService`, motore delle automation, agenti, git e dati del progetto |
+| [src/service](src/service/README.md) | `StoreService`, motore delle automation, agenti, chatbot, progetti, Atlassian |
+| [src/controller](src/controller/README.md) | tutti gli endpoint, convenzioni, come aggiungere un endpoint |
 
 Una doc nuova va nella cartella che rispecchia il package (`src/<package>/README.md`) e in questo indice.

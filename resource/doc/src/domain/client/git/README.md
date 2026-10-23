@@ -38,4 +38,4 @@ Tutti come `UpstreamError` (HTTP 502), con un messaggio leggibile: git non insta
 
 ## Test
 
-Nei test di `GitService` (`test/unit/service/test_git_service.py`, in arrivo con i service): repository veri creati in una cartella temporanea, più il parsing di `status` su output di esempio. Serve `git` nel PATH, altrimenti vengono saltati.
+Nei test di `GitService` (`test/unit/service/test_git_service.py`): repository veri creati in una cartella temporanea, più il parsing di `status` su output di esempio. Serve `git` nel PATH, altrimenti vengono saltati.

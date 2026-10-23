@@ -18,7 +18,7 @@ src/service/
   atlassian_service.py      sito Jira + Confluence di un progetto
 ```
 
-Chi crea i service e li collega tra loro è il Container (`core/container.py`, in arrivo): ogni service riceve nel costruttore quelli che usa.
+Chi crea i service e li collega tra loro è il [Container](../core/README.md) (`core/container.py`): ogni service riceve nel costruttore quelli che usa.
 
 ## `StoreService`
 

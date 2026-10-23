@@ -76,4 +76,4 @@ Il token Atlassian entra e esce già cifrato: la cifratura con [`SecretBox`](../
 - `test/unit/domain/store/db/test_run_repository.py`: salvataggio di una run con le tool call, elenco dalla più recente, cancellazione.
 - `test/unit/domain/store/db/test_schema_refresh.py`: tabella cambiata e vuota ricreata con chi la referenzia, tabella cambiata con dati che blocca l'avvio, schema aggiornato lasciato com'è.
 
-Girano su SQLite in memoria, con la fixture `engine` di `test/conftest.py` (in arrivo). Gli altri repository sono coperti dai test dei service.
+Girano su SQLite in memoria, con la fixture `engine` di `test/conftest.py`. Gli altri repository sono coperti dai test dei service.

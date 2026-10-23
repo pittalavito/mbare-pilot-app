@@ -35,4 +35,4 @@ Gli store su Postgres e Redis convertono i loro record in modelli di dominio. Qu
 
 ## Test
 
-`test/unit/domain/store/files/test_file_repository.py`: salvataggio, lettura, elenco e cancellazione; file mancante; percorsi che provano a uscire dalla radice. Usano la fixture `files_repository` di `test/conftest.py` (in arrivo), con la radice in una cartella temporanea.
+`test/unit/domain/store/files/test_file_repository.py`: salvataggio, lettura, elenco e cancellazione; file mancante; percorsi che provano a uscire dalla radice. Usano la fixture `files_repository` di `test/conftest.py`, con la radice in una cartella temporanea.

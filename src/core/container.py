@@ -1,0 +1,75 @@
+"""Composition root: builds every dependency once per process (API, worker;
+UI never: it talks to the API). Nothing else builds services."""
+import datapizza.tracing
+
+from config import Config
+from core.observability import LogPrefix, configure_logging, observed
+
+from domain.agent.defaults import DEFAULT_CONFIGS, DEFAULT_PROMPTS, DEFAULT_ROLES
+from domain.chat.models_default import DEFAULT_CHAT_MODELS
+from domain.project.folder_browser import FolderBrowser
+
+from service.agent_config_service import AgentConfigService
+from service.agent_service import AgentService
+from service.atlassian_service import AtlassianService
+from service.chat_service import ChatService
+from service.chatbot_service import ChatbotService
+from service.git_service import GitService
+from service.model_service import ModelService
+from service.pipeline_runner import PipelineRunner
+from service.pipeline_service import PipelineService
+from service.project_data_service import ProjectDataService
+from service.project_service import ProjectService
+from service.store_service import StoreService
+
+
+class Container:
+
+    @observed(LogPrefix.CONTAINER)
+    def __init__(self, store_service: StoreService | None = None):
+        """``store_service`` is for tests (in-memory backends); by default it
+        connects to Postgres and Redis from the Config."""
+        config = Config.get()
+        datapizza.tracing.console.quiet = not config.datapizza_trace_summary
+
+        self.store_service = store_service or StoreService()
+        self.chat_service = ChatService()
+        self.model_service = ModelService(store_service=self.store_service)
+        self.agent_config_service = AgentConfigService(store_service=self.store_service)
+        self.project_data_service = ProjectDataService(store_service=self.store_service)
+        self.atlassian_service = AtlassianService(store_service=self.store_service)
+        self.git_service = GitService(store_service=self.store_service)
+        
+        self.agent_service = AgentService(
+            chat_service=self.chat_service,
+            agent_config_service=self.agent_config_service,
+            store_service=self.store_service,
+            git_service=self.git_service,
+        )
+        self.chatbot_service = ChatbotService(
+            store_service=self.store_service,
+            agent_config_service=self.agent_config_service,
+            agent_service=self.agent_service,
+        )
+        self.pipeline_service = PipelineService(
+            store_service=self.store_service,
+            agent_config_service=self.agent_config_service,
+        )
+        self.pipeline_runner = PipelineRunner(
+            store_service=self.store_service,
+            agent_service=self.agent_service,
+            git_service=self.git_service,
+            project_data_service=self.project_data_service,
+        )
+        self.project_service = ProjectService(
+            store_service=self.store_service,
+            folder_browser=FolderBrowser(config.project_root_paths),
+        )
+
+        self._seed_defaults()
+
+    def _seed_defaults(self) -> None:
+        """Insert the default models, roles, prompts and agents that are missing
+        (edits made from the UI are never overwritten). Models first: agents need them."""
+        self.model_service.seed_defaults(DEFAULT_CHAT_MODELS)
+        self.agent_config_service.seed_defaults(DEFAULT_ROLES, DEFAULT_PROMPTS, DEFAULT_CONFIGS)
