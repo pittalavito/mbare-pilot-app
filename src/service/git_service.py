@@ -1,7 +1,7 @@
 """Git on a project's code folder. A project folder may be a repository itself
 or hold several repositories in its subfolders: every call takes the project
 plus an optional ``subpath`` inside it, which never escapes the project folder.
-Everything is read-only except ``pull_fast_forward`` and ``stash``."""
+Everything is read-only except ``pull_fast_forward``, ``stash`` and ``stash_apply``."""
 import re
 from datetime import datetime
 from pathlib import Path
@@ -9,10 +9,13 @@ from pathlib import Path
 from core.error import NotFoundError, UpstreamError, ValidationError
 from core.observability import LogPrefix, observed
 from domain.client.git.client import GitClient
-from models.domain.git import GitChangeKind, GitCommit, GitPullResult, GitRepository, GitStashResult, GitStatus
+from models.domain.git import (
+    GitChangeKind, GitCommit, GitPullResult, GitRepository, GitStashApplyResult, GitStashResult, GitStatus,
+)
 from service.store_service import StoreService
 
 _MAX_LOG = 500
+_STASH_REF = re.compile(r"^(?:stash@\{(\d+)\}|(\d+))$")
 _COMMIT_HASH = re.compile(r"^[0-9a-fA-F]{4,40}$")
 _SKIPPED_FOLDERS = {"node_modules", "__pycache__", "target", "build", "dist", "venv"}
 
@@ -140,6 +143,36 @@ class GitService:
             return GitStashResult(stashed=False, message=message)
         return GitStashResult(stashed=True, ref="stash@{0}", message=message, files=files)
 
+    @observed(LogPrefix.GIT_SERVICE)
+    def stash_apply(self, project_name: str, subpath: str = "", stash: str = "") -> GitStashApplyResult:
+        """Apply a stash of the repository containing ``subpath`` (``git stash
+        apply``): ``stash`` is ``stash@{n}`` or ``n``, empty = the newest. The
+        stash stays in the list. Refused with uncommitted changes to tracked
+        files; conflicts are reported, not undone."""
+        folder = self._folder(project_name, subpath)
+        toplevel = self._git.toplevel(folder)
+        if toplevel is None:
+            raise ValidationError(f"{folder} non è dentro un repository git.")
+        ref = _stash_ref(stash)
+        stashes = {entry.ref: entry for entry in self._git.stash_list(toplevel)}
+        if not stashes:
+            raise NotFoundError("Nessuno stash in questo repository.")
+        if ref not in stashes:
+            raise NotFoundError(f"Stash {ref} non trovato. Stash disponibili: {', '.join(stashes)}.")
+        changed = [c.path for c in self._git.status(toplevel).changes if c.kind is not GitChangeKind.UNTRACKED]
+        if changed:
+            shown = ", ".join(changed[:10]) + (f" e altri {len(changed) - 10}" if len(changed) > 10 else "")
+            raise ValidationError(f"Modifiche locali non committate, stash non applicato: {shown}.")
+        try:
+            self._git.stash_apply(toplevel, ref)
+        except UpstreamError:
+            conflicts = [c.path for c in self._git.status(toplevel).changes if c.kind is GitChangeKind.CONFLICT]
+            if not conflicts:
+                raise
+            return GitStashApplyResult(ref=ref, message=stashes[ref].message, conflicts=conflicts)
+        files = [c.path for c in self._git.status(toplevel).changes if c.kind is not GitChangeKind.UNTRACKED]
+        return GitStashApplyResult(ref=ref, message=stashes[ref].message, files=files)
+
     def project_folder(self, project_name: str) -> Path | None:
         """The project's code folder as saved (it may not exist any more); None
         for an unknown project. For hiding it in messages."""
@@ -166,3 +199,14 @@ class GitService:
         if not folder.is_dir():
             raise ValidationError(f"Cartella inesistente nel progetto: {subpath!r}")
         return folder
+
+
+def _stash_ref(stash: str) -> str:
+    """``""`` → ``stash@{0}``, ``"2"`` → ``stash@{2}``; ValidationError otherwise."""
+    stash = stash.strip()
+    if not stash:
+        return "stash@{0}"
+    match = _STASH_REF.match(stash)
+    if match is None:
+        raise ValidationError(f"Stash non valido: {stash!r} (es. stash@{{0}} oppure 0).")
+    return f"stash@{{{match.group(1) or match.group(2)}}}"

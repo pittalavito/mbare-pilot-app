@@ -83,3 +83,20 @@ class GitStashResult(BaseModel):
     message: str = ""
     files: list[str] = []
     """The tracked files put aside."""
+
+
+class GitStash(BaseModel):
+    """One entry of ``git stash list``."""
+    ref: str
+    """``stash@{n}``, 0 = the newest."""
+    message: str
+
+
+class GitStashApplyResult(BaseModel):
+    """Outcome of a ``git stash apply`` (the stash always stays in the list)."""
+    ref: str
+    message: str
+    files: list[str] = []
+    """The files changed in the working tree after applying."""
+    conflicts: list[str] = []
+    """Files left in conflict, to resolve by hand; empty = applied cleanly."""

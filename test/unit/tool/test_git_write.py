@@ -8,7 +8,7 @@ import subprocess
 
 import pytest
 
-from core.error import ValidationError
+from core.error import NotFoundError, ValidationError
 from models.domain.project import Project, ProjectSource
 from service.git_service import GitService
 from service.masking_service import MaskingService
@@ -129,7 +129,8 @@ def test_tool_errors_come_back_to_the_agent(git, repos):
 # -------------------------------------------------------------------- stash
 
 def _stash_list(repo):
-    return subprocess.run(["git", "stash", "list", "--format=%gs"], cwd=repo, capture_output=True, text=True).stdout.split("\n")
+    output = subprocess.run(["git", "stash", "list", "--format=%gs"], cwd=repo, capture_output=True, text=True).stdout
+    return [line for line in output.splitlines() if line]
 
 
 def test_stash_puts_aside_tracked_changes_and_keeps_untracked(git, repos):
@@ -157,7 +158,7 @@ def test_nothing_to_stash(git, repos):
 
     result = git.stash("Shop", "api")
 
-    assert not result.stashed and result.ref is None and _stash_list(repos / "shop" / "api") == [""]
+    assert not result.stashed and result.ref is None and _stash_list(repos / "shop" / "api") == []
 
 
 def test_stash_tool(git, repos, store_service):
@@ -170,3 +171,65 @@ def test_stash_tool(git, repos, store_service):
 
     assert result["stashed"] and result["files"] == ["main.py"]
     assert [e.value for e in masking.entries("Shop")] == ["api"]
+
+
+# -------------------------------------------------------------- stash apply
+
+def test_apply_brings_the_changes_back_and_keeps_the_stash(git, repos):
+    api = repos / "shop" / "api"
+    (api / "main.py").write_text("mia modifica", encoding="utf-8")
+    git.stash("Shop", "api", "lavoro a metà")
+
+    result = git.stash_apply("Shop", "api")
+
+    assert (result.ref, result.files, result.conflicts) == ("stash@{0}", ["main.py"], [])
+    assert "lavoro a metà" in result.message
+    assert (api / "main.py").read_text(encoding="utf-8") == "mia modifica"
+    assert len(_stash_list(api)) == 1 and _stash_list(api)[0]  # still there
+
+
+def test_apply_a_given_stash(git, repos):
+    api = repos / "shop" / "api"
+    for text in ("primo", "secondo"):
+        (api / "main.py").write_text(text, encoding="utf-8")
+        git.stash("Shop", "api", text)
+
+    assert git.stash_apply("Shop", "api", "1").ref == "stash@{1}"
+    assert (api / "main.py").read_text(encoding="utf-8") == "primo"
+
+
+def test_apply_errors(git, repos):
+    with pytest.raises(NotFoundError, match="Nessuno stash"):
+        git.stash_apply("Shop", "api")
+    (repos / "shop" / "api" / "main.py").write_text("x", encoding="utf-8")
+    git.stash("Shop", "api")
+    with pytest.raises(NotFoundError, match="Stash disponibili: stash@\\{0\\}"):
+        git.stash_apply("Shop", "api", "stash@{5}")
+    with pytest.raises(ValidationError, match="Stash non valido"):
+        git.stash_apply("Shop", "api", "ultimo")
+    (repos / "shop" / "api" / "main.py").write_text("altra modifica", encoding="utf-8")
+    with pytest.raises(ValidationError, match="Modifiche locali"):
+        git.stash_apply("Shop", "api")
+
+
+def test_apply_reports_conflicts(git, repos):
+    api = repos / "shop" / "api"
+    (api / "main.py").write_text("dallo stash", encoding="utf-8")
+    git.stash("Shop", "api")
+    _commit(api, "nel frattempo")  # main.py changed and committed after the stash
+
+    result = git.stash_apply("Shop", "api")
+
+    assert result.conflicts == ["main.py"] and result.files == []
+    assert len(_stash_list(api)) == 1  # the stash is kept
+
+
+def test_stash_apply_tool(git, repos):
+    from tool.list.git.git_stash_apply import GIT_STASH_APPLY
+
+    (repos / "shop" / "api" / "main.py").write_text("mia modifica", encoding="utf-8")
+    git.stash("Shop", "api")
+
+    result = json.loads(GIT_STASH_APPLY.build(ToolContext("Shop", git)).func(repository="api", stash=""))
+
+    assert (result["applied"], result["ref"], result["files"]) == (True, "stash@{0}", ["main.py"])

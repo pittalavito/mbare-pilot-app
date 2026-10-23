@@ -46,3 +46,12 @@ class GitStashResponse(BaseModel):
     ref: str | None = Field(None, description="The new stash (stash@{0}).")
     message: str
     files: list[str] = Field(..., description="The tracked files put aside.")
+
+
+class GitStashApplyResponse(BaseModel):
+    repository: str = Field(..., description="Repository folder inside the project ('' = the project folder).")
+    ref: str = Field(..., description="The stash applied; it stays in the stash list.")
+    message: str
+    applied: bool = Field(..., description="False when it left conflicts.")
+    files: list[str] = Field(..., description="Files changed in the working tree after applying.")
+    conflicts: list[str] = Field(..., description="Files left in conflict, to resolve by hand.")

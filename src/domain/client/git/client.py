@@ -1,6 +1,6 @@
 """Git commands run with the ``git`` executable in a working folder: no pager,
 no credential prompts, no optional locks, bounded time. Output is parsed into
-domain models. All read-only except ``pull_fast_forward`` and ``stash_push``."""
+domain models. All read-only except ``pull_fast_forward``, ``stash_push`` and ``stash_apply``."""
 import os
 import shutil
 import subprocess
@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 from core.error import UpstreamError
-from models.domain.git import GitChange, GitChangeKind, GitCommit, GitStatus
+from models.domain.git import GitChange, GitChangeKind, GitCommit, GitStash, GitStatus
 
 _TIMEOUT_SECONDS = 20
 _PULL_TIMEOUT_SECONDS = 120
@@ -84,6 +84,17 @@ class GitClient:
         (untracked ones stay). False when there was nothing to put aside."""
         output = self._run(cwd, ["stash", "push", "-m", message])
         return "No local changes to save" not in output
+
+    def stash_list(self, cwd: Path) -> list[GitStash]:
+        """The stashes, newest first."""
+        output = self._run(cwd, ["stash", "list", f"--format=%gd{_FIELD}%gs"])
+        return [GitStash(ref=ref, message=message) for ref, message in
+                (line.split(_FIELD, 1) for line in output.splitlines() if _FIELD in line)]
+
+    def stash_apply(self, cwd: Path, ref: str) -> None:
+        """``git stash apply <ref>``: the stash stays in the list. UpstreamError
+        when it does not apply cleanly (conflicts are left in the working tree)."""
+        self._run(cwd, ["stash", "apply", ref])
 
     def status(self, cwd: Path, only_here: bool = False) -> GitStatus:
         """Branch and changed files of the working tree (untracked included,
