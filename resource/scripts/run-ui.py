@@ -1,5 +1,5 @@
-"""Frontend: the Streamlit UI (ui/main.py) on UI_PORT. It needs the API running
-(3-run-api.py) at API_URL."""
+"""Frontend: the Streamlit UI (ui/main.py) on UI_PORT. The API and the worker
+are started from its Backend panel."""
 import subprocess
 import sys
 

@@ -1,4 +1,4 @@
-"""Frontend entry point: ``streamlit run ui/main.py`` (resource/scripts/3-run-ui.py).
+"""Frontend entry point: ``streamlit run ui/main.py`` (resource/scripts/run-ui.py).
 The UI only talks to the backend API (API_URL in .env): it never imports src/."""
 import streamlit as st
 

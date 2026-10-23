@@ -38,7 +38,7 @@ def test_unreachable_api_explains_how_to_start_it():
     def handler(request):
         raise httpx.ConnectError("refused")
 
-    with pytest.raises(ApiUnavailable, match="3-run-api.py"):
+    with pytest.raises(ApiUnavailable, match="pannello Backend"):
         _client(handler).get("/health")
 
 

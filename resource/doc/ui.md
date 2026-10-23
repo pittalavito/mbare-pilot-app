@@ -4,7 +4,7 @@
 
 ```
 ui/
-  main.py               entry (3-run-ui.py): page config + router
+  main.py               entry (run-ui.py): page config + router
   ui_config.py          config da .env (API_URL)
   api_client/
     http.py             ApiClient (httpx), ApiError / ApiUnavailable, segment()

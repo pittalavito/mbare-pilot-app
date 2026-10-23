@@ -61,7 +61,7 @@ class ApiClient:
         except httpx.TransportError as exc:
             raise ApiUnavailable(0, (
                 f"API non raggiungibile su {self.base_url}. "
-                "Avviala con: python resource/scripts/3-run-api.py"
+                "Avviala dal pannello Backend nella barra laterale."
             )) from exc
         if response.is_success:
             return response

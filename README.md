@@ -10,7 +10,7 @@ Prerequisiti: Python 3.12, [uv](https://docs.astral.sh/uv/).
 2. Avvia la UI:
 
 ```bash
-python resource/scripts/3-run-ui.py
+python resource/scripts/run-ui.py
 ```
 
 ## UI
