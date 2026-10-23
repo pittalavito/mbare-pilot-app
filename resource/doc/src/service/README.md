@@ -13,7 +13,7 @@ src/service/
   project_data_service.py   note e file di un progetto
   pipeline_service.py       automation: definizioni, coda, worker attivi
   pipeline_runner.py        esegue le run in coda (lo usa il worker)
-  project_service.py        progetti                               (in arrivo)
+  project_service.py        progetti: apri cartella, crea da zero, modifica, rimuovi
   chatbot_service.py        chatbot e conversazioni                (in arrivo)
   atlassian_service.py      sito Jira + Confluence di un progetto  (in arrivo)
 ```
@@ -46,6 +46,20 @@ worker ──► PipelineRunner.run_next ──► claim (running) ──► ste
 - **`AgentService`**: costruisce l'agente (client da `ChatService`, tool con il `ToolContext` della run), lo esegue dentro il tracing di datapizza e salva la run: fatti in Postgres, trace in Redis.
 - **`ModelService`**: il catalogo dei modelli; `require_usable_model` è il controllo che ogni service fa prima di salvare o eseguire un agente.
 
+## Progetti
+
+**`ProjectService`**: ogni percorso passa da `FolderBrowser`, quindi resta dentro `PROJECT_ROOTS`.
+
+| Metodo | Cosa fa |
+|---|---|
+| `open_folder(nome, descrizione, cartella)` | registra una cartella che esiste già |
+| `create_from_scratch(nome, descrizione, cartella_padre, nome_cartella)` | crea la cartella e registra il progetto; se il salvataggio fallisce, la cartella appena creata viene tolta |
+| `update(nome, descrizione, embedding_model)` | le impostazioni modificabili; nome, origine e cartella restano fissi |
+| `remove(nome)` | cancella il progetto dal DB, a cascata; la cartella del codice e quella dei dati restano sul disco |
+| `folder_exists(progetto)` | la cartella c'è ancora? (la UI avvisa se è sparita) |
+
+Un progetto nuovo viene rifiutato se il nome contiene `/` o `\` (finisce negli URL dell'API), se esiste già, se il suo slug coincide con quello di un altro progetto (le cartelle dei dati si chiamerebbero uguali) o se la cartella è già un altro progetto.
+
 ## Dati e git del progetto
 
 - **`GitService`**: trova i repository nella cartella del progetto (fino a 2 livelli) e ne legge log e status, senza mai uscire dalla cartella.
@@ -53,4 +67,4 @@ worker ──► PipelineRunner.run_next ──► claim (running) ──► ste
 
 ## Test
 
-In `test/unit/service/`: `test_store_service`, `test_model_service`, `test_agent_config_service`, `test_agent_scope` (globali e di progetto), `test_activation` (disattivazioni), `test_agent_service`, `test_git_service`, `test_pipeline` (definizioni, coda, esecuzione, heartbeat), `test_function_steps`. Gli agenti sono finti (`FakeAgent`), il DB è SQLite in memoria e Redis è fakeredis: le fixture stanno in `test/conftest.py`.
+In `test/unit/service/`: `test_store_service`, `test_model_service`, `test_agent_config_service`, `test_agent_scope` (globali e di progetto), `test_activation` (disattivazioni), `test_agent_service`, `test_git_service`, `test_pipeline` (definizioni, coda, esecuzione, heartbeat), `test_function_steps`, `test_project_service`, `test_project_data_service`. Gli agenti sono finti (`FakeAgent`), il DB è SQLite in memoria e Redis è fakeredis: le fixture stanno in `test/conftest.py`.
