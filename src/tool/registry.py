@@ -16,6 +16,7 @@ from core.error import ValidationError
 from tool.context import ToolContext
 from tool.list.agent.ask_agent import ASK_AGENT
 from tool.list.automation.run_automation import RUN_AUTOMATION
+from tool.list.git.git_pull_fast_forward import GIT_PULL_FAST_FORWARD
 from tool.list.git.git_status import GIT_STATUS
 from tool.list.hello_world import hello_world
 from tool.spec import ToolSpec, static
@@ -27,6 +28,7 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         ASK_AGENT,
         RUN_AUTOMATION,
         GIT_STATUS,
+        GIT_PULL_FAST_FORWARD,
     )
 }
 """Every tool implemented in code, keyed by name."""

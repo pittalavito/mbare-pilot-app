@@ -1,6 +1,6 @@
-"""Read-only git commands run with the ``git`` executable in a working folder:
-no pager, no credential prompts, no optional locks, bounded time. Output is
-parsed into domain models."""
+"""Git commands run with the ``git`` executable in a working folder: no pager,
+no credential prompts, no optional locks, bounded time. Output is parsed into
+domain models. All read-only except ``pull_fast_forward``."""
 import os
 import shutil
 import subprocess
@@ -11,6 +11,8 @@ from core.error import UpstreamError
 from models.domain.git import GitChange, GitChangeKind, GitCommit, GitStatus
 
 _TIMEOUT_SECONDS = 20
+_PULL_TIMEOUT_SECONDS = 120
+"""A pull talks to the remote: more time than the local commands."""
 _FIELD = "\x1f"
 _RECORD = "\x1e"
 _LOG_FORMAT = _FIELD.join(["%H", "%h", "%an", "%ae", "%aI", "%s"]) + _RECORD
@@ -63,6 +65,20 @@ class GitClient:
         output = self._run(cwd, args)
         return [_parse_commit(record) for record in output.split(_RECORD) if record.strip()]
 
+    def head(self, cwd: Path) -> str:
+        """The full hash of the current commit."""
+        return self._run(cwd, ["rev-parse", "HEAD"]).strip()
+
+    def commits_between(self, cwd: Path, old: str, new: str) -> list[GitCommit]:
+        """The commits reachable from ``new`` but not from ``old``, newest first."""
+        output = self._run(cwd, ["log", f"--format={_LOG_FORMAT}", f"{old}..{new}"])
+        return [_parse_commit(record) for record in output.split(_RECORD) if record.strip()]
+
+    def pull_fast_forward(self, cwd: Path) -> None:
+        """``git pull --ff-only`` of the current branch from its upstream: never
+        a merge. UpstreamError when it cannot fast-forward or the remote fails."""
+        self._run(cwd, ["pull", "--ff-only", "--no-rebase"], timeout=_PULL_TIMEOUT_SECONDS)
+
     def status(self, cwd: Path, only_here: bool = False) -> GitStatus:
         """Branch and changed files of the working tree (untracked included,
         ignored excluded). ``only_here`` keeps only the files in ``cwd`` and below."""
@@ -71,17 +87,17 @@ class GitClient:
             args += ["--", "."]
         return _parse_status(self._run(cwd, args))
 
-    def _run(self, cwd: Path, args: list[str]) -> str:
+    def _run(self, cwd: Path, args: list[str], timeout: int = _TIMEOUT_SECONDS) -> str:
         if not self._executable:
             raise UpstreamError("git non trovato: installalo e mettilo nel PATH.")
         command = [self._executable, "-c", "core.fsmonitor=false", "-c", "i18n.logOutputEncoding=UTF-8", *args]
         try:
             result = subprocess.run(
                 command, cwd=cwd, env={**os.environ, **_ENV}, capture_output=True,
-                encoding="utf-8", errors="replace", timeout=_TIMEOUT_SECONDS,
+                encoding="utf-8", errors="replace", timeout=timeout,
             )
         except subprocess.TimeoutExpired as exc:
-            raise UpstreamError(f"git {args[0]} non ha risposto entro {_TIMEOUT_SECONDS}s ({cwd}).") from exc
+            raise UpstreamError(f"git {args[0]} non ha risposto entro {timeout}s ({cwd}).") from exc
         except OSError as exc:
             raise UpstreamError(f"Impossibile eseguire git: {exc}") from exc
         if result.returncode != 0:

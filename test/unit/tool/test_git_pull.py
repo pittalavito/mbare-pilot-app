@@ -1,0 +1,125 @@
+"""git pull --ff-only, in GitService and as the agents' tool, on real
+repositories (needs ``git`` on PATH): a bare "origin", the project's clone
+``shop/api`` and another clone that pushes new commits."""
+import json
+import shutil
+import subprocess
+
+import pytest
+
+from core.error import ValidationError
+from models.domain.project import Project, ProjectSource
+from service.git_service import GitService
+from service.masking_service import MaskingService
+from tool.context import ToolContext
+from tool.list.git.git_pull_fast_forward import GIT_PULL_FAST_FORWARD
+
+pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
+
+
+def _git(cwd, *args):
+    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
+
+
+def _identity(repo, name="Ada"):
+    _git(repo, "config", "user.name", name)
+    _git(repo, "config", "user.email", f"{name.lower()}@example.com")
+
+
+def _commit(repo, message, file="main.py"):
+    (repo / file).write_text(message, encoding="utf-8")
+    _git(repo, "add", file)
+    _git(repo, "commit", "-q", "-m", message)
+
+
+@pytest.fixture
+def repos(store_service, tmp_path):
+    seed = tmp_path / "seed"
+    seed.mkdir()
+    _git(seed, "init", "-q")
+    _identity(seed)
+    _commit(seed, "first")
+    _git(tmp_path, "clone", "-q", "--bare", str(seed), "origin.git")
+    (tmp_path / "shop").mkdir()
+    _git(tmp_path / "shop", "clone", "-q", str(tmp_path / "origin.git"), "api")
+    _identity(tmp_path / "shop" / "api")
+    _git(tmp_path, "clone", "-q", str(tmp_path / "origin.git"), "pusher")
+    _identity(tmp_path / "pusher", "Bob")
+    store_service.save_project(Project(name="Shop", source=ProjectSource.FOLDER, root_path=str(tmp_path / "shop")))
+    return tmp_path
+
+
+@pytest.fixture
+def git(store_service, repos):
+    return GitService(store_service)
+
+
+def _push(repos, *messages):
+    for message in messages:
+        _commit(repos / "pusher", message)
+    _git(repos / "pusher", "push", "-q")
+
+
+def test_pull_brings_the_new_commits(git, repos):
+    _push(repos, "second", "third")
+
+    result = git.pull_fast_forward("Shop", "api")
+
+    assert [c.subject for c in result.commits] == ["third", "second"] and not result.up_to_date
+    assert result.upstream.startswith("origin/")
+    assert (repos / "shop" / "api" / "main.py").read_text(encoding="utf-8") == "third"
+    assert git.pull_fast_forward("Shop", "api").up_to_date
+
+
+def test_local_changes_to_tracked_files_refuse_the_pull(git, repos):
+    _push(repos, "second")
+    (repos / "shop" / "api" / "main.py").write_text("mia modifica", encoding="utf-8")
+
+    with pytest.raises(ValidationError, match="Modifiche locali non committate.*main.py"):
+        git.pull_fast_forward("Shop", "api")
+    assert (repos / "shop" / "api" / "main.py").read_text(encoding="utf-8") == "mia modifica"
+
+
+def test_untracked_files_do_not_block(git, repos):
+    _push(repos, "second")
+    (repos / "shop" / "api" / "appunti.txt").write_text("x", encoding="utf-8")
+
+    assert [c.subject for c in git.pull_fast_forward("Shop", "api").commits] == ["second"]
+
+
+def test_diverged_branch_is_never_merged(git, repos):
+    _push(repos, "remote")
+    _commit(repos / "shop" / "api", "local", file="local.py")
+
+    with pytest.raises(ValidationError, match="fast-forward non è possibile"):
+        git.pull_fast_forward("Shop", "api")
+    log = subprocess.run(["git", "log", "--format=%s"], cwd=repos / "shop" / "api", capture_output=True, text=True).stdout
+    assert log.split() == ["local", "first"]  # nothing merged
+
+
+def test_branch_without_upstream(git, repos):
+    _git(repos / "shop" / "api", "checkout", "-q", "-b", "solo-locale")
+
+    with pytest.raises(ValidationError, match="non ha un upstream"):
+        git.pull_fast_forward("Shop", "api")
+
+
+def test_tool_masks_the_authors_that_arrive(git, repos, store_service):
+    _push(repos, "second")
+    masking = MaskingService(store_service)
+    context = ToolContext("Shop", git, mask=masking.session("Shop"))
+
+    result = json.loads(GIT_PULL_FAST_FORWARD.build(context).func(repository="api"))
+
+    assert result["updated"] and [c["subject"] for c in result["commits"]] == ["second"]
+    assert {(e.category.value, e.value) for e in masking.entries("Shop")} == {
+        ("repository", "api"), ("person", "Bob"), ("email", "bob@example.com"),
+    }
+
+
+def test_tool_errors_come_back_to_the_agent(git, repos):
+    (repos / "shop" / "api" / "main.py").write_text("mia modifica", encoding="utf-8")
+
+    result = json.loads(GIT_PULL_FAST_FORWARD.build(ToolContext("Shop", git)).func(repository="api"))
+
+    assert "Modifiche locali" in result["error"] and str(repos) not in result["error"]

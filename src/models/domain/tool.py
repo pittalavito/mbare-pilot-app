@@ -1,7 +1,7 @@
 """Output contracts of the tools, one model per tool."""
 from pydantic import BaseModel, Field
 
-from models.domain.git import GitStatus
+from models.domain.git import GitCommit, GitStatus
 
 
 class ToolErrorResponse(BaseModel):
@@ -30,3 +30,11 @@ class GitStatusResponse(BaseModel):
     clean: bool = Field(..., description="True when no file is changed.")
     status: GitStatus
 
+
+
+class GitPullResponse(BaseModel):
+    repository: str = Field(..., description="Repository folder inside the project ('' = the project folder).")
+    branch: str
+    upstream: str
+    updated: bool = Field(..., description="False when it was already up to date.")
+    commits: list[GitCommit] = Field(..., description="The commits that arrived, newest first.")

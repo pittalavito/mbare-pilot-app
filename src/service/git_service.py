@@ -1,13 +1,14 @@
 """Git on a project's code folder. A project folder may be a repository itself
 or hold several repositories in its subfolders: every call takes the project
-plus an optional ``subpath`` inside it, which never escapes the project folder."""
+plus an optional ``subpath`` inside it, which never escapes the project folder.
+Everything is read-only except ``pull_fast_forward``."""
 import re
 from pathlib import Path
 
-from core.error import NotFoundError, ValidationError
+from core.error import NotFoundError, UpstreamError, ValidationError
 from core.observability import LogPrefix, observed
 from domain.client.git.client import GitClient
-from models.domain.git import GitCommit, GitRepository, GitStatus
+from models.domain.git import GitChangeKind, GitCommit, GitPullResult, GitRepository, GitStatus
 from service.store_service import StoreService
 
 _MAX_LOG = 500
@@ -89,6 +90,39 @@ class GitService:
         if toplevel is None:
             raise ValidationError(f"{folder} non è dentro un repository git.")
         return self._git.status(folder, only_here=toplevel != folder)
+
+    @observed(LogPrefix.GIT_SERVICE)
+    def pull_fast_forward(self, project_name: str, subpath: str = "") -> GitPullResult:
+        """Bring the current branch of the repository containing ``subpath`` up
+        to date with its upstream, only if that needs no merge (``--ff-only``).
+        Refused when HEAD is detached, the branch has no upstream or tracked
+        files have uncommitted changes (untracked files are fine)."""
+        folder = self._folder(project_name, subpath)
+        toplevel = self._git.toplevel(folder)
+        if toplevel is None:
+            raise ValidationError(f"{folder} non è dentro un repository git.")
+        status = self._git.status(toplevel)
+        if status.branch is None:
+            raise ValidationError("HEAD staccato (nessun branch): il pull non si può fare.")
+        if not status.upstream:
+            raise ValidationError(f"Il branch {status.branch} non ha un upstream: il pull non sa da dove aggiornare.")
+        changed = [change.path for change in status.changes if change.kind is not GitChangeKind.UNTRACKED]
+        if changed:
+            shown = ", ".join(changed[:10]) + (f" e altri {len(changed) - 10}" if len(changed) > 10 else "")
+            raise ValidationError(f"Modifiche locali non committate, pull non fatto: {shown}.")
+        before = self._git.head(toplevel)
+        try:
+            self._git.pull_fast_forward(toplevel)
+        except UpstreamError as exc:
+            if "fast-forward" in str(exc).lower():
+                raise ValidationError(
+                    f"Il branch {status.branch} ha commit locali che {status.upstream} non ha: "
+                    "il fast-forward non è possibile, serve un merge o un rebase fatto a mano."
+                ) from exc
+            raise
+        after = self._git.head(toplevel)
+        commits = [] if after == before else self._git.commits_between(toplevel, before, after)
+        return GitPullResult(branch=status.branch, upstream=status.upstream, commits=commits)
 
     def project_folder(self, project_name: str) -> Path | None:
         """The project's code folder as saved (it may not exist any more); None

@@ -60,3 +60,15 @@ class GitStatus(BaseModel):
     @property
     def is_clean(self) -> bool:
         return not self.changes
+
+
+class GitPullResult(BaseModel):
+    """Outcome of a fast-forward pull."""
+    branch: str
+    upstream: str
+    commits: list[GitCommit] = []
+    """The commits that arrived, newest first; empty = it was already up to date."""
+
+    @property
+    def up_to_date(self) -> bool:
+        return not self.commits
