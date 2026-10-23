@@ -38,3 +38,11 @@ class GitPullResponse(BaseModel):
     upstream: str
     updated: bool = Field(..., description="False when it was already up to date.")
     commits: list[GitCommit] = Field(..., description="The commits that arrived, newest first.")
+
+
+class GitStashResponse(BaseModel):
+    repository: str = Field(..., description="Repository folder inside the project ('' = the project folder).")
+    stashed: bool = Field(..., description="False when there was nothing to put aside.")
+    ref: str | None = Field(None, description="The new stash (stash@{0}).")
+    message: str
+    files: list[str] = Field(..., description="The tracked files put aside.")

@@ -1,6 +1,7 @@
-"""git pull --ff-only, in GitService and as the agents' tool, on real
-repositories (needs ``git`` on PATH): a bare "origin", the project's clone
-``shop/api`` and another clone that pushes new commits."""
+"""The git tools that change a repository (pull --ff-only, stash), in
+GitService and as the agents' tools, on real repositories (needs ``git`` on
+PATH): a bare "origin", the project's clone ``shop/api`` and another clone
+that pushes new commits."""
 import json
 import shutil
 import subprocess
@@ -123,3 +124,49 @@ def test_tool_errors_come_back_to_the_agent(git, repos):
     result = json.loads(GIT_PULL_FAST_FORWARD.build(ToolContext("Shop", git)).func(repository="api"))
 
     assert "Modifiche locali" in result["error"] and str(repos) not in result["error"]
+
+
+# -------------------------------------------------------------------- stash
+
+def _stash_list(repo):
+    return subprocess.run(["git", "stash", "list", "--format=%gs"], cwd=repo, capture_output=True, text=True).stdout.split("\n")
+
+
+def test_stash_puts_aside_tracked_changes_and_keeps_untracked(git, repos):
+    api = repos / "shop" / "api"
+    (api / "main.py").write_text("mia modifica", encoding="utf-8")
+    (api / "appunti.txt").write_text("x", encoding="utf-8")
+
+    result = git.stash("Shop", "api", "prima del pull")
+
+    assert (result.stashed, result.ref, result.files) == (True, "stash@{0}", ["main.py"])
+    assert (api / "main.py").read_text(encoding="utf-8") == "first" and (api / "appunti.txt").exists()
+    assert "prima del pull" in _stash_list(api)[0]
+
+
+def test_stash_then_pull(git, repos):
+    _push(repos, "second")
+    (repos / "shop" / "api" / "main.py").write_text("mia modifica", encoding="utf-8")
+
+    assert git.stash("Shop", "api").message.startswith("mbare-pilot ")
+    assert [c.subject for c in git.pull_fast_forward("Shop", "api").commits] == ["second"]
+
+
+def test_nothing_to_stash(git, repos):
+    (repos / "shop" / "api" / "appunti.txt").write_text("solo non tracciato", encoding="utf-8")
+
+    result = git.stash("Shop", "api")
+
+    assert not result.stashed and result.ref is None and _stash_list(repos / "shop" / "api") == [""]
+
+
+def test_stash_tool(git, repos, store_service):
+    from tool.list.git.git_stash import GIT_STASH
+
+    (repos / "shop" / "api" / "main.py").write_text("mia modifica", encoding="utf-8")
+    masking = MaskingService(store_service)
+
+    result = json.loads(GIT_STASH.build(ToolContext("Shop", git, mask=masking.session("Shop"))).func(repository="api", message=""))
+
+    assert result["stashed"] and result["files"] == ["main.py"]
+    assert [e.value for e in masking.entries("Shop")] == ["api"]

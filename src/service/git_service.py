@@ -1,14 +1,15 @@
 """Git on a project's code folder. A project folder may be a repository itself
 or hold several repositories in its subfolders: every call takes the project
 plus an optional ``subpath`` inside it, which never escapes the project folder.
-Everything is read-only except ``pull_fast_forward``."""
+Everything is read-only except ``pull_fast_forward`` and ``stash``."""
 import re
+from datetime import datetime
 from pathlib import Path
 
 from core.error import NotFoundError, UpstreamError, ValidationError
 from core.observability import LogPrefix, observed
 from domain.client.git.client import GitClient
-from models.domain.git import GitChangeKind, GitCommit, GitPullResult, GitRepository, GitStatus
+from models.domain.git import GitChangeKind, GitCommit, GitPullResult, GitRepository, GitStashResult, GitStatus
 from service.store_service import StoreService
 
 _MAX_LOG = 500
@@ -123,6 +124,21 @@ class GitService:
         after = self._git.head(toplevel)
         commits = [] if after == before else self._git.commits_between(toplevel, before, after)
         return GitPullResult(branch=status.branch, upstream=status.upstream, commits=commits)
+
+    @observed(LogPrefix.GIT_SERVICE)
+    def stash(self, project_name: str, subpath: str = "", message: str = "") -> GitStashResult:
+        """Put aside the uncommitted changes to tracked files of the repository
+        containing ``subpath`` (``git stash push``); untracked files stay. An
+        empty ``message`` becomes ``mbare-pilot <date time>``."""
+        folder = self._folder(project_name, subpath)
+        toplevel = self._git.toplevel(folder)
+        if toplevel is None:
+            raise ValidationError(f"{folder} non è dentro un repository git.")
+        files = [change.path for change in self._git.status(toplevel).changes if change.kind is not GitChangeKind.UNTRACKED]
+        message = message.strip() or f"mbare-pilot {datetime.now():%Y-%m-%d %H:%M}"
+        if not files or not self._git.stash_push(toplevel, message):
+            return GitStashResult(stashed=False, message=message)
+        return GitStashResult(stashed=True, ref="stash@{0}", message=message, files=files)
 
     def project_folder(self, project_name: str) -> Path | None:
         """The project's code folder as saved (it may not exist any more); None

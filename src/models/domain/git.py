@@ -72,3 +72,14 @@ class GitPullResult(BaseModel):
     @property
     def up_to_date(self) -> bool:
         return not self.commits
+
+
+class GitStashResult(BaseModel):
+    """Outcome of a ``git stash push``."""
+    stashed: bool
+    """False when there was nothing to put aside."""
+    ref: str | None = None
+    """``stash@{0}``: the new stash, on top of the list."""
+    message: str = ""
+    files: list[str] = []
+    """The tracked files put aside."""

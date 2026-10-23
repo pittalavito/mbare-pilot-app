@@ -7,6 +7,7 @@ I tool che un agente può chiamare durante una run:
 | `hello_world` | **statico**: non usa nulla della run | saluta il nome che riceve (esempio) |
 | `git_status` | **con contesto**: usa i service e il progetto della run | branch, push/pull e file modificati di un repository del progetto (esempio) |
 | `git_pull_fast_forward` | **con contesto** | aggiorna un repository del progetto dal remoto, solo in fast-forward |
+| `git_stash` | **con contesto** | mette da parte le modifiche non committate di un repository del progetto |
 | `ask_agent` | **con contesto** | delega una domanda a un altro agente e ne riporta la risposta |
 | `run_automation` | **con contesto** | lancia un'automation del progetto in background e riporta l'id dell'esecuzione |
 
@@ -24,6 +25,7 @@ src/tool/
     git/
       git_status.py     esempio con contesto
       git_pull_fast_forward.py  pull solo in fast-forward
+      git_stash.py      stash delle modifiche locali
       params.py         argomenti dei tool git come li vede il modello
       errors.py         errori dei tool git restituiti all'agente
 ```
@@ -80,7 +82,7 @@ Un agente mette in coda un'esecuzione di un'automation del progetto e risponde *
 
 ## Pull: `git_pull_fast_forward(repository)`
 
-L'unico tool git che **modifica** il repository. Fa `git pull --ff-only` del branch corrente dal suo upstream:
+Uno dei due tool git che **modificano** il repository (con `git_stash`). Fa `git pull --ff-only` del branch corrente dal suo upstream:
 
 - **mai un merge**: se il branch locale ha commit che il remoto non ha, si ferma e lo dice (serve un merge o un rebase fatto a mano);
 - **rifiuta** con modifiche non committate ai file tracciati (le elenca), con HEAD staccato o con un branch senza upstream; i file nuovi non tracciati non lo bloccano;
@@ -88,6 +90,17 @@ L'unico tool git che **modifica** il repository. Fa `git pull --ff-only` del bra
 - **mascheramento**: autori ed email dei commit arrivati vengono registrati (`PERSONA_n`, `EMAIL_n`).
 
 Usa le credenziali git del PC senza chiederne (niente prompt): se il remoto chiede una password che non è salvata, il pull fallisce con l'errore di git. Timeout: 120 s.
+
+## Stash: `git_stash(repository, message)`
+
+`git stash push`: mette da parte le modifiche non committate ai **file tracciati**, lasciando pulita la cartella di lavoro (es. prima di `git_pull_fast_forward`, che con modifiche locali rifiuta).
+
+- i file nuovi non tracciati **restano** dove sono;
+- `message` vuoto → `mbare-pilot <data ora>`;
+- se non c'è niente da mettere da parte risponde `stashed: false` e non crea uno stash vuoto;
+- risposta: `ref` (`stash@{0}`), il messaggio e i file messi da parte.
+
+Il ripristino (`git stash pop`) per ora si fa a mano.
 
 ## Errori restituiti all'agente
 
@@ -125,7 +138,7 @@ In entrambi i casi: il modello di output in `models/domain/tool.py`.
 - `test/unit/tool/test_hello_world.py`
 - `test/unit/tool/test_run_automation.py`: run messa in coda con risposta immediata, solo automation attive e con step nella descrizione, automation sconosciuta, niente lancio fuori da un progetto, da un agente delegato o da dentro un'automation (anche eseguita davvero dal runner).
 - `test/unit/tool/test_ask_agent.py`: delega sullo stesso progetto con run registrata a parte, niente secondo livello di delega, agente sconosciuto, elenco degli agenti nella descrizione (solo quelli che possono partire, solo globali fuori da un progetto).
-- `test/unit/tool/test_git_pull.py`: con un remoto vero: commit arrivati, già aggiornato, modifiche locali che bloccano, file non tracciati che non bloccano, branch divergente mai unito, branch senza upstream, autori registrati per il mascheramento, errori senza percorsi locali.
+- `test/unit/tool/test_git_write.py`: pull e stash con un remoto vero: commit arrivati, già aggiornato, modifiche locali che bloccano, file non tracciati che non bloccano, branch divergente mai unito, branch senza upstream, autori registrati per il mascheramento, errori senza percorsi locali; stash dei soli file tracciati, stash e poi pull, niente da mettere da parte.
 - `test/unit/tool/test_git_tools.py`: `git_status` su un repository vero; progetto deciso dalla run, errori con i repository disponibili, percorsi fuori dal progetto, run senza progetto, schema degli argomenti, percorsi locali nascosti negli errori. Serve `git` nel PATH.
 
 Usano `StoreService` e `GitService` sugli store in memoria di `test/conftest.py`.

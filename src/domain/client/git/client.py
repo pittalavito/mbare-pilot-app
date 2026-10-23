@@ -1,6 +1,6 @@
 """Git commands run with the ``git`` executable in a working folder: no pager,
 no credential prompts, no optional locks, bounded time. Output is parsed into
-domain models. All read-only except ``pull_fast_forward``."""
+domain models. All read-only except ``pull_fast_forward`` and ``stash_push``."""
 import os
 import shutil
 import subprocess
@@ -78,6 +78,12 @@ class GitClient:
         """``git pull --ff-only`` of the current branch from its upstream: never
         a merge. UpstreamError when it cannot fast-forward or the remote fails."""
         self._run(cwd, ["pull", "--ff-only", "--no-rebase"], timeout=_PULL_TIMEOUT_SECONDS)
+
+    def stash_push(self, cwd: Path, message: str) -> bool:
+        """``git stash push -m message``: puts aside the changes to tracked files
+        (untracked ones stay). False when there was nothing to put aside."""
+        output = self._run(cwd, ["stash", "push", "-m", message])
+        return "No local changes to save" not in output
 
     def status(self, cwd: Path, only_here: bool = False) -> GitStatus:
         """Branch and changed files of the working tree (untracked included,

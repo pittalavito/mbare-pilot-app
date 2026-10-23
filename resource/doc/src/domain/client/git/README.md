@@ -1,6 +1,6 @@
 # `src/domain/client/git`
 
-Il client git: esegue l'eseguibile `git` in una cartella e traduce l'output in modelli di dominio. **Solo lettura**, tranne `pull_fast_forward`: niente commit, push, checkout, merge.
+Il client git: esegue l'eseguibile `git` in una cartella e traduce l'output in modelli di dominio. **Solo lettura**, tranne `pull_fast_forward` e `stash_push`: niente commit, push, checkout, merge.
 
 ```
 src/domain/client/git/
@@ -19,6 +19,7 @@ I modelli (`GitCommit`, `GitStatus`, `GitChange`, `GitChangeKind`) stanno in [`m
 | `status(cwd, only_here)` | `status --porcelain=v2 --branch -z` | branch, upstream, ahead/behind, file modificati (anche non tracciati, esclusi gli ignorati) |
 | `head(cwd)` | `rev-parse HEAD` | l'hash del commit corrente |
 | `commits_between(cwd, old, new)` | `log old..new` | i commit arrivati tra due revisioni |
+| `stash_push(cwd, message)` | `stash push -m` | mette da parte le modifiche ai file tracciati; `False` se non c'era niente |
 | `pull_fast_forward(cwd)` | `pull --ff-only --no-rebase` | aggiorna dal remoto solo in fast-forward (timeout 120 s); le regole di sicurezza stanno in `GitService.pull_fast_forward` |
 
 - **`only_here`**: limita il risultato a `cwd` e sottocartelle (`-- .`). Serve quando la cartella scelta è dentro un repository ma non ne è la radice.
