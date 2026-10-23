@@ -144,7 +144,10 @@ class ProcessManager:
 
 
 def _detached() -> dict:
-    """Keep the child alive and out of reach of Ctrl+C in the Streamlit terminal."""
+    """Keep the child alive and out of reach of Ctrl+C in the Streamlit terminal.
+    On Windows a hidden console of its own is enough; no CREATE_NEW_PROCESS_GROUP,
+    which would also disable Ctrl+C inside the child's tree, and uvicorn's reload
+    restarts the server with exactly that (the reload would hang)."""
     if sys.platform == "win32":
-        return {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW}
+        return {"creationflags": subprocess.CREATE_NO_WINDOW}
     return {"start_new_session": True}

@@ -19,7 +19,7 @@ _API_START_TIMEOUT = 30
 
 
 def _services() -> dict[str, ManagedService]:
-    return {service.name: service for service in backend_services(config().api_url)}
+    return {service.name: service for service in backend_services(config())}
 
 
 def backend_sidebar() -> None:
@@ -54,7 +54,6 @@ def backend_start_screen() -> None:
     if log:
         with st.expander("Ultimo log dell'API"):
             st.code(log, language=None)
-    st.caption("In alternativa da terminale: `python resource/scripts/3-run-api.py`.")
 
 
 def _action_button(container, service: ManagedService, status: ServiceStatus) -> None:

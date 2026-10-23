@@ -9,7 +9,7 @@ import streamlit as st
 
 from api_client.client import ApiError
 from api_client.models import CatalogModel, RunSummary, ToolCall
-from views.services import api
+from views.services import api, config
 
 _PROVIDERS = ["openrouter", "openai", "ollama"]
 _MODEL_COLUMNS = ["provider", "model", "input_per_1m", "output_per_1m", "active"]
@@ -31,9 +31,9 @@ def admin_page() -> None:
 def _services_section() -> None:
     st.caption(
         "Config dell'app e dashboard di servizio: le dashboard si aprono in una scheda dedicata. "
-        "Avvia i container con `python resource/scripts/2-start-docker.py`."
+        f"Avvia i container con `python {config().script_start_docker}`."
     )
-    config = api().admin.config()
+    backend = api().admin.config()
 
     with st.container(border=True):
         st.subheader("Config")
@@ -41,17 +41,17 @@ def _services_section() -> None:
         with st.expander("Apri"):
             rows = [
                 {"chiave": key, "valore": "—" if value in (None, "") else str(value)}
-                for key, value in config.settings.items()
+                for key, value in backend.settings.items()
             ]
             st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
     _dashboard_card(
-        "Redis Dashboard", config.redis_dashboard_port,
-        f"Redis via redis-commander su `:{config.redis_dashboard_port}`.",
+        "Redis Dashboard", backend.redis_dashboard_port,
+        f"Redis via redis-commander su `:{backend.redis_dashboard_port}`.",
     )
     _dashboard_card(
-        "SQL Dashboard", config.postgres_dashboard_port,
-        f"Postgres via Adminer su `:{config.postgres_dashboard_port}`: server `postgres`, credenziali dal `.env`.",
+        "SQL Dashboard", backend.postgres_dashboard_port,
+        f"Postgres via Adminer su `:{backend.postgres_dashboard_port}`: server `postgres`, credenziali dal `.env`.",
     )
 
 
