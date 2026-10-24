@@ -46,6 +46,28 @@ def test_chat(api):
     assert error.value.status == 400
 
 
+def test_chat_cache(api):
+    bot = api.chat.create_chatbot(PROJECT, {"name": "Bot", "system_prompt": "Ciao.", "model": MODEL})
+    steps = [Step(name="Scrivi", kind="agent", input_template="{input}",
+                  agent=StepAgent(system_prompt="Scrivi.", model=MODEL))]
+    report = api.automation.create_pipeline(PROJECT, "Report", "", True, steps)
+    conversation = api.chat.new_conversation(bot.id)
+    api.chat.send(conversation.id, "lancia il report")
+    message = api.chat.messages(conversation.id)[0]
+
+    route = api.chat.add_route(message.id, report.id, "oggi")
+    reply = api.chat.send(conversation.id, "Lancia il report")
+
+    assert (route.message_id, route.pipeline_id, route.pipeline_input) == (message.id, report.id, "oggi")
+    assert reply.content.startswith("⚡ Ho lanciato l'automation Report") and reply.run_id is None
+    assert api.chat.routes(bot.id)[0].hits == 1
+    with pytest.raises(ApiError) as error:
+        api.chat.add_route(message.id, report.id)
+    assert error.value.status == 409
+    api.chat.delete_route(route.id)
+    assert api.chat.routes(bot.id) == []
+
+
 def test_notes_and_files(api):
     note = api.data.save_note(PROJECT, "Setup", "# Setup")
     assert api.data.read_note(PROJECT, note.name) == "# Setup"

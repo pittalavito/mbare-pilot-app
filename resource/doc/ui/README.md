@@ -93,4 +93,5 @@ Una sezione di un progetto (non una pagina) è una funzione `<ambito>_section(pr
 - Dialog con `@st.dialog`; refresh periodico con `st.fragment(run_every=...)`.
 - Click con `on_click=` (callback): letto dal valore di ritorno di `st.button` si perde se un componente manda un valore nello stesso rerun. Anche le chiamate all'API che devono finire (es. Salva) stanno nel callback: un evento del componente durante la chiamata interrompe lo script, il callback no.
 - Editor a grafo: il canvas (streamlit-flow) rimanda il suo stato a ogni rerun, anche vecchio. Si accetta solo se il suo `timestamp` non è più vecchio di quello passato; `GraphDraft.absorb` aggiunge archi e posizioni ma non toglie mai nulla (si elimina solo dal pannello 🗑); se il canvas resta indietro rispetto al draft si ridisegna (max 3 volte).
+- Chat: sotto ogni messaggio dell'utente «⚡ Metti in cache» (automation + input fisso) o, se è già in cache, cosa lancia e 🗑; le risposte dalla cache hanno l'avatar ⚡ (vedi [service](../src/service/README.md#cache-chatrouteservice)).
 - Test: `test/unit/ui/`, il client contro l'app FastAPI vera (`TestClient` al posto di `ApiClient._client`).

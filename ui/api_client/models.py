@@ -109,6 +109,19 @@ class Message(BaseModel):
     created_at: datetime
 
 
+class ChatRoute(BaseModel):
+    """A chatbot's cache entry: a user message that launches an automation, without the agent."""
+    id: int
+    chatbot_id: int
+    message_id: int | None
+    """The message it was made from (None once deleted)."""
+    text: str
+    pipeline_id: int
+    pipeline_input: str
+    hits: int
+    created_at: datetime
+
+
 # --------------------------------------------------------------------- data
 
 class DataFile(BaseModel):

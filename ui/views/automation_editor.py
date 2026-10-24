@@ -260,7 +260,7 @@ def _agent_fields(key: str, step) -> None:
     agent.model = model_select(col_model, agent.model or None, key=f"{key}_model") or ""
     agent.max_steps = int(col_steps.number_input("Max steps", min_value=1, max_value=50, value=agent.max_steps,
                                                  key=f"{key}_max_steps"))
-    tools = [tool.name for tool in api().agents.tools() if tool.available]
+    tools = [tool.name for tool in api().agents.tools() if tool.available and not tool.chatbot_only]
     agent.tool_names = st.multiselect("Tool", tools, default=[t for t in agent.tool_names if t in tools], key=f"{key}_tools")
 
 

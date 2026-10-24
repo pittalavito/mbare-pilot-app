@@ -1,11 +1,15 @@
 """Chat tab of a project: its chatbot (one per project, created and edited
 here, with its own agent: system prompt, model, tools), its conversations on
 the left and the open conversation on the right. A reply arrives whole (no
-streaming yet)."""
+streaming yet).
+
+Cache: under each user message «⚡ Metti in cache» links it to an automation
+and a fixed input; similar messages then launch it without the agent (replies
+starting with ⚡). A message starting with ``!`` skips the cache."""
 import streamlit as st
 
 from api_client.client import ApiError
-from api_client.models import Chatbot, Message
+from api_client.models import Chatbot, ChatRoute, Message, Pipeline
 from views.model_picker import model_select
 from views.services import api
 
@@ -63,13 +67,18 @@ def _conversations(chatbot: Chatbot, key: str) -> int | None:
 def _conversation(chatbot: Chatbot, conversation_id: int | None, key: str) -> None:
     chat = api().chat
     messages = chat.messages(conversation_id) if conversation_id is not None else []
+    routes = {route.message_id: route for route in chat.routes(chatbot.id) if route.message_id is not None}
+    automations = [p for p in api().automation.pipelines(chatbot.project_name) if p.active and p.steps]
+    if error := st.session_state.pop(f"{key}_route_error", None):
+        st.error(error)
     with st.container(height=520, border=True):
         if not messages:
             st.caption(f"Scrivi per iniziare una conversazione con **{chatbot.name}**.")
-        for message in messages:
-            _message(message)
+        for index, message in enumerate(messages):
+            reply = messages[index + 1] if index + 1 < len(messages) else None
+            _message(message, routes.get(message.id), automations, reply, key)
 
-    text = st.chat_input(f"Scrivi a {chatbot.name}…", key=f"{key}_input")
+    text = st.chat_input(f"Scrivi a {chatbot.name}… (inizia con ! per saltare la cache)", key=f"{key}_input")
     if text:
         try:
             if conversation_id is None:
@@ -91,13 +100,66 @@ def _conversation(chatbot: Chatbot, conversation_id: int | None, key: str) -> No
                 st.rerun()
 
 
-def _message(message: Message) -> None:
+def _message(message: Message, route: ChatRoute | None, automations: list[Pipeline], reply: Message | None,
+             key: str) -> None:
     if message.role == "user":
-        st.chat_message("user").markdown(message.content)
+        with st.chat_message("user"):
+            st.markdown(message.content)
+            _cache_controls(message, route, automations, reply, key)
     elif message.role == "assistant":
-        st.chat_message("assistant").markdown(message.content)
+        avatar = "⚡" if message.content.startswith(_CACHE_MARK) else None
+        st.chat_message("assistant", avatar=avatar).markdown(message.content)
     else:
         st.chat_message("assistant", avatar="⚠️").error(message.content)
+
+
+# -------------------------------------------------------------------- cache
+# Buttons act in callbacks (as in the automation editor): the chat input and
+# the reruns it triggers can swallow a click read as a return value.
+
+_CACHE_MARK = "⚡"
+"""Starts the replies given from the cache (CACHE_MARK of the backend)."""
+
+
+def _cache_controls(message: Message, route: ChatRoute | None, automations: list[Pipeline], reply: Message | None,
+                    key: str) -> None:
+    """Under a user message: what it launches when in cache, else «Metti in cache»."""
+    by_id = {automation.id: automation for automation in automations}
+    if route is not None:
+        name = by_id[route.pipeline_id].name if route.pipeline_id in by_id else f"automation {route.pipeline_id}"
+        details = f" · input «{route.pipeline_input}»" if route.pipeline_input else ""
+        col_info, col_remove = st.columns([6, 1], vertical_alignment="center")
+        col_info.caption(f"⚡ In cache → **{name}**{details} · usata {route.hits} volte")
+        col_remove.button("🗑", key=f"{key}_route_remove_{route.id}", help="Togli dalla cache",
+                          on_click=_remove_route, args=(route.id, key))
+        return
+    if not automations:
+        return
+    with st.popover("⚡ Metti in cache"):
+        st.caption("I messaggi simili lanceranno questa automation direttamente, senza l'agente.")
+        ids = list(by_id)
+        # Proposed: the automation the reply names (e.g. the one the agent launched).
+        mentioned = next((i for i, a in by_id.items() if reply is not None and a.name in reply.content), ids[0])
+        widget = f"{key}_route_{message.id}"
+        st.selectbox("Automation", ids, index=ids.index(mentioned), format_func=lambda i: by_id[i].name,
+                     key=f"{widget}_pipeline")
+        st.text_input("Input fisso", key=f"{widget}_input", help="Lo stesso per ogni messaggio simile (vuoto = nessuno).")
+        st.button("Salva", type="primary", key=f"{widget}_save", on_click=_add_route, args=(message.id, widget, key))
+
+
+def _add_route(message_id: int, widget: str, key: str) -> None:
+    try:
+        api().chat.add_route(message_id, st.session_state[f"{widget}_pipeline"],
+                             st.session_state.get(f"{widget}_input", ""))
+    except ApiError as exc:
+        st.session_state[f"{key}_route_error"] = str(exc)
+
+
+def _remove_route(route_id: int, key: str) -> None:
+    try:
+        api().chat.delete_route(route_id)
+    except ApiError as exc:
+        st.session_state[f"{key}_route_error"] = str(exc)
 
 
 # ------------------------------------------------------------------ dialog
