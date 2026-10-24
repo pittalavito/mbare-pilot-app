@@ -11,7 +11,7 @@ from api_client.client import ApiError
 from api_client.models import CatalogModel, RunSummary, ToolCall
 from views.services import api, config
 
-_PROVIDERS = ["openrouter", "openai", "ollama"]
+_PROVIDERS = ["openrouter", "openai", "ollama", "mock"]
 _MODEL_COLUMNS = ["provider", "model", "input_per_1m", "output_per_1m", "active"]
 
 

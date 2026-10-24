@@ -32,8 +32,10 @@ Ogni modello si indica con `fornitore/modello`: la parte prima del primo `/` è 
 | OpenRouter (principale) | `OpenAILikeClient` (Chat Completions) | `OPENROUTER_API_KEY`, `OPENROUTER_URL` |
 | OpenAI | `OpenAIClient` (Responses API) | `OPENAI_API_KEY` |
 | Ollama (locale, gratis) | `OpenAILikeClient` | `OLLAMA_URL` |
+| Mock (nessun LLM, gratis) | `MockClient` (`mock_client.py`) | niente |
 
 - **L'app parte senza chiavi**: il client si crea solo al primo uso del modello. Se la chiave manca, la chiamata fallisce con un `ValidationError` che dice quale variabile impostare.
+- **Modello mock** (`mock/echo`, nel catalogo di default, prezzo 0): per provare chatbot, agenti e automation senza LLM. Risponde `[mock] <input>`; con `/tool nome {argomenti json}` nel messaggio chiama quel tool dell'agente e al passo dopo risponde col suo risultato (tool sconosciuto o JSON non valido: lo dice nella risposta). Token stimati come parole, così Observability si popola.
 - **Riuso**: i client creati li tiene in cache `ChatService.get_client()` (`service/chat_service.py`), uno per chiave.
 
 ## Costi (`pricing.py`)

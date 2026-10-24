@@ -14,6 +14,8 @@ class ModelProvider(StrEnum):
     OPENAI = "openai"
     OLLAMA = "ollama"
     """Local models (OLLAMA_URL), free."""
+    MOCK = "mock"
+    """No LLM: echoes and calls tools on command, to try the flows (domain/chat/mock_client.py)."""
 
 
 def split_model_key(key: str) -> tuple[ModelProvider, str]:

@@ -3,12 +3,13 @@
 app starts without API keys.
 
 OpenRouter and Ollama speak the OpenAI Chat Completions API (OpenAILikeClient);
-OpenAI uses its own client (Responses API)."""
+OpenAI uses its own client (Responses API); ``mock`` is no LLM at all (MockClient)."""
 from datapizza.clients.openai import OpenAIClient
 from datapizza.clients.openai_like import OpenAILikeClient
 from datapizza.core.clients import Client
 
 from config import Config
+from domain.chat.mock_client import MockClient
 from core.error import ValidationError
 from models.domain.chat import ModelProvider, split_model_key
 
@@ -25,6 +26,8 @@ class Factory:
         except ValueError as exc:
             raise ValidationError(str(exc)) from exc
 
+        if provider is ModelProvider.MOCK:
+            return MockClient(model, temperature=temperature)
         if provider is ModelProvider.OPENROUTER:
             return OpenAILikeClient(
                 api_key=_require_key(config.openrouter_api_key, "OPENROUTER_API_KEY", "OpenRouter"),

@@ -11,4 +11,6 @@ DEFAULT_CHAT_MODELS: list[ChatModel] = [
     ChatModel(provider=ModelProvider.OPENAI, model="gpt-4o", input_per_1m=3.5, output_per_1m=10.0),
     ChatModel(provider=ModelProvider.OLLAMA, model="gemma3:4b"),
     ChatModel(provider=ModelProvider.OLLAMA, model="mistral:7b"),
+    # No LLM, free: echoes, "/tool name {json}" calls a tool. To try the flows.
+    ChatModel(provider=ModelProvider.MOCK, model="echo"),
 ]
