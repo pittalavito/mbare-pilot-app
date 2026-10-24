@@ -19,6 +19,7 @@ from service.pipeline_runner import PipelineRunner
 from service.pipeline_service import PipelineService
 from service.project_data_service import ProjectDataService
 from tool.context import ToolContext
+from tool.list.automation.list_automations import LIST_AUTOMATIONS
 from tool.list.automation.run_automation import RUN_AUTOMATION
 
 MODEL = "openai/gpt-4o"
@@ -77,15 +78,14 @@ def test_queues_the_run_and_answers_at_once(service, pipelines, monkeypatch):
     assert (run.status, run.input) == (RunStatus.QUEUED, "ciao")
 
 
-def test_description_lists_only_the_runnable_automations(service, pipelines):
+def test_only_runnable_automations_start_and_the_description_lists_none(service, pipelines):
     pipelines.create_pipeline("acme", "Report", description="report del giorno", steps=[_own_step()])
     pipelines.create_pipeline("acme", "Spenta", active=False, steps=[_own_step()])
-    pipelines.create_pipeline("acme", "Vuota")
 
     built = RUN_AUTOMATION.build(ToolContext("acme", git=None, pipelines=pipelines, origin=RunOrigin.CHAT))
 
-    assert "- Report: report del giorno" in built.description
-    assert "Spenta" not in built.description and "Vuota" not in built.description
+    assert "Report" not in built.description and "list_automations" in built.description
+    assert "Disponibili: Report" in json.loads(built.func(automation="Spenta", input=""))["error"]
 
 
 def test_unknown_automation_lists_the_available_ones(service, pipelines, monkeypatch):
@@ -106,7 +106,6 @@ def test_only_in_a_chatbots_run_of_a_project(pipelines, context):
     pipelines.create_pipeline("acme", "Report", steps=[_own_step()])
     built = RUN_AUTOMATION.build(ToolContext(**{**context.__dict__, "pipelines": pipelines}))
 
-    assert "- none" in built.description
     assert "non disponibili" in json.loads(built.func(automation="Report", input=""))["error"]
 
 
@@ -121,3 +120,17 @@ def test_an_automation_cannot_start_automations(service, store_service, pipeline
 
     assert run.status is RunStatus.DONE and "non disponibili" in run.output
     assert len(pipelines.list_runs(loop.id)) == 1
+
+
+def test_list_automations_only_the_runnable_ones_only_in_a_chatbot(pipelines):
+    pipelines.create_pipeline("acme", "Report", description="report del giorno", steps=[_own_step()])
+    pipelines.create_pipeline("acme", "Spenta", active=False, steps=[_own_step()])
+    pipelines.create_pipeline("acme", "Vuota")
+
+    def listed(context):
+        return json.loads(LIST_AUTOMATIONS.build(ToolContext(**{**context.__dict__, "pipelines": pipelines})).func())
+
+    assert listed(ToolContext("acme", git=None, origin=RunOrigin.CHAT)) == {
+        "automations": [{"name": "Report", "description": "report del giorno"}],
+    }
+    assert "solo nel chatbot" in listed(ToolContext("acme", git=None))["error"]

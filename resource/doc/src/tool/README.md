@@ -9,6 +9,7 @@ I tool che un agente può chiamare durante una run:
 | `git_pull_fast_forward` | **con contesto** | aggiorna un repository del progetto dal remoto, solo in fast-forward |
 | `git_stash` | **con contesto** | mette da parte le modifiche non committate di un repository del progetto |
 | `git_stash_apply` | **con contesto** | riapplica uno stash (che resta nella lista) |
+| `list_automations` | **con contesto**, solo chatbot | le automation del progetto che si possono lanciare adesso (attive, con step), con la descrizione |
 | `run_automation` | **con contesto**, solo chatbot | lancia un'automation del progetto in background e riporta l'id dell'esecuzione |
 | `automation_status` | **con contesto**, solo chatbot | stato di un'esecuzione di un'automation del progetto e dei suoi step: solo gli stati, niente output né messaggi d'errore |
 | `read_context` | **con contesto** | il contesto del progetto per il chatbot: i `.md` di `projects/<slug>/chat-bot/` tranne `system-prompt.md`; ultima risorsa |
@@ -23,6 +24,7 @@ src/tool/
     automation/
       run_automation.py lancia un'automation del progetto
       automation_status.py  stato di un'esecuzione
+      list_automations.py   automation lanciabili del progetto
     project/
       read_context.py   contesto del progetto per il chatbot
     git/
@@ -45,7 +47,7 @@ run:    AgentService ──build_tools(nomi, ToolContext)──► tool datapizz
 ```
 
 - **I tool stanno sopra i service**: un tool usa i service (es. `GitService`) attraverso il `ToolContext`, mai il Container.
-- **Solo chatbot**: una `ToolSpec` con `chatbot_only=True` (`run_automation`, `automation_status`) funziona solo nelle run del chatbot; `/tools` lo riporta (`chatbot_only`, calcolato dal codice, non salvato) e la UI la propone solo nel form del chatbot.
+- **Solo chatbot**: una `ToolSpec` con `chatbot_only=True` (`list_automations`, `run_automation`, `automation_status`) funziona solo nelle run del chatbot; `/tools` lo riporta (`chatbot_only`, calcolato dal codice, non salvato) e la UI la propone solo nel form del chatbot.
 - **Catalogo**: all'avvio il registry viene copiato nella tabella `tool`. Un tool tolto dal codice resta nel catalogo con `available = False`: non si può più scegliere, e gli agenti che lo usano non partono finché non lo tolgono.
 - **`build_tools(nomi, context)`**: costruisce i tool scelti per una run, nell'ordine dato; `ValidationError` se un nome non ha implementazione.
 
@@ -68,7 +70,7 @@ Creato da `AgentService` per ogni run:
 
 Il chatbot mette in coda un'esecuzione di un'automation del progetto e risponde **subito** con `{automation, run_id, status: "queued"}`: non aspetta la fine. L'automation la esegue il worker, il risultato si vede nel tab Automation.
 
-- **Quali**: le automation del progetto della run che si possono lanciare (attive e con almeno uno step), elencate con la loro descrizione nella descrizione del tool.
+- **Quali**: le automation del progetto che si possono lanciare (attive e con almeno uno step). L'elenco lo dà `list_automations`: `run_automation` lancia solo per nome, e a un nome sconosciuto risponde con quelli disponibili.
 - **Senza conferma**: il chatbot le lancia da solo.
 - **Chi può usarlo**: solo il **chatbot** di un progetto (run con origine `chat`, `chatbot_run()`), come `automation_status`. Non un agente lanciato a mano né uno step **dentro un'automation** (potrebbe rilanciarla all'infinito), né una run fuori da un progetto: lì il tool non elenca niente e risponde con un errore.
 - **Errori** (automation sconosciuta, con l'elenco di quelle disponibili; automation non valida): tornano all'agente come `{"error": ...}`.

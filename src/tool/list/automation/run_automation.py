@@ -1,7 +1,7 @@
 """run_automation: queue a run of one of the project's automations and answer
 at once with its id: the worker executes it, the result is in the Automation
-tab. The automations the model can pick, with their descriptions, are written
-into the tool description when the tool is built for a run. Only in a
+tab. Which automations exist is list_automations' job: this tool only starts
+one by name (an unknown name gets the available ones back). Only in a
 chatbot's run of a project: never in an automation (no loops) or elsewhere."""
 from typing import Annotated
 
@@ -13,26 +13,24 @@ from models.domain.tool import RunAutomationResponse, ToolErrorResponse
 from tool.context import ToolContext
 from tool.spec import ToolSpec
 
-AutomationName = Annotated[str, "Exact name of the automation to run, from the list in this tool's description."]
+AutomationName = Annotated[str, "Exact name of the automation to run, as list_automations gives it."]
 AutomationInput = Annotated[str, "The text the automation receives as its input ('' = none)."]
 
 _DESCRIPTION = (
     "Start one of the project's automations in the background and get its run id at once; "
-    "it does not wait for the result (the user finds it in the Automation tab)."
+    "it does not wait for the result (the user finds it in the Automation tab). "
+    "Which automations exist: list_automations."
 )
 
 
 def build(context: ToolContext) -> Tool:
-    automations = context.pipelines.runnable_pipelines(context.project_name) if _can_launch(context) else []
-    listing = "\n".join(f"- {pipeline.name}: {pipeline.description or '(no description)'}" for pipeline in automations)
-    description = f"{_DESCRIPTION}\nAvailable automations:\n{listing or '- none'}"
 
-    @tool(name="run_automation", description=description)
+    @tool(name="run_automation", description=_DESCRIPTION)
     def run_automation(automation: AutomationName, input: AutomationInput) -> str:
         if not _can_launch(context):
             return ToolErrorResponse(error="Automation non disponibili in questa run: si lanciano solo dal chatbot "
                                            "di un progetto.").model_dump_json()
-        by_name = {pipeline.name: pipeline for pipeline in automations}
+        by_name = {pipeline.name: pipeline for pipeline in context.pipelines.runnable_pipelines(context.project_name)}
         if automation not in by_name:
             available = ", ".join(sorted(by_name)) or "nessuna"
             return ToolErrorResponse(error=f"Automation {automation!r} non disponibile. Disponibili: {available}.").model_dump_json()

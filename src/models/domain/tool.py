@@ -15,6 +15,15 @@ class RunAutomationResponse(BaseModel):
     status: str = Field(..., description="'queued': the worker runs it in the background.")
 
 
+class AutomationInfo(BaseModel):
+    name: str
+    description: str = Field("", description="What it does: read it to choose.")
+
+
+class ListAutomationsResponse(BaseModel):
+    automations: list[AutomationInfo] = Field(..., description="Active, with steps: the ones run_automation can start.")
+
+
 class AutomationStepStatus(BaseModel):
     name: str
     status: str = Field(..., description="running, done, failed or skipped (its condition did not pass).")
