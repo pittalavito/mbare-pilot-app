@@ -30,8 +30,19 @@ def test_from_pipeline_keeps_edges_conditions_and_positions():
     assert [(e.source, e.target, e.condition, e.value) for e in draft.edges] == [
         (INPUT_NODE, uid["Check"], "always", ""), (uid["Check"], uid["Pull"], "contains", "OK"),
     ]
-    assert (draft.nodes[uid["Check"]].position_x, draft.nodes[uid["Check"]].position_y) == (10, 20)
     assert draft.edges[1].label == "contiene «OK»" and draft.edges[0].label == ""
+
+
+def test_a_graph_far_away_is_moved_right_of_input_keeping_its_shape():
+    pipeline = _pipeline([_step("Check", -1833, -31), _step("Pull", -1630, 89)], [
+        Edge(source="input", target="Check"), Edge(source="Check", target="Pull"),
+    ])
+
+    draft = GraphDraft.from_pipeline(pipeline)
+
+    uid = _uids(draft)
+    assert [(s.position_x, s.position_y) for s in draft.nodes.values()] == [(240, 0), (443, 120)]
+    assert draft.input_position == (0, draft.nodes[uid["Check"]].position_y)
 
 
 def test_steps_never_placed_are_laid_out_in_a_row():
@@ -45,7 +56,7 @@ def test_add_node_gets_a_free_name_and_goes_right():
 
     uid = draft.add_node("function")
 
-    assert draft.nodes[uid].name == "Step 3" and draft.nodes[uid].position_x == 740
+    assert draft.nodes[uid].name == "Step 3" and draft.nodes[uid].position_x == 480  # Step 2 moved to 240
     assert draft.nodes[uid].agent is None and draft.add_node("agent", "openai/gpt-4o") in draft.nodes
 
 

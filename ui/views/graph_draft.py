@@ -58,7 +58,8 @@ class GraphDraft:
     @classmethod
     def from_pipeline(cls, pipeline: Pipeline | None) -> "GraphDraft":
         """The draft of a saved automation (None = an empty one). Nodes all at
-        (0, 0), as saved before the graph editor existed, are laid out in a row."""
+        (0, 0), as saved before the graph editor existed, are laid out in a row;
+        otherwise the graph is moved to start right of ``input``, keeping its shape."""
         draft = cls()
         if pipeline is None:
             return draft
@@ -72,9 +73,17 @@ class GraphDraft:
             target = uid_by_name.get(edge.target)
             if source and target:
                 draft.edges.append(DraftEdge(source, target, edge.condition, edge.value))
-        if draft.nodes and all(s.position_x == 0 and s.position_y == 0 for s in draft.nodes.values()):
-            for index, step in enumerate(draft.nodes.values(), start=1):
+        steps = list(draft.nodes.values())
+        if steps and all(s.position_x == 0 and s.position_y == 0 for s in steps):
+            for index, step in enumerate(steps, start=1):
                 step.position_x, step.position_y = index * _SPACING_X, 0.0
+        elif steps:  # moved as a whole to start right of input (where it is is not saved)
+            dx = _SPACING_X - min(s.position_x for s in steps)
+            dy = -min(s.position_y for s in steps)
+            for step in steps:
+                step.position_x, step.position_y = step.position_x + dx, step.position_y + dy
+        first = [draft.nodes[e.target] for e in draft.edges if e.source == INPUT_NODE]
+        draft.input_position = (0.0, sum(s.position_y for s in first) / len(first) if first else 0.0)
         return draft
 
     def add_node(self, kind: str, default_model: str | None = None) -> str:

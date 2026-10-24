@@ -27,8 +27,7 @@ def automation_section(project_name: str) -> None:
         return
     if not pipelines:
         st.info("Nessuna automation: creane una disegnando il suo grafo di step (agenti e funzioni che si passano il risultato).")
-        if st.button("➕ Nuova automation", type="primary", key=f"{key}_first"):
-            open_editor(project_name, None)
+        st.button("➕ Nuova automation", type="primary", key=f"{key}_first", on_click=open_editor, args=(project_name, None))
         return
 
     by_id = {pipeline.id: pipeline for pipeline in pipelines}
@@ -42,10 +41,8 @@ def automation_section(project_name: str) -> None:
     pipeline = by_id[col_pick.selectbox(
         "Automation", list(by_id), format_func=lambda pipeline_id: by_id[pipeline_id].name, key=selected_key,
     )]
-    if col_new.button("➕ Nuova", width="stretch", key=f"{key}_new"):
-        open_editor(project_name, None)
-    if col_edit.button("✏️ Modifica", width="stretch", key=f"{key}_edit"):
-        open_editor(project_name, pipeline)
+    col_new.button("➕ Nuova", width="stretch", key=f"{key}_new", on_click=open_editor, args=(project_name, None))
+    col_edit.button("✏️ Modifica", width="stretch", key=f"{key}_edit", on_click=open_editor, args=(project_name, pipeline))
 
     if pipeline.description:
         st.caption(pipeline.description)

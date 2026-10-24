@@ -32,12 +32,13 @@ def editing(project_name: str) -> int | str | None:
 
 
 def open_editor(project_name: str, pipeline: Pipeline | None) -> None:
+    """The on_click of the «Nuova» / «Modifica» buttons (callbacks, as all
+    the editor's buttons: see _add_node)."""
     base = _base(project_name, pipeline.id if pipeline else "new")
     for state_key in [k for k in st.session_state if str(k).startswith(f"{base}_")]:
         del st.session_state[state_key]
     st.session_state[f"{base}_draft"] = GraphDraft.from_pipeline(pipeline)
     st.session_state[_editing_key(project_name)] = pipeline.id if pipeline else "new"
-    st.rerun()
 
 
 def automation_editor(project_name: str, pipeline: Pipeline | None) -> None:
@@ -58,7 +59,7 @@ def automation_editor(project_name: str, pipeline: Pipeline | None) -> None:
     _panel(base, project_name, draft, selected)
 
     st.divider()
-    if error := st.session_state.pop(f"{base}_error", None):
+    if error := st.session_state.get(f"{base}_error"):  # until the next save: the canvas reruns the script
         st.error(error)
     col_save, col_delete, _ = st.columns([1, 1, 3], vertical_alignment="bottom")
     col_save.button("💾 Salva", type="primary", width="stretch", key=f"{base}_save",
@@ -88,12 +89,22 @@ def _add_node(base: str, draft: GraphDraft, kind: str) -> None:
     st.session_state[f"{base}_select"] = draft.add_node(kind, default_model)
 
 
-def _remove_node(draft: GraphDraft, uid: str) -> None:
+def _remove_node(base: str, draft: GraphDraft, uid: str) -> None:
     draft.remove_node(uid)
+    _deselect(base)
 
 
-def _remove_edge(draft: GraphDraft, edge_id: str) -> None:
+def _remove_edge(base: str, draft: GraphDraft, edge_id: str) -> None:
     draft.remove_edge(edge_id)
+    _deselect(base)
+
+
+def _deselect(base: str) -> None:
+    """Closes the panel. The canvas keeps handing back its last value (the
+    click that selected it), so it is redrawn: newer than that value, which is
+    then ignored."""
+    st.session_state[f"{base}_selected"] = None
+    st.session_state[f"{base}_signature"] = None
 
 
 # ------------------------------------------------------------------- canvas
@@ -159,16 +170,22 @@ def _signature(draft: GraphDraft) -> tuple:
     )
 
 
+# streamlit-flow re-runs its (ELK "fixed") layout after every redraw and moves
+# each node by half its size (position = x - width / 2), unless ELK hands back
+# x = 0: so every node carries x=0 (React Flow ignores it), or nodes drift away.
+_NO_LAYOUT = {"x": 0}
+
+
 def _flow_state(draft: GraphDraft, selected: str | None) -> StreamlitFlowState:
     nodes = [StreamlitFlowNode(
         INPUT_NODE, draft.input_position, {"content": "📥 **input**"}, "input", "right",
-        connectable=True, selectable=True, style={"background": "#e8f0fe", "color": "#1a1a1a"},
+        connectable=True, selectable=True, style={"background": "#e8f0fe", "color": "#1a1a1a"}, **_NO_LAYOUT,
     )]
     for uid, step in draft.nodes.items():
         nodes.append(StreamlitFlowNode(
             uid, (step.position_x, step.position_y), {"content": draft.node_label(uid)}, "default", "right", "left",
             selected=uid == selected, connectable=True, selectable=True,
-            style={"color": "#1a1a1a", "minWidth": "150px"},
+            style={"color": "#1a1a1a", "minWidth": "150px"}, **_NO_LAYOUT,
         ))
     edges = [StreamlitFlowEdge(
         edge.id, edge.source, edge.target, label=edge.label, label_show_bg=True, marker_end=_EDGE_ARROW,
@@ -196,10 +213,11 @@ def _panel(base: str, project_name: str, draft: GraphDraft, selected: str | None
 def _node_panel(base: str, project_name: str, draft: GraphDraft, uid: str) -> None:
     step = draft.nodes[uid]
     key = f"{base}_{uid}"
-    col_title, col_remove = st.columns([4, 1], vertical_alignment="center")
+    col_title, col_close, col_remove = st.columns([4, 1, 1], vertical_alignment="center")
     col_title.markdown(f"**Step** · {KIND_LABELS.get(step.kind, step.kind)}")
+    col_close.button("✖ Chiudi", key=f"{key}_close", width="stretch", on_click=_deselect, args=(base,))
     col_remove.button("🗑", key=f"{key}_remove", help="Elimina lo step e i suoi collegamenti", width="stretch",
-                      on_click=_remove_node, args=(draft, uid))
+                      on_click=_remove_node, args=(base, draft, uid))
     step.name = st.text_input("Nome", value=step.name, key=f"{key}_name")
     kinds = list(KIND_LABELS)
     kind = st.selectbox("Tipo", kinds, index=kinds.index(step.kind), format_func=KIND_LABELS.get, key=f"{key}_kind")
@@ -269,10 +287,11 @@ def _edge_panel(base: str, draft: GraphDraft, edge_id: str) -> None:
     edge = draft.edge(edge_id)
     source = "input" if edge.source == INPUT_NODE else draft.nodes[edge.source].name
     key = f"{base}_{edge_id}"
-    col_title, col_remove = st.columns([4, 1], vertical_alignment="center")
+    col_title, col_close, col_remove = st.columns([4, 1, 1], vertical_alignment="center")
     col_title.markdown(f"**Collegamento** · {source} → {draft.nodes[edge.target].name}")
+    col_close.button("✖ Chiudi", key=f"{key}_close", width="stretch", on_click=_deselect, args=(base,))
     col_remove.button("🗑", key=f"{key}_remove", help="Elimina il collegamento", width="stretch",
-                      on_click=_remove_edge, args=(draft, edge_id))
+                      on_click=_remove_edge, args=(base, draft, edge_id))
     conditions = list(CONDITION_LABELS)
     edge.condition = st.selectbox("Quando passa l'output", conditions, index=conditions.index(edge.condition),
                                   format_func=CONDITION_LABELS.get, key=f"{key}_condition")
@@ -288,9 +307,13 @@ def _edge_panel(base: str, draft: GraphDraft, edge_id: str) -> None:
 # --------------------------------------------------------------------- save
 
 # Callbacks too (see _add_node): the canvas may rerun the script before the
-# buttons are reached, which would lose a click read as a return value.
+# buttons are reached, which would lose a click read as a return value. Saving
+# in the script is no better: an event of the canvas while the API answers
+# stops the script before the editor is closed. A callback is never stopped.
 
 def _save(base: str, project_name: str, pipeline: Pipeline | None, draft: GraphDraft) -> None:
+    st.session_state.pop(f"{base}_error", None)
+    _sync_panel(base, draft)
     name = st.session_state.get(f"{base}_name", "")
     description = st.session_state.get(f"{base}_description", "")
     active = st.session_state.get(f"{base}_active", True)
@@ -308,6 +331,35 @@ def _save(base: str, project_name: str, pipeline: Pipeline | None, draft: GraphD
         return
     st.session_state[f"automation_{project_name}_select"] = saved.id
     _close(project_name)
+
+
+def _sync_panel(base: str, draft: GraphDraft) -> None:
+    """The open panel's fields, as last typed, into the draft. The panel writes
+    them while the script runs, but callbacks run before it: a field changed
+    right before the click would be missing. Only the open panel's widgets
+    are in session state (Streamlit drops the ones no longer drawn)."""
+    state = st.session_state
+    selected = state.get(f"{base}_selected")
+    key = f"{base}_{selected}"
+    if selected in draft.nodes:
+        step = draft.nodes[selected]
+        step.name = state.get(f"{key}_name", step.name)
+        step.input_template = state.get(f"{key}_template", step.input_template)
+        if step.kind == "agent" and step.agent is not None:
+            agent = step.agent
+            agent.system_prompt = state.get(f"{key}_prompt", agent.system_prompt)
+            agent.model = state.get(f"{key}_model", agent.model) or ""
+            agent.max_steps = int(state.get(f"{key}_max_steps", agent.max_steps))
+            agent.tool_names = list(state.get(f"{key}_tools", agent.tool_names))
+        elif step.kind == "agent_config":
+            step.agent_config_name = state.get(f"{key}_agent", step.agent_config_name)
+        elif step.function_name:
+            prefix = f"{key}_param_{step.function_name}_"
+            for widget_key in [k for k in state if str(k).startswith(prefix)]:
+                step.params[widget_key[len(prefix):]] = state[widget_key]
+    elif selected and (edge := draft.edge(selected)):
+        edge.condition = state.get(f"{key}_condition", edge.condition)
+        edge.value = state.get(f"{key}_value", edge.value)
 
 
 def _delete(project_name: str, pipeline: Pipeline) -> None:
