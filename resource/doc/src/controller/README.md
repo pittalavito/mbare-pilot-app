@@ -32,7 +32,7 @@ Documentazione interattiva con tutti gli endpoint: `http://<API_URL>/docs` (Swag
 | Agenti | `GET /agents?project=&include_global=`, `GET/PUT/DELETE /agents/{nome}`, `POST /agents` |
 | Ruoli e prompt | `GET/POST /roles`, `PATCH /roles/{nome}`, `GET/POST /roles/{nome}/prompts`, `PATCH /prompts/{id}` |
 | Cataloghi | `GET /tools`, `GET /models/choices?current=`, `GET/PUT /models` |
-| Chat | `GET/POST /projects/{p}/chatbots`, `PUT/DELETE /chatbots/{id}`, `GET/POST /chatbots/{id}/conversations`, `DELETE /conversations/{id}`, `GET/POST /conversations/{id}/messages` |
+| Chat | `GET/POST /projects/{p}/chatbots`, `PUT/DELETE /chatbots/{id}`, `GET/POST /chatbots/{id}/conversations`, `DELETE /conversations/{id}`, `GET/POST /conversations/{id}/messages`; cache: `GET /chatbots/{id}/routes`, `POST /messages/{id}/route`, `DELETE /chat-routes/{id}` |
 | Dati | `GET /projects/{p}/notes`, `GET/PUT/DELETE /projects/{p}/notes/{nota}`, `GET /projects/{p}/files`, `GET/PUT/DELETE /projects/{p}/files/{file}` |
 | Git | `GET /projects/{p}/git/repositories`, `GET .../git/log?path=&limit=&author=&message=&commit=`, `GET .../git/status?path=` |
 | Automation | `GET/POST /projects/{p}/pipelines`, `PUT/DELETE /pipelines/{id}`, `GET/POST /pipelines/{id}/runs`, `DELETE /pipeline-runs/{id}`, `GET /functions`, `GET /workers`, `GET /workers/health` |

@@ -1,13 +1,16 @@
 """Chat endpoints: a project's chatbots (/projects/{project}/chatbots,
-/chatbots/{id}), their conversations and messages. Sending a message waits
-for the agent's answer (no streaming yet)."""
+/chatbots/{id}), their conversations and messages, and their cache (entries
+made from a user message: /messages/{id}/route, /chatbots/{id}/routes).
+Sending a message waits for the agent's answer (no streaming yet)."""
 from fastapi import APIRouter, Depends, Response, status
 
-from controller.dependencies import chatbot_service
+from controller.dependencies import chat_route_service, chatbot_service
 from core.error import NotFoundError
 from models.controller.chatbot import (
-    ChatbotRequest, ChatbotResponse, ConversationResponse, MessageRequest, MessageResponse,
+    ChatbotRequest, ChatbotResponse, ChatRouteRequest, ChatRouteResponse, ConversationResponse, MessageRequest,
+    MessageResponse,
 )
+from service.chat_route_service import ChatRouteService
 from service.chatbot_service import ChatbotService
 
 router = APIRouter(tags=["chat"])
@@ -72,3 +75,24 @@ def send_message(conversation_id: int, request: MessageRequest,
     """Saves the user's message and returns the chatbot's reply (``error`` role
     when the agent could not answer)."""
     return MessageResponse.from_message(service.send(conversation_id, request.text))
+
+
+@router.get("/chatbots/{chatbot_id}/routes")
+def list_routes(chatbot_id: int, service: ChatRouteService = Depends(chat_route_service)) -> list[ChatRouteResponse]:
+    """The chatbot's cache entries, oldest first."""
+    return [ChatRouteResponse.from_route(route) for route in service.routes(chatbot_id)]
+
+
+@router.post("/messages/{message_id}/route", status_code=status.HTTP_201_CREATED)
+def add_route(message_id: int, request: ChatRouteRequest,
+              service: ChatRouteService = Depends(chat_route_service)) -> ChatRouteResponse:
+    """Put a user message in its chatbot's cache: similar messages will launch
+    the automation directly, without the agent."""
+    return ChatRouteResponse.from_route(service.add(message_id, request.pipeline_id, request.input))
+
+
+@router.delete("/chat-routes/{route_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_route(route_id: int, service: ChatRouteService = Depends(chat_route_service)) -> Response:
+    if not service.remove(route_id):
+        raise NotFoundError(f"Voce di cache non trovata: {route_id}")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -27,7 +27,7 @@ API ── controller/* ──► controller ──► domain/* ──► servic
 | `project.py` | `Project` (cartella su disco: `FOLDER` aperta o `SCRATCH` creata), `ProjectDataFile` (note e file del progetto) |
 | `agent.py` | definizione: `AgentRole` → `SystemPrompt` (versioni immutabili) → `AgentConfig` (prompt + modello + tool); `AgentDefinition` (quello che serve per eseguire un agente, da config o da chatbot); run: `AgentRunRecord`, `RunTelemetry`, `TokenSummary`, `AgentRunSummary`, `ToolCallSummary` |
 | `chat.py` | catalogo LLM: `ModelProvider`, `ChatModel` (prezzo per 1M token), `ModelKey` (`fornitore/modello`), `EmbeddingModelName` |
-| `chatbot.py` | `Chatbot` (con il suo agente), `Conversation`, `ChatMessage`, `MessageRole` |
+| `chatbot.py` | `Chatbot` (con il suo agente), `Conversation`, `ChatMessage`, `MessageRole`; cache: `ChatRoute` (messaggio → automation + input, con il suo embedding), `ChatRouteMatch` |
 | `pipeline.py` | automation a grafo: `Pipeline` (step + collegamenti), `PipelineStep` (`AGENT`, `AGENT_CONFIG`, `FUNCTION`, con la posizione nel grafo), `PipelineEdge` con `EdgeConditionKind`, `StepAgent`; esecuzioni: `PipelineRun`, `PipelineStepRun`, `RunStatus` (con `skipped` per gli step non raggiunti); placeholder `{input}`, `{pipeline_input}`, `{nodo:Nome}`; il nodo `input` |
 | `worker.py` | `WorkerStatus` (heartbeat del worker) |
 | `masking.py` | `MaskCategory` (repository, persona, email, termine), `MaskEntry` (valore ↔ alias) |

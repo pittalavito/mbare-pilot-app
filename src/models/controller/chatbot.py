@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from models.domain.chatbot import ChatMessage, Chatbot, Conversation
+from models.domain.chatbot import ChatMessage, ChatRoute, Chatbot, Conversation
 
 
 class ChatbotResponse(BaseModel):
@@ -61,3 +61,26 @@ class MessageResponse(BaseModel):
 
 class MessageRequest(BaseModel):
     text: str
+
+
+class ChatRouteResponse(BaseModel):
+    """A cache entry of a chatbot (without its embedding)."""
+    id: int
+    chatbot_id: int
+    message_id: int | None
+    """The user message it was made from (None once deleted)."""
+    text: str
+    pipeline_id: int
+    pipeline_input: str
+    hits: int
+    created_at: datetime
+
+    @classmethod
+    def from_route(cls, route: ChatRoute) -> "ChatRouteResponse":
+        return cls(**route.model_dump(exclude={"embedder", "embedding"}))
+
+
+class ChatRouteRequest(BaseModel):
+    """Put a user message in cache: similar messages launch this automation, with this fixed input."""
+    pipeline_id: int
+    input: str = ""

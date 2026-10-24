@@ -21,6 +21,7 @@ from domain.store.db.store import (
     DbChatbotRepository,
     DbConversationRepository,
     DbMessageRepository,
+    DbChatRouteRepository,
     DbPipelineEdgeRepository,
     DbPipelineRepository,
     DbPipelineRunRepository,
@@ -43,7 +44,7 @@ from domain.store.redis.store import (
 from models.domain.agent import AgentConfig, AgentRole, AgentRunRecord, AgentRunSummary, SystemPrompt, ToolCallSummary, ToolInfo
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
 from models.domain.chat import ChatModel
-from models.domain.chatbot import ChatMessage, Chatbot, Conversation
+from models.domain.chatbot import ChatMessage, ChatRoute, Chatbot, Conversation
 from models.domain.pipeline import Pipeline, PipelineRun, PipelineStepRun, RunStatus
 from models.domain.project import Project, ProjectSource
 from models.domain.masking import MaskCategory, MaskEntry
@@ -74,6 +75,7 @@ class StoreService:
         self._chatbot_repository = DbChatbotRepository(engine)
         self._conversation_repository = DbConversationRepository(engine)
         self._message_repository = DbMessageRepository(engine)
+        self._chat_route_repository = DbChatRouteRepository(engine)
         self._pipeline_repository = DbPipelineRepository(engine)
         self._pipeline_step_repository = DbPipelineStepRepository(engine)
         self._pipeline_edge_repository = DbPipelineEdgeRepository(engine)
@@ -250,8 +252,26 @@ class StoreService:
         """Oldest first."""
         return [DbAdapter.to_message(row) for row in self._message_repository.list_for_conversation(conversation_id)]
 
+    def get_message(self, message_id: int) -> ChatMessage | None:
+        row = self._message_repository.get(message_id)
+        return DbAdapter.to_message(row) if row else None
+
     def save_message(self, message: ChatMessage) -> ChatMessage:
         return DbAdapter.to_message(self._message_repository.save(DbFactory.to_message_row(message)))
+
+    def list_chat_routes(self, chatbot_id: int) -> list[ChatRoute]:
+        """A chatbot's cache entries, oldest first."""
+        return [DbAdapter.to_chat_route(row) for row in self._chat_route_repository.list_for_chatbot(chatbot_id)]
+
+    def get_chat_route(self, route_id: int) -> ChatRoute | None:
+        row = self._chat_route_repository.get(route_id)
+        return DbAdapter.to_chat_route(row) if row else None
+
+    def save_chat_route(self, route: ChatRoute) -> ChatRoute:
+        return DbAdapter.to_chat_route(self._chat_route_repository.save(DbFactory.to_chat_route_row(route)))
+
+    def delete_chat_route(self, route_id: int) -> bool:
+        return self._chat_route_repository.delete(route_id)
 
     # ------------------------------------------------------------- pipelines
     def list_pipelines(self, project_name: str) -> list[Pipeline]:

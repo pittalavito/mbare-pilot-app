@@ -48,6 +48,31 @@ class MessageRole(StrEnum):
     """The agent could not answer: shown in the chat, never sent back to the agent."""
 
 
+class ChatRoute(BaseModel):
+    """A chatbot's cache entry, made by the user from one of their messages: a
+    message similar enough to ``text`` launches the automation directly, with
+    its fixed input, without running the chatbot's agent."""
+    id: int | None = None
+    chatbot_id: int
+    message_id: int | None = None
+    """The user message it was made from (None once that message is deleted)."""
+    text: str
+    embedder: str
+    """Name of the embedder that made ``embedding`` (only the same one is compared)."""
+    embedding: list[float]
+    pipeline_id: int
+    pipeline_input: str = ""
+    hits: int = 0
+    """Messages answered from this entry."""
+    created_at: datetime = Field(default_factory=_utc_now)
+
+
+class ChatRouteMatch(BaseModel):
+    route: ChatRoute
+    similarity: float
+    """Cosine of the message and the entry's text, 0..1."""
+
+
 class ChatMessage(BaseModel):
     id: int | None = None
     conversation_id: int

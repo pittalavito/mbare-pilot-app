@@ -2,29 +2,37 @@
 (system prompt, model, max steps, tools) and separate from the agent
 configurations of the Library; it keeps its conversations and their messages.
 Sending a message runs that agent with the conversation so far as memory, on
-the chatbot's project (so project tools such as git work on it)."""
+the chatbot's project (so project tools such as git work on it), unless the
+message is close enough to one the user put in cache: then its automation is
+launched directly, without the agent (ChatRouteService)."""
 from datetime import datetime, timezone
 
 from core.error import AppError, ConflictError, NotFoundError, ValidationError
 from core.observability import LogPrefix, observed
 from models.domain.agent import AgentDefinition, RunOrigin, ToolInfo
-from models.domain.chatbot import ChatMessage, Chatbot, Conversation, MessageRole
+from models.domain.chatbot import ChatMessage, ChatRoute, Chatbot, Conversation, MessageRole
 from service.agent_config_service import AgentConfigService
 from service.agent_service import AgentService
+from service.chat_route_service import CACHE_BYPASS, ChatRouteService
 from service.model_service import require_usable_model
 from service.store_service import StoreService
 
 _TITLE_LENGTH = 60
 _ROLE_NAME = "chatbot"
 """Recorded as the role of every chatbot run (the chatbot has no AgentRole)."""
+CACHE_MARK = "⚡"
+"""Starts the replies given from the cache (no agent run behind them)."""
 
 
 class ChatbotService:
 
-    def __init__(self, store_service: StoreService, agent_config_service: AgentConfigService, agent_service: AgentService):
+    def __init__(self, store_service: StoreService, agent_config_service: AgentConfigService, agent_service: AgentService,
+                 route_service: ChatRouteService | None = None):
+        """``route_service`` is the cache; None = every message goes to the agent."""
         self._store = store_service
         self._agent_configs = agent_config_service
         self._agents = agent_service
+        self._routes = route_service
 
     # -------------------------------------------------------------- chatbots
     def list_chatbots(self, project_name: str) -> list[Chatbot]:
@@ -108,30 +116,26 @@ class ChatbotService:
 
     @observed(LogPrefix.CHATBOT_SERVICE)
     def send(self, conversation_id: int, text: str) -> ChatMessage:
-        """Save the user's message, run the chatbot's agent with the
-        conversation so far and save its answer. When the agent cannot answer
-        the reply is an ERROR message (kept in the chat, never sent back to the agent)."""
+        """Save the user's message and answer it: from the cache when it is
+        close enough to an entry (its automation is launched, no agent), else
+        by running the chatbot's agent with the conversation so far. A message
+        starting with ``!`` skips the cache. When the answer fails the reply is
+        an ERROR message (kept in the chat, never sent back to the agent)."""
         text = text.strip()
-        if not text:
+        bypass = text.startswith(CACHE_BYPASS)
+        request = text.removeprefix(CACHE_BYPASS).strip()
+        if not request:
             raise ValidationError("Il messaggio è vuoto.")
         conversation = self._require_conversation(conversation_id)
         chatbot = self.get_chatbot(conversation.chatbot_id)
         history = self._store.list_messages(conversation_id)
         self._store.save_message(ChatMessage(conversation_id=conversation_id, role=MessageRole.USER, content=text))
 
-        try:
-            record = self._agents.run_definition(
-                _agent_definition(chatbot), text, origin=RunOrigin.CHAT, history=history,
-            )
-        except AppError as exc:
-            reply = ChatMessage(conversation_id=conversation_id, role=MessageRole.ERROR, content=str(exc))
+        match = None if bypass or self._routes is None else self._routes.match(chatbot.id, request)
+        if match is not None:
+            reply = self._from_cache(conversation_id, match.route)
         else:
-            reply = ChatMessage(
-                conversation_id=conversation_id,
-                role=MessageRole.ASSISTANT if record.ok else MessageRole.ERROR,
-                content=record.output if record.ok else f"L'agente non è riuscito a rispondere: {record.error}",
-                run_id=record.run_id,
-            )
+            reply = self._from_agent(conversation_id, chatbot, request, history)
         reply = self._store.save_message(reply)
 
         update = {"updated_at": datetime.now(timezone.utc)}
@@ -141,6 +145,29 @@ class ChatbotService:
         return reply
 
     # ------------------------------------------------------------- helpers
+    def _from_cache(self, conversation_id: int, route: ChatRoute) -> ChatMessage:
+        try:
+            pipeline, run = self._routes.launch(route)
+        except AppError as exc:
+            return ChatMessage(conversation_id=conversation_id, role=MessageRole.ERROR,
+                               content=f"{CACHE_MARK} Dalla cache, ma l'automation non è partita: {exc}")
+        return ChatMessage(conversation_id=conversation_id, role=MessageRole.ASSISTANT,
+                           content=f"{CACHE_MARK} Ho lanciato l'automation {pipeline.name} (id {run.id}).")
+
+    def _from_agent(self, conversation_id: int, chatbot: Chatbot, text: str, history: list[ChatMessage]) -> ChatMessage:
+        try:
+            record = self._agents.run_definition(
+                _agent_definition(chatbot), text, origin=RunOrigin.CHAT, history=history,
+            )
+        except AppError as exc:
+            return ChatMessage(conversation_id=conversation_id, role=MessageRole.ERROR, content=str(exc))
+        return ChatMessage(
+            conversation_id=conversation_id,
+            role=MessageRole.ASSISTANT if record.ok else MessageRole.ERROR,
+            content=record.output if record.ok else f"L'agente non è riuscito a rispondere: {record.error}",
+            run_id=record.run_id,
+        )
+
     def _require_conversation(self, conversation_id: int) -> Conversation:
         conversation = self._store.get_conversation(conversation_id)
         if conversation is None:

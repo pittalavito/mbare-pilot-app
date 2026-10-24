@@ -9,7 +9,12 @@ from datetime import datetime, timezone
 from domain.store.db.agent_config_repository import DbAgentConfigRepository
 from domain.store.db.atlassian_favorite_repository import DbAtlassianFavoriteRepository
 from domain.store.db.atlassian_repository import DbAtlassianRepository
-from domain.store.db.chatbot_repository import DbChatbotRepository, DbConversationRepository, DbMessageRepository
+from domain.store.db.chatbot_repository import (
+    DbChatbotRepository,
+    DbChatRouteRepository,
+    DbConversationRepository,
+    DbMessageRepository,
+)
 from domain.store.db.pipeline_repository import (
     DbPipelineEdgeRepository,
     DbPipelineRepository,
@@ -36,7 +41,7 @@ from models.domain.agent import (
 )
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
 from models.domain.chat import ChatModel, EmbeddingModelName
-from models.domain.chatbot import ChatMessage, Chatbot, Conversation, MessageRole
+from models.domain.chatbot import ChatMessage, ChatRoute, Chatbot, Conversation, MessageRole
 from models.domain.pipeline import (
     INPUT_NODE,
     EdgeConditionKind,
@@ -56,6 +61,7 @@ from models.store.db import (
     AgentRunTable,
     AtlassianFavoriteTable,
     ChatbotTable,
+    ChatRouteTable,
     ConversationTable,
     MessageTable,
     ChatModelTable,
@@ -77,6 +83,7 @@ __all__ = [
     "DbAtlassianFavoriteRepository",
     "DbAtlassianRepository",
     "DbChatbotRepository",
+    "DbChatRouteRepository",
     "DbConversationRepository",
     "DbMessageRepository",
     "DbPipelineEdgeRepository",
@@ -222,6 +229,12 @@ class Adapter:
         )
 
     @staticmethod
+    def to_chat_route(row: ChatRouteTable) -> ChatRoute:
+        route = ChatRoute.model_validate(row.model_dump())
+        route.created_at = _as_utc(route.created_at)
+        return route
+
+    @staticmethod
     def to_pipeline(row: PipelineTable, step_rows: list[PipelineStepTable],
                     edge_rows: list[PipelineEdgeTable] | None = None) -> Pipeline:
         names = {step_row.id: step_row.name for step_row in step_rows}
@@ -365,6 +378,10 @@ class Factory:
     @staticmethod
     def to_message_row(message: ChatMessage) -> MessageTable:
         return MessageTable(**{**message.model_dump(), "role": message.role.value})
+
+    @staticmethod
+    def to_chat_route_row(route: ChatRoute) -> ChatRouteTable:
+        return ChatRouteTable(**{**route.model_dump(), "embedding": list(route.embedding)})
 
     @staticmethod
     def to_atlassian_row(settings: AtlassianSettings, encrypted_token: str) -> ProjectAtlassianTable:

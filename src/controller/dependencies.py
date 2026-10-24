@@ -5,6 +5,7 @@ from fastapi import Request
 from service.agent_config_service import AgentConfigService
 from service.atlassian_service import AtlassianService
 from service.backup_service import BackupService
+from service.chat_route_service import ChatRouteService
 from service.chatbot_service import ChatbotService
 from service.git_service import GitService
 from service.masking_service import MaskingService
@@ -29,6 +30,10 @@ def model_service(request: Request) -> ModelService:
 
 def chatbot_service(request: Request) -> ChatbotService:
     return request.app.state.container.chatbot_service
+
+
+def chat_route_service(request: Request) -> ChatRouteService:
+    return request.app.state.container.chat_route_service
 
 
 def project_data_service(request: Request) -> ProjectDataService:

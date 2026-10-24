@@ -78,6 +78,13 @@ class Config(BaseSettings):
     openai_api_key: SecretStr | None = None
     ollama_url: str = "http://localhost:11434/v1"
 
+    # --- Chatbot cache ---
+    chat_route_threshold: float = 0.9
+    """How similar (cosine, 0..1) a message must be to a cached one to launch
+    its automation without the agent."""
+    chat_route_embedder: str = "hashing"
+    """Embedder of the cache: ``hashing`` (a mock: same words = similar)."""
+
     # --- Datapizza tracing ---
     datapizza_trace_summary: bool = False
     """Print datapizza's "Trace Summary" panel (spans, duration, tokens) to the console after every run."""

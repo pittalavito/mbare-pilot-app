@@ -13,7 +13,7 @@ src/domain/store/db/
   agent_config_repository.py  agenti (Libreria e di progetto)
   tool_repository.py          catalogo dei tool
   chat_model_repository.py    catalogo dei modelli LLM
-  chatbot_repository.py       chatbot, conversazioni, messaggi
+  chatbot_repository.py       chatbot, conversazioni, messaggi, cache (chat_route)
   pipeline_repository.py      automation, step, collegamenti del grafo, run (anche coda del worker), step delle run
   run_repository.py           run degli agenti e loro tool call
   store.py                    punto unico di import + Adapter (lettura) e Factory (scrittura)

@@ -7,12 +7,14 @@ from core.observability import LogPrefix, configure_logging, observed
 
 from domain.agent.defaults import DEFAULT_CONFIGS, DEFAULT_PROMPTS, DEFAULT_ROLES
 from domain.chat.models_default import DEFAULT_CHAT_MODELS
+from domain.client.embedding.embedder import Factory as EmbedderFactory
 from domain.project.folder_browser import FolderBrowser
 
 from service.agent_config_service import AgentConfigService
 from service.agent_service import AgentService
 from service.atlassian_service import AtlassianService
 from service.backup_service import BackupService
+from service.chat_route_service import ChatRouteService
 from service.chat_service import ChatService
 from service.chatbot_service import ChatbotService
 from service.git_service import GitService
@@ -56,10 +58,17 @@ class Container:
             masking_service=self.masking_service,
             project_data_service=self.project_data_service,
         )
+        self.chat_route_service = ChatRouteService(
+            store_service=self.store_service,
+            pipeline_service=self.pipeline_service,
+            embedder=EmbedderFactory.create(config.chat_route_embedder),
+            threshold=config.chat_route_threshold,
+        )
         self.chatbot_service = ChatbotService(
             store_service=self.store_service,
             agent_config_service=self.agent_config_service,
             agent_service=self.agent_service,
+            route_service=self.chat_route_service,
         )
         self.pipeline_runner = PipelineRunner(
             store_service=self.store_service,

@@ -5,6 +5,7 @@ Schema overview (project-centric):
   project ─┬─ project_atlassian, atlassian_favorite         (Jira + Confluence site, favorites)
            ├─ agent_role / system_prompt / agent_config   (project_name NULL = global)
            ├─ chatbot (with its own agent) ── conversation ── message
+           │      └── chat_route (cache: message → automation, from a message)
            ├─ pipeline ── pipeline_step, pipeline_edge (graph)
            │      └── pipeline_run (also the worker queue) ── pipeline_step_run
            ├─ document ── chunk (pgvector embedding)
@@ -169,6 +170,24 @@ class ConversationTable(SQLModel, table=True):
     title: str = ""
     created_at: datetime = _timestamp()
     updated_at: datetime = _timestamp(index=True)
+
+
+class ChatRouteTable(SQLModel, table=True):
+    """A chatbot's cache entry: a message that launches an automation without
+    the agent. The embedding is JSON, compared in Python: a chatbot has few."""
+    __tablename__ = "chat_route"
+
+    id: int | None = Field(default=None, primary_key=True)
+    chatbot_id: int = Field(foreign_key="chatbot.id", index=True, ondelete="CASCADE")
+    message_id: int | None = Field(default=None, foreign_key="message.id", ondelete="SET NULL")
+    """The user message it was made from: deleting the conversation keeps the entry."""
+    text: str = Field(sa_type=Text)
+    embedder: str
+    embedding: list[float] = Field(default_factory=list, sa_type=JSON)
+    pipeline_id: int = Field(foreign_key="pipeline.id", ondelete="CASCADE")
+    pipeline_input: str = Field(default="", sa_type=Text)
+    hits: int = 0
+    created_at: datetime = _timestamp()
 
 
 class MessageTable(SQLModel, table=True):

@@ -15,6 +15,7 @@ src/service/
   pipeline_runner.py        esegue le run in coda (lo usa il worker)
   project_service.py        progetti: apri cartella, crea da zero, modifica, rimuovi
   chatbot_service.py        chatbot di un progetto, conversazioni e messaggi
+  chat_route_service.py     cache dei chatbot: messaggio simile → automation, senza agente
   atlassian_service.py      sito Jira + Confluence di un progetto
   backup_service.py         export del DB in SQL nella cartella di backup
   masking_service.py        mascheramento dei dati sensibili verso i modelli
@@ -58,6 +59,17 @@ worker ──► PipelineRunner.run_next ──► claim (running) ──► ste
 - **`send(conversazione, testo)`**: salva il messaggio dell'utente, esegue l'agente del chatbot con la conversazione precedente come memoria, **sul progetto del chatbot** (i tool git lavorano lì), e salva la risposta. Il primo messaggio diventa il titolo della conversazione (max 60 caratteri).
 - **Se l'agente non risponde** (errore del modello, tool, modello disattivato…) la risposta è un messaggio di tipo `error`: si vede in chat ma non viene rimandato all'agente nei turni successivi.
 - **Run registrate** come `chatbot/<nome>`, con ruolo `chatbot` e la versione del prompt: si trovano in Admin → Observability.
+
+### Cache: `ChatRouteService`
+
+L'utente mette in cache un **suo** messaggio scegliendo un'automation del progetto e un input fisso (`add(messaggio, automation, input)`). Da lì, `send` confronta ogni messaggio con le voci del chatbot: se uno è abbastanza simile (`CHAT_ROUTE_THRESHOLD`, coseno 0..1, default 0,9) lancia **direttamente** l'automation, **senza l'agente** (niente LLM né token), e risponde `⚡ Ho lanciato l'automation X (id N).`. L'automation poi gira nel worker con i suoi step e tool, come sempre.
+
+- **Similarità**: coseno degli embedding (`domain/client/embedding`), calcolato in Python sulle voci del chatbot (sono poche). Si confrontano solo voci fatte con lo stesso embedder (`CHAT_ROUTE_EMBEDDER`). Per ora c'è solo `hashing`, un embedder finto: stesse parole (senza maiuscole, accenti, articoli e preposizioni) = simili, sinonimi no.
+- **`!` all'inizio** del messaggio: salta la cache, risponde l'agente (in cache il messaggio va senza `!`).
+- **Input fisso**: è lo stesso per ogni messaggio simile; le richieste con parametri che cambiano non vanno in cache.
+- **Regole**: solo messaggi dell'utente, solo automation del progetto del chatbot, un messaggio una volta sola. La voce resta anche se si elimina la conversazione (il riferimento al messaggio diventa vuoto); se ne va con il chatbot o con l'automation.
+- **Se l'automation non parte** (disattivata, senza step…) la risposta è un messaggio `error` che inizia con ⚡.
+- **`hits`**: quante volte la voce ha risposto.
 
 ## Atlassian
 
@@ -115,4 +127,4 @@ Un progetto nuovo viene rifiutato se il nome contiene `/` o `\` (finisce negli U
 
 ## Test
 
-In `test/unit/service/`: `test_store_service`, `test_model_service`, `test_agent_config_service`, `test_agent_scope` (globali e di progetto), `test_activation` (disattivazioni), `test_agent_service`, `test_git_service`, `test_pipeline` (definizioni, coda, esecuzione, heartbeat), `test_function_steps`, `test_pipeline_graph` (grafo salvato ed eseguito: rami, unioni, step saltati), `test_project_service`, `test_project_data_service`, `test_chatbot_service`, `test_atlassian_service`, `test_backup_service`, `test_masking` (mascheratore, mappa su Redis, giro completo in una run). Gli agenti sono finti (`FakeAgent`), il DB è SQLite in memoria e Redis è fakeredis: le fixture stanno in `test/conftest.py`.
+In `test/unit/service/`: `test_store_service`, `test_model_service`, `test_agent_config_service`, `test_agent_scope` (globali e di progetto), `test_activation` (disattivazioni), `test_agent_service`, `test_git_service`, `test_pipeline` (definizioni, coda, esecuzione, heartbeat), `test_function_steps`, `test_pipeline_graph` (grafo salvato ed eseguito: rami, unioni, step saltati), `test_project_service`, `test_project_data_service`, `test_chatbot_service`, `test_chat_route_service` (cache: lancio senza agente, `!`, soglia, embedder, cosa si può mettere in cache), `test_atlassian_service`, `test_backup_service`, `test_masking` (mascheratore, mappa su Redis, giro completo in una run). Gli agenti sono finti (`FakeAgent`), il DB è SQLite in memoria e Redis è fakeredis: le fixture stanno in `test/conftest.py`.
