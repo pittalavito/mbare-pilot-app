@@ -1,7 +1,8 @@
 """automation_status: how a run of one of the project's automations is going
 (the one run_automation answered with): its status and its steps' statuses,
 nothing else. No output nor error messages: they can be long or hold secrets
-(the user reads them in the Automation tab). Only runs of the run's project."""
+(the user reads them in the Automation tab). Only runs of the run's project,
+and only in a chatbot's run (as run_automation)."""
 from typing import Annotated
 
 from datapizza.tools import Tool, tool
@@ -9,6 +10,7 @@ from datapizza.tools import Tool, tool
 from core.error import AppError
 from models.domain.tool import AutomationStatusResponse, AutomationStepStatus, ToolErrorResponse
 from tool.context import ToolContext
+from tool.list.automation.run_automation import chatbot_run
 from tool.spec import ToolSpec
 
 RunId = Annotated[int, "The run id that run_automation answered with."]
@@ -24,8 +26,8 @@ def build(context: ToolContext) -> Tool:
 
     @tool(name="automation_status", description=_DESCRIPTION)
     def automation_status(run_id: RunId) -> str:
-        if context.pipelines is None or context.project_name is None:
-            return ToolErrorResponse(error="Stato delle automation non disponibile fuori da un progetto.").model_dump_json()
+        if not chatbot_run(context):
+            return ToolErrorResponse(error="Stato delle automation disponibile solo nel chatbot di un progetto.").model_dump_json()
         try:
             run = context.pipelines.get_run(run_id)
             pipeline = context.pipelines.get_pipeline(run.pipeline_id)
@@ -49,4 +51,5 @@ AUTOMATION_STATUS = ToolSpec(
     name="automation_status",
     description="Stato di un'esecuzione di un'automation del progetto e dei suoi step (solo gli stati).",
     build=build,
+    chatbot_only=True,
 )

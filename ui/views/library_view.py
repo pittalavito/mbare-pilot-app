@@ -27,7 +27,8 @@ def _tools_tab() -> None:
         st.info("Nessun tool nel catalogo.")
         return
     rows = [
-        {"tool": tool.name, "descrizione": tool.description, "disponibile": "✅" if tool.available else "❌"}
+        {"tool": tool.name, "descrizione": tool.description, "disponibile": "✅" if tool.available else "❌",
+         "solo chatbot": "💬" if tool.chatbot_only else ""}
         for tool in tools
     ]
     st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)

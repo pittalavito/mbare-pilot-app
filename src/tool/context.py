@@ -8,8 +8,7 @@ from core.error import ValidationError
 from models.domain.agent import RunOrigin
 from service.git_service import GitService
 
-if TYPE_CHECKING:  # AgentService builds the ToolContext: imported only for the type
-    from service.agent_service import AgentService
+if TYPE_CHECKING:  # services imported only for the type
     from service.masking_service import MaskSession
     from service.pipeline_service import PipelineService
     from service.project_data_service import ProjectDataService
@@ -20,14 +19,10 @@ class ToolContext:
     project_name: str | None
     """Project of the run; None for a run outside any project."""
     git: GitService
-    agents: "AgentService | None" = None
-    """For delegating to other agents (tool ask_agent); None = no delegation."""
-    depth: int = 0
-    """Delegation level of the run: 0 = asked by the user, 1 = asked by another agent."""
     pipelines: "PipelineService | None" = None
-    """For starting the project's automations (tool run_automation); None = not possible."""
+    """For the project's automations (tools run_automation, automation_status); None = not possible."""
     origin: RunOrigin = RunOrigin.MANUAL
-    """What triggered the run (a run inside an automation cannot start automations)."""
+    """What triggered the run (the automation tools work only in a chatbot's run)."""
     project_data: "ProjectDataService | None" = None
     """For reading the project's context files (tool read_context); None = not possible."""
     mask: "MaskSession | None" = None

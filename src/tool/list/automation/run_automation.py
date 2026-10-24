@@ -1,8 +1,8 @@
 """run_automation: queue a run of one of the project's automations and answer
 at once with its id: the worker executes it, the result is in the Automation
 tab. The automations the model can pick, with their descriptions, are written
-into the tool description when the tool is built for a run. Not available to
-agents running inside an automation (no loops) or asked by another agent."""
+into the tool description when the tool is built for a run. Only in a
+chatbot's run of a project: never in an automation (no loops) or elsewhere."""
 from typing import Annotated
 
 from datapizza.tools import Tool, tool
@@ -30,8 +30,8 @@ def build(context: ToolContext) -> Tool:
     @tool(name="run_automation", description=description)
     def run_automation(automation: AutomationName, input: AutomationInput) -> str:
         if not _can_launch(context):
-            return ToolErrorResponse(error="Automation non disponibili in questa run: si lanciano solo da un agente "
-                                           "di un progetto chiamato dall'utente.").model_dump_json()
+            return ToolErrorResponse(error="Automation non disponibili in questa run: si lanciano solo dal chatbot "
+                                           "di un progetto.").model_dump_json()
         by_name = {pipeline.name: pipeline for pipeline in automations}
         if automation not in by_name:
             available = ", ".join(sorted(by_name)) or "nessuna"
@@ -46,16 +46,18 @@ def build(context: ToolContext) -> Tool:
 
 
 def _can_launch(context: ToolContext) -> bool:
-    """Only a run of a project, asked by the user: never from inside an
-    automation (it could start itself again) nor from a delegated agent."""
-    return (
-        context.pipelines is not None and context.project_name is not None
-        and context.origin is not RunOrigin.PIPELINE and context.depth == 0
-    )
+    """Only a chatbot's run of a project (an automation could start itself again)."""
+    return chatbot_run(context)
+
+
+def chatbot_run(context: ToolContext) -> bool:
+    """The automation tools work only here: a chatbot's run of a project."""
+    return context.pipelines is not None and context.project_name is not None and context.origin is RunOrigin.CHAT
 
 
 RUN_AUTOMATION = ToolSpec(
     name="run_automation",
     description="Lancia un'automation del progetto in background e riporta l'id dell'esecuzione, senza aspettare il risultato.",
     build=build,
+    chatbot_only=True,
 )

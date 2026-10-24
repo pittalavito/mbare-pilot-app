@@ -101,6 +101,8 @@ class ToolResponse(BaseModel):
     name: str
     description: str
     available: bool
+    chatbot_only: bool = False
+    """Works only in a chatbot: the forms of the other agents do not offer it."""
 
     @classmethod
     def from_tool(cls, tool: ToolInfo) -> "ToolResponse":

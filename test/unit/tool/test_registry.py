@@ -21,6 +21,15 @@ def test_every_spec_builds_a_tool_with_its_name_and_a_description(context):
         assert spec.build(context).name == name
 
 
+def test_only_the_automation_tools_are_for_chatbots_and_the_catalog_says_so(agent_config_service):
+    assert {name for name, spec in TOOL_REGISTRY.items() if spec.chatbot_only} == {"run_automation", "automation_status"}
+
+    agent_config_service.sync_tools()
+    flags = {tool.name: tool.chatbot_only for tool in agent_config_service.list_tools()}
+
+    assert flags["run_automation"] and flags["automation_status"] and not flags["git_status"]
+
+
 def test_build_tools_keeps_order(context):
     assert [t.name for t in build_tools(["git_status", "hello_world"], context)] == ["git_status", "hello_world"]
 

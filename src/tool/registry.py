@@ -14,7 +14,6 @@ from datapizza.tools import Tool
 
 from core.error import ValidationError
 from tool.context import ToolContext
-from tool.list.agent.ask_agent import ASK_AGENT
 from tool.list.automation.automation_status import AUTOMATION_STATUS
 from tool.list.automation.run_automation import RUN_AUTOMATION
 from tool.list.git.git_pull_fast_forward import GIT_PULL_FAST_FORWARD
@@ -29,7 +28,6 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
     spec.name: spec
     for spec in (
         static(hello_world),
-        ASK_AGENT,
         RUN_AUTOMATION,
         AUTOMATION_STATUS,
         READ_CONTEXT,

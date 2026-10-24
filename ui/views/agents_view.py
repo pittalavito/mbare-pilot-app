@@ -126,7 +126,7 @@ def _agent_form(current: Agent | None, scope: str | None) -> None:
         "Max steps", min_value=1, max_value=50, value=current.max_steps if current else 4, key=f"{key}_steps",
     )
 
-    usable = [tool.name for tool in agents_api.tools() if tool.available]
+    usable = [tool.name for tool in agents_api.tools() if tool.available and not tool.chatbot_only]
     saved_tools = current.tool_names if current else []
     tool_names = st.multiselect("Tool", usable, default=[n for n in saved_tools if n in usable], key=f"{key}_tools")
     missing = [n for n in saved_tools if n not in usable]

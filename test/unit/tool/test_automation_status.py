@@ -1,11 +1,12 @@
 """automation_status: only the statuses of a run of one of the project's
 automations and of its steps, never its output or errors (fake agents, no
-LLM). Runs of other projects are not found."""
+LLM). Runs of other projects are not found; only in a chatbot's run."""
 import json
 
 import pytest
 
 from fakes import FakeAgent
+from models.domain.agent import RunOrigin
 from models.domain.pipeline import PipelineStep, StepAgent, StepKind
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
@@ -43,8 +44,9 @@ def _automation(pipelines, project="acme"):
     return pipelines.create_pipeline(project, "Report", steps=[step])
 
 
-def _status(pipelines, run_id, project="acme"):
-    return json.loads(AUTOMATION_STATUS.build(ToolContext(project, git=None, pipelines=pipelines)).func(run_id=run_id))
+def _status(pipelines, run_id, project="acme", origin=RunOrigin.CHAT):
+    context = ToolContext(project, git=None, pipelines=pipelines, origin=origin)
+    return json.loads(AUTOMATION_STATUS.build(context).func(run_id=run_id))
 
 
 def test_queued_then_done_only_statuses(pipelines, runner):
@@ -64,5 +66,12 @@ def test_runs_of_other_projects_or_unknown_are_not_found(pipelines):
 
     assert "non trovata" in _status(pipelines, run.id)["error"]
     assert "non trovata" in _status(pipelines, 999)["error"]
-    assert "fuori da un progetto" in _status(pipelines, run.id, project=None)["error"]
+
+
+def test_only_in_a_chatbots_run_of_a_project(pipelines):
+    run = pipelines.enqueue(_automation(pipelines).id)
+
+    for answer in (_status(pipelines, run.id, project=None), _status(pipelines, run.id, origin=RunOrigin.MANUAL),
+                   _status(pipelines, run.id, origin=RunOrigin.PIPELINE)):
+        assert "solo nel chatbot" in answer["error"]
 

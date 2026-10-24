@@ -48,6 +48,8 @@ class ToolInfo(BaseModel):
     name: Name
     description: str = ""
     available: bool = True
+    chatbot_only: bool = False
+    """Works only in a chatbot's run (from the code, not stored)."""
 
 
 class AgentConfig(BaseModel):
@@ -108,7 +110,7 @@ class RunOrigin(StrEnum):
     PIPELINE = "pipeline"
     MANUAL = "manual"
     AGENT = "agent"
-    """Delegated by another agent (tool ask_agent)."""
+    """Delegated by another agent (tool ask_agent, removed): kept for the runs already recorded."""
 
 
 

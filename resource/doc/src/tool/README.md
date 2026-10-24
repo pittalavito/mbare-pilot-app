@@ -9,9 +9,8 @@ I tool che un agente può chiamare durante una run:
 | `git_pull_fast_forward` | **con contesto** | aggiorna un repository del progetto dal remoto, solo in fast-forward |
 | `git_stash` | **con contesto** | mette da parte le modifiche non committate di un repository del progetto |
 | `git_stash_apply` | **con contesto** | riapplica uno stash (che resta nella lista) |
-| `ask_agent` | **con contesto** | delega una domanda a un altro agente e ne riporta la risposta |
-| `run_automation` | **con contesto** | lancia un'automation del progetto in background e riporta l'id dell'esecuzione |
-| `automation_status` | **con contesto** | stato di un'esecuzione di un'automation del progetto e dei suoi step: solo gli stati, niente output né messaggi d'errore |
+| `run_automation` | **con contesto**, solo chatbot | lancia un'automation del progetto in background e riporta l'id dell'esecuzione |
+| `automation_status` | **con contesto**, solo chatbot | stato di un'esecuzione di un'automation del progetto e dei suoi step: solo gli stati, niente output né messaggi d'errore |
 | `read_context` | **con contesto** | il contesto del progetto per il chatbot: i `.md` di `projects/<slug>/chat-bot/` tranne `system-prompt.md`; ultima risorsa |
 
 ```
@@ -21,8 +20,6 @@ src/tool/
   context.py            ToolContext: quello che un tool può usare durante la run
   list/
     hello_world.py      esempio statico
-    agent/
-      ask_agent.py      delega a un altro agente
     automation/
       run_automation.py lancia un'automation del progetto
       automation_status.py  stato di un'esecuzione
@@ -48,6 +45,7 @@ run:    AgentService ──build_tools(nomi, ToolContext)──► tool datapizz
 ```
 
 - **I tool stanno sopra i service**: un tool usa i service (es. `GitService`) attraverso il `ToolContext`, mai il Container.
+- **Solo chatbot**: una `ToolSpec` con `chatbot_only=True` (`run_automation`, `automation_status`) funziona solo nelle run del chatbot; `/tools` lo riporta (`chatbot_only`, calcolato dal codice, non salvato) e la UI la propone solo nel form del chatbot.
 - **Catalogo**: all'avvio il registry viene copiato nella tabella `tool`. Un tool tolto dal codice resta nel catalogo con `available = False`: non si può più scegliere, e gli agenti che lo usano non partono finché non lo tolgono.
 - **`build_tools(nomi, context)`**: costruisce i tool scelti per una run, nell'ordine dato; `ValidationError` se un nome non ha implementazione.
 
@@ -56,9 +54,8 @@ run:    AgentService ──build_tools(nomi, ToolContext)──► tool datapizz
 Creato da `AgentService` per ogni run:
 
 - `project_name`: il progetto della run (`None` fuori da un progetto);
-- i service che i tool possono usare: `git`, `agents` (`AgentService`, per la delega), `pipelines` (`PipelineService`, per le automation), `project_data` (`ProjectDataService`, per il contesto del chatbot);
-- `depth`: il livello di delega della run (0 = chiesta dall'utente, 1 = chiesta da un altro agente);
-- `origin`: cosa ha avviato la run (chat, automation, manuale, altro agente);
+- i service che i tool possono usare: `git`, `pipelines` (`PipelineService`, per le automation), `project_data` (`ProjectDataService`, per il contesto del chatbot);
+- `origin`: cosa ha avviato la run (chat, automation, manuale): i tool delle automation funzionano solo con `chat`, cioè nel chatbot;
 - `mask`: il mascheramento della run (solo nelle run di un progetto). Un tool che legge valori sensibili li registra con `context.register_sensitive(MaskCategory.X, valore)`: da lì in poi il modello vede l'alias.
 
 **Mascheramento**: `build_tools` avvolge ogni tool (su una copia, perché i tool statici sono condivisi) così che riceva gli argomenti smascherati e restituisca l'output mascherato. Il tool non deve fare niente, tranne registrare i valori sensibili che legge (vedi [service](../service/README.md#mascheramento)).
@@ -67,24 +64,13 @@ Creato da `AgentService` per ogni run:
 
 **Il progetto lo decide la run, non il modello**: `git_status` riceve dal modello solo `repository`, e lo cerca sempre dentro il progetto della run. Un agente di un progetto non può leggere i repository di un altro.
 
-## Delega: `ask_agent(agent, question)`
-
-Un agente chiede a un altro agente e riceve la sua risposta. È quello che serve a un chatbot orchestratore, che non legge le fonti ma delega agli specialisti.
-
-- **A chi può chiedere**: agli agenti del progetto della run e a quelli globali (Libreria), solo quelli che possono partire adesso (niente ruolo o prompt disattivati, modello usabile). Fuori da un progetto, solo ai globali.
-- **Come lo sa il modello**: l'elenco degli agenti disponibili, con la loro descrizione, è scritto nella descrizione del tool quando viene costruito per la run. La **descrizione di un agente** quindi conta: è quella che il modello legge per scegliere.
-- **La domanda** deve essere completa: l'agente chiamato non vede la conversazione.
-- **Run separata**: l'agente chiamato gira sullo stesso progetto ed è registrato a parte, con origine `agent` (Admin → Observability). La risposta torna come JSON `{agent, run_id, answer}`.
-- **Un solo livello**: un agente chiamato con `ask_agent` non può delegare a sua volta (`MAX_DEPTH = 1`, profondità in `ToolContext.depth`).
-- **Errori** (agente sconosciuto, con l'elenco di quelli disponibili; domanda vuota; agente che fallisce): tornano all'agente come `{"error": ...}`, la run non si interrompe.
-
 ## Automation: `run_automation(automation, input)`
 
-Un agente mette in coda un'esecuzione di un'automation del progetto e risponde **subito** con `{automation, run_id, status: "queued"}`: non aspetta la fine. L'automation la esegue il worker, il risultato si vede nel tab Automation.
+Il chatbot mette in coda un'esecuzione di un'automation del progetto e risponde **subito** con `{automation, run_id, status: "queued"}`: non aspetta la fine. L'automation la esegue il worker, il risultato si vede nel tab Automation.
 
 - **Quali**: le automation del progetto della run che si possono lanciare (attive e con almeno uno step), elencate con la loro descrizione nella descrizione del tool.
-- **Senza conferma**: l'agente le lancia da solo.
-- **Chi può usarlo**: solo un agente di un progetto chiamato dall'utente (chat, run manuale). Non un agente che gira **dentro un'automation** (potrebbe rilanciarla all'infinito), né uno chiamato da `ask_agent`, né una run fuori da un progetto: lì il tool non elenca niente e risponde con un errore.
+- **Senza conferma**: il chatbot le lancia da solo.
+- **Chi può usarlo**: solo il **chatbot** di un progetto (run con origine `chat`, `chatbot_run()`), come `automation_status`. Non un agente lanciato a mano né uno step **dentro un'automation** (potrebbe rilanciarla all'infinito), né una run fuori da un progetto: lì il tool non elenca niente e risponde con un errore.
 - **Errori** (automation sconosciuta, con l'elenco di quelle disponibili; automation non valida): tornano all'agente come `{"error": ...}`.
 
 ## Pull: `git_pull_fast_forward(repository)`
@@ -150,8 +136,9 @@ In entrambi i casi: il modello di output in `models/domain/tool.py`.
 
 - `test/unit/tool/test_registry.py`: registry per nome, ogni tool si costruisce con nome e descrizione, ordine di `build_tools`, nome sconosciuto, `require_project`.
 - `test/unit/tool/test_hello_world.py`
-- `test/unit/tool/test_run_automation.py`: run messa in coda con risposta immediata, solo automation attive e con step nella descrizione, automation sconosciuta, niente lancio fuori da un progetto, da un agente delegato o da dentro un'automation (anche eseguita davvero dal runner).
-- `test/unit/tool/test_ask_agent.py`: delega sullo stesso progetto con run registrata a parte, niente secondo livello di delega, agente sconosciuto, elenco degli agenti nella descrizione (solo quelli che possono partire, solo globali fuori da un progetto).
+- `test/unit/tool/test_run_automation.py`: run messa in coda con risposta immediata, solo automation attive e con step nella descrizione, automation sconosciuta, niente lancio fuori dal chatbot di un progetto (run manuale, fuori da un progetto, dentro un'automation, anche eseguita davvero dal runner).
+- `test/unit/tool/test_automation_status.py`: solo gli stati dell'esecuzione e degli step, mai output o errori; esecuzioni di altri progetti non trovate; solo nel chatbot.
+- `test/unit/tool/test_read_context.py`: i `.md` di `chat-bot/` senza il system prompt; errori senza file o senza progetto.
 - `test/unit/tool/test_git_write.py`: pull e stash con un remoto vero: commit arrivati, già aggiornato, modifiche locali che bloccano, file non tracciati che non bloccano, branch divergente mai unito, branch senza upstream, autori registrati per il mascheramento, errori senza percorsi locali; stash dei soli file tracciati, stash e poi pull, niente da mettere da parte; stash apply dell'ultimo o di uno indicato (lo stash resta), errori (nessuno stash, stash inesistente o non valido, modifiche locali), conflitti segnalati.
 - `test/unit/tool/test_git_tools.py`: `git_status` su un repository vero; progetto deciso dalla run, errori con i repository disponibili, percorsi fuori dal progetto, run senza progetto, schema degli argomenti, percorsi locali nascosti negli errori. Serve `git` nel PATH.
 

@@ -1,6 +1,7 @@
-"""run_automation: an agent of a project queues one of the project's automations
-and gets the run id back at once (fake agents, no LLM). Never from inside an
-automation, from a delegated agent or outside a project."""
+"""run_automation: the chatbot of a project queues one of the project's
+automations and gets the run id back at once (fake agents, no LLM). Only in a
+chatbot's run: never from a manual run, from inside an automation or outside
+a project."""
 import json
 from types import SimpleNamespace
 
@@ -44,7 +45,7 @@ def pipelines(store_service, agent_config_service):
 def service(store_service, agent_config_service, pipelines, monkeypatch):
     agent_config_service.save_config(AgentConfig(
         name="boss", project_name="acme", role_name="hello", prompt_id=agent_config_service.latest_prompt("hello").id,
-        model=MODEL, tool_names=["run_automation", "ask_agent"],
+        model=MODEL, tool_names=["run_automation"],
     ), create=True)
     chat = ChatService()
     monkeypatch.setattr(chat, "get_client", lambda model: object())
@@ -69,7 +70,7 @@ def test_queues_the_run_and_answers_at_once(service, pipelines, monkeypatch):
     report = pipelines.create_pipeline("acme", "Report", description="report del giorno", steps=[_own_step()])
     _agents(monkeypatch, {"boss": "Report"})
 
-    answer = json.loads(service.run("boss", "lancia il report", project_name="acme").output)
+    answer = json.loads(service.run("boss", "lancia il report", project_name="acme", origin=RunOrigin.CHAT).output)
 
     [run] = pipelines.list_runs(report.id)
     assert answer == {"automation": "Report", "run_id": run.id, "status": "queued"}
@@ -81,7 +82,7 @@ def test_description_lists_only_the_runnable_automations(service, pipelines):
     pipelines.create_pipeline("acme", "Spenta", active=False, steps=[_own_step()])
     pipelines.create_pipeline("acme", "Vuota")
 
-    built = RUN_AUTOMATION.build(ToolContext("acme", git=None, pipelines=pipelines))
+    built = RUN_AUTOMATION.build(ToolContext("acme", git=None, pipelines=pipelines, origin=RunOrigin.CHAT))
 
     assert "- Report: report del giorno" in built.description
     assert "Spenta" not in built.description and "Vuota" not in built.description
@@ -91,17 +92,17 @@ def test_unknown_automation_lists_the_available_ones(service, pipelines, monkeyp
     pipelines.create_pipeline("acme", "Report", steps=[_own_step()])
     _agents(monkeypatch, {"boss": "Altro"})
 
-    error = json.loads(service.run("boss", "x", project_name="acme").output)["error"]
+    error = json.loads(service.run("boss", "x", project_name="acme", origin=RunOrigin.CHAT).output)["error"]
 
     assert "Disponibili: Report" in error
 
 
 @pytest.mark.parametrize("context", [
-    ToolContext(None, git=None),  # outside a project
-    ToolContext("acme", git=None, depth=1),  # asked by another agent
+    ToolContext(None, git=None, origin=RunOrigin.CHAT),  # outside a project
+    ToolContext("acme", git=None),  # a manual run, not the chatbot
     ToolContext("acme", git=None, origin=RunOrigin.PIPELINE),  # inside an automation
 ])
-def test_not_available_outside_a_users_run_of_a_project(pipelines, context):
+def test_only_in_a_chatbots_run_of_a_project(pipelines, context):
     pipelines.create_pipeline("acme", "Report", steps=[_own_step()])
     built = RUN_AUTOMATION.build(ToolContext(**{**context.__dict__, "pipelines": pipelines}))
 

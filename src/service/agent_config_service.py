@@ -26,7 +26,11 @@ class AgentConfigService:
         self._store.sync_tools([ToolInfo(name=spec.name, description=spec.description) for spec in TOOL_REGISTRY.values()])
 
     def list_tools(self) -> list[ToolInfo]:
-        return self._store.list_tools(implemented=set(TOOL_REGISTRY))
+        """The catalog, with ``chatbot_only`` from the code."""
+        return [
+            tool.model_copy(update={"chatbot_only": tool.name in TOOL_REGISTRY and TOOL_REGISTRY[tool.name].chatbot_only})
+            for tool in self._store.list_tools(implemented=set(TOOL_REGISTRY))
+        ]
 
     # ----------------------------------------------------------------- roles
     def list_roles(self, project_name: str | None = None, include_global: bool = True) -> list[AgentRole]:

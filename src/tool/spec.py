@@ -14,6 +14,8 @@ class ToolSpec:
     """Shown in the catalog (the built tool carries its own for the LLM)."""
     build: Callable[[ToolContext], Tool]
     """Builds the tool for one run, closing over what it needs from the context."""
+    chatbot_only: bool = False
+    """Works only in a chatbot's run: the UI offers it only to chatbots."""
 
 
 def static(implementation: Tool) -> ToolSpec:

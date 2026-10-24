@@ -68,6 +68,8 @@ class Tool(BaseModel):
     name: str
     description: str
     available: bool
+    chatbot_only: bool = False
+    """Works only in a chatbot: offered only in the chatbot's form."""
 
 
 class ModelChoices(BaseModel):
