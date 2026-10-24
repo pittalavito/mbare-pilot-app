@@ -296,7 +296,7 @@ def _edge_panel(base: str, draft: GraphDraft, edge_id: str) -> None:
     edge.condition = st.selectbox("Quando passa l'output", conditions, index=conditions.index(edge.condition),
                                   format_func=CONDITION_LABELS.get, key=f"{key}_condition")
     if edge.condition in TEXT_CONDITIONS:
-        placeholder = "es. RESEVO-\\d+" if edge.condition == "matches" else "es. OK"
+        placeholder = "es. PROJECT-\\d+" if edge.condition == "matches" else "es. OK"
         edge.value = st.text_input("Testo" if edge.condition != "matches" else "Regex", value=edge.value,
                                    placeholder=placeholder, key=f"{key}_value")
         st.caption("Maiuscole e minuscole indifferenti.")

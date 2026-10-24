@@ -21,6 +21,23 @@ class RunAutomationResponse(BaseModel):
     status: str = Field(..., description="'queued': the worker runs it in the background.")
 
 
+class AutomationStepStatus(BaseModel):
+    name: str
+    status: str = Field(..., description="running, done, failed or skipped (its condition did not pass).")
+
+
+class AutomationStatusResponse(BaseModel):
+    """Only statuses: no output nor error messages (long, may hold secrets)."""
+    automation: str
+    run_id: int
+    status: str = Field(..., description="queued, running, done or failed.")
+    steps: list[AutomationStepStatus] = Field(..., description="The steps run so far, in order.")
+
+
+class ReadContextResponse(BaseModel):
+    files: dict[str, str] = Field(..., description="File name -> its markdown content.")
+
+
 class HelloWorldResponse(BaseModel):
     response: str = Field(..., description="The greeting message.")
 

@@ -12,6 +12,7 @@ if TYPE_CHECKING:  # AgentService builds the ToolContext: imported only for the 
     from service.agent_service import AgentService
     from service.masking_service import MaskSession
     from service.pipeline_service import PipelineService
+    from service.project_data_service import ProjectDataService
 
 
 @dataclass(frozen=True)
@@ -27,6 +28,8 @@ class ToolContext:
     """For starting the project's automations (tool run_automation); None = not possible."""
     origin: RunOrigin = RunOrigin.MANUAL
     """What triggered the run (a run inside an automation cannot start automations)."""
+    project_data: "ProjectDataService | None" = None
+    """For reading the project's context files (tool read_context); None = not possible."""
     mask: "MaskSession | None" = None
     """The run's masking (runs of a project): tools register sensitive values here."""
 

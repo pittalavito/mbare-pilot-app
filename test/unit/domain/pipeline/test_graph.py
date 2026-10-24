@@ -84,13 +84,13 @@ def test_passing_targets_text_conditions_and_otherwise():
     edges = [
         _edge("A", "Ok", EdgeConditionKind.CONTAINS, "ok"),
         _edge("A", "NoErr", EdgeConditionKind.NOT_CONTAINS, "errore"),
-        _edge("A", "Num", EdgeConditionKind.MATCHES, r"RESEVO-\d+"),
+        _edge("A", "Num", EdgeConditionKind.MATCHES, r"PROJECT-\d+"),
         _edge("A", "Else", EdgeConditionKind.OTHERWISE),
         _edge("A", "Sempre"),
         _edge("B", "Altro"),
     ]
 
-    assert passing_targets("A", "Tutto OK su resevo-12", edges) == ["Sempre", "Ok", "NoErr", "Num"]
+    assert passing_targets("A", "Tutto OK su project-12", edges) == ["Sempre", "Ok", "NoErr", "Num"]
     assert passing_targets("A", "c'è un errore", edges) == ["Sempre", "Else"]
 
 

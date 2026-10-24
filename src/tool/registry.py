@@ -15,12 +15,14 @@ from datapizza.tools import Tool
 from core.error import ValidationError
 from tool.context import ToolContext
 from tool.list.agent.ask_agent import ASK_AGENT
+from tool.list.automation.automation_status import AUTOMATION_STATUS
 from tool.list.automation.run_automation import RUN_AUTOMATION
 from tool.list.git.git_pull_fast_forward import GIT_PULL_FAST_FORWARD
 from tool.list.git.git_stash import GIT_STASH
 from tool.list.git.git_stash_apply import GIT_STASH_APPLY
 from tool.list.git.git_status import GIT_STATUS
 from tool.list.hello_world import hello_world
+from tool.list.project.read_context import READ_CONTEXT
 from tool.spec import ToolSpec, static
 
 TOOL_REGISTRY: dict[str, ToolSpec] = {
@@ -29,6 +31,8 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         static(hello_world),
         ASK_AGENT,
         RUN_AUTOMATION,
+        AUTOMATION_STATUS,
+        READ_CONTEXT,
         GIT_STATUS,
         GIT_PULL_FAST_FORWARD,
         GIT_STASH,

@@ -1,5 +1,5 @@
 """Where a project's data lives inside the app's data home
-(``<MBARE_PILOT_HOME>/projects/<slug>/{notes,files}``), and the naming rules
+(``<MBARE_PILOT_HOME>/projects/<slug>/{notes,files,chat-bot}``), and the naming rules
 for notes and uploaded files. Pure functions: no filesystem access here."""
 import re
 from pathlib import PurePath
@@ -8,6 +8,10 @@ from core.error import ValidationError
 
 NOTES_DIR = "notes"
 FILES_DIR = "files"
+CHATBOT_DIR = "chat-bot"
+"""The chatbot's markdown files, written by hand in the context repo."""
+CHATBOT_PROMPT_FILE = "system-prompt.md"
+"""Its system prompt: copied into the chatbot's agent by hand, not context."""
 NOTE_SUFFIX = ".md"
 
 _NOT_SLUG = re.compile(r"[^a-z0-9]+")

@@ -54,6 +54,7 @@ class Container:
             git_service=self.git_service,
             pipeline_service=self.pipeline_service,
             masking_service=self.masking_service,
+            project_data_service=self.project_data_service,
         )
         self.chatbot_service = ChatbotService(
             store_service=self.store_service,

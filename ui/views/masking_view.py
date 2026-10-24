@@ -20,7 +20,7 @@ def masking_section(project_name: str) -> None:
     with st.form(f"{key}_form", clear_on_submit=True, border=False):
         col_category, col_value, col_add = st.columns([1, 3, 1], vertical_alignment="bottom")
         category = col_category.selectbox("Tipo", list(_CATEGORIES), format_func=_CATEGORIES.get, key=f"{key}_category")
-        value = col_value.text_input("Valore da mascherare", placeholder="es. Grandi Navi Veloci", key=f"{key}_value")
+        value = col_value.text_input("Valore da mascherare", placeholder="es. Banca delle banane", key=f"{key}_value")
         if col_add.form_submit_button("Aggiungi", type="primary", width="stretch"):
             try:
                 entry = api().masking.add(project_name, category, value)

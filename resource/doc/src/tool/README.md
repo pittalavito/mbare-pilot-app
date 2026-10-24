@@ -11,6 +11,8 @@ I tool che un agente può chiamare durante una run:
 | `git_stash_apply` | **con contesto** | riapplica uno stash (che resta nella lista) |
 | `ask_agent` | **con contesto** | delega una domanda a un altro agente e ne riporta la risposta |
 | `run_automation` | **con contesto** | lancia un'automation del progetto in background e riporta l'id dell'esecuzione |
+| `automation_status` | **con contesto** | stato di un'esecuzione di un'automation del progetto e dei suoi step: solo gli stati, niente output né messaggi d'errore |
+| `read_context` | **con contesto** | il contesto del progetto per il chatbot: i `.md` di `projects/<slug>/chat-bot/` tranne `system-prompt.md`; ultima risorsa |
 
 ```
 src/tool/
@@ -23,6 +25,9 @@ src/tool/
       ask_agent.py      delega a un altro agente
     automation/
       run_automation.py lancia un'automation del progetto
+      automation_status.py  stato di un'esecuzione
+    project/
+      read_context.py   contesto del progetto per il chatbot
     git/
       git_status.py     esempio con contesto
       git_pull_fast_forward.py  pull solo in fast-forward
@@ -51,7 +56,7 @@ run:    AgentService ──build_tools(nomi, ToolContext)──► tool datapizz
 Creato da `AgentService` per ogni run:
 
 - `project_name`: il progetto della run (`None` fuori da un progetto);
-- i service che i tool possono usare: `git`, `agents` (`AgentService`, per la delega), `pipelines` (`PipelineService`, per le automation);
+- i service che i tool possono usare: `git`, `agents` (`AgentService`, per la delega), `pipelines` (`PipelineService`, per le automation), `project_data` (`ProjectDataService`, per il contesto del chatbot);
 - `depth`: il livello di delega della run (0 = chiesta dall'utente, 1 = chiesta da un altro agente);
 - `origin`: cosa ha avviato la run (chat, automation, manuale, altro agente);
 - `mask`: il mascheramento della run (solo nelle run di un progetto). Un tool che legge valori sensibili li registra con `context.register_sensitive(MaskCategory.X, valore)`: da lì in poi il modello vede l'alias.

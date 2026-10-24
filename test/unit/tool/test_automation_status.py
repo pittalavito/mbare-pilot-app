@@ -1,0 +1,68 @@
+"""automation_status: only the statuses of a run of one of the project's
+automations and of its steps, never its output or errors (fake agents, no
+LLM). Runs of other projects are not found."""
+import json
+
+import pytest
+
+from fakes import FakeAgent
+from models.domain.pipeline import PipelineStep, StepAgent, StepKind
+from models.domain.project import Project, ProjectSource
+from service import agent_service as agent_service_module
+from service.agent_service import AgentService
+from service.chat_service import ChatService
+from service.git_service import GitService
+from service.pipeline_runner import PipelineRunner
+from service.pipeline_service import PipelineService
+from service.project_data_service import ProjectDataService
+from tool.context import ToolContext
+from tool.list.automation.automation_status import AUTOMATION_STATUS
+
+MODEL = "openai/gpt-4o"
+
+
+@pytest.fixture
+def pipelines(store_service, agent_config_service):
+    for name in ("acme", "other"):
+        store_service.save_project(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/code/{name}"))
+    return PipelineService(store_service, agent_config_service)
+
+
+@pytest.fixture
+def runner(store_service, agent_config_service, pipelines, monkeypatch):
+    chat = ChatService()
+    monkeypatch.setattr(chat, "get_client", lambda model: object())
+    monkeypatch.setattr(agent_service_module.AgentFactory, "create_agent",
+                        staticmethod(lambda definition, client, tools: FakeAgent()))
+    agents = AgentService(chat, agent_config_service, store_service, GitService(store_service), pipelines)
+    return PipelineRunner(store_service, agents, GitService(store_service), ProjectDataService(store_service))
+
+
+def _automation(pipelines, project="acme"):
+    step = PipelineStep(name="Analizza", kind=StepKind.AGENT, agent=StepAgent(system_prompt="Fai.", model=MODEL))
+    return pipelines.create_pipeline(project, "Report", steps=[step])
+
+
+def _status(pipelines, run_id, project="acme"):
+    return json.loads(AUTOMATION_STATUS.build(ToolContext(project, git=None, pipelines=pipelines)).func(run_id=run_id))
+
+
+def test_queued_then_done_only_statuses(pipelines, runner):
+    run = pipelines.enqueue(_automation(pipelines).id, "ciao")
+
+    assert _status(pipelines, run.id) == {"automation": "Report", "run_id": run.id, "status": "queued", "steps": []}
+
+    runner.run_next()
+
+    assert _status(pipelines, run.id) == {
+        "automation": "Report", "run_id": run.id, "status": "done", "steps": [{"name": "Analizza", "status": "done"}],
+    }
+
+
+def test_runs_of_other_projects_or_unknown_are_not_found(pipelines):
+    run = pipelines.enqueue(_automation(pipelines, "other").id)
+
+    assert "non trovata" in _status(pipelines, run.id)["error"]
+    assert "non trovata" in _status(pipelines, 999)["error"]
+    assert "fuori da un progetto" in _status(pipelines, run.id, project=None)["error"]
+

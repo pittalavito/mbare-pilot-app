@@ -62,15 +62,15 @@ def masking(store_service):
 
 
 def test_aliases_per_category_per_project_never_reused(masking):
-    first = masking.register("acme", MaskCategory.REPOSITORY, "resevo-be")
-    again = masking.register("acme", MaskCategory.REPOSITORY, "RESEVO-BE")
-    second = masking.register("acme", MaskCategory.REPOSITORY, "resevo-fe")
+    first = masking.register("acme", MaskCategory.REPOSITORY, "project-be")
+    again = masking.register("acme", MaskCategory.REPOSITORY, "PROJECT-BE")
+    second = masking.register("acme", MaskCategory.REPOSITORY, "project-fe")
     person = masking.add_term("acme", MaskCategory.PERSON, "Mario Rossi")
 
     assert (first.alias, again.alias, second.alias, person.alias) == ("REPO_1", "REPO_1", "REPO_2", "PERSONA_1")
     assert masking.entries("other") == []
     masking.remove("acme", "REPO_2")
-    assert masking.register("acme", MaskCategory.REPOSITORY, "resevo-fe").alias == "REPO_3"
+    assert masking.register("acme", MaskCategory.REPOSITORY, "project-fe").alias == "REPO_3"
     assert [(e.alias, e.manual) for e in masking.entries("acme")] == [
         ("PERSONA_1", True), ("REPO_1", False), ("REPO_3", False),
     ]
@@ -114,7 +114,7 @@ class _Recording:
 
 @pytest.fixture
 def agent_service(store_service, agent_config_service, masking, tmp_path, monkeypatch):
-    repo = tmp_path / "acme" / "resevo-be"
+    repo = tmp_path / "acme" / "project-be"
     repo.mkdir(parents=True)
     if shutil.which("git") is None:
         pytest.skip("git not installed")
@@ -131,34 +131,34 @@ def agent_service(store_service, agent_config_service, masking, tmp_path, monkey
 
 def test_the_llm_sees_aliases_the_tools_and_the_user_real_values(agent_service, masking, monkeypatch):
     masking.add_term("acme", MaskCategory.PERSON, "Mario Rossi")
-    masking.register("acme", MaskCategory.REPOSITORY, "resevo-be")
+    masking.register("acme", MaskCategory.REPOSITORY, "project-be")
     seen = {}
     monkeypatch.setattr(agent_service_module.AgentFactory, "create_agent",
                         staticmethod(lambda definition, client, tools: _Recording(tools, seen)))
     history = [ChatMessage(conversation_id=1, role=MessageRole.USER, content="ciao, sono Mario Rossi")]
 
     record = agent_service.run_definition(
-        _definition(agent_service), "Mario Rossi chiede: resevo-be ha modifiche?", project_name="acme", history=history,
+        _definition(agent_service), "Mario Rossi chiede: project-be ha modifiche?", project_name="acme", history=history,
     )
 
     assert seen["input"] == "PERSONA_1 chiede: REPO_1 ha modifiche?"
     assert seen["memory"] == ["ciao, sono PERSONA_1"]
     # the tool got the real repository (else: an error), its output is masked
-    assert '"repository":"REPO_1"' in seen["tool"] and "resevo-be" not in seen["tool"] and "error" not in seen["tool"]
-    assert record.output == "Ho controllato resevo-be per Mario Rossi."
-    assert record.input == "Mario Rossi chiede: resevo-be ha modifiche?"
+    assert '"repository":"REPO_1"' in seen["tool"] and "project-be" not in seen["tool"] and "error" not in seen["tool"]
+    assert record.output == "Ho controllato project-be per Mario Rossi."
+    assert record.input == "Mario Rossi chiede: project-be ha modifiche?"
 
 
 def test_tools_register_what_they_read(agent_service, masking, monkeypatch, tmp_path):
     """git_status on a repository not in the map yet: registered, and masked in the same output."""
-    seen = {"ask_repo": "resevo-be"}
+    seen = {"ask_repo": "project-be"}
     monkeypatch.setattr(agent_service_module.AgentFactory, "create_agent",
                         staticmethod(lambda definition, client, tools: _Recording(tools, seen)))
 
     agent_service.run_definition(_definition(agent_service), "stato?", project_name="acme")
 
-    assert [(e.value, e.alias, e.manual) for e in masking.entries("acme")] == [("resevo-be", "REPO_1", False)]
-    assert '"repository":"REPO_1"' in seen["tool"] and "resevo-be" not in seen["tool"]
+    assert [(e.value, e.alias, e.manual) for e in masking.entries("acme")] == [("project-be", "REPO_1", False)]
+    assert '"repository":"REPO_1"' in seen["tool"] and "project-be" not in seen["tool"]
 
 
 def test_the_projects_repositories_are_masked_from_the_first_message(agent_service, masking, monkeypatch):
@@ -177,11 +177,11 @@ def test_the_projects_repositories_are_masked_from_the_first_message(agent_servi
 
     monkeypatch.setattr(agent_service_module.AgentFactory, "create_agent", staticmethod(create_agent))
 
-    record = agent_service.run_definition(_definition(agent_service), "com'è messo resevo-be?", project_name="acme")
+    record = agent_service.run_definition(_definition(agent_service), "com'è messo project-be?", project_name="acme")
 
     assert seen["input"] == "com'è messo REPO_1?"  # no tool called: registered at the start of the run
-    assert record.output == "echo: com'è messo resevo-be?"
-    assert [(e.value, e.manual) for e in masking.entries("acme")] == [("resevo-be", False)]
+    assert record.output == "echo: com'è messo project-be?"
+    assert [(e.value, e.manual) for e in masking.entries("acme")] == [("project-be", False)]
 
 
 def test_tool_errors_reach_the_llm_without_paths_nor_real_names(agent_service, monkeypatch, tmp_path):
@@ -193,7 +193,7 @@ def test_tool_errors_reach_the_llm_without_paths_nor_real_names(agent_service, m
 
     error = seen["tool"]
     assert "Cartella inesistente" in error and "Repository disponibili: REPO_1" in error
-    assert "resevo-be" not in error and str(tmp_path) not in error and tmp_path.as_posix() not in error
+    assert "project-be" not in error and str(tmp_path) not in error and tmp_path.as_posix() not in error
 
 
 def test_runs_outside_a_project_are_not_masked(agent_service, masking, monkeypatch):

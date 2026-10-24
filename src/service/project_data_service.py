@@ -5,7 +5,9 @@ will be built from."""
 from datetime import datetime, timezone
 
 from core.error import NotFoundError
-from domain.project.data_paths import FILES_DIR, NOTES_DIR, data_file_name, note_file_name, project_slug
+from domain.project.data_paths import (
+    CHATBOT_DIR, CHATBOT_PROMPT_FILE, FILES_DIR, NOTE_SUFFIX, NOTES_DIR, data_file_name, note_file_name, project_slug,
+)
 from models.domain.project import ProjectDataFile, ProjectDataKind
 from models.store.files import StoredFile
 from service.store_service import StoreService
@@ -47,6 +49,17 @@ class ProjectDataService:
 
     def delete_file(self, project_name: str, file_name: str) -> bool:
         return self._store.delete_file(self._id(project_name, FILES_DIR, data_file_name(file_name)))
+
+    # --------------------------------------------------------------- chatbot
+    def chatbot_context(self, project_name: str) -> dict[str, str]:
+        """The project's context for its chatbot: the ``.md`` files of
+        ``chat-bot/`` (not its system prompt), name -> content."""
+        prefix = f"{project_slug(self._project(project_name))}/{CHATBOT_DIR}"
+        return {
+            stored.file_id.rsplit("/", 1)[-1]: self._store.read_file(stored.file_id).decode("utf-8")
+            for stored in sorted(self._store.list_files(prefix), key=lambda item: item.file_id.lower())
+            if stored.file_id.endswith(NOTE_SUFFIX) and not stored.file_id.endswith(f"/{CHATBOT_PROMPT_FILE}")
+        }
 
     # --------------------------------------------------------------- helpers
     def _project(self, project_name: str) -> str:

@@ -1,0 +1,36 @@
+"""read_context: the markdown files of the project's chat-bot/ folder, without
+its system prompt."""
+import json
+
+import pytest
+
+from models.domain.project import Project, ProjectSource
+from service.project_data_service import ProjectDataService
+from tool.context import ToolContext
+from tool.list.project.read_context import READ_CONTEXT
+
+
+@pytest.fixture
+def project_data(store_service):
+    store_service.save_project(Project(name="My App", source=ProjectSource.FOLDER, root_path="/code/app"))
+    return ProjectDataService(store_service)
+
+
+def _read(project_data, project="My App"):
+    return json.loads(READ_CONTEXT.build(ToolContext(project, git=None, project_data=project_data)).func())
+
+
+def test_reads_the_chatbot_files_but_not_its_prompt(store_service, project_data):
+    store_service.save_file("my-app/chat-bot/context.md", "Gestionale navi".encode())
+    store_service.save_file("my-app/chat-bot/linee-guida.md", b"Breve.")
+    store_service.save_file("my-app/chat-bot/system-prompt.md", b"Sei...")
+    store_service.save_file("my-app/chat-bot/schema.png", b"\x89PNG")
+    store_service.save_file("my-app/notes/altro.md", b"nota")
+
+    assert _read(project_data) == {"files": {"context.md": "Gestionale navi", "linee-guida.md": "Breve."}}
+
+
+def test_errors_without_files_or_project(project_data):
+    assert "non ha file di contesto" in _read(project_data)["error"]
+    assert "fuori da un progetto" in _read(project_data, project=None)["error"]
+    assert "non trovato" in _read(project_data, project="Nessuno")["error"]

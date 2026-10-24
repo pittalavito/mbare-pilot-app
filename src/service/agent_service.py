@@ -17,6 +17,7 @@ from service.git_service import GitService
 from service.masking_service import MaskingService
 from service.model_service import require_usable_model
 from service.pipeline_service import PipelineService
+from service.project_data_service import ProjectDataService
 from service.store_service import StoreService
 from tool.context import ToolContext
 from tool.registry import build_tools
@@ -32,15 +33,18 @@ class AgentService:
         git_service: GitService,
         pipeline_service: PipelineService | None = None,
         masking_service: MaskingService | None = None,
+        project_data_service: ProjectDataService | None = None,
     ):
         """``pipeline_service`` lets the agents start automations (tool run_automation);
-        ``masking_service`` hides the project's sensitive values from the LLM."""
+        ``masking_service`` hides the project's sensitive values from the LLM;
+        ``project_data_service`` lets them read the project's context (tool read_context)."""
         self._chat_service = chat_service
         self._agent_config_service = agent_config_service
         self._store_service = store_service
         self._git_service = git_service
         self._pipeline_service = pipeline_service
         self._masking_service = masking_service
+        self._project_data_service = project_data_service
 
     def run(self, config_name: str, task_input: str, *, project_name: str | None = None,
             origin: RunOrigin = RunOrigin.MANUAL, history: list[ChatMessage] | None = None,
@@ -81,7 +85,7 @@ class AgentService:
             self._register_repositories(mask, project_name)
         context = ToolContext(
             project_name=project_name, git=self._git_service, agents=self, depth=depth,
-            pipelines=self._pipeline_service, origin=origin, mask=mask,
+            pipelines=self._pipeline_service, origin=origin, mask=mask, project_data=self._project_data_service,
         )
         tools = build_tools(definition.tool_names, context)
         agent = AgentFactory.create_agent(definition, client, tools)
