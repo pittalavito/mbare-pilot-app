@@ -2,6 +2,7 @@ import { Navigate, createBrowserRouter } from "react-router-dom";
 
 import { Placeholder } from "../pages/Placeholder";
 import { AutomationTab } from "../pages/automation/AutomationTab";
+import { ChatTab } from "../pages/chat/ChatTab";
 import { ProjectPage } from "../pages/project/ProjectPage";
 import { ProjectsPage } from "../pages/projects/ProjectsPage";
 import { Layout } from "./Layout";
@@ -11,7 +12,7 @@ const automationEditor = () => import("../pages/automation/AutomationEditor").th
 
 /** A project's tabs: each is a route, loaded only when open. */
 const PROJECT_TABS = [
-  { path: "chat", element: <Placeholder title="Chat" /> },
+  { path: "chat", element: <ChatTab /> },
   { path: "automation", element: <AutomationTab /> },
   { path: "automation/new", lazy: automationEditor },
   { path: "automation/:pipelineId/edit", lazy: automationEditor },

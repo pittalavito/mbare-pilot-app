@@ -10,9 +10,6 @@ export type StepAgent = components["schemas"]["StepAgentBody"];
 export type Edge = components["schemas"]["EdgeBody"];
 export type Run = components["schemas"]["RunResponse"];
 export type StepRun = components["schemas"]["StepRunResponse"];
-export type FunctionSpec = components["schemas"]["FunctionResponse"];
-export type Agent = components["schemas"]["AgentResponse"];
-export type Tool = components["schemas"]["ToolResponse"];
 
 export const automationKeys = {
   pipelines: (project: string) => ["projects", project, "pipelines"] as const,
@@ -75,33 +72,5 @@ export function useDeletePipeline(project: string) {
   return useMutation({
     mutationFn: (id: number) => unwrap(api.DELETE("/pipelines/{pipeline_id}", { params: { path: { pipeline_id: id } } })),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: automationKeys.pipelines(project) }),
-  });
-}
-
-// ------------------------------------------------------------- catalogs
-
-export function useFunctions() {
-  return useQuery({ queryKey: ["functions"], queryFn: () => unwrap(api.GET("/functions")), staleTime: 60_000 });
-}
-
-/** The agents a step can use: the project's and the Library's. */
-export function useStepAgents(project: string) {
-  return useQuery({
-    queryKey: ["agents", project, "with-global"],
-    queryFn: () => unwrap(api.GET("/agents", { params: { query: { project, include_global: true } } })),
-  });
-}
-
-export function useModelChoices() {
-  return useQuery({ queryKey: ["models", "choices"], queryFn: () => unwrap(api.GET("/models/choices")), staleTime: 60_000 });
-}
-
-/** The tools an automation's agent can use (not the chatbot's own ones). */
-export function useStepTools() {
-  return useQuery({
-    queryKey: ["tools"],
-    queryFn: () => unwrap(api.GET("/tools")),
-    staleTime: 60_000,
-    select: (tools: Tool[]) => tools.filter((tool) => tool.available && !tool.chatbot_only),
   });
 }

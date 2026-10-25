@@ -27,3 +27,5 @@ globalThis.ResizeObserver ??= class {
   unobserve() {}
   disconnect() {}
 };
+// The chat scrolls to its last message.
+Element.prototype.scrollIntoView ??= () => {};

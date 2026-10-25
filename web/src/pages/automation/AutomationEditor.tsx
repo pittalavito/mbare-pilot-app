@@ -10,9 +10,9 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import {
-  type FunctionSpec, type Pipeline, type Step, useDeletePipeline, useFunctions, useModelChoices, usePipelines, useSavePipeline, useStepAgents, useStepTools,
-} from "../../api/automation";
+import { type Pipeline, type Step, useDeletePipeline, usePipelines, useSavePipeline } from "../../api/automation";
+import { type FunctionSpec, useFunctions, useModelChoices, useStepAgents, useTools } from "../../api/catalog";
+import { ModelSelect } from "../../components/ModelSelect";
 import {
   CONDITION_LABELS, type Condition, type Draft, type DraftEdge, INPUT_NODE, KIND_ICONS, KIND_LABELS, type Kind, TEXT_CONDITIONS,
   addStep, changeKind, connect, edgeId, edgeLabel, fromPipeline, moveStep, removeEdge, removeStep, toRequest, updateEdge, updateStep,
@@ -302,12 +302,10 @@ function StepPanel({ project, step, onChange, onKind, onRemove, onClose }: StepP
 }
 
 function AgentFields({ step, onChange }: { step: Step; onChange: (patch: Partial<Step>) => void }) {
-  const models = useModelChoices();
-  const tools = useStepTools();
+  const tools = useTools({ chatbot: false });
   const agent = step.agent!;
   const set = (patch: Partial<typeof agent>) => onChange({ agent: { ...agent, ...patch } });
   const toolNames = (tools.data ?? []).map((tool) => tool.name);
-  const usable = models.data?.usable ?? [];
   return (
     <>
       <Textarea
@@ -319,15 +317,7 @@ function AgentFields({ step, onChange }: { step: Step; onChange: (patch: Partial
         onChange={(event) => set({ system_prompt: event.currentTarget.value })}
       />
       <Group grow align="flex-start">
-        <Select
-          label="Modello"
-          searchable
-          data={models.data?.choices ?? []}
-          value={agent.model || null}
-          onChange={(value) => set({ model: value ?? "" })}
-          error={agent.model && models.data && !usable.includes(agent.model) ? "Manca la chiave del provider" : undefined}
-          style={{ flex: 3 }}
-        />
+        <ModelSelect value={agent.model} onChange={(model) => set({ model })} style={{ flex: 3 }} />
         <NumberInput label="Max steps" min={1} max={50} value={agent.max_steps} onChange={(value) => set({ max_steps: Number(value) || 1 })} style={{ flex: 1 }} />
       </Group>
       <MultiSelect

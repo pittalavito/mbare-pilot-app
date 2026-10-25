@@ -45,7 +45,9 @@ src/
     schema.d.ts       GENERATO da `npm run gen:api`: i tipi di ogni endpoint (non modificare)
     client.ts         `api` (client tipizzato), `unwrap` (dati o ApiError col messaggio del backend)
     projects.ts       hook dei progetti e delle cartelle (useProjects, useProject, useOpenFolder, ...)
-    automation.ts     hook delle automation, delle esecuzioni (con polling) e dei cataloghi per l'editor
+    automation.ts     hook delle automation e delle esecuzioni (con polling)
+    chat.ts           hook di chatbot, conversazioni, messaggi e cache (route)
+    catalog.ts        cataloghi condivisi dagli editor: modelli, tool, funzioni, agenti
   app/
     router.tsx        le rotte
     Layout.tsx        cornice: header, sezioni a sinistra
@@ -55,9 +57,11 @@ src/
   pages/
     projects/         lista dei progetti, «Apri cartella» e «Crea da zero»
     project/          pagina del progetto: intestazione e tab (una rotta per tab)
+    chat/             tab Chat: conversazioni, messaggi in markdown, «Metti in cache», modale del chatbot
     automation/       tab Automation (esecuzione e storico), editor del grafo (React Flow) e graphDraft (la bozza, funzioni pure)
   components/
     FolderPicker.tsx  selettore delle cartelle del PC tramite l'API (/folders, dentro PROJECT_ROOTS)
+    ModelSelect.tsx   scelta del modello di un agente, segnalando quelli senza chiave del provider
   test/
     setup.ts          jest-dom, pulizia tra i test, matchMedia e ResizeObserver per jsdom
     render.tsx        `mockApi` (API finta: "METODO /percorso" -> risposta) e `renderPage` (pagina con i provider e il router)
@@ -84,7 +88,7 @@ Si migra tutto insieme: Streamlit resta com'è finché React non è completo, po
 | 1. Backend: worker gestito dall'API, script che avvia API e frontend, log | ✅ |
 | 2. Progetti: lista, apertura e creazione, pagina del progetto | ✅ |
 | 3. Automation: lista, esecuzione, storico, editor del grafo | ✅ |
-| 4. Chat: chatbot, conversazioni, cache | |
+| 4. Chat: chatbot, conversazioni, cache | ✅ |
 | 5. Dati, Git, Impostazioni | |
 | 6. Libreria e Admin | |
 | 7. Cambio: API sotto `/api` e build servito dall'API, script, documentazione, rimozione di `ui/` | |
