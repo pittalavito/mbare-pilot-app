@@ -8,6 +8,7 @@ import {
 } from "../../api/projectData";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Markdown } from "../../components/Markdown";
+import { localTime, size } from "../../format";
 
 /** The Dati tab of a project: its own data, kept by the app apart from its
  * code: markdown notes written here and uploaded files (sources of the RAG index). */
@@ -193,7 +194,7 @@ function FileRow({ project, item }: { project: string; item: DataFile }) {
       <Group justify="space-between" wrap="nowrap">
         <div style={{ minWidth: 0 }}>
           <Text fw={600} size="sm" truncate>{item.name}</Text>
-          <Text size="xs" c="dimmed">{size(item.size)} · {new Date(item.modified_at).toLocaleString("it-IT")}</Text>
+          <Text size="xs" c="dimmed">{size(item.size)} · {localTime(item.modified_at)}</Text>
         </div>
         <Group gap="xs" wrap="nowrap">
           <Anchor href={fileUrl(project, item.name)} download={item.name} size="sm">Scarica</Anchor>
@@ -210,13 +211,4 @@ function FileRow({ project, item }: { project: string; item: DataFile }) {
       </Group>
     </Card>
   );
-}
-
-function size(bytes: number): string {
-  let value = bytes;
-  for (const unit of ["B", "KB", "MB"]) {
-    if (value < 1024) return `${value.toFixed(0)} ${unit}`;
-    value /= 1024;
-  }
-  return `${value.toFixed(1)} GB`;
 }

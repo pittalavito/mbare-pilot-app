@@ -1,9 +1,11 @@
 import { Navigate, createBrowserRouter } from "react-router-dom";
 
 import { Placeholder } from "../pages/Placeholder";
+import { AdminPage } from "../pages/admin/AdminPage";
 import { AutomationTab } from "../pages/automation/AutomationTab";
 import { AtlassianTab } from "../pages/atlassian/AtlassianTab";
 import { ChatTab } from "../pages/chat/ChatTab";
+import { LibraryPage } from "../pages/library/LibraryPage";
 import { DataTab } from "../pages/data/DataTab";
 import { GitTab } from "../pages/git/GitTab";
 import { ProjectPage } from "../pages/project/ProjectPage";
@@ -35,8 +37,8 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/projects" replace /> },
       { path: "projects", element: <ProjectsPage /> },
       { path: "projects/:project", element: <ProjectPage />, children: PROJECT_TABS },
-      { path: "library", element: <Placeholder title="Libreria" /> },
-      { path: "admin", element: <Placeholder title="Admin" /> },
+      { path: "library", element: <LibraryPage /> },
+      { path: "admin", element: <AdminPage /> },
       { path: "*", element: <Placeholder title="Pagina non trovata" /> },
     ],
   },

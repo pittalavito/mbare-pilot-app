@@ -53,6 +53,7 @@ src/
     atlassian.ts      impostazioni del sito, issue Jira, pagine Confluence, preferiti
     masking.ts        valori mascherati e sincronizzazione delle definizioni YAML
     agents.ts         agenti, ruoli e versioni dei prompt, per scope (Libreria o progetto)
+    admin.ts          config, observability (run, tool call, trace), catalogo modelli, backup del DB
   app/
     router.tsx        le rotte
     Layout.tsx        cornice: header, sezioni a sinistra
@@ -65,9 +66,12 @@ src/
     data/             tab Dati: note markdown (modifica/anteprima, Ctrl+S) e file
     git/              tab Git: commit con filtri e file modificati
     atlassian/        tab Atlassian: Jira, Confluence, preferiti
+    library/          pagina Libreria: agenti globali (la stessa sezione Agenti) e catalogo dei tool
+    admin/            pagina Admin: servizi, observability, modelli, backup (tab in ?tab=)
     settings/         tab Impostazioni: generale, Atlassian, mascheramento, definizioni, agenti, rimozione
     chat/             tab Chat: conversazioni, messaggi in markdown, «Metti in cache», modale del chatbot
     automation/       tab Automation (esecuzione e storico), editor del grafo (React Flow) e graphDraft (la bozza, funzioni pure)
+  format.ts           dimensioni dei file e date nel formato italiano
   components/
     FolderPicker.tsx  selettore delle cartelle del PC tramite l'API (/folders, dentro PROJECT_ROOTS)
     ModelSelect.tsx   scelta del modello di un agente, segnalando quelli senza chiave del provider
@@ -102,5 +106,5 @@ Si migra tutto insieme: Streamlit resta com'è finché React non è completo, po
 | 3. Automation: lista, esecuzione, storico, editor del grafo | ✅ |
 | 4. Chat: chatbot, conversazioni, cache | ✅ |
 | 5. Dati, Git, Impostazioni | ✅ |
-| 6. Libreria e Admin | |
+| 6. Libreria e Admin | ✅ |
 | 7. Cambio: API sotto `/api` e build servito dall'API, script, documentazione, rimozione di `ui/` | |
