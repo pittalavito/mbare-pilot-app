@@ -24,7 +24,9 @@ mbare-pilot-data/
 
 ## Come si applicano
 
-La sincronizzazione di un progetto applica, in quest'ordine:
+**All'avvio** dell'app vengono creati gli agenti di `global-agent.yml` che **mancano** (gli agenti di default, es. `hello`, vivono qui). Quelli che esistono restano come sono, anche se cambiati da UI; un file rotto viene segnalato nel log e l'app parte lo stesso.
+
+La **sincronizzazione** di un progetto (il pulsante) applica, in quest'ordine, e il file vince:
 
 1. **`global-agent.yml`**: gli agenti della Libreria (con ruoli globali);
 2. **`project/<slug>/agent.yml`**: gli agenti del progetto;

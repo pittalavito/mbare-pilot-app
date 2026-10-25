@@ -8,7 +8,6 @@ project) or owned by one project. A project config may use a global role or
 one of its own; a global config only global roles. Prompts follow their role.
 Names are unique across all scopes."""
 from core.error import ConflictError, NotFoundError, ValidationError
-from domain.agent.defaults import ConfigSeed
 from models.domain.agent import AgentConfig, AgentRole, AgentSpec, SystemPrompt, ToolInfo
 from service.model_service import require_usable_model
 from service.store_service import StoreService
@@ -146,21 +145,6 @@ class AgentConfigService:
         return None
 
     # ----------------------------------------------------------------- seeds
-    def seed_defaults(self, roles: list[AgentRole], prompts: dict[str, str], configs: list[ConfigSeed]) -> None:
-        """Insert what is missing: catalog tools, roles, a first prompt version
-        for roles without one, and configurations (on the role's latest prompt)."""
-        self.sync_tools()
-        self._store.seed_roles(roles)
-        for role_name, text in prompts.items():
-            if self.latest_prompt(role_name) is None:
-                self._store.create_prompt_version(role_name, text)
-        for seed in configs:
-            if self._store.get_agent_config(seed.name) is None:
-                prompt = self.latest_active_prompt(seed.role_name)
-                if prompt is None:
-                    raise ValidationError(f"Seed {seed.name}: il ruolo {seed.role_name} non ha prompt.")
-                self.save_config(AgentConfig(**seed.model_dump(), prompt_id=prompt.id))
-
     def _require_project(self, project_name: str | None) -> None:
         if project_name is not None and self._store.get_project(project_name) is None:
             raise ValidationError(f"Progetto inesistente: {project_name}")

@@ -12,7 +12,11 @@ to a project on request:
 same services do the work) and creates or updates it, matched by name: the
 file wins over changes made from the UI. What is not in the files is left as it
 is. An element with errors is skipped and reported; the others are applied.
-An empty file (or one with only comments) defines nothing."""
+An empty file (or one with only comments) defines nothing.
+
+At startup ``seed_global_agents()`` creates the agents of ``global-agent.yml``
+that do not exist yet (a new installation has them; changes made from the UI
+stay until the next sync)."""
 from collections.abc import Callable
 from typing import Any
 
@@ -21,7 +25,7 @@ from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
 
 from core.error import AppError, NotFoundError, ValidationError
-from core.observability import LogPrefix, observed
+from core.observability import LogPrefix, log_warning, observed
 from domain.pipeline.graph import linear_edges
 from domain.project.data_paths import AGENTS_FILE, AUTOMATIONS_FILE, CHATBOT_FILE, GLOBAL_AGENTS_FILE, GLOBAL_AUTOMATIONS_FILE, GLOBAL_CHATBOT_FILE, data_file_name, project_definitions
 from models.domain.agent import AgentConfig, AgentRole
@@ -55,6 +59,22 @@ class DefinitionService:
         items += self._chatbot(project_name, folder)
         items += self._automations(project_name, folder)
         return SyncReport(project_name=project_name, items=items)
+
+    @observed(LogPrefix.DEFINITION_SERVICE)
+    def seed_global_agents(self) -> list[SyncItem]:
+        """At startup: the agents of global-agent.yml that do not exist yet; the
+        existing ones are left as they are. Errors are logged, never raised:
+        a broken file must not stop the app."""
+        items = self._list(DefinitionKind.AGENT, GLOBAL_AGENTS_FILE, _AGENTS_KEY, AgentFile, self._create_missing_global_agent)
+        for item in items:
+            if item.outcome is SyncOutcome.ERROR:
+                log_warning(LogPrefix.DEFINITION_SERVICE, "%s · %s: %s", item.file, item.name or "?", item.message)
+        return items
+
+    def _create_missing_global_agent(self, spec: AgentFile) -> SyncOutcome:
+        if self._store.get_agent_config(spec.name) is not None:
+            return SyncOutcome.UNCHANGED
+        return self._sync_agent(None, spec)
 
     # ---------------------------------------------------------------- files
     def _list(self, kind: DefinitionKind, path: str, key: str, schema: type[BaseModel], sync: Callable[[Any], SyncOutcome], skip: Callable[[dict], bool] = lambda raw: False) -> list[SyncItem]:

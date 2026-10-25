@@ -5,7 +5,6 @@ import datapizza.tracing
 from config import Config
 from core.observability import LogPrefix, configure_logging, observed
 
-from domain.agent.defaults import DEFAULT_CONFIGS, DEFAULT_PROMPTS, DEFAULT_ROLES
 from domain.chat.models_default import DEFAULT_CHAT_MODELS
 from domain.client.embedding.embedder import Factory as EmbedderFactory
 from domain.project.folder_browser import FolderBrowser
@@ -90,7 +89,9 @@ class Container:
         self._seed_defaults()
 
     def _seed_defaults(self) -> None:
-        """Insert the default models, roles, prompts and agents that are missing
-        (edits made from the UI are never overwritten). Models first: agents need them."""
+        """At startup, what is missing: the default models, the tool catalog and
+        the global agents of definition/global-agent.yml (edits made from the UI
+        are never overwritten). Models first: agents need them."""
         self.model_service.seed_defaults(DEFAULT_CHAT_MODELS)
-        self.agent_config_service.seed_defaults(DEFAULT_ROLES, DEFAULT_PROMPTS, DEFAULT_CONFIGS)
+        self.agent_config_service.sync_tools()
+        self.definition_service.seed_global_agents()

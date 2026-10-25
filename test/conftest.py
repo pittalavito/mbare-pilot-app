@@ -8,16 +8,29 @@ from sqlmodel import SQLModel, create_engine
 
 import models.store.db  # noqa: F401  (registers the tables)
 from config import Config
-from domain.agent.defaults import DEFAULT_CONFIGS, DEFAULT_PROMPTS, DEFAULT_ROLES
 from domain.chat.models_default import DEFAULT_CHAT_MODELS
 from domain.store.files.store import LocalFileRepository
+from models.domain.agent import AgentConfig, AgentRole
 from service.agent_config_service import AgentConfigService
 from service.store_service import StoreService
 
 
+HELLO_AGENT = """agents:
+  - name: hello
+    description: Agente di esempio con i tool hello_world
+    role: hello
+    model: openai/gpt-4o
+    tools: [hello_world]
+    system_prompt: Sei un assistente. Usa i tool a disposizione quando servono.
+"""
+"""The example agent the tests build on, as the data folder's global-agent.yml
+has it: a Container creates it at startup, as in the app."""
+
+
 @pytest.fixture(autouse=True)
 def config(tmp_path):
-    """The app-wide Config for every test: no .env, fake URLs and keys, data in a tmp dir."""
+    """The app-wide Config for every test: no .env, fake URLs and keys, data in
+    a tmp dir whose definition/global-agent.yml holds the example agent."""
     test_config = Config(
         _env_file=None,
         database_url="sqlite://",
@@ -26,6 +39,8 @@ def config(tmp_path):
         mbare_pilot_home=str(tmp_path / "home"),
         mbare_pilot_secret_key=Fernet.generate_key().decode(),
     )
+    test_config.definitions_root.mkdir(parents=True)
+    (test_config.definitions_root / "global-agent.yml").write_text(HELLO_AGENT, encoding="utf-8")
     Config.set(test_config)
     yield test_config
     Config.set(None)
@@ -58,8 +73,16 @@ def store_service(engine, redis_client):
 
 @pytest.fixture
 def agent_config_service(store_service):
-    """AgentConfigService on the in-memory store, seeded with the defaults
-    (role ``hello``, prompt v1, config ``hello``)."""
+    """AgentConfigService on the in-memory store with the tool catalog and the
+    example agent the tests build on: global role ``hello``, prompt v1, agent
+    ``hello`` with ``hello_world`` (in the app it comes from global-agent.yml)."""
     service = AgentConfigService(store_service)
-    service.seed_defaults(DEFAULT_ROLES, DEFAULT_PROMPTS, DEFAULT_CONFIGS)
+    service.sync_tools()
+    if store_service.get_agent_config("hello") is None:  # a Container may have created it already
+        service.save_role(AgentRole(name="hello", description="Assistente di esempio che saluta e conta parole."), create=True)
+        prompt = service.create_prompt_version("hello", "Sei un assistente. Usa i tool a disposizione quando servono.")
+        service.save_config(AgentConfig(
+            name="hello", description="Agente di esempio con i tool hello_world", role_name="hello",
+            prompt_id=prompt.id, model="openai/gpt-4o", tool_names=["hello_world"],
+        ))
     return service

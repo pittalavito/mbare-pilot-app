@@ -40,7 +40,7 @@ Una sessione per operazione e il CRUD per chiave primaria; i repository concreti
 | `get(pk)` | la riga, `None` se non c'è |
 | `list()` | tutte le righe |
 | `save(row)` | inserisce o aggiorna, restituisce la riga salvata |
-| `insert_missing(rows)` | inserisce solo le righe la cui chiave non c'è ancora: è il **seed** dei default (agenti, modelli, tool), che non sovrascrive mai le modifiche fatte da UI |
+| `insert_missing(rows)` | inserisce solo le righe la cui chiave non c'è ancora: è il **seed** dei default (modelli, tool), che non sovrascrive mai le modifiche fatte da UI |
 | `delete(pk)` | `True` se ha cancellato una riga |
 
 ## Query notevoli

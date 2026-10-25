@@ -150,9 +150,6 @@ class StoreService:
         row.active = active
         return DbAdapter.to_role(self._role_repository.save(row))
 
-    def seed_roles(self, seeds: list[AgentRole]) -> int:
-        return self._role_repository.insert_missing([DbFactory.to_role_row(seed) for seed in seeds])
-
     # --------------------------------------------------------------- prompts
     def list_prompts(self, role_name: str | None = None) -> list[SystemPrompt]:
         """Prompt versions, newest first."""

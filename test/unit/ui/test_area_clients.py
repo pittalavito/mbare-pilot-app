@@ -72,11 +72,12 @@ def test_definitions_sync(api, store_service):
     store_service.save_definition("project/acme-corp/automation.yml",
                                   "automations:\n  - name: Semplice\n    steps:\n      - {name: Stato, function: git_status}\n")
 
-    [item] = api.definitions.sync(PROJECT).items
+    items = api.definitions.sync(PROJECT).items
 
-    assert (item.kind, item.file, item.name, item.outcome) == (
-        "automation", "project/acme-corp/automation.yml", "Semplice", "created",
-    )
+    assert [(item.kind, item.file, item.name, item.outcome) for item in items] == [
+        ("agent", "global-agent.yml", "hello", "unchanged"),  # created at startup from the same file
+        ("automation", "project/acme-corp/automation.yml", "Semplice", "created"),
+    ]
     assert [pipeline.name for pipeline in api.automation.pipelines(PROJECT)] == ["Semplice"]
 
 

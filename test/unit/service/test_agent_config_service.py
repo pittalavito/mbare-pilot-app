@@ -1,7 +1,6 @@
 import pytest
 
 from core.error import ValidationError
-from domain.agent.defaults import DEFAULT_CONFIGS, DEFAULT_PROMPTS, DEFAULT_ROLES
 from tool.registry import TOOL_REGISTRY
 from models.domain.agent import AgentConfig, AgentRole, ToolInfo
 
@@ -15,20 +14,11 @@ def _config(service, **overrides) -> AgentConfig:
     return AgentConfig(**values)
 
 
-# --------------------------------------------------------------------- seeds
-def test_seed_creates_defaults(agent_config_service):
-    assert [r.name for r in agent_config_service.list_roles()] == ["hello"]
-    assert [p.version for p in agent_config_service.list_prompts("hello")] == [1]
-    assert [c.name for c in agent_config_service.list_configs()] == ["hello"]
+# ---------------------------------------------------------------- catalog
+def test_sync_tools_registers_every_implemented_tool(agent_config_service):
+    agent_config_service.sync_tools()  # twice: no duplicates
+
     assert {t.name for t in agent_config_service.list_tools()} == set(TOOL_REGISTRY)
-
-
-def test_seed_twice_does_not_duplicate_or_overwrite(agent_config_service):
-    agent_config_service.save_config(_config(agent_config_service, name="hello", tool_names=[]))
-    agent_config_service.seed_defaults(DEFAULT_ROLES, DEFAULT_PROMPTS, DEFAULT_CONFIGS)
-
-    assert len(agent_config_service.list_prompts("hello")) == 1
-    assert agent_config_service.get_config("hello").tool_names == []
 
 
 # ------------------------------------------------------------------- prompts

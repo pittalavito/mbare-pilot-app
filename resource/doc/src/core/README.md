@@ -29,7 +29,7 @@ Ognuno costruisce il suo `Container`.
 
 L'unico posto che crea i service e li collega: ognuno riceve nel costruttore quelli che usa. Nient'altro crea service.
 
-- **All'avvio**: si connette a Postgres e Redis (`StoreService`), prepara lo schema e inserisce i default che mancano: prima i modelli del catalogo, poi ruoli, prompt e agenti. Quello che è stato modificato da UI non viene mai sovrascritto.
+- **All'avvio**: si connette a Postgres e Redis (`StoreService`), prepara lo schema e inserisce quello che manca: prima i modelli del catalogo, poi il catalogo dei tool, poi gli agenti globali di `definition/global-agent.yml` (`DefinitionService.seed_global_agents`). Quello che è stato modificato da UI non viene mai sovrascritto; un file rotto viene segnalato nel log, l'app parte lo stesso.
 - **Nei test**: `Container(store_service=...)` con gli store in memoria.
 - `DATAPIZZA_TRACE_SUMMARY=true` stampa in console il riepilogo di datapizza dopo ogni run.
 

@@ -6,7 +6,6 @@ Gli agenti visti dal codice: come si costruisce un agente datapizza da una defin
 src/domain/agent/
   base.py       Factory: agente datapizza e memoria della conversazione
   tracing.py    Adapter: dagli span di datapizza a token, costi e tool call
-  defaults.py   ruoli, prompt e configurazioni inseriti nel DB all'avvio
   masking.py    AgentMask: l'unico punto dove una run maschera (input, cronologia, output dei tool) e smaschera (risposta, argomenti)
 ```
 
@@ -34,9 +33,9 @@ with ContextTracing().trace(...) as trace:
 - **Tool call**: nome, argomenti, risultato, esito ed errore, durata e i token delle chiamate LLM fatte al suo interno.
 - **Costo**: calcolato con `compute_cost` sui prezzi del catalogo (`PriceList`, per id del modello).
 
-## Agenti di default (`defaults.py`)
+## Agenti di default
 
-`DEFAULT_ROLES`, `DEFAULT_PROMPTS` e `DEFAULT_CONFIGS`: il ruolo, il prompt e l'agente `hello` di esempio. All'avvio vengono inseriti solo se mancano, quindi quello che modifichi da UI vince sempre sul codice. Una configurazione di default usa l'ultima versione del prompt del suo ruolo.
+Non stanno più nel codice: sono gli agenti di `definition/global-agent.yml` nella cartella dei dati (l'esempio `hello`, con il ruolo `hello` e il tool `hello_world`, è il primo). All'avvio vengono creati quelli che mancano; quelli che esistono restano come sono finché non premi «Sincronizza da file», dove vince il file. Vedi [definitions](../../../definitions.md).
 
 ## Mascheramento (`masking.py`)
 

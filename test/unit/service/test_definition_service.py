@@ -43,6 +43,7 @@ CONTROLLO = """
 
 @pytest.fixture
 def services(store_service, agent_config_service):
+    store_service.save_definition("global-agent.yml", "")  # each test writes what it needs
     store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
     agents = AgentService(ChatService(), agent_config_service, store_service, GitService(store_service))
     pipelines = PipelineService(store_service, agent_config_service)
@@ -94,6 +95,34 @@ def test_a_role_of_another_scope_is_an_error_and_the_other_agents_are_applied(se
 
     assert [(item.name, item.outcome.value) for item in report.items] == [("reviewer", "error"), ("secondo", "created")]
     assert "non è del progetto acme" in report.items[0].message
+
+
+def test_at_startup_only_the_missing_global_agents_are_created(services, store_service, agent_config_service):
+    definitions, _, _ = services
+    agent_config_service.save_config(agent_config_service.get_config("hello").model_copy(update={"tool_names": []}))  # from UI
+    hello = f"""
+  - name: hello
+    role: hello
+    model: {MODEL}
+    tools: [hello_world]
+    system_prompt: Un altro prompt.
+"""
+    _write(store_service, "global-agent.yml", "agents:" + hello + REVIEWER.replace("reviewer", "nuovo").replace("revisione", "generale"))
+
+    items = definitions.seed_global_agents()
+
+    assert [(item.name, item.outcome.value) for item in items] == [("hello", "unchanged"), ("nuovo", "created")]
+    assert agent_config_service.get_config("hello").tool_names == []  # the UI change stays
+    assert agent_config_service.get_config("nuovo").project_name is None
+
+
+def test_at_startup_a_broken_file_is_logged_not_raised(services, store_service, caplog):
+    definitions, _, _ = services
+    _write(store_service, "global-agent.yml", "agents: [rotto")
+
+    [item] = definitions.seed_global_agents()
+
+    assert item.outcome.value == "error" and "YAML non valido" in caplog.text
 
 
 # --------------------------------------------------------------- chatbot

@@ -32,7 +32,7 @@ src/
 | [src/models](src/models/README.md) | le tre famiglie di modelli, perché separate, come aggiungerne uno |
 | [src/domain](src/domain/README.md) | i sottopackage di domain |
 | [src/domain/chat](src/domain/chat/README.md) | client per fornitore, chiave `fornitore/modello`, costi, modelli di default |
-| [src/domain/agent](src/domain/agent/README.md) | `Factory` dell'agente, memoria, tracing di token e costi, agenti di default |
+| [src/domain/agent](src/domain/agent/README.md) | `Factory` dell'agente, memoria, tracing di token e costi, mascheramento, dove stanno gli agenti di default |
 | [src/domain/project](src/domain/project/README.md) | codice vs dati del progetto, nomi di note e file, `FolderBrowser` |
 | [src/domain/client/git](src/domain/client/git/README.md) | `GitClient`: log, status, come esegue git, errori |
 | [src/domain/client/atlassian](src/domain/client/atlassian/README.md) | client Jira e Confluence, autenticazione, errori, paginazione |
