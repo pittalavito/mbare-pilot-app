@@ -17,6 +17,7 @@ src/controller/
   pipeline_controller.py      automation, run, /functions, /workers
   atlassian_controller.py     /projects/{progetto}/atlassian
   masking_controller.py       /projects/{progetto}/masking
+  definition_controller.py    /projects/{progetto}/definitions/sync
   admin_controller.py         /admin/config, /observability
 ```
 
@@ -38,6 +39,7 @@ Documentazione interattiva con tutti gli endpoint: `http://<API_URL>/docs` (Swag
 | Automation | `GET/POST /projects/{p}/pipelines`, `PUT/DELETE /pipelines/{id}`, `GET/POST /pipelines/{id}/runs`, `DELETE /pipeline-runs/{id}`, `GET /functions`, `GET /workers`, `GET /workers/health` |
 | Atlassian | `GET/PUT/DELETE /projects/{p}/atlassian`, `POST .../atlassian/check`, `GET .../atlassian/jira/issues/{chiave}`, `GET .../atlassian/confluence/pages`, `GET .../atlassian/confluence/pages/{id}`, `GET .../atlassian/confluence/search?q=`, `GET/POST .../atlassian/favorites`, `DELETE .../atlassian/favorites/{id}` |
 | Mascheramento | `GET/POST /projects/{p}/masking`, `DELETE /projects/{p}/masking/{alias}` |
+| Definizioni da file | `POST /projects/{p}/definitions/sync` (vedi [definitions](../../definitions.md)) |
 | Admin | `GET /admin/config`, `GET /observability/runs`, `GET /observability/runs/{run_id}/trace`, `GET /observability/tool-calls`, `GET/POST /admin/backups`, `GET /admin/backups/{nome}` |
 
 ## Convenzioni

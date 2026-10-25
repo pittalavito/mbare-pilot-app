@@ -385,3 +385,21 @@ class CatalogModel(BaseModel):
     output_per_1m: float = 0.0
     active: bool = True
     in_use: bool = False
+
+
+# -------------------------------------------------------------- definitions
+
+class SyncItem(BaseModel):
+    """One definition file applied: what it defines and what happened."""
+    kind: str
+    """``agent`` | ``chatbot`` | ``automation``."""
+    file: str
+    name: str | None
+    outcome: str
+    """``created`` | ``updated`` | ``unchanged`` | ``error``."""
+    message: str
+
+
+class SyncReport(BaseModel):
+    project_name: str
+    items: list[SyncItem]

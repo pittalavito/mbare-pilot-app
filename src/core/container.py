@@ -17,6 +17,7 @@ from service.backup_service import BackupService
 from service.chat_route_service import ChatRouteService
 from service.chat_service import ChatService
 from service.chatbot_service import ChatbotService
+from service.definition_service import DefinitionService
 from service.git_service import GitService
 from service.masking_service import MaskingService
 from service.model_service import ModelService
@@ -67,6 +68,12 @@ class Container:
             agent_config_service=self.agent_config_service,
             agent_service=self.agent_service,
             route_service=self.chat_route_service,
+        )
+        self.definition_service = DefinitionService(
+            store_service=self.store_service,
+            agent_config_service=self.agent_config_service,
+            chatbot_service=self.chatbot_service,
+            pipeline_service=self.pipeline_service,
         )
         self.pipeline_runner = PipelineRunner(
             store_service=self.store_service,

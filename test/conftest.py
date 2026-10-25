@@ -46,7 +46,7 @@ def redis_client():
 @pytest.fixture
 def files_repository(config):
     """A file repository on the same root the StoreService uses."""
-    return LocalFileRepository(config.projects_data_root)
+    return LocalFileRepository(config.files_root)
 
 
 @pytest.fixture

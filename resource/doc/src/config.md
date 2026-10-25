@@ -15,7 +15,8 @@ Valori derivati:
 | Proprietà | Da | Default |
 |---|---|---|
 | `data_home` | `MBARE_PILOT_HOME` | `~/.mbare-pilot` |
-| `projects_data_root` | `data_home / "projects"` | note e file dei progetti |
+| `files_root` | `data_home / "files"` | note, file caricati e contesto dei progetti (`files/<slug>/`) |
+| `definitions_root` | `data_home / "definition"` | agenti, chatbot e automation come YAML (vedi [definitions](../definitions.md)) |
 | `project_root_paths` | `PROJECT_ROOTS`, separati da `;` | la home dell'utente: i progetti stanno solo qui dentro |
 | `secret_key` | `MBARE_PILOT_SECRET_KEY` in chiaro | `None` |
 

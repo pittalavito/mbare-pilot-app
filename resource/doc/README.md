@@ -25,6 +25,7 @@ src/
 
 | Doc | Cosa trovi |
 |---|---|
+| [definitions](definitions.md) | la cartella dei dati (`definition/`, `files/`); agenti, chatbot e automation come file YAML: formato e sincronizzazione |
 | [ui](ui/README.md) | struttura della UI, come aggiungere una pagina, convenzioni |
 | [src/config](src/config.md) | `Config`, valori obbligatori, segreti, `masked()`, aggiungere un'impostazione |
 | [src/core](src/core/README.md) | errori e status HTTP, `@observed`, `SecretBox`, Container, avvio di API e worker |

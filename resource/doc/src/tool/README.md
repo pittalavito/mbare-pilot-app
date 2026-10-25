@@ -12,7 +12,7 @@ I tool che un agente può chiamare durante una run:
 | `list_automations` | **con contesto**, solo chatbot | le automation del progetto che si possono lanciare adesso (attive, con step), con la descrizione |
 | `run_automation` | **con contesto**, solo chatbot | lancia un'automation del progetto in background e riporta l'id dell'esecuzione |
 | `automation_status` | **con contesto**, solo chatbot | stato di un'esecuzione di un'automation del progetto e dei suoi step: solo gli stati, niente output né messaggi d'errore |
-| `read_context` | **con contesto** | il contesto del progetto per il chatbot: i `.md` di `projects/<slug>/chat-bot/` tranne `system-prompt.md`; ultima risorsa |
+| `read_context` | **con contesto** | il contesto del progetto per il chatbot: i `.md` di `files/<slug>/context/` (la cartella che indicizzerà il RAG); ultima risorsa |
 
 ```
 src/tool/
@@ -146,7 +146,7 @@ In entrambi i casi: il modello di output in `models/domain/tool.py`.
 - `test/unit/tool/test_hello_world.py`
 - `test/unit/tool/test_run_automation.py`: run messa in coda con risposta immediata, solo automation attive e con step nella descrizione, automation sconosciuta, niente lancio fuori dal chatbot di un progetto (run manuale, fuori da un progetto, dentro un'automation, anche eseguita davvero dal runner).
 - `test/unit/tool/test_automation_status.py`: solo gli stati dell'esecuzione e degli step, mai output o errori; esecuzioni di altri progetti non trovate; solo nel chatbot.
-- `test/unit/tool/test_read_context.py`: i `.md` di `chat-bot/` senza il system prompt; errori senza file o senza progetto.
+- `test/unit/tool/test_read_context.py`: i `.md` di `context/`, nient'altro; errori senza file o senza progetto.
 - `test/unit/tool/test_git_write.py`: pull e stash con un remoto vero: commit arrivati, già aggiornato, modifiche locali che bloccano, file non tracciati che non bloccano, branch divergente mai unito, branch senza upstream, autori registrati per il mascheramento, errori senza percorsi locali; stash dei soli file tracciati, stash e poi pull, niente da mettere da parte; stash apply dell'ultimo o di uno indicato (lo stash resta), errori (nessuno stash, stash inesistente o non valido, modifiche locali), conflitti segnalati.
 - `test/unit/tool/test_git_tools.py`: `git_status` su un repository vero; progetto deciso dalla run, errori con i repository disponibili, percorsi fuori dal progetto, run senza progetto, schema degli argomenti, percorsi locali nascosti negli errori. Serve `git` nel PATH.
 

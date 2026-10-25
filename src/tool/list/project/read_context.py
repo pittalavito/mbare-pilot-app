@@ -1,5 +1,5 @@
 """read_context: the project's context for its chatbot, the markdown files in
-``<MBARE_PILOT_HOME>/projects/<slug>/chat-bot/`` (not its system prompt).
+``<MBARE_PILOT_HOME>/files/<slug>/context/`` (the folder the RAG will index).
 Meant as a last resort: it costs tokens only when called."""
 from datapizza.tools import Tool, tool
 
@@ -16,11 +16,11 @@ def build(context: ToolContext) -> Tool:
         if context.project_data is None or context.project_name is None:
             return ToolErrorResponse(error="Contesto non disponibile fuori da un progetto.")
         try:
-            files = context.project_data.chatbot_context(context.project_name)
+            files = context.project_data.context(context.project_name)
         except AppError as exc:
             return ToolErrorResponse(error=str(exc))
         if not files:
-            return ToolErrorResponse(error="Il progetto non ha file di contesto per il chatbot.")
+            return ToolErrorResponse(error="Il progetto non ha file di contesto (cartella context).")
         return ReadContextResponse(files=files)
 
     return read_context
@@ -28,6 +28,6 @@ def build(context: ToolContext) -> Tool:
 
 READ_CONTEXT = ToolSpec(
     name="read_context",
-    description="Legge il contesto del progetto per il chatbot (i .md della cartella chat-bot), come ultima risorsa.",
+    description="Legge il contesto del progetto per il chatbot (i .md della cartella context), come ultima risorsa.",
     build=build,
 )

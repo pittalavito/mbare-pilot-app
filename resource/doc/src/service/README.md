@@ -77,6 +77,10 @@ L'utente mette in cache un **suo** messaggio scegliendo un'automation del proget
 - **Se l'automation non parte** (disattivata, senza step…) la risposta è un messaggio `error` che inizia con ⚡.
 - **`hits`**: quante volte la voce ha risposto.
 
+## Definizioni da file
+
+**`DefinitionService.sync(progetto)`**: applica a un progetto i file YAML di `definition/`: agenti globali e del progetto, il chatbot del progetto (o quello globale), le automation del progetto più quelle globali che non ridefinisce. Cerca per nome; il file vince sulle modifiche da UI, quello che non è nei file resta. Usa gli stessi servizi (e quindi le stesse validazioni) della UI; un file con errori viene saltato e segnalato. Formato e regole in [definitions](../../definitions.md).
+
 ## Atlassian
 
 **`AtlassianService`**: un sito Jira + Confluence **per progetto** (tabella `project_atlassian`), sopra i [client Atlassian](../domain/client/atlassian/README.md). Testato con risposte finte, non ancora su un sito vero.

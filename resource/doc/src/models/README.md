@@ -30,6 +30,7 @@ API ── controller/* ──► controller ──► domain/* ──► servic
 | `chatbot.py` | `Chatbot` (con il suo agente), `Conversation`, `ChatMessage`, `MessageRole`; cache: `ChatRoute` (messaggio → automation + input, con il suo embedding), `ChatRouteMatch` |
 | `pipeline.py` | automation a grafo: `Pipeline` (step + collegamenti), `PipelineStep` (`AGENT`, `AGENT_CONFIG`, `FUNCTION`, con la posizione nel grafo), `PipelineEdge` con `EdgeConditionKind`, `StepAgent`; esecuzioni: `PipelineRun`, `PipelineStepRun`, `RunStatus` (con `skipped` per gli step non raggiunti); placeholder `{input}`, `{pipeline_input}`, `{nodo:Nome}`; il nodo `input` |
 | `worker.py` | `WorkerStatus` (heartbeat del worker) |
+| `definitions.py` | file YAML di agenti, chatbot e automation (`AgentFile`, `ChatbotFile`, `AutomationFile`, `StepFile`, `EdgeFile`, con `extra="forbid"`) e report della sincronizzazione (`SyncReport`, `SyncItem`); vedi [definitions](../../definitions.md) |
 | `masking.py` | `MaskCategory` (repository, persona, email, termine), `MaskEntry` (valore ↔ alias) |
 | `backup.py` | `BackupFile` (export del DB) |
 | `git.py` | `GitRepository`, `GitCommit`, `GitStatus`, `GitChange` |

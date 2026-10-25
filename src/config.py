@@ -37,8 +37,9 @@ class Config(BaseSettings):
 
     # --- App data ---
     mbare_pilot_home: str = ""
-    """Where the app keeps the projects' data (notes, uploaded files), apart from
-    their code folders. Empty = ``~/.mbare-pilot``."""
+    """The app's data folder, apart from the projects' code: ``definition/``
+    (agents, chatbots, automations as YAML) and ``files/`` (each project's notes,
+    uploaded files and context). Empty = ``~/.mbare-pilot``."""
 
     # --- Backups ---
     backup_dir: str = ""
@@ -92,9 +93,14 @@ class Config(BaseSettings):
         return self.mbare_pilot_secret_key.get_secret_value() if self.mbare_pilot_secret_key else None
 
     @property
-    def projects_data_root(self) -> Path:
-        """Root of the projects' data folders (``<data_home>/projects``)."""
-        return self.data_home / "projects"
+    def files_root(self) -> Path:
+        """Root of the projects' files: ``<data_home>/files/<slug>/{notes,files,context}``."""
+        return self.data_home / "files"
+
+    @property
+    def definitions_root(self) -> Path:
+        """Root of the definitions as files: ``<data_home>/definition`` (global ones, ``project/<slug>/``)."""
+        return self.data_home / "definition"
 
     @property
     def backup_path(self) -> Path:

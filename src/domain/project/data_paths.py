@@ -1,6 +1,15 @@
-"""Where a project's data lives inside the app's data home
-(``<MBARE_PILOT_HOME>/projects/<slug>/{notes,files,chat-bot}``), and the naming rules
-for notes and uploaded files. Pure functions: no filesystem access here."""
+"""Where things live in the app's data home (``MBARE_PILOT_HOME``), and the
+naming rules for notes and uploaded files. Pure functions: no filesystem here.
+
+    definition/                      agents, chatbots, automations as YAML
+      global-agent.yml               agents of the Library (global)
+      global-chat-bot.yml            chatbot of every project that has none of its own
+      global-automation.yml          automations of every project (unless it defines one with that name)
+      project/<slug>/chat-bot.yml, agent.yml, automation.yml
+    files/<slug>/
+      notes/                         notes written in the app
+      files/                         uploaded files
+      context/                       the project's context: read_context, the RAG later"""
 import re
 from pathlib import PurePath
 
@@ -8,11 +17,17 @@ from core.error import ValidationError
 
 NOTES_DIR = "notes"
 FILES_DIR = "files"
-CHATBOT_DIR = "chat-bot"
-"""The chatbot's markdown files, written by hand in the context repo."""
-CHATBOT_PROMPT_FILE = "system-prompt.md"
-"""Its system prompt: copied into the chatbot's agent by hand, not context."""
+CONTEXT_DIR = "context"
+"""Markdown files about the project, written by hand (tool read_context)."""
 NOTE_SUFFIX = ".md"
+
+GLOBAL_AGENTS_FILE = "global-agent.yml"
+GLOBAL_CHATBOT_FILE = "global-chat-bot.yml"
+GLOBAL_AUTOMATIONS_FILE = "global-automation.yml"
+CHATBOT_FILE = "chat-bot.yml"
+AGENTS_FILE = "agent.yml"
+AUTOMATIONS_FILE = "automation.yml"
+"""Under ``definition/project/<slug>/``."""
 
 _NOT_SLUG = re.compile(r"[^a-z0-9]+")
 _INVALID_FILE_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
@@ -22,6 +37,11 @@ def project_slug(project_name: str) -> str:
     """Folder name of a project's data: lowercase, ``-`` separated (``"My App"`` → ``my-app``)."""
     slug = _NOT_SLUG.sub("-", project_name.lower()).strip("-")
     return slug or "project"
+
+
+def project_definitions(project_name: str) -> str:
+    """The project's folder of definitions, relative to ``definition/``."""
+    return f"project/{project_slug(project_name)}"
 
 
 def note_file_name(note_name: str) -> str:

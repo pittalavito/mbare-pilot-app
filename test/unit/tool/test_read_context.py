@@ -1,5 +1,5 @@
-"""read_context: the markdown files of the project's chat-bot/ folder, without
-its system prompt."""
+"""read_context: the markdown files of the project's context/ folder
+(files/<slug>/context), nothing else."""
 
 import pytest
 
@@ -20,11 +20,10 @@ def _read(project_data, project="My App"):
     return as_dict(READ_CONTEXT.build(ToolContext(project, git=None, project_data=project_data)).func())
 
 
-def test_reads_the_chatbot_files_but_not_its_prompt(store_service, project_data):
-    store_service.save_file("my-app/chat-bot/context.md", "Gestionale navi".encode())
-    store_service.save_file("my-app/chat-bot/linee-guida.md", b"Breve.")
-    store_service.save_file("my-app/chat-bot/system-prompt.md", b"Sei...")
-    store_service.save_file("my-app/chat-bot/schema.png", b"\x89PNG")
+def test_reads_the_markdown_files_of_the_context_folder(store_service, project_data):
+    store_service.save_file("my-app/context/context.md", "Gestionale navi".encode())
+    store_service.save_file("my-app/context/linee-guida.md", b"Breve.")
+    store_service.save_file("my-app/context/schema.png", b"\x89PNG")
     store_service.save_file("my-app/notes/altro.md", b"nota")
 
     assert _read(project_data) == {"files": {"context.md": "Gestionale navi", "linee-guida.md": "Breve."}}

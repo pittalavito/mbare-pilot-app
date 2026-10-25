@@ -68,6 +68,18 @@ def test_chat_cache(api):
     assert api.chat.routes(bot.id) == []
 
 
+def test_definitions_sync(api, store_service):
+    store_service.save_definition("project/acme-corp/automation.yml",
+                                  "automations:\n  - name: Semplice\n    steps:\n      - {name: Stato, function: git_status}\n")
+
+    [item] = api.definitions.sync(PROJECT).items
+
+    assert (item.kind, item.file, item.name, item.outcome) == (
+        "automation", "project/acme-corp/automation.yml", "Semplice", "created",
+    )
+    assert [pipeline.name for pipeline in api.automation.pipelines(PROJECT)] == ["Semplice"]
+
+
 def test_notes_and_files(api):
     note = api.data.save_note(PROJECT, "Setup", "# Setup")
     assert api.data.read_note(PROJECT, note.name) == "# Setup"

@@ -81,7 +81,8 @@ class StoreService:
         self._traces_repository = RedisTraceRepository(redis_client)
         self._workers_repository = RedisWorkerRepository(redis_client)
         self._masks_repository = RedisMaskRepository(redis_client)
-        self._files_repository = LocalFileRepository(config.projects_data_root)
+        self._files_repository = LocalFileRepository(config.files_root)
+        self._definitions_repository = LocalFileRepository(config.definitions_root)
         self._secret_box = SecretBox(config.secret_key)
 
     # ------------------------------------------------------------------ runs
@@ -409,3 +410,13 @@ class StoreService:
 
     def delete_file(self, file_id: str) -> bool:
         return self._files_repository.delete(file_id)
+
+    # ----------------------------------------------------------- definitions
+    def read_definition(self, path: str) -> str | None:
+        """A file under ``<data_home>/definition`` (e.g. ``project/acme/agent.yml``); None when missing."""
+        if self._definitions_repository.get(path) is None:
+            return None
+        return self._definitions_repository.read(path).decode("utf-8")
+
+    def save_definition(self, path: str, text: str) -> None:
+        self._definitions_repository.save(path, text.encode("utf-8"))

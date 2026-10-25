@@ -7,6 +7,7 @@ from service.atlassian_service import AtlassianService
 from service.backup_service import BackupService
 from service.chat_route_service import ChatRouteService
 from service.chatbot_service import ChatbotService
+from service.definition_service import DefinitionService
 from service.git_service import GitService
 from service.masking_service import MaskingService
 from service.model_service import ModelService
@@ -34,6 +35,10 @@ def chatbot_service(request: Request) -> ChatbotService:
 
 def chat_route_service(request: Request) -> ChatRouteService:
     return request.app.state.container.chat_route_service
+
+
+def definition_service(request: Request) -> DefinitionService:
+    return request.app.state.container.definition_service
 
 
 def project_data_service(request: Request) -> ProjectDataService:

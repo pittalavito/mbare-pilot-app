@@ -13,6 +13,7 @@ from views.automation_view import automation_section
 from views.chat_view import chat_section
 from views.folder_picker import folder_picker
 from views.git_view import git_section
+from views.definitions_view import definitions_section
 from views.masking_view import masking_section
 from views.project_data_view import project_data_section
 from views.services import api
@@ -133,6 +134,9 @@ def _settings_tab(project: Project) -> None:
 
     with st.expander("🕶️ Mascheramento dei dati", key=f"{key}_masking_open"):
         masking_section(project.name)
+
+    with st.expander("📄 Definizioni da file", key=f"{key}_definitions_open"):
+        definitions_section(project.name)
 
     with st.expander("Agenti del progetto", key=f"{key}_agents_open"):
         agents_section(project.name)
