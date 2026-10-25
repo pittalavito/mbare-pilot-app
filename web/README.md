@@ -45,6 +45,7 @@ src/
     schema.d.ts       GENERATO da `npm run gen:api`: i tipi di ogni endpoint (non modificare)
     client.ts         `api` (client tipizzato), `unwrap` (dati o ApiError col messaggio del backend)
     projects.ts       hook dei progetti e delle cartelle (useProjects, useProject, useOpenFolder, ...)
+    automation.ts     hook delle automation, delle esecuzioni (con polling) e dei cataloghi per l'editor
   app/
     router.tsx        le rotte
     Layout.tsx        cornice: header, sezioni a sinistra
@@ -54,6 +55,7 @@ src/
   pages/
     projects/         lista dei progetti, «Apri cartella» e «Crea da zero»
     project/          pagina del progetto: intestazione e tab (una rotta per tab)
+    automation/       tab Automation (esecuzione e storico), editor del grafo (React Flow) e graphDraft (la bozza, funzioni pure)
   components/
     FolderPicker.tsx  selettore delle cartelle del PC tramite l'API (/folders, dentro PROJECT_ROOTS)
   test/
@@ -68,6 +70,7 @@ src/
 - **Cache**: chiavi di query per area (`["projects"]`, `["projects", nome, "pipelines"]`...); dopo una scrittura si invalidano quelle toccate.
 - **Hook per area** in `src/api/<area>.ts`: le pagine non chiamano `api` direttamente.
 - **Tab di un progetto**: ognuna è una rotta figlia di `/projects/:project`, quindi si carica solo quella aperta (al contrario di `st.tabs`, che le eseguiva tutte).
+- **Pagine pesanti in lazy**: l'editor del grafo (React Flow) è una rotta `lazy`, scaricata solo quando si apre; le librerie (Mantine, React) sono in chunk separati (`codeSplitting` in `vite.config.ts`).
 - **Test**: `mockApi({...})` sostituisce `fetch` con un'API finta e `renderPage(<Pagina />, { route, path })` monta la pagina; si verifica quello che vede l'utente e cosa è stato mandato all'API.
 - **Lingua**: interfaccia in italiano, codice e commenti in inglese, come nel backend.
 
@@ -80,7 +83,7 @@ Si migra tutto insieme: Streamlit resta com'è finché React non è completo, po
 | 0. Base: Vite, Mantine, rotte, client generato, layout, script | ✅ |
 | 1. Backend: worker gestito dall'API, script che avvia API e frontend, log | ✅ |
 | 2. Progetti: lista, apertura e creazione, pagina del progetto | ✅ |
-| 3. Automation: lista, esecuzione, storico, editor del grafo | |
+| 3. Automation: lista, esecuzione, storico, editor del grafo | ✅ |
 | 4. Chat: chatbot, conversazioni, cache | |
 | 5. Dati, Git, Impostazioni | |
 | 6. Libreria e Admin | |

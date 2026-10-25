@@ -15,6 +15,19 @@ export default defineConfig(({ mode }) => {
         "/api": { target: api, changeOrigin: true, rewrite: (path: string) => path.replace(/^\/api/, "") },
       },
     },
+    // Libraries in chunks of their own: cached across releases of the app.
+    build: {
+      rolldownOptions: {
+        output: {
+          codeSplitting: {
+            groups: [
+              { name: "mantine", test: /node_modules[\/]@mantine/ },
+              { name: "vendor", test: /node_modules[\/](react|react-dom|react-router|scheduler|@tanstack)[\/]/ },
+            ],
+          },
+        },
+      },
+    },
     test: { environment: "jsdom", setupFiles: "./src/test/setup.ts" },
   };
 });
