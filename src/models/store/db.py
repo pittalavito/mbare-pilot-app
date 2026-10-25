@@ -12,19 +12,11 @@ Schema overview (project-centric):
            └─ agent_run ── tool_call                        (+ verbatim trace in Redis)
   tool, function, chat_model: global catalogs.
 """
-import warnings
 from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import JSON, Column, DateTime, Text, UniqueConstraint
-from sqlalchemy.exc import SAWarning
 from sqlmodel import Field, SQLModel
-
-# Streamlit re-imports edited modules in the running server: drop the tables of
-# the previous import, or redefining them raises "Table already defined"; the
-# classes replacing the old ones in the mapper registry are expected too.
-SQLModel.metadata.clear()
-warnings.filterwarnings("ignore", message="This declarative base already contains a class", category=SAWarning)
 
 
 def _timestamp(**kwargs) -> datetime:

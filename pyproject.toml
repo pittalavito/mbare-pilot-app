@@ -1,13 +1,11 @@
 [project]
 name = "mbare-pilot-app"
 version = "0.1.0"
-description = "Agentic app skeleton: datapizza-ai + Streamlit, Postgres, Redis and a local file store"
+description = "Agentic app: datapizza-ai + FastAPI, a React frontend (web/), Postgres, Redis and a local file store"
 requires-python = ">=3.12"
 dependencies = [
     "datapizza-ai>=0.1.0",
     "datapizza-ai-clients-openai>=0.0.12",
-    "streamlit>=1.57",
-    "pandas>=2.2",
     "pydantic>=2.13",
     "pydantic-settings>=2.0",
     "python-dotenv>=1.0",
@@ -21,7 +19,6 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.34",
     "psutil>=6.0",
-    "streamlit-flow-component>=1.6.1",
     "pyyaml>=6.0",
 ]
 
@@ -38,13 +35,12 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
-pythonpath = ["src", "ui", "test"]
+pythonpath = ["src", "test"]
 addopts = "--import-mode=importlib"
 
 [tool.coverage.run]
 omit = [
     "*/main.py",
     "*/worker.py",
-    "*/ui/views/*",
     "*/api.py",
 ]

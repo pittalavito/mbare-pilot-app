@@ -1,18 +1,28 @@
 # web — frontend React
 
-Il frontend nuovo di Mbare Pilot: **React + Vite + TypeScript**, con **Mantine** per i componenti. Parla solo con l'API, come la UI Streamlit (`ui/`) che sostituirà: finché la migrazione non è completa, le due convivono.
+Il frontend di Mbare Pilot: **React + Vite + TypeScript**, con **Mantine** per i componenti. Parla solo con l'API, sotto `/api`.
 
 ## Avvio
+
+Richiede **Node.js ≥ 22.13**. Due modi:
+
+```
+python resource/scripts/run-app.py
+```
+
+**Uso normale**, una sola porta: compila il frontend in `dist/` se manca o se un sorgente è più recente, poi avvia l'API (se non ne risponde già una su `API_URL`), che serve l'app in `/` e sé stessa in `/api`.
 
 ```
 python resource/scripts/run-web.py
 ```
 
-Richiede **Node.js ≥ 22.13**. Lo script:
+**Sviluppo**, con la ricarica istantanea: avvia l'API come sopra e **Vite** su `WEB_PORT` (5173), che inoltra `/api/...` all'API (niente CORS). Apri `http://localhost:5173`.
 
-- avvia l'**API** (se non ne risponde già una su `API_URL`), con il ricaricamento automatico se `API_RELOAD=true`; il suo output va in `resource/logs/api.log`;
-- la prima volta installa le dipendenze del frontend, poi avvia **Vite** su `WEB_PORT` (5173), che inoltra `/api/...` all'API togliendo il prefisso (niente CORS in sviluppo);
-- chiuso (Ctrl+C), ferma quello che ha avviato: l'API e, con lei, il worker che l'API ha avviato.
+In entrambi i casi:
+
+- l'output dell'API va in `resource/logs/api.log`; con `API_RELOAD=true` l'API si riavvia da sola quando cambia `src/`;
+- la prima volta si installano le dipendenze del frontend;
+- chiuso lo script (Ctrl+C), si ferma quello che ha avviato: l'API e, con lei, il worker che l'API ha avviato.
 
 Il **worker** si avvia e si ferma dall'intestazione della pagina (lo gestisce l'API); accanto, il pulsante dei **log** di API e worker.
 
@@ -89,22 +99,7 @@ src/
 - **Chiamate**: sempre `unwrap(api.GET("/percorso", { params }))` dentro `useQuery` / `useMutation`. Gli errori arrivano come `ApiError` con il messaggio del backend (status 0 = API non raggiungibile), pronti da mostrare.
 - **Cache**: chiavi di query per area (`["projects"]`, `["projects", nome, "pipelines"]`...); dopo una scrittura si invalidano quelle toccate.
 - **Hook per area** in `src/api/<area>.ts`: le pagine non chiamano `api` direttamente.
-- **Tab di un progetto**: ognuna è una rotta figlia di `/projects/:project`, quindi si carica solo quella aperta (al contrario di `st.tabs`, che le eseguiva tutte).
+- **Tab di un progetto**: ognuna è una rotta figlia di `/projects/:project`, quindi si carica solo quella aperta (non tutte insieme).
 - **Pagine pesanti in lazy**: l'editor del grafo (React Flow) è una rotta `lazy`, scaricata solo quando si apre; le librerie (Mantine, React) sono in chunk separati (`codeSplitting` in `vite.config.ts`).
 - **Test**: `mockApi({...})` sostituisce `fetch` con un'API finta e `renderPage(<Pagina />, { route, path })` monta la pagina; si verifica quello che vede l'utente e cosa è stato mandato all'API.
 - **Lingua**: interfaccia in italiano, codice e commenti in inglese, come nel backend.
-
-## Migrazione
-
-Si migra tutto insieme: Streamlit resta com'è finché React non è completo, poi `ui/` sparisce.
-
-| Fase | Stato |
-|---|---|
-| 0. Base: Vite, Mantine, rotte, client generato, layout, script | ✅ |
-| 1. Backend: worker gestito dall'API, script che avvia API e frontend, log | ✅ |
-| 2. Progetti: lista, apertura e creazione, pagina del progetto | ✅ |
-| 3. Automation: lista, esecuzione, storico, editor del grafo | ✅ |
-| 4. Chat: chatbot, conversazioni, cache | ✅ |
-| 5. Dati, Git, Impostazioni | ✅ |
-| 6. Libreria e Admin | ✅ |
-| 7. Cambio: API sotto `/api` e build servito dall'API, script, documentazione, rimozione di `ui/` | |

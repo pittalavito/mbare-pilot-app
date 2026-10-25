@@ -37,8 +37,8 @@ class LogPrefix(StrEnum):
 
 
 def configure_logging(log_level: str) -> None:
-    """Attach a single root StreamHandler at the given level. Idempotent, so
-    Streamlit reruns don't stack handlers. Also makes the console UTF-8: on
+    """Attach a single root StreamHandler at the given level. Idempotent: a
+    second call does not stack handlers. Also makes the console UTF-8: on
     Windows the default code page cannot print characters such as → or emoji,
     and datapizza prints each agent's answer: that print would fail the run."""
     for stream in (sys.stdout, sys.stderr):

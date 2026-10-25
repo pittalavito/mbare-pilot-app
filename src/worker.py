@@ -1,5 +1,5 @@
 """Automation worker: a process apart from the API that executes the queued
-pipeline runs, one at a time. Started from the UI's Backend panel (or `python src/worker.py`);
+pipeline runs, one at a time. Started by the API from the app's header (or `python src/worker.py`);
 more workers can run together (the queue never hands a run to two of them).
 
 While alive it beats every few seconds in Redis (also during a long run, from

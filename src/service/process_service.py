@@ -1,6 +1,6 @@
 """The worker as a process the API starts and stops (the frontend cannot start
 processes), and the logs of the API and the worker. A worker started elsewhere
-(a terminal, the Streamlit UI's own manager) is seen through its heartbeat."""
+(e.g. from a terminal) is seen through its heartbeat."""
 from core.error import ConflictError
 from core.observability import LogPrefix, observed
 from domain.process.manager import ProcessManager

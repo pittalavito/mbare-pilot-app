@@ -113,5 +113,5 @@ automations:
 | `service/definition_service.py` | `DefinitionService.sync(progetto)`: legge, valida, applica con i servizi di agenti, chatbot e automation |
 | `service/store_service.py` | `read_definition`, `save_definition`: i file di `definition/` |
 | `controller/definition_controller.py` | `POST /projects/{p}/definitions/sync` |
-| `ui/views/definitions_view.py` | la sezione nelle Impostazioni del progetto |
+| `web/src/pages/settings/SettingsTab.tsx` | la sezione nelle Impostazioni del progetto (frontend) |
 | `test/unit/service/test_definition_service.py` | agenti di progetto e globali, chatbot del progetto o globale, automation con grafo, posizioni e globali sostituite, file ed elementi rotti |

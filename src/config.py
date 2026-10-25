@@ -102,6 +102,11 @@ class Config(BaseSettings):
         return _PROJECT_ROOT
 
     @property
+    def web_dist(self) -> Path:
+        """The built frontend (``npm run build`` in web/), served by the API at ``/``."""
+        return _PROJECT_ROOT / "web" / "dist"
+
+    @property
     def run_dir(self) -> Path:
         """PID files of the background processes (``resource/run``)."""
         return _PROJECT_ROOT / "resource" / "run"

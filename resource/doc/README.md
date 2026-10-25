@@ -3,8 +3,7 @@
 Un file per package, con la stessa struttura del progetto.
 
 ```
-web/                    → ../../web/README.md   frontend React (in migrazione): avvio, stack, struttura, convenzioni
-ui/                     → ui/README.md          frontend Streamlit (verrà sostituito da web/)
+web/                    → ../../web/README.md   frontend React: avvio, stack, struttura, convenzioni
 src/
   config.py             → src/config.md         impostazioni da .env
   core/                 → src/core/README.md    errori, logging, cifratura dei segreti
@@ -27,8 +26,7 @@ src/
 | Doc | Cosa trovi |
 |---|---|
 | [definitions](definitions.md) | la cartella dei dati (`definition/`, `files/`); agenti, chatbot e automation come file YAML: formato e sincronizzazione |
-| [web](../../web/README.md) | frontend React + Vite + Mantine: avvio, client tipizzato dall'OpenAPI, fasi della migrazione |
-| [ui](ui/README.md) | struttura della UI, come aggiungere una pagina, convenzioni |
+| [web](../../web/README.md) | frontend React + Vite + Mantine: avvio, client tipizzato dall'OpenAPI, struttura, convenzioni |
 | [src/config](src/config.md) | `Config`, valori obbligatori, segreti, `masked()`, aggiungere un'impostazione |
 | [src/core](src/core/README.md) | errori e status HTTP, `@observed`, `SecretBox`, Container, avvio di API e worker |
 | [src/models](src/models/README.md) | le tre famiglie di modelli, perché separate, come aggiungerne uno |

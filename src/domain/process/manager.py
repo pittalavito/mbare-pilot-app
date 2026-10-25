@@ -2,8 +2,7 @@
 
 A started process outlives the API's restarts: its PID (plus its start time,
 so a reused PID is never mistaken for it) is kept in ``<run_dir>/<name>.pid``
-and its output in ``<log_dir>/<name>.log``. Stopping kills its whole tree.
-The files are the same the Streamlit UI uses, so both see the same processes."""
+and its output in ``<log_dir>/<name>.log``. Stopping kills its whole tree."""
 import os
 import subprocess
 import sys

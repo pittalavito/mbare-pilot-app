@@ -84,6 +84,6 @@ def list_workers(service: PipelineService = Depends(pipeline_service)) -> list[W
 
 @router.get("/workers/health")
 def workers_health(service: PipelineService = Depends(pipeline_service)) -> Response:
-    """200 when at least one worker is running, 503 otherwise (the UI's Backend panel)."""
+    """200 when at least one worker is running, 503 otherwise (for monitoring)."""
     alive = bool(service.workers())
     return Response(status_code=status.HTTP_200_OK if alive else status.HTTP_503_SERVICE_UNAVAILABLE)

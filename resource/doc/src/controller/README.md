@@ -22,7 +22,7 @@ src/controller/
   admin_controller.py         /admin/config, /observability
 ```
 
-Documentazione interattiva con tutti gli endpoint: `http://<API_URL>/docs` (Swagger), con l'API accesa.
+Tutti i path qui sotto stanno sotto `/api` (`core/server.py` monta l'API lì e serve il frontend altrove). Documentazione interattiva con tutti gli endpoint: `<API_URL>/api/docs` (Swagger), con l'API accesa.
 
 ## Endpoint
 
@@ -56,10 +56,11 @@ Documentazione interattiva con tutti gli endpoint: `http://<API_URL>/docs` (Swag
 
 ## Aggiungere un endpoint
 
-1. Request e response in `models/controller/<ambito>.py` (e la copia lato UI in `ui/api_client/models.py`).
+1. Request e response in `models/controller/<ambito>.py`.
 2. La route in `controller/<ambito>_controller.py`; un ambito nuovo è un file nuovo con il suo `APIRouter`.
 3. Se serve un service nuovo, il suo provider in `dependencies.py`.
 4. L'`include_router` in `router.py`.
+5. Rigenera il client del frontend: `npm run gen:api` in `web/` (i tipi vengono dall'OpenAPI).
 
 ## Test
 

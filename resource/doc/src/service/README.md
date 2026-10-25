@@ -83,7 +83,6 @@ L'utente mette in cache un **suo** messaggio scegliendo un'automation del proget
 
 - **Stato**: `running` se l'ha avviato l'app (file PID in `resource/run/worker.pid`), `external` se non l'ha avviato l'app ma un worker manda il suo heartbeat (da un terminale), `stopped` altrimenti.
 - **Avvio**: con `WORKER_SCRIPT`, staccato dall'API (sopravvive ai suoi riavvii) e con il `.env` letto al momento; un worker avviato altrove non viene duplicato (409).
-- **Stessi file della UI Streamlit** (`resource/run`, `resource/logs`): le due UI vedono lo stesso worker.
 - `domain/process/manager.py`: `ProcessManager` (file PID con l'ora d'avvio, così un PID riusato non inganna; stop di tutto l'albero dei processi).
 
 ## Definizioni da file

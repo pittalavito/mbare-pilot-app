@@ -55,7 +55,7 @@ Un file per ambito dell'API: `project`, `agent`, `chatbot`, `project_data`, `git
 
 - **Response** (`*Response`): con `from_<dominio>()` che le costruisce dal modello di dominio.
 - **Request** (`*Request`, `*Body`): quello che l'API accetta; il controller le converte in modelli di dominio (es. `StepBody.to_step()`).
-- La UI ne ha una **copia sua** in `ui/api_client/models.py`: le due vanno tenute allineate.
+- Il frontend non ne ha una copia: i suoi tipi sono generati dall'OpenAPI dell'API (`npm run gen:api` in `web/`).
 
 ## Aggiungere un modello
 

@@ -766,7 +766,7 @@ export interface paths {
         };
         /**
          * Workers Health
-         * @description 200 when at least one worker is running, 503 otherwise (the UI's Backend panel).
+         * @description 200 when at least one worker is running, 503 otherwise (for monitoring).
          */
         get: operations["workers_health_workers_health_get"];
         put?: never;

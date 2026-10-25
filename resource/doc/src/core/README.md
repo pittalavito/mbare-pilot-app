@@ -7,20 +7,21 @@ src/core/
   error.py            AppError e sottoclassi: gli errori attesi
   observability.py    logging, LogPrefix, decoratore @observed
   secret_box.py       cifratura dei segreti salvati nel DB
-  app.py              create_app(): l'app FastAPI, con errori → status HTTP e i router
+  app.py              create_app(): l'API FastAPI, con errori → status HTTP e i router
+  server.py           create_server(): l'API montata sotto /api e il frontend compilato (web/dist) altrove
   container.py        Container: crea tutti i service una volta per processo
 src/
-  api.py              entry dell'API: app = create_app()
+  api.py              entry dell'API: app = create_server(Config.get().web_dist)
   worker.py           entry del worker delle automation
 ```
 
 ## Avvio: API e worker
 
-Due processi separati, entrambi avviati dal pannello Backend della UI (o da terminale):
+Due processi separati: l'API la avviano `run-app.py` e `run-web.py` (`resource/scripts/api_process.py`), il worker lo avvia l'API (`ProcessService`) o un terminale:
 
 | Processo | Entry | Comando |
 |---|---|---|
-| API | `src/api.py` | `uvicorn api:app --app-dir src` (`API_APP`, `API_APP_DIR` nel `.env`). Con `API_RELOAD=true` il pannello la avvia con `ui/process_control/api_reloader.py`, che la riavvia quando cambia un file Python in `src/` |
+| API | `src/api.py` | `uvicorn api:app --app-dir src` (`API_APP`, `API_APP_DIR` nel `.env`). Con `API_RELOAD=true` gli script la avviano con `resource/scripts/api_reloader.py`, che la riavvia quando cambia un file Python in `src/`. `api:app` è il server di `core/server.py`: l'API (`core/app.py`) sotto `/api` e il frontend compilato (`web/dist`) nelle altre pagine |
 | Worker | `src/worker.py` | `python src/worker.py` (`WORKER_SCRIPT`) |
 
 Ognuno costruisce il suo `Container`.
