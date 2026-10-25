@@ -48,6 +48,11 @@ src/
     automation.ts     hook delle automation e delle esecuzioni (con polling)
     chat.ts           hook di chatbot, conversazioni, messaggi e cache (route)
     catalog.ts        cataloghi condivisi dagli editor: modelli, tool, funzioni, agenti
+    projectData.ts    note e file del progetto (upload col contenuto grezzo, download da link)
+    git.ts            repository, log e stato (mutation: git gira solo sui pulsanti)
+    atlassian.ts      impostazioni del sito, issue Jira, pagine Confluence, preferiti
+    masking.ts        valori mascherati e sincronizzazione delle definizioni YAML
+    agents.ts         agenti, ruoli e versioni dei prompt, per scope (Libreria o progetto)
   app/
     router.tsx        le rotte
     Layout.tsx        cornice: header, sezioni a sinistra
@@ -57,11 +62,18 @@ src/
   pages/
     projects/         lista dei progetti, «Apri cartella» e «Crea da zero»
     project/          pagina del progetto: intestazione e tab (una rotta per tab)
+    data/             tab Dati: note markdown (modifica/anteprima, Ctrl+S) e file
+    git/              tab Git: commit con filtri e file modificati
+    atlassian/        tab Atlassian: Jira, Confluence, preferiti
+    settings/         tab Impostazioni: generale, Atlassian, mascheramento, definizioni, agenti, rimozione
     chat/             tab Chat: conversazioni, messaggi in markdown, «Metti in cache», modale del chatbot
     automation/       tab Automation (esecuzione e storico), editor del grafo (React Flow) e graphDraft (la bozza, funzioni pure)
   components/
     FolderPicker.tsx  selettore delle cartelle del PC tramite l'API (/folders, dentro PROJECT_ROOTS)
     ModelSelect.tsx   scelta del modello di un agente, segnalando quelli senza chiave del provider
+    ConfirmButton.tsx pulsante rosso con conferma in un popover, per le azioni irreversibili
+    Markdown.tsx      markdown con la tipografia dell'app
+    agents/           sezione Agenti (agenti, prompt, ruoli) per scope: Impostazioni del progetto e Libreria
   test/
     setup.ts          jest-dom, pulizia tra i test, matchMedia e ResizeObserver per jsdom
     render.tsx        `mockApi` (API finta: "METODO /percorso" -> risposta) e `renderPage` (pagina con i provider e il router)
@@ -89,6 +101,6 @@ Si migra tutto insieme: Streamlit resta com'è finché React non è completo, po
 | 2. Progetti: lista, apertura e creazione, pagina del progetto | ✅ |
 | 3. Automation: lista, esecuzione, storico, editor del grafo | ✅ |
 | 4. Chat: chatbot, conversazioni, cache | ✅ |
-| 5. Dati, Git, Impostazioni | |
+| 5. Dati, Git, Impostazioni | ✅ |
 | 6. Libreria e Admin | |
 | 7. Cambio: API sotto `/api` e build servito dall'API, script, documentazione, rimozione di `ui/` | |

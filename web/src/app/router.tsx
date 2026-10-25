@@ -2,9 +2,13 @@ import { Navigate, createBrowserRouter } from "react-router-dom";
 
 import { Placeholder } from "../pages/Placeholder";
 import { AutomationTab } from "../pages/automation/AutomationTab";
+import { AtlassianTab } from "../pages/atlassian/AtlassianTab";
 import { ChatTab } from "../pages/chat/ChatTab";
+import { DataTab } from "../pages/data/DataTab";
+import { GitTab } from "../pages/git/GitTab";
 import { ProjectPage } from "../pages/project/ProjectPage";
 import { ProjectsPage } from "../pages/projects/ProjectsPage";
+import { SettingsTab } from "../pages/settings/SettingsTab";
 import { Layout } from "./Layout";
 
 /** The graph editor (React Flow) is a chunk of its own, downloaded when opened. */
@@ -16,10 +20,10 @@ const PROJECT_TABS = [
   { path: "automation", element: <AutomationTab /> },
   { path: "automation/new", lazy: automationEditor },
   { path: "automation/:pipelineId/edit", lazy: automationEditor },
-  { path: "data", element: <Placeholder title="Dati" /> },
-  { path: "git", element: <Placeholder title="Git" /> },
-  { path: "atlassian", element: <Placeholder title="Atlassian" /> },
-  { path: "settings", element: <Placeholder title="Impostazioni" /> },
+  { path: "data", element: <DataTab /> },
+  { path: "git", element: <GitTab /> },
+  { path: "atlassian", element: <AtlassianTab /> },
+  { path: "settings", element: <SettingsTab /> },
 ];
 
 /** One URL per page: a project and its tab can be bookmarked and reloaded. */

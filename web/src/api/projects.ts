@@ -72,3 +72,34 @@ export function useFolder(path: string, showHidden: boolean) {
 export function fetchFolder(path: string) {
   return unwrap(api.GET("/folders", { params: { query: { path } } }));
 }
+
+// ------------------------------------------------------------------ settings
+
+export type UpdateProjectRequest = components["schemas"]["UpdateProjectRequest"];
+
+export function useProjectOptions() {
+  return useQuery({ queryKey: ["projects", "options"], queryFn: () => unwrap(api.GET("/projects/options")), staleTime: Infinity });
+}
+
+export function useUpdateProject(name: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: UpdateProjectRequest) => unwrap(api.PATCH("/projects/{name}", { params: { path: { name } }, body })),
+    onSuccess: (project) => {
+      queryClient.setQueryData(projectKeys.one(name), project);
+      return queryClient.invalidateQueries({ queryKey: projectKeys.all, exact: true });
+    },
+  });
+}
+
+/** Forget the project in the app (its folder on disk is not touched). */
+export function useRemoveProject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => unwrap(api.DELETE("/projects/{name}", { params: { path: { name } } })),
+    onSuccess: (_, name) => {
+      queryClient.removeQueries({ queryKey: projectKeys.one(name) });
+      return queryClient.invalidateQueries({ queryKey: projectKeys.all, exact: true });
+    },
+  });
+}

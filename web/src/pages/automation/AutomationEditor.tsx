@@ -1,7 +1,7 @@
 import "@xyflow/react/dist/style.css";
 
 import {
-  Alert, Button, Card, Checkbox, CloseButton, Group, Loader, MultiSelect, NumberInput, Popover, Select, Stack, Text, TextInput, Textarea, Title,
+  Alert, Button, Card, Checkbox, CloseButton, Group, Loader, MultiSelect, NumberInput, Select, Stack, Text, TextInput, Textarea, Title,
   useComputedColorScheme,
 } from "@mantine/core";
 import {
@@ -12,6 +12,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { type Pipeline, type Step, useDeletePipeline, usePipelines, useSavePipeline } from "../../api/automation";
 import { type FunctionSpec, useFunctions, useModelChoices, useStepAgents, useTools } from "../../api/catalog";
+import { ConfirmButton } from "../../components/ConfirmButton";
 import { ModelSelect } from "../../components/ModelSelect";
 import {
   CONDITION_LABELS, type Condition, type Draft, type DraftEdge, INPUT_NODE, KIND_ICONS, KIND_LABELS, type Kind, TEXT_CONDITIONS,
@@ -438,19 +439,13 @@ function EdgePanel({ draft, edge, onChange, onRemove, onClose }: {
 function DeletePipeline({ project, pipeline, onDeleted }: { project: string; pipeline: Pipeline; onDeleted: () => void }) {
   const remove = useDeletePipeline(project);
   return (
-    <Popover withArrow>
-      <Popover.Target>
-        <Button variant="subtle" color="red">🗑️ Elimina automation</Button>
-      </Popover.Target>
-      <Popover.Dropdown>
-        <Stack gap="xs" maw={280}>
-          <Text size="sm">Eliminare «{pipeline.name}» e il suo storico? Le run degli agenti restano.</Text>
-          {remove.error && <Text size="sm" c="red">{remove.error.message}</Text>}
-          <Button size="xs" color="red" loading={remove.isPending} onClick={() => remove.mutate(pipeline.id, { onSuccess: onDeleted })}>
-            Sì, elimina
-          </Button>
-        </Stack>
-      </Popover.Dropdown>
-    </Popover>
+    <ConfirmButton
+      message={`Eliminare «${pipeline.name}» e il suo storico? Le run degli agenti restano.`}
+      loading={remove.isPending}
+      error={remove.error?.message}
+      onConfirm={() => remove.mutate(pipeline.id, { onSuccess: onDeleted })}
+    >
+      🗑️ Elimina automation
+    </ConfirmButton>
   );
 }

@@ -1,8 +1,9 @@
-import { Alert, Button, Group, Modal, MultiSelect, NumberInput, Popover, Stack, Text, TextInput, Textarea } from "@mantine/core";
+import { Alert, Button, Group, Modal, MultiSelect, NumberInput, Stack, Text, TextInput, Textarea } from "@mantine/core";
 import { useEffect, useState } from "react";
 
 import { type Chatbot, type ChatbotRequest, useDeleteChatbot, useSaveChatbot } from "../../api/chat";
 import { useTools } from "../../api/catalog";
+import { ConfirmButton } from "../../components/ConfirmButton";
 import { ModelSelect } from "../../components/ModelSelect";
 
 const EMPTY: ChatbotRequest = { name: "", description: "", system_prompt: "", model: "", max_steps: 4, tool_names: [] };
@@ -74,20 +75,14 @@ export function ChatbotModal({ project, chatbot, opened, onClose }: { project: s
             <Button variant="default" onClick={onClose}>Annulla</Button>
           </Group>
           {chatbot && (
-            <Popover withArrow>
-              <Popover.Target>
-                <Button variant="subtle" color="red">Elimina chatbot</Button>
-              </Popover.Target>
-              <Popover.Dropdown>
-                <Stack gap="xs" maw={280}>
-                  <Text size="sm">Eliminare «{chatbot.name}» e tutte le sue conversazioni? Le run degli agenti restano.</Text>
-                  {remove.error && <Text size="sm" c="red">{remove.error.message}</Text>}
-                  <Button size="xs" color="red" loading={remove.isPending} onClick={() => remove.mutate(chatbot.id, { onSuccess: onClose })}>
-                    Sì, elimina
-                  </Button>
-                </Stack>
-              </Popover.Dropdown>
-            </Popover>
+            <ConfirmButton
+              message={`Eliminare «${chatbot.name}» e tutte le sue conversazioni? Le run degli agenti restano.`}
+              loading={remove.isPending}
+              error={remove.error?.message}
+              onConfirm={() => remove.mutate(chatbot.id, { onSuccess: onClose })}
+            >
+              Elimina chatbot
+            </ConfirmButton>
           )}
         </Group>
       </Stack>

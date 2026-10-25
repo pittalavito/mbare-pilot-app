@@ -1,9 +1,10 @@
-import { Alert, Box, Button, Card, Grid, Group, Loader, NavLink, Popover, ScrollArea, Stack, Text, Textarea } from "@mantine/core";
+import { Alert, Box, Button, Card, Grid, Group, Loader, NavLink, ScrollArea, Stack, Text, Textarea } from "@mantine/core";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 
 import { type Chatbot, useChatbots, useConversations, useDeleteConversation, useMessages, useRoutes, useSendMessage } from "../../api/chat";
 import { usePipelines } from "../../api/automation";
+import { ConfirmButton } from "../../components/ConfirmButton";
 import { ChatbotModal } from "./ChatbotModal";
 import { MessageItem } from "./MessageItem";
 
@@ -172,19 +173,15 @@ function ConversationView({ chatbot }: { chatbot: Chatbot }) {
 function DeleteConversation({ chatbotId, conversationId, onDeleted }: { chatbotId: number; conversationId: number; onDeleted: () => void }) {
   const remove = useDeleteConversation(chatbotId);
   return (
-    <Popover withArrow>
-      <Popover.Target>
-        <Button size="xs" variant="subtle" color="red" style={{ alignSelf: "flex-start" }}>🗑️ Elimina conversazione</Button>
-      </Popover.Target>
-      <Popover.Dropdown>
-        <Stack gap="xs" maw={260}>
-          <Text size="sm">Eliminare questa conversazione e i suoi messaggi?</Text>
-          {remove.error && <Text size="sm" c="red">{remove.error.message}</Text>}
-          <Button size="xs" color="red" loading={remove.isPending} onClick={() => remove.mutate(conversationId, { onSuccess: onDeleted })}>
-            Sì, elimina
-          </Button>
-        </Stack>
-      </Popover.Dropdown>
-    </Popover>
+    <ConfirmButton
+      size="xs"
+      style={{ alignSelf: "flex-start" }}
+      message="Eliminare questa conversazione e i suoi messaggi?"
+      loading={remove.isPending}
+      error={remove.error?.message}
+      onConfirm={() => remove.mutate(conversationId, { onSuccess: onDeleted })}
+    >
+      🗑️ Elimina conversazione
+    </ConfirmButton>
   );
 }

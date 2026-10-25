@@ -1,10 +1,9 @@
-import { ActionIcon, Alert, Avatar, Button, Group, Paper, Popover, Select, Stack, Text, TextInput, TypographyStylesProvider } from "@mantine/core";
+import { ActionIcon, Alert, Avatar, Button, Group, Paper, Popover, Select, Stack, Text, TextInput } from "@mantine/core";
 import { useState } from "react";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 
 import type { Pipeline } from "../../api/automation";
 import { CACHE_MARK, type ChatRoute, type Message, useAddRoute, useDeleteRoute } from "../../api/chat";
+import { Markdown } from "../../components/Markdown";
 
 type Props = {
   chatbotId: number;
@@ -40,9 +39,7 @@ export function MessageItem({ chatbotId, message, reply, route, automations }: P
       <Avatar size="sm" radius="xl" color={message.content.startsWith(CACHE_MARK) ? "yellow" : "indigo"}>
         {message.content.startsWith(CACHE_MARK) ? "⚡" : "🤖"}
       </Avatar>
-      <TypographyStylesProvider p={0} style={{ fontSize: "var(--mantine-font-size-sm)", minWidth: 0 }}>
-        <Markdown remarkPlugins={[remarkGfm]}>{message.content}</Markdown>
-      </TypographyStylesProvider>
+      <Markdown>{message.content}</Markdown>
     </Group>
   );
 }

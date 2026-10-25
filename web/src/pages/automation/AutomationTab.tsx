@@ -1,4 +1,4 @@
-import { Accordion, Alert, Button, Card, Group, Loader, Popover, Select, Stack, Text, Textarea, Title } from "@mantine/core";
+import { Accordion, Alert, Button, Card, Group, Loader, Select, Stack, Text, Textarea, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -6,6 +6,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { type Pipeline, type Run, type Step, isFinished, useDeleteRun, useEnqueueRun, usePipelines, useRuns } from "../../api/automation";
 import { api, unwrap } from "../../api/client";
+import { ConfirmButton } from "../../components/ConfirmButton";
 import { KIND_LABELS, type Kind } from "./graphDraft";
 
 /** The Automation tab of a project: pick an automation (``?id=``), run it with
@@ -176,18 +177,16 @@ function DeleteRun({ pipelineId, run }: { pipelineId: number; run: Run }) {
   const remove = useDeleteRun(pipelineId);
   if (run.status === "running") return <Text size="xs" c="dimmed">In corso: si potrà eliminare quando è finita.</Text>;
   return (
-    <Popover withArrow>
-      <Popover.Target>
-        <Button size="xs" variant="subtle" color="red" style={{ alignSelf: "flex-start" }}>🗑️ Elimina esecuzione</Button>
-      </Popover.Target>
-      <Popover.Dropdown>
-        <Stack gap="xs" maw={280}>
-          <Text size="sm">Eliminare questa esecuzione dallo storico? Le run degli agenti restano in Observability.</Text>
-          {remove.error && <Text size="sm" c="red">{remove.error.message}</Text>}
-          <Button size="xs" color="red" loading={remove.isPending} onClick={() => remove.mutate(run.id)}>Sì, elimina</Button>
-        </Stack>
-      </Popover.Dropdown>
-    </Popover>
+    <ConfirmButton
+      size="xs"
+      style={{ alignSelf: "flex-start" }}
+      message="Eliminare questa esecuzione dallo storico? Le run degli agenti restano in Observability."
+      loading={remove.isPending}
+      error={remove.error?.message}
+      onConfirm={() => remove.mutate(run.id)}
+    >
+      🗑️ Elimina esecuzione
+    </ConfirmButton>
   );
 }
 
