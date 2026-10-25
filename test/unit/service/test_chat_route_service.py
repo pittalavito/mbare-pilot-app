@@ -1,12 +1,15 @@
 """The chatbots' cache: the user puts one of their messages in cache with an
 automation and a fixed input; a similar message then launches it directly,
 without the agent (fake agents, no LLM). ``!`` skips the cache."""
+import logging
+
 import pytest
 
-from core.error import ConflictError, ValidationError
+from core.error import ConflictError, UpstreamError, ValidationError
 from domain.client.embedding.embedder import HashingEmbedder
 from fakes import FakeAgent
 from models.domain.chatbot import MessageRole
+from models.domain.masking import MaskCategory
 from models.domain.pipeline import PipelineStep, RunStatus, StepAgent, StepKind
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
@@ -15,6 +18,7 @@ from service.chat_route_service import ChatRouteService
 from service.chat_service import ChatService
 from service.chatbot_service import ChatbotService
 from service.git_service import GitService
+from service.masking_service import MaskingService
 from service.pipeline_service import PipelineService
 
 MODEL = "openai/gpt-4o"
@@ -24,6 +28,35 @@ class _OtherEmbedder(HashingEmbedder):
     @property
     def name(self) -> str:
         return "other"
+
+
+class _RemoteEmbedder(HashingEmbedder):
+    """Sends the text outside the PC (as OpenRouter): records what it receives."""
+
+    def __init__(self):
+        super().__init__()
+        self.received = []
+
+    @property
+    def name(self) -> str:
+        return "remote"
+
+    @property
+    def local(self) -> bool:
+        return False
+
+    def embed(self, text):
+        self.received.append(text)
+        return super().embed(text)
+
+
+class _DownEmbedder(HashingEmbedder):
+    @property
+    def name(self) -> str:
+        return "down"
+
+    def embed(self, text):
+        raise UpstreamError("OpenRouter non risponde")
 
 
 @pytest.fixture
@@ -102,13 +135,13 @@ def test_different_messages_and_bang_go_to_the_agent(chat, routes, pipelines, co
     assert not chat.messages(conversation.id)[-1].content.startswith("⚡")
 
 
-def test_only_entries_of_the_same_embedder_are_compared(store_service, pipelines, chat, routes, conversation):
+def test_entries_of_another_embedder_are_embedded_again_and_kept(store_service, pipelines, chat, routes, conversation):
     report = _automation(pipelines)
     routes.add(_user_message(chat, conversation, "lancia il report").id, report.id)
     other = ChatRouteService(store_service, pipelines, _OtherEmbedder(), threshold=0.9)
 
-    assert routes.match(conversation.chatbot_id, "lancia il report").similarity == pytest.approx(1.0)
-    assert other.match(conversation.chatbot_id, "lancia il report") is None
+    assert other.match(conversation.chatbot_id, "lancia il report").similarity == pytest.approx(1.0)
+    assert [route.embedder for route in other.routes(conversation.chatbot_id)] == ["other"]  # saved with the new one
 
 
 def test_an_automation_that_cannot_start_answers_with_an_error(chat, routes, pipelines, conversation):
@@ -142,3 +175,42 @@ def test_entries_survive_their_conversation(chat, routes, pipelines, conversatio
 
     assert [entry.id for entry in routes.routes(conversation.chatbot_id)] == [route.id]
     assert routes.remove(route.id) and routes.routes(conversation.chatbot_id) == []
+
+
+# ------------------------------------------------- real embedders, logs
+
+def test_a_remote_embedder_only_gets_masked_text(store_service, pipelines, chat, conversation):
+    masking = MaskingService(store_service)
+    masking.add_term("acme", MaskCategory.PERSON, "Mario Rossi")
+    remote = _RemoteEmbedder()
+    routes = ChatRouteService(store_service, pipelines, remote, threshold=0.9, masking_service=masking)
+
+    routes.add(_user_message(chat, conversation, "report di Mario Rossi").id, _automation(pipelines).id)
+    routes.match(conversation.chatbot_id, "report di Mario Rossi")
+
+    assert remote.received == ["report di PERSONA_1", "report di PERSONA_1"]
+
+
+def test_a_remote_embedder_without_masking_is_refused(store_service, pipelines):
+    with pytest.raises(ValidationError, match="mascheramento"):
+        ChatRouteService(store_service, pipelines, _RemoteEmbedder(), threshold=0.9)
+
+
+def test_if_embedding_fails_the_agent_answers(store_service, pipelines, chat, routes, conversation, agent_runs, caplog):
+    routes.add(_user_message(chat, conversation, "lancia il report").id, _automation(pipelines).id)
+    down = ChatRouteService(store_service, pipelines, _DownEmbedder(), threshold=0.9)
+
+    with caplog.at_level(logging.WARNING):
+        assert down.match(conversation.chatbot_id, "lancia il report") is None
+    assert "non consultata" in caplog.text and "OpenRouter non risponde" in caplog.text
+
+
+def test_every_comparison_is_logged_with_its_similarities(chat, routes, pipelines, conversation, caplog):
+    route = routes.add(_user_message(chat, conversation, "lancia il report").id, _automation(pipelines).id)
+
+    with caplog.at_level(logging.INFO):
+        routes.match(conversation.chatbot_id, "lancia il report")
+        routes.match(conversation.chatbot_id, "stato dei repository")
+
+    assert f"voce {route.id}=1.000 · soglia 0.90 → voce {route.id}, lancio l'automation" in caplog.text
+    assert f"voce {route.id}=0.000 · soglia 0.90 → nessuna voce, risponde l'agente" in caplog.text

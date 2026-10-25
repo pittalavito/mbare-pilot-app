@@ -31,6 +31,12 @@ class Masker:
         return _ALIAS.sub(lambda match: self._value_by_alias.get(match.group(0), match.group(0)), text)
 
 
+def aliases_in(text: str) -> frozenset[str]:
+    """The aliases a masked text contains (``REPO_7``, ``PERSONA_2``, ...): the
+    sensitive values it is about, comparable without their real values."""
+    return frozenset(_ALIAS.findall(text))
+
+
 def _whole(value: str) -> str:
     """``value`` escaped, not glued to letters or digits where it starts/ends with one."""
     start = r"(?<!\w)" if re.match(r"\w", value[0]) else ""

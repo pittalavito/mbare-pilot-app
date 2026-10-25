@@ -16,6 +16,7 @@ from pathlib import Path
 
 import httpx
 import psutil
+from dotenv import dotenv_values
 
 _HEALTH_TIMEOUT = 1.5
 _STOP_TIMEOUT = 5.0
@@ -84,12 +85,18 @@ class ProcessManager:
         with self._log_path(service).open("ab") as log:
             popen = subprocess.Popen(
                 service.command, cwd=self._cwd, stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                env={**os.environ, "PYTHONUNBUFFERED": "1", **service.env},
+                env={**os.environ, **self._dotenv(), "PYTHONUNBUFFERED": "1", **service.env},
                 **_detached(),
             )
         started = psutil.Process(popen.pid).create_time()
         self._pid_path(service).write_text(f"{popen.pid} {started}", encoding="utf-8")
         return popen.pid
+
+    def _dotenv(self) -> dict[str, str]:
+        """The .env of the working folder, read now: the UI loaded it into its
+        environment once, at its start, and a process started later must see
+        the current values (e.g. an API key changed meanwhile), not those."""
+        return {key: value for key, value in dotenv_values(self._cwd / ".env").items() if value is not None}
 
     def stop(self, service: ManagedService) -> bool:
         """Kill the process tree started here. False when there was none."""

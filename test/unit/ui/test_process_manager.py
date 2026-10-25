@@ -51,6 +51,18 @@ def test_start_status_logs_stop(manager):
     assert manager.stop(service) is False
 
 
+def test_a_started_process_sees_the_current_env_file_not_the_uis(manager, tmp_path, monkeypatch):
+    monkeypatch.setenv("MBARE_TEST_KEY", "vecchia")  # loaded by the UI at its start
+    (tmp_path / ".env").write_text("MBARE_TEST_KEY=nuova", encoding="utf-8")  # changed afterwards
+    printer = [sys.executable, "-c", "import os, time; print('key=' + os.environ['MBARE_TEST_KEY'], flush=True); time.sleep(60)"]
+    service = ManagedService(name="sleeper", label="Sleeper", command=printer)
+
+    manager.start(service)
+
+    assert _wait_for(lambda: "key=" in manager.logs(service))
+    assert "key=nuova" in manager.logs(service)
+
+
 def test_stop_kills_the_whole_tree(manager):
     service = ManagedService(name="tree", label="Tree", command=_WITH_CHILD)
     pid = manager.start(service)

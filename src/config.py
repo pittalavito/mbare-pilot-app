@@ -16,7 +16,8 @@ _URL_CREDENTIALS = re.compile(r"://([^:/@]+):([^@]+)@")
 
 class Config(BaseSettings):
     
-    _model_config = SettingsConfigDict(env_file=_PROJECT_ROOT / ".env", env_file_encoding="utf-8", extra="ignore")
+    # The name model_config is required by pydantic-settings: renamed, .env is not read.
+    model_config = SettingsConfigDict(env_file=_PROJECT_ROOT / ".env", env_file_encoding="utf-8", extra="ignore")
     _instance: ClassVar["Config | None"] = None
     
     # --- App ---
@@ -65,7 +66,9 @@ class Config(BaseSettings):
     """How similar (cosine, 0..1) a message must be to a cached one to launch
     its automation without the agent."""
     chat_route_embedder: str = "hashing"
-    """Embedder of the cache: ``hashing`` (a mock: same words = similar)."""
+    """Embedder of the cache: ``hashing`` (a mock: same words = similar) or
+    ``openrouter/<model>`` (e.g. ``openrouter/openai/text-embedding-3-small``;
+    the text is masked before it leaves the PC)."""
 
     # --- Datapizza tracing ---
     datapizza_trace_summary: bool = False

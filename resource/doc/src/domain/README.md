@@ -19,7 +19,7 @@ src/domain/
 | [project](project/README.md) | dove stanno codice e dati di un progetto, nomi validi, cartelle consentite |
 | [client/git](client/git/README.md) | comandi git in sola lettura e come vengono eseguiti |
 | [client/atlassian](client/atlassian/README.md) | Jira e Confluence Cloud: connessione, errori, conversione in testo |
-| `client/embedding` | `Embedder` (interfaccia), `HashingEmbedder` (finto: parole → posizioni del vettore), `Factory`, `cosine_similarity`: per la cache dei chatbot (vedi [service](../service/README.md#cache-chatrouteservice)) |
+| `client/embedding` | `Embedder` (interfaccia, con `local`: falso se il testo esce dal PC), `HashingEmbedder` (finto: parole → posizioni del vettore), `OpenRouterEmbedder` (modello vero, API compatibile OpenAI), `Factory`, `cosine_similarity`: per la cache dei chatbot (vedi [service](../service/README.md#cache-chatrouteservice)) |
 | [store/files](store/files/README.md) | file su disco confinati in una radice, indirizzati per `file_id` |
 | [store/redis](store/redis/README.md) | trace delle run e heartbeat dei worker, keyspace e scadenze |
 | [store/db](store/db/README.md) | Postgres: schema senza migrazioni, repository, Adapter/Factory |

@@ -4,8 +4,12 @@ import math
 
 import pytest
 
-from core.error import ValidationError
-from domain.client.embedding.embedder import Factory, HashingEmbedder, cosine_similarity
+from types import SimpleNamespace
+
+import openai
+
+from core.error import UpstreamError, ValidationError
+from domain.client.embedding.embedder import Factory, HashingEmbedder, OpenRouterEmbedder, cosine_similarity
 
 
 @pytest.fixture
@@ -39,5 +43,49 @@ def test_deterministic_normalised_and_named(embedder):
 
 def test_factory(embedder):
     assert Factory.create("hashing").name == embedder.name
-    with pytest.raises(ValidationError, match="sconosciuto"):
-        Factory.create("gpt")
+    remote = Factory.create("openrouter/openai/text-embedding-3-small")
+    assert remote.name == "openrouter/openai/text-embedding-3-small" and not remote.local and embedder.local
+    for name in ("gpt", "openrouter/"):
+        with pytest.raises(ValidationError, match="sconosciuto"):
+            Factory.create(name)
+
+
+# ---------------------------------------------------------------- OpenRouter
+
+class _Client:
+    """Stands in for openai.OpenAI: records the calls, answers with ``vector`` or raises ``error``."""
+
+    def __init__(self, vector=(3.0, 4.0), error=None):
+        self.calls = []
+        self.embeddings = SimpleNamespace(create=self._create)
+        self._vector, self._error = list(vector), error
+
+    def _create(self, model, input):
+        self.calls.append((model, input))
+        if self._error:
+            raise self._error
+        return SimpleNamespace(data=[SimpleNamespace(embedding=self._vector)])
+
+
+def test_openrouter_vectors_are_normalised():
+    client = _Client()
+
+    assert OpenRouterEmbedder("openai/x", client).embed("ciao") == [0.6, 0.8]
+    assert client.calls == [("openai/x", ["ciao"])]
+
+
+def test_openrouter_empty_text_is_not_sent():
+    client = _Client()
+
+    assert OpenRouterEmbedder("openai/x", client).embed("  ") == [] and client.calls == []
+    assert cosine_similarity([], [0.6, 0.8]) == 0.0
+
+
+def test_openrouter_errors_become_upstream_errors():
+    with pytest.raises(UpstreamError, match="Embedding non riuscito"):
+        OpenRouterEmbedder("openai/x", _Client(error=openai.OpenAIError("down"))).embed("ciao")
+
+
+def test_openrouter_needs_the_key():
+    with pytest.raises(ValidationError, match="OPENROUTER_API_KEY"):
+        OpenRouterEmbedder("openai/x").embed("ciao")

@@ -60,6 +60,7 @@ class Container:
             pipeline_service=self.pipeline_service,
             embedder=EmbedderFactory.create(config.chat_route_embedder),
             threshold=config.chat_route_threshold,
+            masking_service=self.masking_service,
         )
         self.chatbot_service = ChatbotService(
             store_service=self.store_service,
