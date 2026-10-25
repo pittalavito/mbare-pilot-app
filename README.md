@@ -25,6 +25,12 @@ python resource/scripts/start-docker.py
 python resource/scripts/run-ui.py
 ```
 
+   Oppure il frontend React nuovo (in migrazione, richiede Node.js ≥ 22.13): avvia API e frontend insieme, il worker si avvia dall'intestazione della pagina ([web/README.md](web/README.md)):
+
+```bash
+python resource/scripts/run-web.py
+```
+
 Test con coverage:
 
 ```bash

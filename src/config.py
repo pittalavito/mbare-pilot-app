@@ -71,6 +71,10 @@ class Config(BaseSettings):
     ``openrouter/<model>`` (e.g. ``openrouter/openai/text-embedding-3-small``;
     the text is masked before it leaves the PC)."""
 
+    # --- Worker (started and stopped by the API) ---
+    worker_script: str = "src/worker.py"
+    """The worker's entry point, relative to the app folder."""
+
     # --- Datapizza tracing ---
     datapizza_trace_summary: bool = False
     """Print datapizza's "Trace Summary" panel (spans, duration, tokens) to the console after every run."""
@@ -91,6 +95,21 @@ class Config(BaseSettings):
     def secret_key(self) -> str | None:
         """The plain MBARE_PILOT_SECRET_KEY, None when unset."""
         return self.mbare_pilot_secret_key.get_secret_value() if self.mbare_pilot_secret_key else None
+
+    @property
+    def app_root(self) -> Path:
+        """The app's folder (the one with src/, web/ and the .env)."""
+        return _PROJECT_ROOT
+
+    @property
+    def run_dir(self) -> Path:
+        """PID files of the background processes (``resource/run``)."""
+        return _PROJECT_ROOT / "resource" / "run"
+
+    @property
+    def logs_dir(self) -> Path:
+        """Logs of the API and the worker (``resource/logs/<name>.log``)."""
+        return _PROJECT_ROOT / "resource" / "logs"
 
     @property
     def files_root(self) -> Path:

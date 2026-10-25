@@ -5,10 +5,16 @@ Il frontend nuovo di Mbare Pilot: **React + Vite + TypeScript**, con **Mantine**
 ## Avvio
 
 ```
-python resource/scripts/run-web.py      # installa le dipendenze la prima volta, poi avvia Vite su WEB_PORT (5173)
+python resource/scripts/run-web.py
 ```
 
-L'API va avviata come prima (pannello Backend di Streamlit). Vite inoltra `/api/...` all'API di `API_URL` (dal `.env`), togliendo il prefisso: niente CORS in sviluppo.
+Richiede **Node.js ≥ 22.13**. Lo script:
+
+- avvia l'**API** (se non ne risponde già una su `API_URL`), con il ricaricamento automatico se `API_RELOAD=true`; il suo output va in `resource/logs/api.log`;
+- la prima volta installa le dipendenze del frontend, poi avvia **Vite** su `WEB_PORT` (5173), che inoltra `/api/...` all'API togliendo il prefisso (niente CORS in sviluppo);
+- chiuso (Ctrl+C), ferma quello che ha avviato: l'API e, con lei, il worker che l'API ha avviato.
+
+Il **worker** si avvia e si ferma dall'intestazione della pagina (lo gestisce l'API); accanto, il pulsante dei **log** di API e worker.
 
 | Comando (in `web/`) | Cosa fa |
 |---|---|
@@ -22,8 +28,9 @@ L'API va avviata come prima (pannello Backend di Streamlit). Vite inoltra `/api/
 
 | Cosa | Libreria |
 |---|---|
+| Build e server di sviluppo | Vite 8 |
 | Componenti, tema (chiaro/scuro), form, modali, notifiche | Mantine 7 |
-| Navigazione: una URL per pagina | React Router 6 |
+| Navigazione: una URL per pagina | React Router 7 |
 | Dati dall'API: cache, aggiornamento dopo le scritture, polling | TanStack Query 5 |
 | Client tipizzato | `openapi-fetch` con i tipi di `openapi-typescript` |
 | Editor del grafo delle automation | React Flow (`@xyflow/react`) |
@@ -39,7 +46,9 @@ src/
     client.ts         `api` (client tipizzato), `unwrap` (dati o ApiError col messaggio del backend)
   app/
     router.tsx        le rotte
-    Layout.tsx        cornice: header con lo stato dell'API, sezioni a sinistra
+    Layout.tsx        cornice: header, sezioni a sinistra
+    BackendStatus.tsx stato dell'API, avvio e arresto del worker
+    LogsDrawer.tsx    log di API e worker, aggiornati ogni 2 secondi
     theme.ts          tema Mantine
   pages/              una pagina per sezione
   components/         componenti condivisi
@@ -60,10 +69,10 @@ Si migra tutto insieme: Streamlit resta com'è finché React non è completo, po
 | Fase | Stato |
 |---|---|
 | 0. Base: Vite, Mantine, rotte, client generato, layout, script | ✅ |
-| 1. Backend: worker gestito dall'API, build servito dall'API | |
+| 1. Backend: worker gestito dall'API, script che avvia API e frontend, log | ✅ |
 | 2. Progetti: lista, apertura e creazione, pagina del progetto | |
 | 3. Automation: lista, esecuzione, storico, editor del grafo | |
 | 4. Chat: chatbot, conversazioni, cache | |
 | 5. Dati, Git, Impostazioni | |
 | 6. Libreria e Admin | |
-| 7. Cambio: script, documentazione, rimozione di `ui/` | |
+| 7. Cambio: API sotto `/api` e build servito dall'API, script, documentazione, rimozione di `ui/` | |

@@ -77,6 +77,15 @@ L'utente mette in cache un **suo** messaggio scegliendo un'automation del proget
 - **Se l'automation non parte** (disattivata, senza step…) la risposta è un messaggio `error` che inizia con ⚡.
 - **`hits`**: quante volte la voce ha risposto.
 
+## Processi
+
+**`ProcessService`**: il worker come processo che l'API avvia e ferma (il frontend nel browser non può avviare processi), e i log di API e worker.
+
+- **Stato**: `running` se l'ha avviato l'app (file PID in `resource/run/worker.pid`), `external` se non l'ha avviato l'app ma un worker manda il suo heartbeat (da un terminale), `stopped` altrimenti.
+- **Avvio**: con `WORKER_SCRIPT`, staccato dall'API (sopravvive ai suoi riavvii) e con il `.env` letto al momento; un worker avviato altrove non viene duplicato (409).
+- **Stessi file della UI Streamlit** (`resource/run`, `resource/logs`): le due UI vedono lo stesso worker.
+- `domain/process/manager.py`: `ProcessManager` (file PID con l'ora d'avvio, così un PID riusato non inganna; stop di tutto l'albero dei processi).
+
 ## Definizioni da file
 
 **`DefinitionService.sync(progetto)`**: applica a un progetto i file YAML di `definition/`: agenti globali e del progetto, il chatbot del progetto (o quello globale), le automation del progetto più quelle globali che non ridefinisce. Cerca per nome; il file vince sulle modifiche da UI, quello che non è nei file resta. Usa gli stessi servizi (e quindi le stesse validazioni) della UI; un file con errori viene saltato e segnalato. Formato e regole in [definitions](../../definitions.md).

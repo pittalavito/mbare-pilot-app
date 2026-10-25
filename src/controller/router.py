@@ -9,6 +9,7 @@ from controller.atlassian_controller import router as atlassian_router
 from controller.catalog_controller import router as catalog_router
 from controller.chatbot_controller import router as chatbot_router
 from controller.definition_controller import router as definition_router
+from controller.process_controller import router as process_router
 from controller.folder_controller import router as folder_router
 from controller.git_controller import router as git_router
 from controller.masking_controller import router as masking_router
@@ -39,3 +40,4 @@ router.include_router(atlassian_router)
 router.include_router(admin_router)
 router.include_router(masking_router)
 router.include_router(definition_router)
+router.include_router(process_router)

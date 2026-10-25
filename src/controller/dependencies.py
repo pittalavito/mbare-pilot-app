@@ -8,6 +8,7 @@ from service.backup_service import BackupService
 from service.chat_route_service import ChatRouteService
 from service.chatbot_service import ChatbotService
 from service.definition_service import DefinitionService
+from service.process_service import ProcessService
 from service.git_service import GitService
 from service.masking_service import MaskingService
 from service.model_service import ModelService
@@ -67,3 +68,7 @@ def backup_service(request: Request) -> BackupService:
 
 def masking_service(request: Request) -> MaskingService:
     return request.app.state.container.masking_service
+
+
+def process_service(request: Request) -> ProcessService:
+    return request.app.state.container.process_service

@@ -1117,6 +1117,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/worker": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Worker */
+        get: operations["worker_admin_worker_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/worker/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Worker
+         * @description 409 when a worker started elsewhere is running.
+         */
+        post: operations["start_worker_admin_worker_start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/worker/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop Worker */
+        post: operations["stop_worker_admin_worker_stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/logs/{process}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Logs */
+        get: operations["logs_admin_logs__process__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1616,6 +1687,13 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** LogResponse */
+        LogResponse: {
+            /** Process */
+            process: string;
+            /** Text */
+            text: string;
+        };
         /**
          * MaskCategory
          * @enum {string}
@@ -1739,6 +1817,12 @@ export interface components {
             /** Edges */
             edges: components["schemas"]["EdgeBody"][];
         };
+        /**
+         * ProcessName
+         * @description Processes with a log in ``resource/logs/<name>.log``.
+         * @enum {string}
+         */
+        ProcessName: "api" | "worker";
         /**
          * ProjectOptionsResponse
          * @description Choices the UI offers when creating or editing a project.
@@ -2103,6 +2187,15 @@ export interface components {
             last_seen: string;
             /** Busy Run Id */
             busy_run_id: number | null;
+        };
+        /** WorkerStateResponse */
+        WorkerStateResponse: {
+            /** Status */
+            status: string;
+            /** Pid */
+            pid: number | null;
+            /** Workers */
+            workers: components["schemas"]["WorkerResponse"][];
         };
     };
     responses: never;
@@ -4532,6 +4625,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SyncReportResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    worker_admin_worker_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkerStateResponse"];
+                };
+            };
+        };
+    };
+    start_worker_admin_worker_start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkerStateResponse"];
+                };
+            };
+        };
+    };
+    stop_worker_admin_worker_stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkerStateResponse"];
+                };
+            };
+        };
+    };
+    logs_admin_logs__process__get: {
+        parameters: {
+            query?: {
+                lines?: number;
+            };
+            header?: never;
+            path: {
+                process: components["schemas"]["ProcessName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogResponse"];
                 };
             };
             /** @description Validation Error */

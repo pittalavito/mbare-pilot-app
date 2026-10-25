@@ -1,5 +1,7 @@
 """Composition root: builds every dependency once per process (API, worker;
 UI never: it talks to the API). Nothing else builds services."""
+import sys
+
 import datapizza.tracing
 
 from config import Config
@@ -7,6 +9,7 @@ from core.observability import LogPrefix, configure_logging, observed
 
 from domain.chat.models_default import DEFAULT_CHAT_MODELS
 from domain.client.embedding.embedder import Factory as EmbedderFactory
+from domain.process.manager import ProcessManager
 from domain.project.folder_browser import FolderBrowser
 
 from service.agent_config_service import AgentConfigService
@@ -22,6 +25,7 @@ from service.masking_service import MaskingService
 from service.model_service import ModelService
 from service.pipeline_runner import PipelineRunner
 from service.pipeline_service import PipelineService
+from service.process_service import ProcessService
 from service.project_data_service import ProjectDataService
 from service.project_service import ProjectService
 from service.store_service import StoreService
@@ -45,6 +49,11 @@ class Container:
         self.git_service = GitService(store_service=self.store_service)
         self.masking_service = MaskingService(store_service=self.store_service)
         self.pipeline_service = PipelineService(store_service=self.store_service, agent_config_service=self.agent_config_service)
+        self.process_service = ProcessService(
+            pipeline_service=self.pipeline_service,
+            manager=ProcessManager(cwd=config.app_root, run_dir=config.run_dir, log_dir=config.logs_dir),
+            worker_command=[sys.executable, config.worker_script],
+        )
         self.backup_service = BackupService.from_config()
         self.agent_service = AgentService(
             chat_service=self.chat_service,
