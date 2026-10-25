@@ -5,6 +5,6 @@ from models.domain.tool import HelloWorldResponse
 
 
 @tool
-def hello_world(name: str) -> str:
+def hello_world(name: str) -> HelloWorldResponse:
     """Returns a greeting message for the given name."""
-    return HelloWorldResponse(response=f"Hello, {name}!").model_dump_json()
+    return HelloWorldResponse(response=f"Hello, {name}!")

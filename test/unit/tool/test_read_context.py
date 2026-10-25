@@ -1,9 +1,9 @@
 """read_context: the markdown files of the project's chat-bot/ folder, without
 its system prompt."""
-import json
 
 import pytest
 
+from fakes import as_dict
 from models.domain.project import Project, ProjectSource
 from service.project_data_service import ProjectDataService
 from tool.context import ToolContext
@@ -17,7 +17,7 @@ def project_data(store_service):
 
 
 def _read(project_data, project="My App"):
-    return json.loads(READ_CONTEXT.build(ToolContext(project, git=None, project_data=project_data)).func())
+    return as_dict(READ_CONTEXT.build(ToolContext(project, git=None, project_data=project_data)).func())
 
 
 def test_reads_the_chatbot_files_but_not_its_prompt(store_service, project_data):

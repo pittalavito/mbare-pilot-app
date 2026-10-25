@@ -5,6 +5,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel
 
+from models.domain.masking import MaskEmailAddress, MaskPersonName
+
 
 class GitRepository(BaseModel):
     """A git repository inside a project folder."""
@@ -16,8 +18,8 @@ class GitRepository(BaseModel):
 class GitCommit(BaseModel):
     hash: str
     short_hash: str
-    author: str
-    email: str
+    author: MaskPersonName
+    email: MaskEmailAddress
     date: datetime
     """Author date, with its timezone."""
     subject: str

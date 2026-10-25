@@ -12,16 +12,16 @@ from tool.spec import ToolSpec
 def build(context: ToolContext) -> Tool:
 
     @tool(name="read_context", description= "Last resort: the project's context (domain, stack, sources). Use it only when the request is ambiguous or no automation seems to fit.")
-    def read_context() -> str:
+    def read_context() -> ReadContextResponse | ToolErrorResponse:
         if context.project_data is None or context.project_name is None:
-            return ToolErrorResponse(error="Contesto non disponibile fuori da un progetto.").model_dump_json()
+            return ToolErrorResponse(error="Contesto non disponibile fuori da un progetto.")
         try:
             files = context.project_data.chatbot_context(context.project_name)
         except AppError as exc:
-            return ToolErrorResponse(error=str(exc)).model_dump_json()
+            return ToolErrorResponse(error=str(exc))
         if not files:
-            return ToolErrorResponse(error="Il progetto non ha file di contesto per il chatbot.").model_dump_json()
-        return ReadContextResponse(files=files).model_dump_json()
+            return ToolErrorResponse(error="Il progetto non ha file di contesto per il chatbot.")
+        return ReadContextResponse(files=files)
 
     return read_context
 

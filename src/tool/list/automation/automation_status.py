@@ -25,9 +25,9 @@ _DESCRIPTION = (
 def build(context: ToolContext) -> Tool:
 
     @tool(name="automation_status", description=_DESCRIPTION)
-    def automation_status(run_id: RunId) -> str:
+    def automation_status(run_id: RunId) -> AutomationStatusResponse | ToolErrorResponse:
         if not chatbot_run(context):
-            return ToolErrorResponse(error="Stato delle automation disponibile solo nel chatbot di un progetto.").model_dump_json()
+            return ToolErrorResponse(error="Stato delle automation disponibile solo nel chatbot di un progetto.")
         try:
             run = context.pipelines.get_run(run_id)
             pipeline = context.pipelines.get_pipeline(run.pipeline_id)
@@ -35,21 +35,19 @@ def build(context: ToolContext) -> Tool:
             return _not_found(run_id)
         if pipeline.project_name != context.project_name:
             return _not_found(run_id)
-        
-        response = AutomationStatusResponse(
+
+        return AutomationStatusResponse(
             automation=pipeline.name, 
             run_id=run_id, 
             status=run.status.value,
             steps=[AutomationStepStatus(name=step.name, status=step.status.value) for step in run.steps],
         )
-        
-        return response.model_dump_json()
 
     return automation_status
 
 
-def _not_found(run_id: int) -> str:
-    return ToolErrorResponse(error=f"Esecuzione {run_id} non trovata tra quelle di questo progetto.").model_dump_json()
+def _not_found(run_id: int) -> ToolErrorResponse:
+    return ToolErrorResponse(error=f"Esecuzione {run_id} non trovata tra quelle di questo progetto.")
 
 
 AUTOMATION_STATUS = ToolSpec(

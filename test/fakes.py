@@ -1,11 +1,20 @@
 """Builders and fakes used across tests."""
+import json
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
+from pydantic import BaseModel
+
 from datapizza.tracing.tracing import agent_span, generation_span, tool_span
 
 from models.domain.agent import AgentRunRecord, GenerationRecord, RunTelemetry, TokenSummary, ToolCallRecord
+
+
+def as_dict(output) -> dict:
+    """A tool's output as the JSON the model would read (tools return their
+    output model when called directly; the agent layer serializes it)."""
+    return json.loads(output.model_dump_json()) if isinstance(output, BaseModel) else json.loads(output)
 
 
 def make_run_record(run_id: str = "run-1", created_at: datetime | None = None) -> AgentRunRecord:

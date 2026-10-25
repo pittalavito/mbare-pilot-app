@@ -6,8 +6,7 @@ from typing import Annotated
 from datapizza.tools import Tool, tool
 
 from core.error import AppError
-from models.domain.masking import MaskCategory
-from models.domain.tool import GitStashResponse
+from models.domain.tool import GitStashResponse, ToolErrorResponse
 from tool.context import ToolContext
 from tool.list.git.errors import git_error
 from tool.list.git.params import Repository
@@ -19,7 +18,7 @@ StashMessage = Annotated[str, "Short description of the changes put aside; '' = 
 def build(context: ToolContext) -> Tool:
 
     @tool(name="git_stash")
-    def git_stash(repository: Repository, message: StashMessage) -> str:
+    def git_stash(repository: Repository, message: StashMessage) -> GitStashResponse | ToolErrorResponse:
         """Put aside the uncommitted changes to tracked files of a git
         repository of the current project (git stash push), leaving the
         working tree clean, e.g. before a pull. Untracked files are kept.
@@ -28,18 +27,14 @@ def build(context: ToolContext) -> Tool:
             result = context.git.stash(context.require_project(), repository, message)
         except AppError as exc:
             return git_error(context, exc)
-        
-        context.register_sensitive(MaskCategory.REPOSITORY, repository)
-        
-        response = GitStashResponse(
+
+        return GitStashResponse(
             repository=repository, 
             stashed=result.stashed, 
             ref=result.ref, 
             message=result.message, 
             files=result.files,
         )
-        
-        return response.model_dump_json()
 
     return git_stash
 

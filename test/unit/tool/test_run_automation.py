@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from fakes import FakeAgent
+from fakes import FakeAgent, as_dict
 from models.domain.agent import AgentConfig, RunOrigin
 from models.domain.pipeline import PipelineStep, RunStatus, StepAgent, StepKind
 from models.domain.project import Project, ProjectSource
@@ -85,7 +85,7 @@ def test_only_runnable_automations_start_and_the_description_lists_none(service,
     built = RUN_AUTOMATION.build(ToolContext("acme", git=None, pipelines=pipelines, origin=RunOrigin.CHAT))
 
     assert "Report" not in built.description and "list_automations" in built.description
-    assert "Disponibili: Report" in json.loads(built.func(automation="Spenta", input=""))["error"]
+    assert "Disponibili: Report" in as_dict(built.func(automation="Spenta", input=""))["error"]
 
 
 def test_unknown_automation_lists_the_available_ones(service, pipelines, monkeypatch):
@@ -106,7 +106,7 @@ def test_only_in_a_chatbots_run_of_a_project(pipelines, context):
     pipelines.create_pipeline("acme", "Report", steps=[_own_step()])
     built = RUN_AUTOMATION.build(ToolContext(**{**context.__dict__, "pipelines": pipelines}))
 
-    assert "non disponibili" in json.loads(built.func(automation="Report", input=""))["error"]
+    assert "non disponibili" in as_dict(built.func(automation="Report", input=""))["error"]
 
 
 def test_an_automation_cannot_start_automations(service, store_service, pipelines, monkeypatch):
@@ -128,7 +128,7 @@ def test_list_automations_only_the_runnable_ones_only_in_a_chatbot(pipelines):
     pipelines.create_pipeline("acme", "Vuota")
 
     def listed(context):
-        return json.loads(LIST_AUTOMATIONS.build(ToolContext(**{**context.__dict__, "pipelines": pipelines})).func())
+        return as_dict(LIST_AUTOMATIONS.build(ToolContext(**{**context.__dict__, "pipelines": pipelines})).func())
 
     assert listed(ToolContext("acme", git=None, origin=RunOrigin.CHAT)) == {
         "automations": [{"name": "Report", "description": "report del giorno"}],

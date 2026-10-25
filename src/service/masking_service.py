@@ -1,11 +1,12 @@
 """Masking of sensitive values before they reach an LLM, per project.
 
 Values enter a project's map automatically (every run of a project registers
-the project's repository names before the LLM sees anything; tools register
-what they read) or by hand (Impostazioni → Mascheramento).
-AgentService opens a ``MaskSession`` for every run of a project: the input and
-the conversation are masked, the tools get unmasked arguments and return masked
-output, the answer is unmasked before it is saved and shown."""
+the project's repository names before the LLM sees anything; the sensitive
+fields of the tools' outputs are registered by the agent layer) or by hand
+(Impostazioni → Mascheramento). AgentService runs every project's agent through
+an ``AgentMask`` (domain/agent/masking.py), which opens a ``MaskSession`` here:
+the input and the conversation are masked, the tools get unmasked arguments and
+return masked output, the answer is unmasked before it is saved and shown."""
 from typing import Any
 
 from core.error import NotFoundError, ValidationError
@@ -75,10 +76,6 @@ class MaskSession:
         if isinstance(value, (list, tuple)):
             return type(value)(self.unmask_value(item) for item in value)
         return value
-
-    def register(self, category: MaskCategory, value: str) -> None:
-        """Add a sensitive value found by a tool; masked from now on in this run."""
-        self.register_all(category, [value])
 
     def register_all(self, category: MaskCategory, values: list[str]) -> None:
         """Add several values at once (the map is reloaded once)."""

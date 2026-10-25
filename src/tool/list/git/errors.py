@@ -3,22 +3,22 @@ run, with the repositories it can use so it can retry with a valid one.
 
 Messages from git and GitService contain local paths: the project folder
 becomes ``<progetto>`` and the user's home ``~``, so the LLM never sees where
-the code lives on this PC (repository names are then masked like any output)."""
+the code lives on this PC. The repository names are declared sensitive in
+ToolErrorResponse, so the agent layer masks them."""
 import re
 from pathlib import Path
 
 from core.error import AppError
-from models.domain.masking import MaskCategory
 from models.domain.tool import ToolErrorResponse
 from tool.context import ToolContext
 
 
-def git_error(context: ToolContext, exc: AppError) -> str:
+def git_error(context: ToolContext, exc: AppError) -> ToolErrorResponse:
     message = hide_local_paths(context, str(exc))
     repositories = _repositories(context)
     if repositories:
         message += f" Repository disponibili: {', '.join(repositories)}."
-    return ToolErrorResponse(error=message).model_dump_json()
+    return ToolErrorResponse(error=message, repositories=repositories)
 
 
 def _repositories(context: ToolContext) -> list[str]:
@@ -29,8 +29,6 @@ def _repositories(context: ToolContext) -> list[str]:
         repositories = context.git.repositories(context.project_name)
     except AppError:
         return []
-    for repo in repositories:
-        context.register_sensitive(MaskCategory.REPOSITORY, repo.path)
     return [repo.path or "''" for repo in repositories]
 
 

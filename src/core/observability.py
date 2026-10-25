@@ -1,4 +1,5 @@
 import logging
+import sys
 from enum import StrEnum
 from functools import wraps
 from time import perf_counter
@@ -35,7 +36,12 @@ class LogPrefix(StrEnum):
 
 def configure_logging(log_level: str) -> None:
     """Attach a single root StreamHandler at the given level. Idempotent, so
-    Streamlit reruns don't stack handlers."""
+    Streamlit reruns don't stack handlers. Also makes the console UTF-8: on
+    Windows the default code page cannot print characters such as → or emoji,
+    and datapizza prints each agent's answer: that print would fail the run."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     level = getattr(logging, log_level.upper(), logging.INFO)
     handler = logging.StreamHandler()
     handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))

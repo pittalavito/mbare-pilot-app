@@ -1,12 +1,12 @@
 """git_status tool on a real repository (needs ``git`` on PATH):
 bound to the run's project, errors returned to the agent as JSON."""
-import json
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
+from fakes import as_dict
 from models.domain.project import Project, ProjectSource
 from service.git_service import GitService
 from tool.context import ToolContext
@@ -39,7 +39,7 @@ def git(store_service, tmp_path):
 
 
 def _call(built, **arguments):
-    return json.loads(built.func(**arguments))
+    return as_dict(built.func(**arguments))
 
 
 def test_git_status_on_the_runs_project(git, tmp_path):

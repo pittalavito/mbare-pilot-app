@@ -17,13 +17,13 @@ _DESCRIPTION = (
 def build(context: ToolContext) -> Tool:
 
     @tool(name="list_automations", description=_DESCRIPTION)
-    def list_automations() -> str:
+    def list_automations() -> ListAutomationsResponse | ToolErrorResponse:
         if not chatbot_run(context):
-            return ToolErrorResponse(error="Elenco delle automation disponibile solo nel chatbot di un progetto.").model_dump_json()
+            return ToolErrorResponse(error="Elenco delle automation disponibile solo nel chatbot di un progetto.")
         automations = context.pipelines.runnable_pipelines(context.project_name)
         return ListAutomationsResponse(automations=[
             AutomationInfo(name=pipeline.name, description=pipeline.description) for pipeline in automations
-        ]).model_dump_json()
+        ])
 
     return list_automations
 

@@ -58,9 +58,15 @@ Creato da `AgentService` per ogni run:
 - `project_name`: il progetto della run (`None` fuori da un progetto);
 - i service che i tool possono usare: `git`, `pipelines` (`PipelineService`, per le automation), `project_data` (`ProjectDataService`, per il contesto del chatbot);
 - `origin`: cosa ha avviato la run (chat, automation, manuale): i tool delle automation funzionano solo con `chat`, cioè nel chatbot;
-- `mask`: il mascheramento della run (solo nelle run di un progetto). Un tool che legge valori sensibili li registra con `context.register_sensitive(MaskCategory.X, valore)`: da lì in poi il modello vede l'alias.
+**Il mascheramento non sta nei tool**: il contesto non ha sessione né funzioni di registrazione. Lo gestisce `AgentMask` (`domain/agent/masking.py`), che avvolge ogni tool attorno alla run: gli argomenti arrivano smascherati, l'output esce serializzato e mascherato. Un tool dichiara i suoi valori sensibili nel **modello di output** (vedi [service](../service/README.md#mascheramento)): `MaskRepositoryName`, `MaskPersonName`, `MaskEmailAddress` (campi singoli) o `MaskRepositoryNames` (liste), da `models/domain/masking.py`. Un tool non chiama nulla per registrare.
 
-**Mascheramento**: `build_tools` avvolge ogni tool (su una copia, perché i tool statici sono condivisi) così che riceva gli argomenti smascherati e restituisca l'output mascherato. Il tool non deve fare niente, tranne registrare i valori sensibili che legge (vedi [service](../service/README.md#mascheramento)).
+```python
+class GitStatusResponse(BaseModel):
+    repository: MaskRepositoryName   # registrato e mascherato da AgentMask
+    status: GitStatus
+```
+
+I tool restituiscono il **modello** di output, non una stringa: è `AgentMask` a serializzarlo, così il modello non vede mai un oggetto Python.
 
 `require_project()` restituisce il progetto o solleva un `ValidationError`: per i tool che hanno senso solo dentro un progetto.
 
@@ -82,7 +88,7 @@ Uno dei tool git che **modificano** il repository (con `git_stash` e `git_stash_
 - **mai un merge**: se il branch locale ha commit che il remoto non ha, si ferma e lo dice (serve un merge o un rebase fatto a mano);
 - **rifiuta** con modifiche non committate ai file tracciati (le elenca), con HEAD staccato o con un branch senza upstream; i file nuovi non tracciati non lo bloccano;
 - **risposta**: branch, upstream, `updated` e i commit arrivati (dal più recente);
-- **mascheramento**: autori ed email dei commit arrivati vengono registrati (`PERSONA_n`, `EMAIL_n`).
+- **mascheramento**: autori ed email dei commit arrivati sono campi `MaskPersonName` ed `MaskEmailAddress` di `GitCommit` (`PERSONA_n`, `EMAIL_n`).
 
 Usa le credenziali git del PC senza chiederne (niente prompt): se il remoto chiede una password che non è salvata, il pull fallisce con l'errore di git. Timeout: 120 s.
 

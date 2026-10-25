@@ -87,12 +87,13 @@ L'utente mette in cache un **suo** messaggio scegliendo un'automation del proget
 - **Mappa per progetto, permanente**, su Redis (keyspace `mask`). Un valore ha sempre lo stesso alias; un alias tolto non viene mai riusato. Rimuovere il progetto cancella la sua mappa.
 - **Come si riempie**:
   - **repository del progetto**: all'inizio di ogni run di un progetto vengono registrati tutti (gli stessi del tab Git), quindi sono mascherati già dal primo messaggio;
-  - **dai tool**: registrano quello che leggono (`ToolContext.register_sensitive`);
+  - **dagli output dei tool**: i campi marcati come sensibili nel modello di output (`MaskRepositoryName`, `MaskPersonName`, `MaskEmailAddress`, ...) vengono registrati da `AgentMask`; i tool non registrano nulla;
   - **a mano**: da **Impostazioni → Mascheramento dei dati**, per persone, clienti, altri termini. Minimo 3 caratteri.
-- **Dove si applica** (`AgentService`, quindi uguale per chat, automation e deleghe, solo per le run di un progetto):
-  - la domanda e la cronologia della conversazione sono **mascherate** prima di arrivare al modello;
-  - i tool ricevono gli argomenti **smascherati** (lavorano sui valori veri) e il loro output esce **mascherato**;
-  - la risposta è **smascherata** prima di essere salvata e mostrata.
+- **Dove si applica**: tutto il mascheramento sta in **`AgentMask`** (`domain/agent/masking.py`), che `AgentService` usa per ogni run (chat, automation e chatbot, solo con una sessione quando la run è di un progetto):
+  - la domanda e la cronologia della conversazione sono **mascherate** prima di arrivare al modello (`input`, `history`);
+  - i tool ricevono gli argomenti **smascherati** (lavorano sui valori veri) e il loro output, serializzato, esce **mascherato** (`wrap`);
+  - la risposta è **smascherata** prima di essere salvata e mostrata (`answer`).
+- **Chi ci lavora**: i servizi non conoscono la sessione. `MaskingService` tiene la mappa, `MaskSession` la usa in una run; il resto del codice passa da `AgentMask`.
 - **Regole**: maiuscole e minuscole indifferenti, solo parole intere (`api` non tocca `rapid`), i valori più lunghi vincono su quelli che contengono.
 - **Cosa resta in chiaro**: la run salvata ha input e output veri; il trace in Redis (tool call e chiamate del modello) contiene invece quello che il modello ha visto, cioè gli alias. Un valore che non è un repository e che il modello vede prima che qualcuno lo registri passa in chiaro: per i nomi noti in anticipo (persone, clienti), aggiungili a mano.
 

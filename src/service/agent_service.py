@@ -4,9 +4,9 @@ from uuid import uuid4
 from datapizza.tracing import ContextTracing
 
 from core.error import AppError
-from models.domain.masking import MaskCategory
 from core.observability import LogPrefix, log_exception, observed
 from domain.agent.base import Factory as AgentFactory
+from domain.agent.masking import AgentMask
 from domain.agent.tracing import Adapter as TracingAdapter
 from models.domain.agent import AgentDefinition, AgentRunRecord, RunOrigin
 from models.domain.chat import split_model_key
@@ -63,18 +63,16 @@ class AgentService:
         project_name = project_name or definition.project_name
         require_usable_model(self._store_service, definition.model)
         client = self._chat_service.get_client(definition.model)
-        mask = self._masking_service.session(project_name) if self._masking_service and project_name else None
-        if mask:
-            self._register_repositories(mask, project_name)
+        session = self._masking_service.session(project_name) if self._masking_service and project_name else None
+        mask = AgentMask(session, self._repository_paths(project_name) if session else [])
         context = ToolContext(
             project_name=project_name, 
             git=self._git_service,
             pipelines=self._pipeline_service, 
             origin=origin, 
-            mask=mask, 
             project_data=self._project_data_service,
         )
-        tools = build_tools(definition.tool_names, context)
+        tools = mask.wrap(build_tools(definition.tool_names, context))
         agent = AgentFactory.create_agent(definition, client, tools)
         prices = self._store_service.get_price_list()
 
@@ -82,8 +80,8 @@ class AgentService:
         start = perf_counter()
         with ContextTracing().trace(f"agent.{definition.name}") as current_trace:
             try:
-                step = agent.run(_masked_text(mask, task_input), memory=AgentFactory.create_memory(_masked_history(mask, history)))
-                output = mask.unmask(step.text) if mask and step else (step.text if step else "")
+                step = agent.run(mask.input(task_input), memory=AgentFactory.create_memory(mask.history(history)))
+                output = mask.answer(step.text) if step else ""
             except AppError as exc:
                 error = str(exc)
             except Exception as exc:
@@ -113,22 +111,10 @@ class AgentService:
         return record
 
 
-    def _register_repositories(self, mask, project_name: str) -> None:
-        """The project's repository names are masked from the first message on,
-        not only after a tool reads them. A project folder that is gone or
-        unreadable just registers nothing."""
+    def _repository_paths(self, project_name: str) -> list[str]:
+        """The project's repository paths, to be masked from the first message on.
+        A project folder that is gone or unreadable has none."""
         try:
-            repositories = self._git_service.repositories(project_name)
+            return [repo.path for repo in self._git_service.repositories(project_name)]
         except AppError:
-            return
-        mask.register_all(MaskCategory.REPOSITORY, [repo.path for repo in repositories])
-
-
-def _masked_text(mask, text: str) -> str:
-    return mask.mask(text) if mask else text
-
-
-def _masked_history(mask, history: list[ChatMessage] | None) -> list[ChatMessage]:
-    if not mask:
-        return history or []
-    return [message.model_copy(update={"content": mask.mask(message.content)}) for message in history or []]
+            return []

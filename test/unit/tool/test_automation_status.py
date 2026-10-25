@@ -1,11 +1,10 @@
 """automation_status: only the statuses of a run of one of the project's
 automations and of its steps, never its output or errors (fake agents, no
 LLM). Runs of other projects are not found; only in a chatbot's run."""
-import json
 
 import pytest
 
-from fakes import FakeAgent
+from fakes import FakeAgent, as_dict
 from models.domain.agent import RunOrigin
 from models.domain.pipeline import PipelineStep, StepAgent, StepKind
 from models.domain.project import Project, ProjectSource
@@ -46,7 +45,7 @@ def _automation(pipelines, project="acme"):
 
 def _status(pipelines, run_id, project="acme", origin=RunOrigin.CHAT):
     context = ToolContext(project, git=None, pipelines=pipelines, origin=origin)
-    return json.loads(AUTOMATION_STATUS.build(context).func(run_id=run_id))
+    return as_dict(AUTOMATION_STATUS.build(context).func(run_id=run_id))
 
 
 def test_queued_then_done_only_statuses(pipelines, runner):

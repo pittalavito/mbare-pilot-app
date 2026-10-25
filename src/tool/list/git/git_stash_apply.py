@@ -6,8 +6,7 @@ from typing import Annotated
 from datapizza.tools import Tool, tool
 
 from core.error import AppError
-from models.domain.masking import MaskCategory
-from models.domain.tool import GitStashApplyResponse
+from models.domain.tool import GitStashApplyResponse, ToolErrorResponse
 from tool.context import ToolContext
 from tool.list.git.errors import git_error
 from tool.list.git.params import Repository
@@ -19,7 +18,7 @@ StashRef = Annotated[str, "The stash to apply: 'stash@{n}' or its number n; '' =
 def build(context: ToolContext) -> Tool:
 
     @tool(name="git_stash_apply")
-    def git_stash_apply(repository: Repository, stash: StashRef) -> str:
+    def git_stash_apply(repository: Repository, stash: StashRef) -> GitStashApplyResponse | ToolErrorResponse:
         """Apply a stash again to a git repository of the current project
         (git stash apply): the stash stays in the list. Refused if the
         repository has uncommitted changes to tracked files. If it conflicts,
@@ -28,10 +27,8 @@ def build(context: ToolContext) -> Tool:
             result = context.git.stash_apply(context.require_project(), repository, stash)
         except AppError as exc:
             return git_error(context, exc)
-        
-        context.register_sensitive(MaskCategory.REPOSITORY, repository)
-        
-        response = GitStashApplyResponse(
+
+        return GitStashApplyResponse(
             repository=repository, 
             ref=result.ref, 
             message=result.message, 
@@ -39,8 +36,6 @@ def build(context: ToolContext) -> Tool:
             files=result.files, 
             conflicts=result.conflicts,
         )
-        
-        return response.model_dump_json()
 
     return git_stash_apply
 

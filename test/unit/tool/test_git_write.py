@@ -2,13 +2,14 @@
 GitService and as the agents' tools, on real repositories (needs ``git`` on
 PATH): a bare "origin", the project's clone ``shop/api`` and another clone
 that pushes new commits."""
-import json
 import shutil
 import subprocess
 
 import pytest
 
 from core.error import NotFoundError, ValidationError
+from domain.agent.masking import AgentMask
+from fakes import as_dict
 from models.domain.project import Project, ProjectSource
 from service.git_service import GitService
 from service.masking_service import MaskingService
@@ -108,9 +109,9 @@ def test_branch_without_upstream(git, repos):
 def test_tool_masks_the_authors_that_arrive(git, repos, store_service):
     _push(repos, "second")
     masking = MaskingService(store_service)
-    context = ToolContext("Shop", git, mask=masking.session("Shop"))
+    pull = AgentMask(masking.session("Shop")).wrap([GIT_PULL_FAST_FORWARD.build(ToolContext("Shop", git))])[0]
 
-    result = json.loads(GIT_PULL_FAST_FORWARD.build(context).func(repository="api"))
+    result = as_dict(pull.func(repository="api"))
 
     assert result["updated"] and [c["subject"] for c in result["commits"]] == ["second"]
     assert {(e.category.value, e.value) for e in masking.entries("Shop")} == {
@@ -121,7 +122,7 @@ def test_tool_masks_the_authors_that_arrive(git, repos, store_service):
 def test_tool_errors_come_back_to_the_agent(git, repos):
     (repos / "shop" / "api" / "main.py").write_text("mia modifica", encoding="utf-8")
 
-    result = json.loads(GIT_PULL_FAST_FORWARD.build(ToolContext("Shop", git)).func(repository="api"))
+    result = as_dict(GIT_PULL_FAST_FORWARD.build(ToolContext("Shop", git)).func(repository="api"))
 
     assert "Modifiche locali" in result["error"] and str(repos) not in result["error"]
 
@@ -166,8 +167,9 @@ def test_stash_tool(git, repos, store_service):
 
     (repos / "shop" / "api" / "main.py").write_text("mia modifica", encoding="utf-8")
     masking = MaskingService(store_service)
+    stash = AgentMask(masking.session("Shop")).wrap([GIT_STASH.build(ToolContext("Shop", git))])[0]
 
-    result = json.loads(GIT_STASH.build(ToolContext("Shop", git, mask=masking.session("Shop"))).func(repository="api", message=""))
+    result = as_dict(stash.func(repository="api", message=""))
 
     assert result["stashed"] and result["files"] == ["main.py"]
     assert [e.value for e in masking.entries("Shop")] == ["api"]
@@ -230,6 +232,6 @@ def test_stash_apply_tool(git, repos):
     (repos / "shop" / "api" / "main.py").write_text("mia modifica", encoding="utf-8")
     git.stash("Shop", "api")
 
-    result = json.loads(GIT_STASH_APPLY.build(ToolContext("Shop", git)).func(repository="api", stash=""))
+    result = as_dict(GIT_STASH_APPLY.build(ToolContext("Shop", git)).func(repository="api", stash=""))
 
     assert (result["applied"], result["ref"], result["files"]) == (True, "stash@{0}", ["main.py"])

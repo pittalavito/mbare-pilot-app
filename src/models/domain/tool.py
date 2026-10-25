@@ -2,11 +2,13 @@
 from pydantic import BaseModel, Field
 
 from models.domain.git import GitCommit, GitStatus
+from models.domain.masking import MaskRepositoryName, MaskRepositoryNames
 
 
 class ToolErrorResponse(BaseModel):
     """Returned instead of raising, so the agent can read the problem and retry."""
     error: str = Field(..., description="What went wrong and how to fix the call.")
+    repositories: MaskRepositoryNames = Field(default_factory=list, description="The repositories the agent can use instead.")
 
 
 class RunAutomationResponse(BaseModel):
@@ -46,14 +48,14 @@ class HelloWorldResponse(BaseModel):
 
 
 class GitStatusResponse(BaseModel):
-    repository: str = Field(..., description="Repository folder inside the project ('' = the project folder).")
+    repository: MaskRepositoryName = Field(..., description="Repository folder inside the project ('' = the project folder).")
     clean: bool = Field(..., description="True when no file is changed.")
     status: GitStatus
 
 
 
 class GitPullResponse(BaseModel):
-    repository: str = Field(..., description="Repository folder inside the project ('' = the project folder).")
+    repository: MaskRepositoryName = Field(..., description="Repository folder inside the project ('' = the project folder).")
     branch: str
     upstream: str
     updated: bool = Field(..., description="False when it was already up to date.")
@@ -61,7 +63,7 @@ class GitPullResponse(BaseModel):
 
 
 class GitStashResponse(BaseModel):
-    repository: str = Field(..., description="Repository folder inside the project ('' = the project folder).")
+    repository: MaskRepositoryName = Field(..., description="Repository folder inside the project ('' = the project folder).")
     stashed: bool = Field(..., description="False when there was nothing to put aside.")
     ref: str | None = Field(None, description="The new stash (stash@{0}).")
     message: str
@@ -69,7 +71,7 @@ class GitStashResponse(BaseModel):
 
 
 class GitStashApplyResponse(BaseModel):
-    repository: str = Field(..., description="Repository folder inside the project ('' = the project folder).")
+    repository: MaskRepositoryName = Field(..., description="Repository folder inside the project ('' = the project folder).")
     ref: str = Field(..., description="The stash applied; it stays in the stash list.")
     message: str
     applied: bool = Field(..., description="False when it left conflicts.")

@@ -26,19 +26,19 @@ _DESCRIPTION = (
 def build(context: ToolContext) -> Tool:
 
     @tool(name="run_automation", description=_DESCRIPTION)
-    def run_automation(automation: AutomationName, input: AutomationInput) -> str:
+    def run_automation(automation: AutomationName, input: AutomationInput) -> RunAutomationResponse | ToolErrorResponse:
         if not _can_launch(context):
             return ToolErrorResponse(error="Automation non disponibili in questa run: si lanciano solo dal chatbot "
-                                           "di un progetto.").model_dump_json()
+                                           "di un progetto.")
         by_name = {pipeline.name: pipeline for pipeline in context.pipelines.runnable_pipelines(context.project_name)}
         if automation not in by_name:
             available = ", ".join(sorted(by_name)) or "nessuna"
-            return ToolErrorResponse(error=f"Automation {automation!r} non disponibile. Disponibili: {available}.").model_dump_json()
+            return ToolErrorResponse(error=f"Automation {automation!r} non disponibile. Disponibili: {available}.")
         try:
             run = context.pipelines.enqueue(by_name[automation].id, input)
         except AppError as exc:
-            return ToolErrorResponse(error=str(exc)).model_dump_json()
-        return RunAutomationResponse(automation=automation, run_id=run.id, status=run.status.value).model_dump_json()
+            return ToolErrorResponse(error=str(exc))
+        return RunAutomationResponse(automation=automation, run_id=run.id, status=run.status.value)
 
     return run_automation
 
