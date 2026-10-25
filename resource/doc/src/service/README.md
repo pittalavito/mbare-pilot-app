@@ -87,6 +87,7 @@ L'utente mette in cache un **suo** messaggio scegliendo un'automation del proget
 - **Mappa per progetto, permanente**, su Redis (keyspace `mask`). Un valore ha sempre lo stesso alias; un alias tolto non viene mai riusato. Rimuovere il progetto cancella la sua mappa.
 - **Come si riempie**:
   - **repository del progetto**: all'inizio di ogni run di un progetto vengono registrati tutti (gli stessi del tab Git), quindi sono mascherati già dal primo messaggio;
+  - **dagli step funzione delle automation**: i campi marcati nel loro `FunctionResult`, registrati da `PipelineRunner` (`register_declared`) prima degli step agente che seguono;
   - **dagli output dei tool**: i campi marcati come sensibili nel modello di output (`MaskRepositoryName`, `MaskPersonName`, `MaskEmailAddress`, ...) vengono registrati da `AgentMask`; i tool non registrano nulla;
   - **a mano**: da **Impostazioni → Mascheramento dei dati**, per persone, clienti, altri termini. Minimo 3 caratteri.
 - **Dove si applica**: tutto il mascheramento sta in **`AgentMask`** (`domain/agent/masking.py`), che `AgentService` usa per ogni run (chat, automation e chatbot, solo con una sessione quando la run è di un progetto):

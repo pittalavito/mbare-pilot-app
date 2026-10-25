@@ -15,6 +15,7 @@ from service import agent_service as agent_service_module
 from service.agent_service import AgentService
 from service.chat_service import ChatService
 from service.git_service import GitService
+from service.masking_service import MaskingService
 from service.pipeline_runner import PipelineRunner
 from service.pipeline_service import PipelineService
 from service.project_data_service import ProjectDataService
@@ -56,6 +57,21 @@ def runner(store_service, agent_config_service, monkeypatch):
     git = GitService(store_service)
     agents = AgentService(chat, agent_config_service, store_service, git)
     return PipelineRunner(store_service, agents, git, ProjectDataService(store_service))
+
+
+@pytest.fixture
+def masking(store_service):
+    return MaskingService(store_service)
+
+
+@pytest.fixture
+def masked_runner(store_service, agent_config_service, masking, monkeypatch):
+    """A runner that registers what the function steps declare sensitive."""
+    chat = ChatService()
+    monkeypatch.setattr(chat, "get_client", lambda model: object())
+    git = GitService(store_service)
+    agents = AgentService(chat, agent_config_service, store_service, git)
+    return PipelineRunner(store_service, agents, git, ProjectDataService(store_service), masking_service=masking)
 
 
 def _function(name="F", function="git_status", template="{input}", **params) -> PipelineStep:
@@ -130,6 +146,15 @@ def test_save_note_function(service, runner):
     assert run.status is RunStatus.DONE and run.output.startswith("Nota salvata: Report ")
     [note] = ProjectDataService(service._store).list_notes("shop")
     assert note.name.startswith("Report ") and ProjectDataService(service._store).read_note("shop", note.name) == "Testo"
+
+
+def test_function_steps_register_the_values_they_declare_sensitive(service, masked_runner, masking):
+    """Only functions, no agent (which would register the repositories itself):
+    git_status declares its repository, save_note declares nothing."""
+    run = _run(service, masked_runner, [_function("Stato", repository="api"), _function("Nota", function="save_note")])
+
+    assert run.status is RunStatus.DONE
+    assert [(entry.category.value, entry.value) for entry in masking.entries("shop")] == [("repository", "api")]
 
 
 def test_function_error_fails_the_step_with_its_message(service, runner):

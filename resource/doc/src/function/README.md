@@ -23,10 +23,26 @@ Uno step `FUNCTION` di un'automation ha `function_name` e `params`. Quando il wo
 
 1. prende la funzione con `get_function(nome)`: `ValidationError` se non esiste (più) nel codice;
 2. valida i `params` con il modello `Params` della funzione;
-3. chiama `run(context, step_input, params)`: il testo restituito è l'output dello step e diventa l'input del successivo.
+3. chiama `run(context, step_input, params)`, che restituisce un `FunctionResult`: il suo `text` è l'output dello step e diventa l'input del successivo;
+4. registra nella mappa di mascheramento del progetto i valori che il risultato dichiara sensibili (vedi sotto).
 
 - **Parametri** (`Params`, pydantic): ogni campo ha un default e una `description`. Vengono validati **al salvataggio** dell'automation e **prima di ogni esecuzione**. L'editor degli step nella UI costruisce il form da qui (`GET /functions`): un campo `bool`, `int`, `float` o `str` diventa checkbox, numero o testo.
 - **Errori**: un `AppError` sollevato dalla funzione fa fallire lo step con quel messaggio; qualsiasi altra eccezione lo fa fallire con «errore imprevisto: …».
+
+## Valori sensibili
+
+Una funzione non parla con un LLM, ma il suo output può finire a uno step agente successivo. Per questo dichiara i valori sensibili che legge come i tool: con campi marcati `MaskRepositoryName`, `MaskPersonName`, `MaskEmailAddress` o `MaskRepositoryNames` (da `models/domain/masking.py`) in una sottoclasse di `FunctionResult`.
+
+```python
+class Result(FunctionResult):
+    repository: MaskRepositoryName   # registrato: l'agente dopo vede l'alias
+
+def run(context, step_input, params) -> Result:
+    ...
+    return Result(text=testo, repository=repository)
+```
+
+Il runner li registra con `MaskingService.register_declared`; la funzione non chiama nulla. Una funzione senza valori sensibili restituisce un `FunctionResult(text=...)` semplice (come `save_note`).
 
 ## `FunctionContext`
 

@@ -20,6 +20,7 @@ from models.domain.agent import AgentDefinition, AgentRunRecord, RunOrigin
 from models.domain.pipeline import INPUT_NODE, Pipeline, PipelineRun, PipelineStep, PipelineStepRun, RunStatus, StepKind
 from service.agent_service import AgentService
 from service.git_service import GitService
+from service.masking_service import MaskingService
 from service.project_data_service import ProjectDataService
 from service.store_service import StoreService
 
@@ -40,12 +41,15 @@ class StepFailed(Exception):
 
 class PipelineRunner:
 
-    def __init__(self, store_service: StoreService, agent_service: AgentService, git_service: GitService, project_data_service: ProjectDataService):
+    def __init__(self, store_service: StoreService, agent_service: AgentService, git_service: GitService, project_data_service: ProjectDataService, masking_service: MaskingService | None = None):
+        """``masking_service`` registers the sensitive values the function steps
+        declare (FunctionResult), so the agent steps after them see aliases."""
         self._store = store_service
         self._agents = agent_service
         self._git = git_service
         self._project_data = project_data_service
         """The services function steps receive in their FunctionContext."""
+        self._masking = masking_service
 
     def run_next(self, on_claim: Callable[[PipelineRun], None] | None = None) -> PipelineRun | None:
         """Claim and execute the oldest queued run; None when the queue is empty.
@@ -116,7 +120,10 @@ class PipelineRunner:
         try:
             if step.kind is StepKind.FUNCTION:
                 context = FunctionContext(project_name=pipeline.project_name, pipeline_input=pipeline_input, git=self._git, project_data=self._project_data)
-                return get_function(step.function_name).execute(context, step_input, step.params), None
+                result = get_function(step.function_name).execute(context, step_input, step.params)
+                if self._masking is not None:
+                    self._masking.register_declared(pipeline.project_name, result)
+                return result.text, None
             if step.kind is StepKind.AGENT:
                 record = self._agents.run_definition(_agent_definition(pipeline, step), step_input, origin=RunOrigin.PIPELINE)
             else:

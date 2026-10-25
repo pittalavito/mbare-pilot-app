@@ -72,6 +72,7 @@ class Container:
             agent_service=self.agent_service,
             git_service=self.git_service,
             project_data_service=self.project_data_service,
+            masking_service=self.masking_service,
         )
         self.project_service = ProjectService(
             store_service=self.store_service,

@@ -4,23 +4,29 @@ the step input."""
 from pydantic import BaseModel, Field
 
 from function.context import FunctionContext
-from function.spec import FunctionSpec
+from function.spec import FunctionResult, FunctionSpec
 from models.domain.git import GitChange
+from models.domain.masking import MaskRepositoryName
 
 
 class Params(BaseModel):
     repository: str = Field("", description="Cartella del repository nel progetto. Vuoto = usa l'input dello step.")
 
 
-def run(context: FunctionContext, step_input: str, params: Params) -> str:
+class Result(FunctionResult):
+    repository: MaskRepositoryName
+
+
+def run(context: FunctionContext, step_input: str, params: Params) -> Result:
     repository = params.repository.strip() or step_input.strip()
     status = context.git.status(context.project_name, repository)
     header = f"Repository {repository or 'progetto'} · branch {status.branch or '(HEAD staccato)'}"
     if status.upstream:
         header += f" · {status.upstream}: {status.ahead} da pushare, {status.behind} da pullare"
     if status.is_clean:
-        return f"{header}\nNessun file modificato."
-    return f"{header}\n{len(status.changes)} file modificati:\n" + "\n".join(_line(change) for change in status.changes)
+        return Result(text=f"{header}\nNessun file modificato.", repository=repository)
+    lines = "\n".join(_line(change) for change in status.changes)
+    return Result(text=f"{header}\n{len(status.changes)} file modificati:\n{lines}", repository=repository)
 
 
 def _line(change: GitChange) -> str:

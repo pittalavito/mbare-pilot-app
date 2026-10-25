@@ -9,9 +9,11 @@ the input and the conversation are masked, the tools get unmasked arguments and
 return masked output, the answer is unmasked before it is saved and shown."""
 from typing import Any
 
+from pydantic import BaseModel
+
 from core.error import NotFoundError, ValidationError
 from domain.masking.masker import Masker
-from models.domain.masking import MaskCategory, MaskEntry
+from models.domain.masking import MaskCategory, MaskEntry, sensitive_values
 from service.store_service import StoreService
 
 MIN_LENGTH = 3
@@ -33,6 +35,13 @@ class MaskingService:
         if len(value) < MIN_LENGTH:
             return None
         return self._store.add_mask(project_name, category, value, manual=False)
+
+    def register_declared(self, project_name: str, output: BaseModel) -> None:
+        """The values ``output`` declares sensitive (its Mask* fields, see
+        models.domain.masking), e.g. what a function step read: masked for
+        the agent steps that follow."""
+        for category, value in sensitive_values(output):
+            self.register(project_name, category, value)
 
     def add_term(self, project_name: str, category: MaskCategory, value: str) -> MaskEntry:
         """A value added by hand; already in the map = returned as it is."""
