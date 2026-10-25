@@ -15,7 +15,7 @@ from core.observability import LogPrefix, observed
 from domain.client.postgres.pg_dump import PgDumpClient
 from models.domain.backup import BackupFile
 
-DB_DIR = "db"
+_DB_DIR = "db"
 _PREFIX = "mbare-pilot-db-"
 _NAME = re.compile(rf"^{_PREFIX}\d{{8}}-\d{{6}}\.sql$")
 
@@ -23,7 +23,7 @@ _NAME = re.compile(rf"^{_PREFIX}\d{{8}}-\d{{6}}\.sql$")
 class BackupService:
 
     def __init__(self, backup_dir: Path, database_url: str, dump_client: PgDumpClient):
-        self._dir = backup_dir / DB_DIR
+        self._dir = backup_dir / _DB_DIR
         url = make_url(database_url)
         self._user = url.username or ""
         self._database = url.database or ""

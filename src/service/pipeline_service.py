@@ -47,24 +47,40 @@ class PipelineService:
 
     @observed(LogPrefix.PIPELINE_SERVICE)
     def create_pipeline(
-        self, project_name: str, name: str, *, description: str = "", active: bool = True,
-        steps: list[PipelineStep] | None = None, edges: list[PipelineEdge] | None = None,
+        self, 
+        project_name: str, 
+        name: str, 
+        *, 
+        description: str = "", 
+        active: bool = True,
+        steps: list[PipelineStep] | None = None, 
+        edges: list[PipelineEdge] | None = None
     ) -> Pipeline:
         """``edges`` empty = the chain of ``steps`` in their order."""
         if self._store.get_project(project_name) is None:
             raise NotFoundError(f"Progetto non trovato: {project_name}")
         steps = [step.model_copy(update={"id": None}) for step in steps or []]
         pipeline = Pipeline(
-            project_name=project_name, name=name, description=description.strip(), active=active,
-            steps=[step.model_dump() for step in steps], edges=[edge.model_dump() for edge in edges or linear_edges(steps)],
+            project_name=project_name, 
+            name=name, 
+            description=description.strip(), 
+            active=active,
+            steps=[step.model_dump() for step in steps], 
+            edges=[edge.model_dump() for edge in edges or linear_edges(steps)]
         )
         self._validate(pipeline)
         return self._store.save_pipeline(pipeline)
 
     @observed(LogPrefix.PIPELINE_SERVICE)
     def update_pipeline(
-        self, pipeline_id: int, *, name: str, description: str = "", active: bool = True,
-        steps: list[PipelineStep] | None = None, edges: list[PipelineEdge] | None = None,
+        self, 
+        pipeline_id: int, 
+        *, 
+        name: str, 
+        description: str = "",
+        active: bool = True,
+        steps: list[PipelineStep] | None = None, 
+        edges: list[PipelineEdge] | None = None
     ) -> Pipeline:
         """Everything but the project. Steps keep their id to be updated, the
         others are added, the missing ones removed; the edges are replaced
@@ -74,7 +90,9 @@ class PipelineService:
         steps = steps or []
         pipeline = Pipeline.model_validate({
             **current.model_dump(exclude={"steps", "edges"}),
-            "name": name, "description": description.strip(), "active": active,
+            "name": name, 
+            "description": description.strip(), 
+            "active": active,
             "steps": [step.model_dump() for step in _versioned(current.steps, steps)],
             "edges": [edge.model_dump() for edge in edges or linear_edges(steps)],
             "updated_at": datetime.now(timezone.utc),

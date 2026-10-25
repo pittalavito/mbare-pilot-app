@@ -2,22 +2,21 @@
 observability facts (/observability/...: runs and tool calls from Postgres,
 the verbatim trace of a run from Redis) and the DB backups (/admin/backups)."""
 from typing import Any
-
 from fastapi import APIRouter, Depends, Response, status
 
+from core.error import NotFoundError
 from config import Config
 from controller.dependencies import backup_service, store_service
-from core.error import NotFoundError
-from models.controller.admin import BackupResponse, BackupsResponse, ConfigResponse, RunSummaryResponse, ToolCallResponse
 from service.backup_service import BackupService
 from service.store_service import StoreService
+from models.controller.admin import BackupResponse, BackupsResponse, ConfigResponse, RunSummaryResponse, ToolCallResponse
 
 router = APIRouter(tags=["admin"])
 
 
 @router.get("/admin/config")
 def app_config() -> ConfigResponse:
-    config = Config.get()
+    config = Config.get()    
     return ConfigResponse(
         settings=config.masked(),
         redis_dashboard_port=config.redis_dashboard_port,

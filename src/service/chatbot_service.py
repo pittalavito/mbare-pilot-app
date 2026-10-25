@@ -20,14 +20,13 @@ from service.store_service import StoreService
 _TITLE_LENGTH = 60
 _ROLE_NAME = "chatbot"
 """Recorded as the role of every chatbot run (the chatbot has no AgentRole)."""
-CACHE_MARK = "⚡"
+_CACHE_MARK = "⚡"
 """Starts the replies given from the cache (no agent run behind them)."""
 
 
 class ChatbotService:
 
-    def __init__(self, store_service: StoreService, agent_config_service: AgentConfigService, agent_service: AgentService,
-                 route_service: ChatRouteService | None = None):
+    def __init__(self, store_service: StoreService, agent_config_service: AgentConfigService, agent_service: AgentService, route_service: ChatRouteService | None = None):
         """``route_service`` is the cache; None = every message goes to the agent."""
         self._store = store_service
         self._agent_configs = agent_config_service
@@ -63,8 +62,13 @@ class ChatbotService:
         if self._store.get_project(project_name) is None:
             raise NotFoundError(f"Progetto non trovato: {project_name}")
         chatbot = Chatbot(
-            project_name=project_name, name=name, description=description.strip(), system_prompt=system_prompt,
-            model=model, max_steps=max_steps, tool_names=tool_names or [],
+            project_name=project_name, 
+            name=name, 
+            description=description.strip(), 
+            system_prompt=system_prompt,
+            model=model, 
+            max_steps=max_steps, 
+            tool_names=tool_names or [],
         )
         self._validate(chatbot)
         return self._store.save_chatbot(chatbot)
@@ -86,8 +90,12 @@ class ChatbotService:
         current = self.get_chatbot(chatbot_id)
         chatbot = Chatbot.model_validate({
             **current.model_dump(),
-            "name": name, "description": description.strip(), "system_prompt": system_prompt,
-            "model": model, "max_steps": max_steps, "tool_names": tool_names or [],
+            "name": name, 
+            "description": description.strip(), 
+            "system_prompt": system_prompt,
+            "model": model, 
+            "max_steps": max_steps, 
+            "tool_names": tool_names or [],
             "updated_at": datetime.now(timezone.utc),
         })
         if chatbot.system_prompt != current.system_prompt:
@@ -149,16 +157,20 @@ class ChatbotService:
         try:
             pipeline, run = self._routes.launch(route)
         except AppError as exc:
-            return ChatMessage(conversation_id=conversation_id, role=MessageRole.ERROR,
-                               content=f"{CACHE_MARK} Dalla cache, ma l'automation non è partita: {exc}")
-        return ChatMessage(conversation_id=conversation_id, role=MessageRole.ASSISTANT,
-                           content=f"{CACHE_MARK} Ho lanciato l'automation {pipeline.name} (id {run.id}).")
+            return ChatMessage(
+                conversation_id=conversation_id, 
+                role=MessageRole.ERROR,
+                content=f"{_CACHE_MARK} Dalla cache, ma l'automation non è partita: {exc}"
+            )
+        return ChatMessage(
+            conversation_id=conversation_id, 
+            role=MessageRole.ASSISTANT,
+            content=f"{_CACHE_MARK} Ho lanciato l'automation {pipeline.name} (id {run.id})."
+        )
 
     def _from_agent(self, conversation_id: int, chatbot: Chatbot, text: str, history: list[ChatMessage]) -> ChatMessage:
         try:
-            record = self._agents.run_definition(
-                _agent_definition(chatbot), text, origin=RunOrigin.CHAT, history=history,
-            )
+            record = self._agents.run_definition(_agent_definition(chatbot), text, origin=RunOrigin.CHAT, history=history,)
         except AppError as exc:
             return ChatMessage(conversation_id=conversation_id, role=MessageRole.ERROR, content=str(exc))
         return ChatMessage(

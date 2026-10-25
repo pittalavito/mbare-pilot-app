@@ -5,9 +5,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from models.domain.atlassian import (
-    AtlassianFavorite, AtlassianSettings, AtlassianUser, ConfluencePage, ConfluenceSearchHit, FavoriteKind, JiraIssue,
-)
+from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, AtlassianUser, ConfluencePage, ConfluenceSearchHit, FavoriteKind, JiraIssue
 
 
 class AtlassianSettingsResponse(BaseModel):

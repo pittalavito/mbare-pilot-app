@@ -12,17 +12,7 @@ from pydantic import SecretStr
 from core.error import NotFoundError, ValidationError
 from core.observability import LogPrefix, observed
 from domain.client.atlassian.client import AtlassianHttp, ConfluenceClient, JiraClient
-from models.domain.atlassian import (
-    AtlassianFavorite,
-    AtlassianSettings,
-    AtlassianUser,
-    ConfluencePage,
-    ConfluenceSearchHit,
-    ConfluenceSpace,
-    FavoriteKind,
-    JiraIssue,
-    JiraProject,
-)
+from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, AtlassianUser, ConfluencePage, ConfluenceSearchHit, ConfluenceSpace, FavoriteKind, JiraIssue, JiraProject
 from service.store_service import StoreService
 
 _PROJECT_KEY = re.compile(r"^[A-Z][A-Z0-9_]{1,9}$")
@@ -106,7 +96,11 @@ class AtlassianService:
         if existing is not None:
             return existing
         return self._store.save_atlassian_favorite(AtlassianFavorite(
-            project_name=project_name, kind=kind, ref=ref, site=settings.base_url, title=title.strip(),
+            project_name=project_name, 
+            kind=kind, 
+            ref=ref, 
+            site=settings.base_url, 
+            title=title.strip(),
             url=url.strip(),
         ))
 
@@ -129,9 +123,7 @@ class AtlassianService:
     def _require_settings(self, project_name: str) -> AtlassianSettings:
         settings = self.get_settings(project_name)
         if settings is None or not settings.is_complete:
-            raise ValidationError(
-                f"Atlassian non configurato per il progetto {project_name}: impostalo in Impostazioni → Atlassian."
-            )
+            raise ValidationError(f"Atlassian non configurato per il progetto {project_name}: impostalo in Impostazioni → Atlassian.")
         return settings
 
 
@@ -139,9 +131,10 @@ def build_site(settings: AtlassianSettings) -> "AtlassianSite":
     """Clients for the site in ``settings`` (assumed complete)."""
     http = AtlassianHttp(settings.base_url, settings.email, settings.api_token.get_secret_value())
     return AtlassianSite(
-        JiraClient(http), ConfluenceClient(http),
+        JiraClient(http), 
+        ConfluenceClient(http),
         jira_project_key=settings.jira_project_key or None,
-        confluence_space_key=settings.confluence_space_key or None,
+        confluence_space_key=settings.confluence_space_key or None
     )
 
 

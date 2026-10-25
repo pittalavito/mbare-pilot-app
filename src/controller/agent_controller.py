@@ -2,18 +2,17 @@
 project's agents; without it, the global ones (Library)."""
 from fastapi import APIRouter, Depends, Response, status
 
-from controller.dependencies import agent_config_service
 from core.error import NotFoundError
+from controller.dependencies import agent_config_service
+from service.agent_config_service import AgentConfigService
 from models.controller.agent import AgentCreateRequest, AgentResponse, AgentUpdateRequest
 from models.domain.agent import AgentConfig
-from service.agent_config_service import AgentConfigService
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
 
 @router.get("")
-def list_agents(project: str | None = None, include_global: bool = False,
-                service: AgentConfigService = Depends(agent_config_service)) -> list[AgentResponse]:
+def list_agents(project: str | None = None, include_global: bool = False, service: AgentConfigService = Depends(agent_config_service)) -> list[AgentResponse]:
     """The agents of ``project`` (optionally with the global ones), or the global ones."""
     return _responses(service, service.list_configs(project, include_global=include_global))
 
@@ -30,8 +29,7 @@ def create_agent(request: AgentCreateRequest, service: AgentConfigService = Depe
 
 
 @router.put("/{name}")
-def update_agent(name: str, request: AgentUpdateRequest,
-                 service: AgentConfigService = Depends(agent_config_service)) -> AgentResponse:
+def update_agent(name: str, request: AgentUpdateRequest, service: AgentConfigService = Depends(agent_config_service)) -> AgentResponse:
     current = service.get_config(name)  # 404 when absent; name and scope stay
     config = service.save_config(AgentConfig(name=name, project_name=current.project_name, **request.model_dump()))
     return _responses(service, [config])[0]

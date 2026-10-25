@@ -28,9 +28,7 @@ class MockClient(Client):
     def __init__(self, model: str, temperature: float | None = None):
         super().__init__(model_name=model, system_prompt="", temperature=temperature)
 
-    def _invoke(self, input: list[Block], tools: list[Tool] | None = None, memory: Memory | None = None,
-                tool_choice: str = "auto", temperature: float | None = None, max_tokens: int | None = None,
-                system_prompt: str | None = None, **kwargs) -> ClientResponse:
+    def _invoke(self, input: list[Block], tools: list[Tool] | None = None, memory: Memory | None = None, tool_choice: str = "auto", temperature: float | None = None, max_tokens: int | None = None, system_prompt: str | None = None, **kwargs) -> ClientResponse:
         text = _text(input)
         results = _last_tool_results(memory)
         if results:

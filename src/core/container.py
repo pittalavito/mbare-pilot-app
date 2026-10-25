@@ -43,12 +43,9 @@ class Container:
         self.project_data_service = ProjectDataService(store_service=self.store_service)
         self.atlassian_service = AtlassianService(store_service=self.store_service)
         self.git_service = GitService(store_service=self.store_service)
-        
-        self.pipeline_service = PipelineService(
-            store_service=self.store_service,
-            agent_config_service=self.agent_config_service,
-        )
         self.masking_service = MaskingService(store_service=self.store_service)
+        self.pipeline_service = PipelineService(store_service=self.store_service, agent_config_service=self.agent_config_service)
+        self.backup_service = BackupService.from_config()
         self.agent_service = AgentService(
             chat_service=self.chat_service,
             agent_config_service=self.agent_config_service,
@@ -76,7 +73,6 @@ class Container:
             git_service=self.git_service,
             project_data_service=self.project_data_service,
         )
-        self.backup_service = BackupService.from_config()
         self.project_service = ProjectService(
             store_service=self.store_service,
             folder_browser=FolderBrowser(config.project_root_paths),

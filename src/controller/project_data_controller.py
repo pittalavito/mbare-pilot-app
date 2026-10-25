@@ -3,15 +3,13 @@ uploaded files, under /projects/{project}/notes and /projects/{project}/files.
 A file is uploaded as the raw request body (PUT) and downloaded as bytes."""
 from fastapi import APIRouter, Depends, Request, Response, status
 
-from controller.dependencies import project_data_service
 from core.error import NotFoundError
-from models.controller.project_data import DataFileResponse, NoteRequest, NoteResponse
+from controller.dependencies import project_data_service
 from service.project_data_service import ProjectDataService
+from models.controller.project_data import DataFileResponse, NoteRequest, NoteResponse
 
 router = APIRouter(prefix="/projects/{project}", tags=["project data"])
 
-
-# -------------------------------------------------------------------- notes
 
 @router.get("/notes")
 def list_notes(project: str, service: ProjectDataService = Depends(project_data_service)) -> list[DataFileResponse]:
@@ -24,8 +22,7 @@ def read_note(project: str, note: str, service: ProjectDataService = Depends(pro
 
 
 @router.put("/notes/{note}")
-def save_note(project: str, note: str, request: NoteRequest,
-              service: ProjectDataService = Depends(project_data_service)) -> DataFileResponse:
+def save_note(project: str, note: str, request: NoteRequest, service: ProjectDataService = Depends(project_data_service)) -> DataFileResponse:
     """Create or overwrite."""
     return DataFileResponse.from_file(service.save_note(project, note, request.content))
 
@@ -50,8 +47,7 @@ def download_file(project: str, file_name: str, service: ProjectDataService = De
 
 
 @router.put("/files/{file_name}")
-async def upload_file(project: str, file_name: str, request: Request,
-                      service: ProjectDataService = Depends(project_data_service)) -> DataFileResponse:
+async def upload_file(project: str, file_name: str, request: Request, service: ProjectDataService = Depends(project_data_service)) -> DataFileResponse:
     """The body is the file content; a file with the same name is overwritten."""
     return DataFileResponse.from_file(service.save_file(project, file_name, await request.body()))
 

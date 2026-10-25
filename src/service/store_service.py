@@ -37,10 +37,7 @@ from domain.store.db.store import (
     Factory as DbFactory,
 )
 from domain.store.files.store import LocalFileRepository, StoredFile
-from domain.store.redis.store import (
-    Adapter as RedisAdapter, Client as RedisClient, Factory as RedisFactory, RedisMaskRepository, RedisTraceRepository,
-    RedisWorkerRepository,
-)
+from domain.store.redis.store import Adapter as RedisAdapter, Client as RedisClient, Factory as RedisFactory, RedisMaskRepository, RedisTraceRepository, RedisWorkerRepository
 from models.domain.agent import AgentConfig, AgentRole, AgentRunRecord, AgentRunSummary, SystemPrompt, ToolCallSummary, ToolInfo
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
 from models.domain.chat import ChatModel

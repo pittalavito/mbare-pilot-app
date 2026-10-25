@@ -3,8 +3,8 @@ the configured PROJECT_ROOTS (paths outside them are a 400)."""
 from fastapi import APIRouter, Depends
 
 from controller.dependencies import project_service
-from models.controller.project import FolderEntry, FolderListingResponse, FolderRootsResponse
 from service.project_service import ProjectService
+from models.controller.project import FolderEntry, FolderListingResponse, FolderRootsResponse
 
 router = APIRouter(prefix="/folders", tags=["folders"])
 
@@ -15,8 +15,7 @@ def folder_roots(service: ProjectService = Depends(project_service)) -> FolderRo
 
 
 @router.get("")
-def list_folder(path: str = "", show_hidden: bool = False,
-                service: ProjectService = Depends(project_service)) -> FolderListingResponse:
+def list_folder(path: str = "", show_hidden: bool = False, service: ProjectService = Depends(project_service)) -> FolderListingResponse:
     """The subfolders of ``path`` (empty = the first root)."""
     folders = service.folders
     folder = folders.resolve(path) if path.strip() else folders.roots[0]

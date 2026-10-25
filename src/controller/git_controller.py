@@ -3,8 +3,8 @@
 from fastapi import APIRouter, Depends
 
 from controller.dependencies import git_service
-from models.controller.git import CommitResponse, RepositoryResponse, StatusResponse
 from service.git_service import GitService
+from models.controller.git import CommitResponse, RepositoryResponse, StatusResponse
 
 router = APIRouter(prefix="/projects/{project}/git", tags=["git"])
 
@@ -15,8 +15,7 @@ def list_repositories(project: str, service: GitService = Depends(git_service)) 
 
 
 @router.get("/log")
-def git_log(project: str, path: str = "", limit: int = 50, author: str = "", message: str = "", commit: str = "",
-            service: GitService = Depends(git_service)) -> list[CommitResponse]:
+def git_log(project: str, path: str = "", limit: int = 50, author: str = "", message: str = "", commit: str = "", service: GitService = Depends(git_service)) -> list[CommitResponse]:
     """Newest first; ``author``, ``message`` and ``commit`` are optional filters."""
     commits = service.log(project, path, limit=limit, author=author, message=message, commit=commit)
     return [CommitResponse.from_commit(item) for item in commits]

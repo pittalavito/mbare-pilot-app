@@ -28,11 +28,19 @@ def build(context: ToolContext) -> Tool:
             result = context.git.stash_apply(context.require_project(), repository, stash)
         except AppError as exc:
             return git_error(context, exc)
+        
         context.register_sensitive(MaskCategory.REPOSITORY, repository)
-        return GitStashApplyResponse(
-            repository=repository, ref=result.ref, message=result.message, applied=not result.conflicts,
-            files=result.files, conflicts=result.conflicts,
-        ).model_dump_json()
+        
+        response = GitStashApplyResponse(
+            repository=repository, 
+            ref=result.ref, 
+            message=result.message, 
+            applied=not result.conflicts,
+            files=result.files, 
+            conflicts=result.conflicts,
+        )
+        
+        return response.model_dump_json()
 
     return git_stash_apply
 

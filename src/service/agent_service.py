@@ -46,15 +46,13 @@ class AgentService:
         self._masking_service = masking_service
         self._project_data_service = project_data_service
 
-    def run(self, config_name: str, task_input: str, *, project_name: str | None = None,
-            origin: RunOrigin = RunOrigin.MANUAL, history: list[ChatMessage] | None = None) -> AgentRunRecord:
+    def run(self, config_name: str, task_input: str, *, project_name: str | None = None, origin: RunOrigin = RunOrigin.MANUAL, history: list[ChatMessage] | None = None) -> AgentRunRecord:
         """Run the agent configured as ``config_name`` (see ``run_definition``)."""
         definition = AgentDefinition.from_spec(self._agent_config_service.resolve(config_name))
         return self.run_definition(definition, task_input, project_name=project_name, origin=origin, history=history)
 
     @observed(LogPrefix.AGENT_SERVICE)
-    def run_definition(self, definition: AgentDefinition, task_input: str, *, project_name: str | None = None,
-                       origin: RunOrigin = RunOrigin.MANUAL, history: list[ChatMessage] | None = None) -> AgentRunRecord:
+    def run_definition(self, definition: AgentDefinition, task_input: str, *, project_name: str | None = None, origin: RunOrigin = RunOrigin.MANUAL, history: list[ChatMessage] | None = None) -> AgentRunRecord:
         """Run ``definition`` on ``task_input`` inside a datapizza trace and
         persist the run (facts + trace). A failed run is persisted too, with
         ``ok=False``. The run's project (``project_name``, else the
@@ -69,8 +67,12 @@ class AgentService:
         if mask:
             self._register_repositories(mask, project_name)
         context = ToolContext(
-            project_name=project_name, git=self._git_service,
-            pipelines=self._pipeline_service, origin=origin, mask=mask, project_data=self._project_data_service,
+            project_name=project_name, 
+            git=self._git_service,
+            pipelines=self._pipeline_service, 
+            origin=origin, 
+            mask=mask, 
+            project_data=self._project_data_service,
         )
         tools = build_tools(definition.tool_names, context)
         agent = AgentFactory.create_agent(definition, client, tools)

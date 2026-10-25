@@ -21,8 +21,7 @@ CACHE_BYPASS = "!"
 
 class ChatRouteService:
 
-    def __init__(self, store_service: StoreService, pipeline_service: PipelineService, embedder: Embedder,
-                 threshold: float):
+    def __init__(self, store_service: StoreService, pipeline_service: PipelineService, embedder: Embedder, threshold: float):
         self._store = store_service
         self._pipelines = pipeline_service
         self._embedder = embedder

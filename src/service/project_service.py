@@ -36,8 +36,7 @@ class ProjectService:
     @observed(LogPrefix.PROJECT_SERVICE)
     def open_folder(self, name: str, description: str, folder: str | Path) -> Project:
         """Register an existing folder as a project."""
-        project = Project(name=name, description=description, source=ProjectSource.FOLDER,
-                          root_path=str(self._folders.resolve(folder)))
+        project = Project(name=name, description=description, source=ProjectSource.FOLDER, root_path=str(self._folders.resolve(folder)))
         self._require_unique(project)
         return self._store.save_project(project)
 
@@ -45,8 +44,7 @@ class ProjectService:
     def create_from_scratch(self, name: str, description: str, parent: str | Path, folder_name: str) -> Project:
         """Create ``parent/folder_name`` and register it as a project. The
         folder is removed again if the project cannot be saved."""
-        draft = Project(name=name, description=description, source=ProjectSource.SCRATCH,
-                        root_path=str(self._folders.resolve(parent) / folder_name.strip()))
+        draft = Project(name=name, description=description, source=ProjectSource.SCRATCH, root_path=str(self._folders.resolve(parent) / folder_name.strip()))
         self._require_unique(draft)
         folder = self._folders.create_folder(parent, folder_name)
         try:
@@ -58,9 +56,7 @@ class ProjectService:
     def update(self, name: str, *, description: str, embedding_model: EmbeddingModelName) -> Project:
         """Editable settings; name, source and folder are fixed."""
         project = self.get_project(name)
-        return self._store.save_project(
-            project.model_copy(update={"description": description.strip(), "embedding_model": embedding_model}),
-        )
+        return self._store.save_project(project.model_copy(update={"description": description.strip(), "embedding_model": embedding_model}))
 
     def remove(self, name: str) -> bool:
         """Remove the project and everything it owns in the DB (its agents,

@@ -40,8 +40,7 @@ class StepFailed(Exception):
 
 class PipelineRunner:
 
-    def __init__(self, store_service: StoreService, agent_service: AgentService, git_service: GitService,
-                 project_data_service: ProjectDataService):
+    def __init__(self, store_service: StoreService, agent_service: AgentService, git_service: GitService, project_data_service: ProjectDataService):
         self._store = store_service
         self._agents = agent_service
         self._git = git_service
@@ -91,8 +90,13 @@ class PipelineRunner:
                 continue
             previous = join_outputs([(source, outputs[source]) for source in sources])
             step_run = self._store.save_pipeline_step_run(PipelineStepRun(
-                pipeline_run_id=run.id, step_id=step.id, position=position, name=step.name, kind=step.kind,
-                input=step.render_input(previous, run.input, outputs), started_at=_now(),
+                pipeline_run_id=run.id, 
+                step_id=step.id, 
+                position=position, 
+                name=step.name, 
+                kind=step.kind,
+                input=step.render_input(previous, run.input, outputs), 
+                started_at=_now()
             ))
             try:
                 output, agent_run_id = self._run_step(pipeline, step, step_run.input, run.input)
@@ -106,25 +110,17 @@ class PipelineRunner:
         return self._finish(run, RunStatus.DONE, output=_final_output(order, outputs, pipeline))
 
     # ------------------------------------------------------------- steps
-    def _run_step(self, pipeline: Pipeline, step: PipelineStep, step_input: str,
-                  pipeline_input: str) -> tuple[str, str | None]:
+    def _run_step(self, pipeline: Pipeline, step: PipelineStep, step_input: str, pipeline_input: str) -> tuple[str, str | None]:
         """The step's output and its agent run id (None for functions);
         StepFailed when it has no output."""
         try:
             if step.kind is StepKind.FUNCTION:
-                context = FunctionContext(
-                    project_name=pipeline.project_name, pipeline_input=pipeline_input,
-                    git=self._git, project_data=self._project_data,
-                )
+                context = FunctionContext(project_name=pipeline.project_name, pipeline_input=pipeline_input, git=self._git, project_data=self._project_data)
                 return get_function(step.function_name).execute(context, step_input, step.params), None
             if step.kind is StepKind.AGENT:
-                record = self._agents.run_definition(
-                    _agent_definition(pipeline, step), step_input, origin=RunOrigin.PIPELINE,
-                )
+                record = self._agents.run_definition(_agent_definition(pipeline, step), step_input, origin=RunOrigin.PIPELINE)
             else:
-                record = self._agents.run(
-                    step.agent_config_name, step_input, project_name=pipeline.project_name, origin=RunOrigin.PIPELINE,
-                )
+                record = self._agents.run(step.agent_config_name, step_input, project_name=pipeline.project_name, origin=RunOrigin.PIPELINE)
         except AppError as exc:
             raise StepFailed(str(exc)) from exc
         except Exception as exc:
@@ -142,17 +138,13 @@ class PipelineRunner:
 
     def _finish_step(self, step_run: PipelineStepRun, status: RunStatus, *, output: str | None = None,
                      error: str | None = None, agent_run_id: str | None = None) -> None:
-        self._store.save_pipeline_step_run(step_run.model_copy(update={
-            "status": status, "output": output, "error": error, "agent_run_id": agent_run_id, "finished_at": _now(),
-        }))
+        self._store.save_pipeline_step_run(step_run.model_copy(update={"status": status, "output": output, "error": error, "agent_run_id": agent_run_id, "finished_at": _now()}))
 
     def _finish(self, run: PipelineRun, status: RunStatus, *, output: str | None = None,
                 error: str | None = None) -> PipelineRun:
         if error:
             log_warning(LogPrefix.PIPELINE_RUNNER, "Run %s failed: %s", run.id, error)
-        self._store.save_pipeline_run(run.model_copy(update={
-            "status": status, "output": output, "error": error, "finished_at": _now(),
-        }))
+        self._store.save_pipeline_run(run.model_copy(update={"status": status, "output": output, "error": error, "finished_at": _now()}))
         return self._store.get_pipeline_run(run.id)
 
 

@@ -25,21 +25,28 @@ def build(context: ToolContext) -> Tool:
             result = context.git.pull_fast_forward(context.require_project(), repository)
         except AppError as exc:
             return git_error(context, exc)
+        
         context.register_sensitive(MaskCategory.REPOSITORY, repository)
+        
         for commit in result.commits:
             context.register_sensitive(MaskCategory.PERSON, commit.author)
             context.register_sensitive(MaskCategory.EMAIL, commit.email)
-        return GitPullResponse(
-            repository=repository, branch=result.branch, upstream=result.upstream,
-            updated=not result.up_to_date, commits=result.commits,
-        ).model_dump_json()
+        
+        response = GitPullResponse(
+            repository=repository, 
+            branch=result.branch, 
+            upstream=result.upstream,
+            updated=not result.up_to_date, 
+            commits=result.commits,
+        )
+        
+        return response.model_dump_json()
 
     return git_pull_fast_forward
 
 
 GIT_PULL_FAST_FORWARD = ToolSpec(
     name="git_pull_fast_forward",
-    description="Aggiorna un repository del progetto dal remoto solo in fast-forward (mai merge); "
-                "rifiuta con modifiche locali non committate.",
+    description="Aggiorna un repository del progetto dal remoto solo in fast-forward (mai merge); rifiuta con modifiche locali non committate.",
     build=build,
 )

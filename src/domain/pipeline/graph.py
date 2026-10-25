@@ -163,6 +163,4 @@ def _check_placeholders(steps: list[PipelineStep], edges: list[PipelineEdge], or
     for step in steps:
         for referenced in NODE_PLACEHOLDER.findall(step.input_template):
             if referenced not in ancestors(step.name, edges):
-                raise ValidationError(
-                    f"Lo step {step.name} usa {{nodo:{referenced}}}, ma {referenced} non è uno step che lo precede."
-                )
+                raise ValidationError(f"Lo step {step.name} usa {{nodo:{referenced}}}, ma {referenced} non è uno step che lo precede.")

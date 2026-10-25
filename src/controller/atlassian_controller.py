@@ -6,11 +6,8 @@ from fastapi import APIRouter, Depends, Response, status
 
 from controller.dependencies import atlassian_service
 from core.error import NotFoundError
-from models.controller.atlassian import (
-    AtlassianSettingsRequest, AtlassianSettingsResponse, AtlassianUserResponse, ConfluencePageResponse,
-    ConfluenceSearchHitResponse, FavoriteRequest, FavoriteResponse, JiraIssueResponse,
-)
 from service.atlassian_service import AtlassianService
+from models.controller.atlassian import AtlassianSettingsRequest, AtlassianSettingsResponse, AtlassianUserResponse, ConfluencePageResponse, ConfluenceSearchHitResponse, FavoriteRequest, FavoriteResponse, JiraIssueResponse
 
 router = APIRouter(prefix="/projects/{project}/atlassian", tags=["atlassian"])
 

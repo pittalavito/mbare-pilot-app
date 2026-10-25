@@ -35,10 +35,15 @@ def build(context: ToolContext) -> Tool:
             return _not_found(run_id)
         if pipeline.project_name != context.project_name:
             return _not_found(run_id)
-        return AutomationStatusResponse(
-            automation=pipeline.name, run_id=run_id, status=run.status.value,
+        
+        response = AutomationStatusResponse(
+            automation=pipeline.name, 
+            run_id=run_id, 
+            status=run.status.value,
             steps=[AutomationStepStatus(name=step.name, status=step.status.value) for step in run.steps],
-        ).model_dump_json()
+        )
+        
+        return response.model_dump_json()
 
     return automation_status
 

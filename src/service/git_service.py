@@ -9,9 +9,7 @@ from pathlib import Path
 from core.error import NotFoundError, UpstreamError, ValidationError
 from core.observability import LogPrefix, observed
 from domain.client.git.client import GitClient
-from models.domain.git import (
-    GitChangeKind, GitCommit, GitPullResult, GitRepository, GitStashApplyResult, GitStashResult, GitStatus,
-)
+from models.domain.git import GitChangeKind, GitCommit, GitPullResult, GitRepository, GitStashApplyResult, GitStashResult, GitStatus,
 from service.store_service import StoreService
 
 _MAX_LOG = 500
@@ -79,8 +77,12 @@ class GitService:
         if commit and not self._git.commit_exists(folder, commit):
             raise NotFoundError(f"Commit non trovato: {commit}")
         return self._git.log(
-            folder, limit, only_here=toplevel != folder and not commit,
-            author=author.strip() or None, message=message.strip() or None, revision=commit or None,
+            folder, 
+            limit, 
+            only_here=toplevel != folder and not commit,
+            author=author.strip() or None, 
+            message=message.strip() or None, 
+            revision=commit or None
         )
 
     @observed(LogPrefix.GIT_SERVICE)
@@ -119,10 +121,7 @@ class GitService:
             self._git.pull_fast_forward(toplevel)
         except UpstreamError as exc:
             if "fast-forward" in str(exc).lower():
-                raise ValidationError(
-                    f"Il branch {status.branch} ha commit locali che {status.upstream} non ha: "
-                    "il fast-forward non è possibile, serve un merge o un rebase fatto a mano."
-                ) from exc
+                raise ValidationError(f"Il branch {status.branch} ha commit locali che {status.upstream} non ha: il fast-forward non è possibile, serve un merge o un rebase fatto a mano.") from exc
             raise
         after = self._git.head(toplevel)
         commits = [] if after == before else self._git.commits_between(toplevel, before, after)

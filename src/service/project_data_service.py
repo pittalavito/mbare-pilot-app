@@ -5,9 +5,7 @@ will be built from."""
 from datetime import datetime, timezone
 
 from core.error import NotFoundError
-from domain.project.data_paths import (
-    CHATBOT_DIR, CHATBOT_PROMPT_FILE, FILES_DIR, NOTE_SUFFIX, NOTES_DIR, data_file_name, note_file_name, project_slug,
-)
+from domain.project.data_paths import CHATBOT_DIR, CHATBOT_PROMPT_FILE, FILES_DIR, NOTE_SUFFIX, NOTES_DIR, data_file_name, note_file_name, project_slug
 from models.domain.project import ProjectDataFile, ProjectDataKind
 from models.store.files import StoredFile
 from service.store_service import StoreService
@@ -27,9 +25,7 @@ class ProjectDataService:
 
     def save_note(self, project_name: str, note_name: str, content: str) -> ProjectDataFile:
         """Create or overwrite the note."""
-        stored = self._store.save_file(
-            self._id(project_name, NOTES_DIR, note_file_name(note_name)), content.encode("utf-8"),
-        )
+        stored = self._store.save_file(self._id(project_name, NOTES_DIR, note_file_name(note_name)), content.encode("utf-8"))
         return _to_data_file(stored, ProjectDataKind.NOTE)
 
     def delete_note(self, project_name: str, note_name: str) -> bool:

@@ -5,9 +5,7 @@ from fastapi import APIRouter, Depends, Response, status
 
 from controller.dependencies import pipeline_service
 from core.error import NotFoundError
-from models.controller.pipeline import (
-    FunctionResponse, PipelineRequest, PipelineResponse, RunRequest, RunResponse, WorkerResponse,
-)
+from models.controller.pipeline import FunctionResponse, PipelineRequest, PipelineResponse, RunRequest, RunResponse, WorkerResponse
 from service.pipeline_service import PipelineService
 
 router = APIRouter(tags=["automation"])
@@ -19,21 +17,27 @@ def list_pipelines(project: str, service: PipelineService = Depends(pipeline_ser
 
 
 @router.post("/projects/{project}/pipelines", status_code=status.HTTP_201_CREATED)
-def create_pipeline(project: str, request: PipelineRequest,
-                    service: PipelineService = Depends(pipeline_service)) -> PipelineResponse:
+def create_pipeline(project: str, request: PipelineRequest, service: PipelineService = Depends(pipeline_service)) -> PipelineResponse:
     pipeline = service.create_pipeline(
-        project, request.name, description=request.description, active=request.active,
-        steps=[step.to_step() for step in request.steps], edges=[edge.to_edge() for edge in request.edges],
+        project, 
+        request.name, 
+        description=request.description, 
+        active=request.active,
+        steps=[step.to_step() for step in request.steps], 
+        edges=[edge.to_edge() for edge in request.edges],
     )
     return PipelineResponse.from_pipeline(pipeline)
 
 
 @router.put("/pipelines/{pipeline_id}")
-def update_pipeline(pipeline_id: int, request: PipelineRequest,
-                    service: PipelineService = Depends(pipeline_service)) -> PipelineResponse:
+def update_pipeline(pipeline_id: int, request: PipelineRequest, service: PipelineService = Depends(pipeline_service)) -> PipelineResponse:
     pipeline = service.update_pipeline(
-        pipeline_id, name=request.name, description=request.description, active=request.active,
-        steps=[step.to_step() for step in request.steps], edges=[edge.to_edge() for edge in request.edges],
+        pipeline_id, 
+        name=request.name, 
+        description=request.description, 
+        active=request.active,
+        steps=[step.to_step() for step in request.steps], 
+        edges=[edge.to_edge() for edge in request.edges],
     )
     return PipelineResponse.from_pipeline(pipeline)
 
@@ -55,8 +59,7 @@ def list_runs(pipeline_id: int, limit: int = 20, service: PipelineService = Depe
 
 
 @router.post("/pipelines/{pipeline_id}/runs", status_code=status.HTTP_201_CREATED)
-def enqueue_run(pipeline_id: int, request: RunRequest,
-                service: PipelineService = Depends(pipeline_service)) -> RunResponse:
+def enqueue_run(pipeline_id: int, request: RunRequest, service: PipelineService = Depends(pipeline_service)) -> RunResponse:
     """Queue a run: the worker executes it."""
     return RunResponse.from_run(service.enqueue(pipeline_id, request.input))
 

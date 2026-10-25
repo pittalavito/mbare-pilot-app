@@ -8,35 +8,17 @@ from typing import ClassVar
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# src/config.py -> parents[1] is the project root.
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-
+_PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _SENSITIVE_KEY_MARKERS = ("password", "api_key", "secret", "token")
 _MASK = "********"
 _URL_CREDENTIALS = re.compile(r"://([^:/@]+):([^@]+)@")
 
 
 class Config(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=PROJECT_ROOT / ".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
-
+    
+    _model_config = SettingsConfigDict(env_file=_PROJECT_ROOT / ".env", env_file_encoding="utf-8", extra="ignore")
     _instance: ClassVar["Config | None"] = None
-
-    @classmethod
-    def get(cls) -> "Config":
-        """The app-wide Config, loaded from .env on first access."""
-        if cls._instance is None:
-            cls._instance = cls()  # pyright: ignore[reportCallIssue]
-        return cls._instance
-
-    @classmethod
-    def set(cls, config: "Config | None") -> None:
-        """Replace the app-wide Config (tests). None reloads it from .env on the next ``get()``."""
-        cls._instance = config
-
+    
     # --- App ---
     app_log_level: str = "INFO"
 
@@ -89,6 +71,18 @@ class Config(BaseSettings):
     datapizza_trace_summary: bool = False
     """Print datapizza's "Trace Summary" panel (spans, duration, tokens) to the console after every run."""
 
+    @classmethod
+    def get(cls) -> "Config":
+        """The app-wide Config, loaded from .env on first access."""
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    @classmethod
+    def set(cls, config: "Config | None") -> None:
+        """Replace the app-wide Config (tests). None reloads it from .env on the next ``get()``."""
+        cls._instance = config
+
     @property
     def secret_key(self) -> str | None:
         """The plain MBARE_PILOT_SECRET_KEY, None when unset."""
@@ -101,7 +95,7 @@ class Config(BaseSettings):
 
     @property
     def backup_path(self) -> Path:
-        return Path(self.backup_dir).expanduser() if self.backup_dir else PROJECT_ROOT.parent / "mbare-pilot-back-up"
+        return Path(self.backup_dir).expanduser() if self.backup_dir else _PROJECT_ROOT.parent / "mbare-pilot-back-up"
 
     @property
     def data_home(self) -> Path:

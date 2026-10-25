@@ -22,8 +22,16 @@ def build(context: ToolContext) -> Tool:
             status = context.git.status(context.require_project(), repository)
         except AppError as exc:
             return git_error(context, exc)
+        
         context.register_sensitive(MaskCategory.REPOSITORY, repository)
-        return GitStatusResponse(repository=repository, clean=status.is_clean, status=status).model_dump_json()
+        
+        response = GitStatusResponse(
+            repository=repository, 
+            clean=status.is_clean, 
+            status=status
+        )
+        
+        return response.model_dump_json()
 
     return git_status
 
