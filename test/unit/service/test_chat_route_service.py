@@ -13,7 +13,7 @@ from service import agent_service as agent_service_module
 from service.agent_service import AgentService
 from service.chat_route_service import ChatRouteService
 from service.chat_service import ChatService
-from service.chatbot_service import CACHE_MARK, ChatbotService
+from service.chatbot_service import ChatbotService
 from service.git_service import GitService
 from service.pipeline_service import PipelineService
 
@@ -86,7 +86,7 @@ def test_a_similar_message_launches_the_automation_without_the_agent(chat, route
     [run] = pipelines.list_runs(report.id)
     assert len(agent_runs) == 1  # no new agent run
     assert reply.role is MessageRole.ASSISTANT and reply.run_id is None
-    assert reply.content == f"{CACHE_MARK} Ho lanciato l'automation Report (id {run.id})."
+    assert reply.content == f"⚡ Ho lanciato l'automation Report (id {run.id})."
     assert (run.status, run.input) == (RunStatus.QUEUED, "oggi")
     assert routes.routes(conversation.chatbot_id)[0].hits == 1 and route.text == "lancia il report del giorno"
 
@@ -99,7 +99,7 @@ def test_different_messages_and_bang_go_to_the_agent(chat, routes, pipelines, co
     chat.send(conversation.id, "! lancia il report del giorno")
 
     assert len(agent_runs) == 3 and pipelines.list_runs(report.id) == []
-    assert not chat.messages(conversation.id)[-1].content.startswith(CACHE_MARK)
+    assert not chat.messages(conversation.id)[-1].content.startswith("⚡")
 
 
 def test_only_entries_of_the_same_embedder_are_compared(store_service, pipelines, chat, routes, conversation):

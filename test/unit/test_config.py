@@ -1,3 +1,6 @@
+from pathlib import Path
+
+import config as config_module
 from config import Config
 
 
@@ -29,7 +32,6 @@ def test_masked_keeps_empty_secrets_empty_and_plain_values():
 
 
 def test_backup_folder_defaults_next_to_the_project(config, tmp_path):
-    from config import PROJECT_ROOT
-
-    assert config.backup_path == PROJECT_ROOT.parent / "mbare-pilot-back-up"
+    project_root = Path(config_module.__file__).resolve().parents[1]  # src/config.py → the project folder
+    assert config.backup_path == project_root.parent / "mbare-pilot-back-up"
     assert config.model_copy(update={"backup_dir": str(tmp_path)}).backup_path == tmp_path

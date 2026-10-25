@@ -15,12 +15,15 @@ class MaskCategory(StrEnum):
 
     @property
     def alias_prefix(self) -> str:
-        return  {
-            MaskCategory.REPOSITORY: "REPO",
-            MaskCategory.PERSON: "PERSONA",
-            MaskCategory.EMAIL: "EMAIL",
-            MaskCategory.TERM: "TERMINE",
-        }
+        return _PREFIXES[self]
+
+
+_PREFIXES = {
+    MaskCategory.REPOSITORY: "REPO",
+    MaskCategory.PERSON: "PERSONA",
+    MaskCategory.EMAIL: "EMAIL",
+    MaskCategory.TERM: "TERMINE",
+}
 
 
 class MaskEntry(BaseModel):

@@ -9,7 +9,7 @@ from pathlib import Path
 from core.error import NotFoundError, UpstreamError, ValidationError
 from core.observability import LogPrefix, observed
 from domain.client.git.client import GitClient
-from models.domain.git import GitChangeKind, GitCommit, GitPullResult, GitRepository, GitStashApplyResult, GitStashResult, GitStatus,
+from models.domain.git import GitChangeKind, GitCommit, GitPullResult, GitRepository, GitStashApplyResult, GitStashResult, GitStatus
 from service.store_service import StoreService
 
 _MAX_LOG = 500
