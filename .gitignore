@@ -24,3 +24,7 @@ resource/logs/
 # IDEs and editors
 .vscode/
 
+
+# Frontend (web/): dependencies and build output
+web/node_modules/
+web/dist/
