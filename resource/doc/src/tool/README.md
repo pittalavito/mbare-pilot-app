@@ -12,7 +12,7 @@ I tool che un agente può chiamare durante una run:
 | `list_automations` | **con contesto**, solo chatbot | le automation del progetto che si possono lanciare adesso (attive, con step), con la descrizione |
 | `run_automation` | **con contesto**, solo chatbot | lancia un'automation del progetto in background e riporta l'id dell'esecuzione |
 | `automation_status` | **con contesto**, solo chatbot | stato di un'esecuzione di un'automation del progetto e dei suoi step: solo gli stati, niente output né messaggi d'errore |
-| `read_context` | **con contesto** | il contesto del progetto per il chatbot: i `.md` di `files/<slug>/context/` (la cartella che indicizzerà il RAG); ultima risorsa |
+| `read_context` | **con contesto** | il contesto del progetto per il chatbot: i `.md` di `project/<slug>/context/` (la cartella che indicizzerà il RAG); ultima risorsa |
 
 ```
 src/tool/

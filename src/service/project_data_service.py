@@ -1,5 +1,5 @@
 """A project's data, kept by the app apart from the project's code, under
-``<MBARE_PILOT_HOME>/files/<slug>/``: ``notes/*.md`` (notes written in the app),
+``<MBARE_PILOT_HOME>/project/<slug>/``: ``notes/*.md`` (notes written in the app),
 ``files/*`` (uploaded documents) and ``context/*.md`` (the project's context,
 written by hand: what read_context gives the chatbot, and the RAG will index)."""
 from datetime import datetime, timezone

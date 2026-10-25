@@ -13,14 +13,14 @@ mbare-pilot-data/
         chat-bot.yml          il chatbot del progetto                               un chatbot
         agent.yml             gli agenti del progetto                               agents: [...]
         automation.yml        le automation del progetto                            automations: [...]
-  files/
+  project/
     <slug>/
       notes/                  note scritte dall'app
       files/                  file caricati
       context/                contesto del progetto (.md): lo legge read_context, lo indicizzerà il RAG
 ```
 
-`base-agent.yml` (in `definition/` e in `files/<slug>/`) è previsto ma non ancora implementato.
+`base-agent.yml` (in `definition/` e in `project/<slug>/`) è previsto ma non ancora implementato.
 
 ## Come si applicano
 

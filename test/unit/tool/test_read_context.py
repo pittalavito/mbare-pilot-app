@@ -1,5 +1,5 @@
 """read_context: the markdown files of the project's context/ folder
-(files/<slug>/context), nothing else."""
+(project/<slug>/context), nothing else."""
 
 import pytest
 

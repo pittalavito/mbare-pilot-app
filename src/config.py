@@ -117,9 +117,9 @@ class Config(BaseSettings):
         return _PROJECT_ROOT / "resource" / "logs"
 
     @property
-    def files_root(self) -> Path:
-        """Root of the projects' files: ``<data_home>/files/<slug>/{notes,files,context}``."""
-        return self.data_home / "files"
+    def project_data_root(self) -> Path:
+        """Root of the projects' data: ``<data_home>/project/<slug>/{notes,files,context}``."""
+        return self.data_home / "project"
 
     @property
     def definitions_root(self) -> Path:

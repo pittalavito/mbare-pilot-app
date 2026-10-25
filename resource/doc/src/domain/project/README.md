@@ -13,7 +13,7 @@ Un progetto ha **due posti** distinti:
 | | Dove | Chi lo gestisce |
 |---|---|---|
 | **Codice** | la sua cartella sul PC (`root_path`), scelta con «Apri cartella» o creata con «Crea da zero» | `FolderBrowser` |
-| **Dati** (note, file caricati, contesto) | `<MBARE_PILOT_HOME>/files/<slug>/{notes,files,context}`, fuori dal codice | `data_paths` + `ProjectDataService` |
+| **Dati** (note, file caricati, contesto) | `<MBARE_PILOT_HOME>/project/<slug>/{notes,files,context}`, fuori dal codice | `data_paths` + `ProjectDataService` |
 | **Definizioni** (agenti, chatbot, automation in YAML) | `<MBARE_PILOT_HOME>/definition/` (globali e `project/<slug>/`) | `data_paths` + `DefinitionService`, vedi [definitions](../../../definitions.md) |
 
 ## Dati del progetto (`data_paths.py`)

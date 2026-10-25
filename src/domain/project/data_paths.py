@@ -6,7 +6,7 @@ naming rules for notes and uploaded files. Pure functions: no filesystem here.
       global-chat-bot.yml            chatbot of every project that has none of its own
       global-automation.yml          automations of every project (unless it defines one with that name)
       project/<slug>/chat-bot.yml, agent.yml, automation.yml
-    files/<slug>/
+    project/<slug>/
       notes/                         notes written in the app
       files/                         uploaded files
       context/                       the project's context: read_context, the RAG later"""

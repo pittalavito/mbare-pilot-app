@@ -1,5 +1,5 @@
 """read_context: the project's context for its chatbot, the markdown files in
-``<MBARE_PILOT_HOME>/files/<slug>/context/`` (the folder the RAG will index).
+``<MBARE_PILOT_HOME>/project/<slug>/context/`` (the folder the RAG will index).
 Meant as a last resort: it costs tokens only when called."""
 from datapizza.tools import Tool, tool
 

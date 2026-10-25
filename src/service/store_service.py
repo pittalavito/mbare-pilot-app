@@ -81,7 +81,7 @@ class StoreService:
         self._traces_repository = RedisTraceRepository(redis_client)
         self._workers_repository = RedisWorkerRepository(redis_client)
         self._masks_repository = RedisMaskRepository(redis_client)
-        self._files_repository = LocalFileRepository(config.files_root)
+        self._files_repository = LocalFileRepository(config.project_data_root)
         self._definitions_repository = LocalFileRepository(config.definitions_root)
         self._secret_box = SecretBox(config.secret_key)
 

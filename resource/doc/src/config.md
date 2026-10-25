@@ -18,7 +18,7 @@ Valori derivati:
 | `worker_script` | `WORKER_SCRIPT` | `src/worker.py`: il worker che l'API avvia (`ProcessService`) |
 | `app_root`, `run_dir`, `logs_dir` | cartella dell'app, `resource/run`, `resource/logs` | file PID e log di API e worker |
 | `web_dist` | `web/dist` | il frontend compilato che l'API serve (`core/server.py`) |
-| `files_root` | `data_home / "files"` | note, file caricati e contesto dei progetti (`files/<slug>/`) |
+| `project_data_root` | `data_home / "project"` | note, file caricati e contesto dei progetti (`project/<slug>/`) |
 | `definitions_root` | `data_home / "definition"` | agenti, chatbot e automation come YAML (vedi [definitions](../definitions.md)) |
 | `project_root_paths` | `PROJECT_ROOTS`, separati da `;` | la home dell'utente: i progetti stanno solo qui dentro |
 | `secret_key` | `MBARE_PILOT_SECRET_KEY` in chiaro | `None` |
