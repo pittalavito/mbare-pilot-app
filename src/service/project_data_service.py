@@ -1,11 +1,20 @@
 """A project's data, kept by the app apart from the project's code, under
-``<MBARE_PILOT_HOME>/project/<slug>/``: ``notes/*.md`` (notes written in the app),
+``<MBARE_PILOT_HOME>/project/<slug>/``: ``notes/*.md`` (notes written in the app:
+generic, or typed by their name and written with a template: agent tasks, todo lists),
 ``files/*`` (uploaded documents) and ``context/*.md`` (the project's context,
 written by hand: what read_context gives the chatbot, and the RAG will index)."""
 from datetime import datetime, timezone
 
-from core.error import NotFoundError
-from domain.project.data_paths import CONTEXT_DIR, FILES_DIR, NOTE_SUFFIX, NOTES_DIR, data_file_name, note_file_name, project_slug
+from collections.abc import Callable
+
+from pydantic import BaseModel
+
+from core.error import ConflictError, NotFoundError, ValidationError
+from domain.project.data_paths import (
+    CONTEXT_DIR, FILES_DIR, NOTE_SUFFIX, NOTES_DIR, data_file_name, note_file_name, note_type, project_slug, typed_note_file_name,
+)
+from domain.project.note_templates import parse_agent_task, parse_todo_list, render_agent_task, render_todo_list
+from models.domain.note import AgentTask, NoteType, TodoList
 from models.domain.project import ProjectDataFile, ProjectDataKind
 from models.store.files import StoredFile
 from service.store_service import StoreService
@@ -30,6 +39,47 @@ class ProjectDataService:
 
     def delete_note(self, project_name: str, note_name: str) -> bool:
         return self._store.delete_file(self._id(project_name, NOTES_DIR, note_file_name(note_name)))
+
+    # ----------------------------------------------------------- typed notes
+    def agent_tasks(self, project_name: str) -> list[tuple[str, AgentTask]]:
+        """The agent tasks, as (note name, task)."""
+        return self._typed_notes(project_name, NoteType.AGENT_TASK, parse_agent_task)
+
+    def create_agent_task(self, project_name: str, task: AgentTask) -> str:
+        """A new note named after the title (``agent-task-<title>.md``); returns its name."""
+        return self._create_typed(project_name, NoteType.AGENT_TASK, task.title, render_agent_task(task))
+
+    def save_agent_task(self, project_name: str, note_name: str, task: AgentTask) -> None:
+        """Rewrite an existing agent task (its name stays, also when the title changes)."""
+        self._save_typed(project_name, NoteType.AGENT_TASK, note_name, render_agent_task(task))
+
+    def todo_lists(self, project_name: str) -> list[tuple[str, TodoList]]:
+        """The todo lists, as (note name, list)."""
+        return self._typed_notes(project_name, NoteType.TODO_LIST, parse_todo_list)
+
+    def create_todo_list(self, project_name: str, todo: TodoList) -> str:
+        return self._create_typed(project_name, NoteType.TODO_LIST, todo.title, render_todo_list(todo))
+
+    def save_todo_list(self, project_name: str, note_name: str, todo: TodoList) -> None:
+        self._save_typed(project_name, NoteType.TODO_LIST, note_name, render_todo_list(todo))
+
+    def _typed_notes[T: BaseModel](self, project_name: str, kind: NoteType, parse: Callable[[str, str], T]) -> list[tuple[str, T]]:
+        notes = [note for note in self.list_notes(project_name) if note.note_type == kind]
+        return [(note.name, parse(self.read_note(project_name, note.name), _title(note.name))) for note in notes]
+
+    def _create_typed(self, project_name: str, kind: NoteType, title: str, content: str) -> str:
+        name = typed_note_file_name(kind, title)
+        if self._store.get_file(self._id(project_name, NOTES_DIR, name)) is not None:
+            raise ConflictError(f"Esiste già una nota {name}: cambia il titolo.")
+        return self.save_note(project_name, name, content).name
+
+    def _save_typed(self, project_name: str, kind: NoteType, note_name: str, content: str) -> None:
+        name = note_file_name(note_name)
+        if note_type(name) != kind:
+            raise ValidationError(f"{name} non è una nota di tipo {kind}.")
+        if self._store.get_file(self._id(project_name, NOTES_DIR, name)) is None:
+            raise NotFoundError(f"Nota non trovata: {name}")
+        self.save_note(project_name, name, content)
 
     # ----------------------------------------------------------------- files
     def list_files(self, project_name: str) -> list[ProjectDataFile]:
@@ -75,9 +125,17 @@ class ProjectDataService:
 
 
 def _to_data_file(stored: StoredFile, kind: ProjectDataKind) -> ProjectDataFile:
+    name = stored.file_id.rsplit("/", 1)[-1]
     return ProjectDataFile(
-        name=stored.file_id.rsplit("/", 1)[-1],
+        name=name,
         kind=kind,
         size=stored.size,
         modified_at=datetime.fromtimestamp(stored.mtime_ns / 1e9, tz=timezone.utc),
+        note_type=note_type(name) if kind == ProjectDataKind.NOTE else None,
     )
+
+
+def _title(note_name: str) -> str:
+    """The title of a typed note without its ``# title`` line: its name, without prefix and suffix."""
+    stem = note_name.removesuffix(NOTE_SUFFIX)
+    return stem.split("-", 2)[-1].replace("-", " ") or stem

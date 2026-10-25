@@ -6,6 +6,7 @@ from typing import Annotated
 from pydantic import BaseModel, Field, StringConstraints
 
 from models.domain.chat import EmbeddingModelName
+from models.domain.note import NoteType
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
 
@@ -41,3 +42,5 @@ class ProjectDataFile(BaseModel):
     kind: ProjectDataKind
     size: int
     modified_at: datetime
+    note_type: NoteType | None = None
+    """For a note: its type, from its name."""

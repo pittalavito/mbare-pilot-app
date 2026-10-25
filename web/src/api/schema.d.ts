@@ -544,6 +544,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/agent-tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Agent Tasks */
+        get: operations["list_agent_tasks_projects__project__agent_tasks_get"];
+        put?: never;
+        /**
+         * Create Agent Task
+         * @description A new note ``agent-task-<title>.md``; 409 when one with that name exists.
+         */
+        post: operations["create_agent_task_projects__project__agent_tasks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/agent-tasks/{note}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save Agent Task */
+        put: operations["save_agent_task_projects__project__agent_tasks__note__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/todo-lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Todo Lists */
+        get: operations["list_todo_lists_projects__project__todo_lists_get"];
+        put?: never;
+        /**
+         * Create Todo List
+         * @description A new note ``todo-list-<title>.md``; 409 when one with that name exists.
+         */
+        post: operations["create_todo_list_projects__project__todo_lists_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/todo-lists/{note}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save Todo List */
+        put: operations["save_todo_list_projects__project__todo_lists__note__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project}/files": {
         parameters: {
             query?: never;
@@ -1240,6 +1316,62 @@ export interface components {
             /** Blocked Reason */
             blocked_reason: string | null;
         };
+        /** AgentTaskBody */
+        AgentTaskBody: {
+            /** Title */
+            title: string;
+            /** @default todo */
+            status: components["schemas"]["TaskStatus"];
+            /**
+             * Objective
+             * @default
+             */
+            objective: string;
+            /**
+             * Context
+             * @default
+             */
+            context: string;
+            /**
+             * Criteria
+             * @default []
+             */
+            criteria: components["schemas"]["ChecklistItemBody"][];
+            /**
+             * Constraints
+             * @default
+             */
+            constraints: string;
+        };
+        /** AgentTaskResponse */
+        AgentTaskResponse: {
+            /** Title */
+            title: string;
+            /** @default todo */
+            status: components["schemas"]["TaskStatus"];
+            /**
+             * Objective
+             * @default
+             */
+            objective: string;
+            /**
+             * Context
+             * @default
+             */
+            context: string;
+            /**
+             * Criteria
+             * @default []
+             */
+            criteria: components["schemas"]["ChecklistItemBody"][];
+            /**
+             * Constraints
+             * @default
+             */
+            constraints: string;
+            /** Name */
+            name: string;
+        };
         /**
          * AgentUpdateRequest
          * @description Everything but the name and the scope, which are fixed at creation.
@@ -1451,6 +1583,16 @@ export interface components {
             /** Tool Names */
             tool_names: string[];
         };
+        /** ChecklistItemBody */
+        ChecklistItemBody: {
+            /** Text */
+            text: string;
+            /**
+             * Done
+             * @default false
+             */
+            done: boolean;
+        };
         /** CommitResponse */
         CommitResponse: {
             /** Hash */
@@ -1551,6 +1693,8 @@ export interface components {
              * Format: date-time
              */
             modified_at: string;
+            /** Note Type */
+            note_type?: string | null;
         };
         /**
          * EdgeBody
@@ -2106,6 +2250,51 @@ export interface components {
             /** Items */
             items: components["schemas"]["SyncItemResponse"][];
         };
+        /**
+         * TaskStatus
+         * @enum {string}
+         */
+        TaskStatus: "todo" | "in_progress" | "done";
+        /** TodoItemBody */
+        TodoItemBody: {
+            /** Text */
+            text: string;
+            /**
+             * Done
+             * @default false
+             */
+            done: boolean;
+            priority?: components["schemas"]["TodoPriority"] | null;
+            /** Due */
+            due?: string | null;
+        };
+        /** TodoListBody */
+        TodoListBody: {
+            /** Title */
+            title: string;
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["TodoItemBody"][];
+        };
+        /** TodoListResponse */
+        TodoListResponse: {
+            /** Title */
+            title: string;
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["TodoItemBody"][];
+            /** Name */
+            name: string;
+        };
+        /**
+         * TodoPriority
+         * @enum {string}
+         */
+        TodoPriority: "high" | "medium" | "low";
         /** TokensResponse */
         TokensResponse: {
             /** Input Tokens */
@@ -3445,6 +3634,210 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_agent_tasks_projects__project__agent_tasks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentTaskResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_agent_task_projects__project__agent_tasks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentTaskBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentTaskResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_agent_task_projects__project__agent_tasks__note__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                note: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentTaskBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentTaskResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_todo_lists_projects__project__todo_lists_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoListResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_todo_list_projects__project__todo_lists_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TodoListBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_todo_list_projects__project__todo_lists__note__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                note: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TodoListBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoListResponse"];
+                };
             };
             /** @description Validation Error */
             422: {

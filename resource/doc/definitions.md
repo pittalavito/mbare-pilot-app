@@ -15,7 +15,7 @@ mbare-pilot-data/
         automation.yml        le automation del progetto                            automations: [...]
   project/
     <slug>/
-      notes/                  note scritte dall'app
+      notes/                  note scritte dall'app: generiche, agent-task-<titolo>.md, todo-list-<titolo>.md
       files/                  file caricati
       context/                contesto del progetto (.md): lo legge read_context, lo indicizzerà il RAG
 ```

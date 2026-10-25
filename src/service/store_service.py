@@ -402,6 +402,9 @@ class StoreService:
     def save_file(self, file_id: str, data: bytes) -> StoredFile:
         return self._files_repository.save(file_id, data)
 
+    def get_file(self, file_id: str) -> StoredFile | None:
+        return self._files_repository.get(file_id)
+
     def read_file(self, file_id: str) -> bytes:
         return self._files_repository.read(file_id)
 

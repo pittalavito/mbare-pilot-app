@@ -85,6 +85,26 @@ def test_notes_crud(client):
     assert client.put("/projects/acme/notes/.hidden", json={"content": ""}).status_code == 400
 
 
+def test_agent_tasks_and_todo_lists(client):
+    created = client.post("/projects/acme/agent-tasks", json={"title": "Fix porto", "criteria": [{"text": "test verdi"}]})
+    assert created.status_code == 201 and created.json()["name"] == "agent-task-fix-porto.md"
+    assert client.post("/projects/acme/agent-tasks", json={"title": "Fix porto"}).status_code == 409
+    assert client.post("/projects/acme/agent-tasks", json={"title": ""}).status_code == 422
+
+    saved = client.put("/projects/acme/agent-tasks/agent-task-fix-porto.md", json={"title": "Fix porto", "status": "done"})
+    assert saved.json()["status"] == "done"
+    assert [task["status"] for task in client.get("/projects/acme/agent-tasks").json()] == ["done"]
+
+    todo = {"title": "Rilascio", "items": [{"text": "tag", "priority": "high", "due": "2026-11-02"}]}
+    assert client.post("/projects/acme/todo-lists", json=todo).json()["name"] == "todo-list-rilascio.md"
+    assert client.get("/projects/acme/todo-lists").json()[0]["items"] == [{"text": "tag", "done": False, "priority": "high", "due": "2026-11-02"}]
+    assert client.put("/projects/acme/todo-lists/agent-task-fix-porto.md", json=todo).status_code == 400
+
+    types = {note["name"]: note["note_type"] for note in client.get("/projects/acme/notes").json()}
+    assert types == {"agent-task-fix-porto.md": "agent_task", "todo-list-rilascio.md": "todo_list"}
+    assert client.delete("/projects/acme/notes/todo-list-rilascio.md").status_code == 204
+
+
 def test_files_upload_download_delete(client):
     data = bytes(range(256))
     uploaded = client.put("/projects/acme/files/report.bin", content=data).json()

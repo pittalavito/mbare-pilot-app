@@ -4,23 +4,29 @@ import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 
 import {
-  type DataFile, fileUrl, useDeleteFile, useDeleteNote, useFiles, useNote, useNotes, useSaveNote, useUploadFiles,
+  type DataFile, NOTE_PREFIXES, fileUrl, useDeleteFile, useDeleteNote, useFiles, useNote, useNotes, useSaveNote, useUploadFiles,
 } from "../../api/projectData";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Markdown } from "../../components/Markdown";
 import { localTime, size } from "../../format";
+import { AgentTasks, TodoLists } from "./TypedNotes";
 
 /** The Dati tab of a project: its own data, kept by the app apart from its
- * code: markdown notes written here and uploaded files (sources of the RAG index). */
+ * code: notes written here (generic, agent tasks, todo lists: all markdown
+ * files, typed by their name) and uploaded files (sources of the RAG index). */
 export function DataTab() {
   const { project = "" } = useParams();
   return (
     <Tabs defaultValue="notes" keepMounted={false}>
       <Tabs.List mb="md">
         <Tabs.Tab value="notes">📝 Note</Tabs.Tab>
+        <Tabs.Tab value="agent-tasks">🤖 Agent task</Tabs.Tab>
+        <Tabs.Tab value="todo-lists">✅ Todo list</Tabs.Tab>
         <Tabs.Tab value="files">📎 File</Tabs.Tab>
       </Tabs.List>
       <Tabs.Panel value="notes"><Notes project={project} /></Tabs.Panel>
+      <Tabs.Panel value="agent-tasks"><AgentTasks project={project} /></Tabs.Panel>
+      <Tabs.Panel value="todo-lists"><TodoLists project={project} /></Tabs.Panel>
       <Tabs.Panel value="files"><Files project={project} /></Tabs.Panel>
     </Tabs>
   );
@@ -28,11 +34,12 @@ export function DataTab() {
 
 // -------------------------------------------------------------------- notes
 
+/** The generic notes: the typed ones have their own tabs. */
 function Notes({ project }: { project: string }) {
   const notes = useNotes(project);
   const [search, setSearch] = useSearchParams();
   const [creating, setCreating] = useState(false);
-  const names = notes.data?.map((note) => note.name) ?? [];
+  const names = notes.data?.filter((note) => (note.note_type ?? "generic") === "generic").map((note) => note.name) ?? [];
   const requested = search.get("note");
   const selected = requested && names.includes(requested) ? requested : names[0];
   const select = (name: string) => setSearch({ note: name }, { replace: true });
@@ -44,7 +51,7 @@ function Notes({ project }: { project: string }) {
           <Button onClick={() => setCreating(true)}>➕ Nuova nota</Button>
           {notes.isPending && <Loader size="sm" />}
           {notes.error && <Alert color="red">{notes.error.message}</Alert>}
-          {notes.data && !notes.data.length && <Text size="sm" c="dimmed">Nessuna nota.</Text>}
+          {notes.data && !names.length && <Text size="sm" c="dimmed">Nessuna nota.</Text>}
           {names.map((name) => <NavLink key={name} label={name} active={name === selected} onClick={() => select(name)} />)}
         </Stack>
       </Grid.Col>
@@ -132,6 +139,8 @@ function NewNoteModal({ project, existing, opened, onClose, onCreated }: {
     if (!clean) return setError("Il nome è obbligatorio.");
     const candidate = clean.toLowerCase().endsWith(".md") ? clean : `${clean}.md`;
     if (existing.some((item) => item.toLowerCase() === candidate.toLowerCase())) return setError(`Esiste già una nota ${candidate}.`);
+    const reserved = Object.values(NOTE_PREFIXES).find((prefix) => candidate.toLowerCase().startsWith(prefix));
+    if (reserved) return setError(`«${reserved}» è riservato: usa le tab Agent task e Todo list.`);
     save.mutate(
       { note: clean, content: `# ${clean.replace(/\.md$/i, "")}\n` },
       { onSuccess: (note) => { onCreated(note.name); close(); }, onError: (exc) => setError(exc.message) },

@@ -3,13 +3,25 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, api, detail, unwrap } from "./client";
 import type { components } from "./schema";
 
-/** The project's own data (apart from its code): markdown notes and uploaded files. */
+/** The project's own data (apart from its code): markdown notes and uploaded files.
+ * Agent tasks and todo lists are notes too, read and written as their template's fields. */
 
 export type DataFile = components["schemas"]["DataFileResponse"];
+export type NoteType = "generic" | "agent_task" | "todo_list";
+export type AgentTask = components["schemas"]["AgentTaskResponse"];
+export type AgentTaskBody = components["schemas"]["AgentTaskBody"];
+export type TodoList = components["schemas"]["TodoListResponse"];
+export type TodoListBody = components["schemas"]["TodoListBody"];
+
+/** The name of a typed note starts with the prefix of its type (as the backend decides it). */
+export const NOTE_PREFIXES = { agent_task: "agent-task-", todo_list: "todo-list-" } as const;
 
 export const dataKeys = {
   notes: (project: string) => ["projects", project, "notes"] as const,
   note: (project: string, note: string) => ["projects", project, "notes", note] as const,
+  typed: (project: string) => ["projects", project, "notes", "typed"] as const,
+  agentTasks: (project: string) => ["projects", project, "notes", "typed", "agent_task"] as const,
+  todoLists: (project: string) => ["projects", project, "notes", "typed", "todo_list"] as const,
   files: (project: string) => ["projects", project, "files"] as const,
 };
 
@@ -45,7 +57,63 @@ export function useDeleteNote(project: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (note: string) => unwrap(api.DELETE("/projects/{project}/notes/{note}", { params: { path: { project, note } } })),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: dataKeys.notes(project), exact: true }),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: dataKeys.notes(project), exact: true }),
+        queryClient.invalidateQueries({ queryKey: dataKeys.typed(project) }),
+      ]),
+  });
+}
+
+// -------------------------------------------------------------- typed notes
+
+export function useAgentTasks(project: string) {
+  return useQuery({
+    queryKey: dataKeys.agentTasks(project),
+    queryFn: () => unwrap(api.GET("/projects/{project}/agent-tasks", { params: { path: { project } } })),
+  });
+}
+
+/** Create (``name`` undefined: the note is named after the title) or rewrite an agent task. */
+export function useSaveAgentTask(project: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ name, body }: { name?: string; body: AgentTaskBody }) =>
+      unwrap(
+        name === undefined
+          ? api.POST("/projects/{project}/agent-tasks", { params: { path: { project } }, body })
+          : api.PUT("/projects/{project}/agent-tasks/{note}", { params: { path: { project, note: name } }, body }),
+      ),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: dataKeys.agentTasks(project) }),
+        queryClient.invalidateQueries({ queryKey: dataKeys.notes(project), exact: true }),
+      ]),
+  });
+}
+
+export function useTodoLists(project: string) {
+  return useQuery({
+    queryKey: dataKeys.todoLists(project),
+    queryFn: () => unwrap(api.GET("/projects/{project}/todo-lists", { params: { path: { project } } })),
+  });
+}
+
+/** Create (``name`` undefined: the note is named after the title) or rewrite a todo list. */
+export function useSaveTodoList(project: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ name, body }: { name?: string; body: TodoListBody }) =>
+      unwrap(
+        name === undefined
+          ? api.POST("/projects/{project}/todo-lists", { params: { path: { project } }, body })
+          : api.PUT("/projects/{project}/todo-lists/{note}", { params: { path: { project, note: name } }, body }),
+      ),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: dataKeys.todoLists(project) }),
+        queryClient.invalidateQueries({ queryKey: dataKeys.notes(project), exact: true }),
+      ]),
   });
 }
 

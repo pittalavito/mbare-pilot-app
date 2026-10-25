@@ -7,19 +7,23 @@ naming rules for notes and uploaded files. Pure functions: no filesystem here.
       global-automation.yml          automations of every project (unless it defines one with that name)
       project/<slug>/chat-bot.yml, agent.yml, automation.yml
     project/<slug>/
-      notes/                         notes written in the app
+      notes/                         notes written in the app; the type is in the name:
+                                     agent-task-<title>.md, todo-list-<title>.md, else generic
       files/                         uploaded files
       context/                       the project's context: read_context, the RAG later"""
 import re
 from pathlib import PurePath
 
 from core.error import ValidationError
+from models.domain.note import NoteType
 
 NOTES_DIR = "notes"
 FILES_DIR = "files"
 CONTEXT_DIR = "context"
 """Markdown files about the project, written by hand (tool read_context)."""
 NOTE_SUFFIX = ".md"
+NOTE_PREFIXES = {NoteType.AGENT_TASK: "agent-task-", NoteType.TODO_LIST: "todo-list-"}
+"""The name of a typed note starts with the prefix of its type."""
 
 GLOBAL_AGENTS_FILE = "global-agent.yml"
 GLOBAL_CHATBOT_FILE = "global-chat-bot.yml"
@@ -33,10 +37,14 @@ _NOT_SLUG = re.compile(r"[^a-z0-9]+")
 _INVALID_FILE_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
 
+def slug(text: str, fallback: str) -> str:
+    """Lowercase, ``-`` separated (``"My App"`` → ``my-app``); ``fallback`` when nothing is left."""
+    return _NOT_SLUG.sub("-", text.lower()).strip("-") or fallback
+
+
 def project_slug(project_name: str) -> str:
-    """Folder name of a project's data: lowercase, ``-`` separated (``"My App"`` → ``my-app``)."""
-    slug = _NOT_SLUG.sub("-", project_name.lower()).strip("-")
-    return slug or "project"
+    """Folder name of a project's data."""
+    return slug(project_name, "project")
 
 
 def project_definitions(project_name: str) -> str:
@@ -50,6 +58,16 @@ def note_file_name(note_name: str) -> str:
     if name.lower().endswith(NOTE_SUFFIX):
         name = name[: -len(NOTE_SUFFIX)].strip()
     return _checked(name, "nota") + NOTE_SUFFIX
+
+
+def note_type(file_name: str) -> NoteType:
+    """The type of a note, from its file name."""
+    return next((kind for kind, prefix in NOTE_PREFIXES.items() if file_name.lower().startswith(prefix)), NoteType.GENERIC)
+
+
+def typed_note_file_name(kind: NoteType, title: str) -> str:
+    """``(AGENT_TASK, "Refactor login")`` → ``agent-task-refactor-login.md``."""
+    return f"{NOTE_PREFIXES[kind]}{slug(title, 'senza-titolo')}{NOTE_SUFFIX}"
 
 
 def data_file_name(file_name: str) -> str:

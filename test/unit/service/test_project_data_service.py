@@ -3,6 +3,7 @@ import pytest
 from core.error import ConflictError, NotFoundError, ValidationError
 from domain.project.data_paths import data_file_name, note_file_name, project_slug
 from domain.project.folder_browser import FolderBrowser
+from models.domain.note import AgentTask, ChecklistItem, NoteType, TaskStatus, TodoItem, TodoList, TodoPriority
 from models.domain.project import Project, ProjectDataKind, ProjectSource
 from service.project_data_service import ProjectDataService
 from service.project_service import ProjectService
@@ -66,6 +67,34 @@ def test_files_round_trip(data_service, files_repository):
     assert data_service.list_notes("My App") == []
     assert data_service.delete_file("My App", "report.pdf") is True
 
+
+
+def test_typed_notes_are_notes_named_by_type(data_service, files_repository):
+    name = data_service.create_agent_task("My App", AgentTask(title="Refactor login", criteria=[ChecklistItem(text="test verdi")]))
+    data_service.create_todo_list("My App", TodoList(title="Rilascio", items=[TodoItem(text="tag", priority=TodoPriority.LOW)]))
+    data_service.save_note("My App", "decisioni", "# Decisioni")
+
+    assert name == "agent-task-refactor-login.md"
+    assert (files_repository.root / "my-app" / "notes" / name).read_text(encoding="utf-8").startswith("# Refactor login\n\nStato: da fare")
+    assert {note.name: note.note_type for note in data_service.list_notes("My App")} == {
+        "agent-task-refactor-login.md": NoteType.AGENT_TASK, "decisioni.md": NoteType.GENERIC, "todo-list-rilascio.md": NoteType.TODO_LIST,
+    }
+    [(_, todo)] = data_service.todo_lists("My App")
+    assert todo.items[0].priority == TodoPriority.LOW
+
+    data_service.save_agent_task("My App", name, AgentTask(title="Refactor login (v2)", status=TaskStatus.DONE))
+    assert data_service.agent_tasks("My App") == [(name, AgentTask(title="Refactor login (v2)", status=TaskStatus.DONE))]
+
+
+def test_typed_notes_refuse_duplicates_other_types_and_missing_ones(data_service):
+    data_service.create_todo_list("My App", TodoList(title="Rilascio"))
+
+    with pytest.raises(ConflictError):
+        data_service.create_todo_list("My App", TodoList(title="rilascio!"))
+    with pytest.raises(ValidationError):
+        data_service.save_agent_task("My App", "todo-list-rilascio.md", AgentTask(title="x"))
+    with pytest.raises(NotFoundError):
+        data_service.save_todo_list("My App", "todo-list-altro.md", TodoList(title="x"))
 
 
 def test_unknown_project(data_service):
