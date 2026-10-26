@@ -19,6 +19,7 @@ src/service/
   atlassian_service.py      sito Jira + Confluence di un progetto
   backup_service.py         export del DB in SQL nella cartella di backup
   masking_service.py        mascheramento dei dati sensibili verso i modelli
+  copilot_service.py        agent task delegati a GitHub Copilot CLI: chat di preparazione, esecuzione nel worker
 ```
 
 Chi crea i service e li collega tra loro è il [Container](../core/README.md) (`core/container.py`): ogni service riceve nel costruttore quelli che usa.
@@ -84,6 +85,21 @@ L'utente mette in cache un **suo** messaggio scegliendo un'automation del proget
 - **Stato**: `running` se l'ha avviato l'app (file PID in `resource/run/worker.pid`), `external` se non l'ha avviato l'app ma un worker manda il suo heartbeat (da un terminale), `stopped` altrimenti.
 - **Avvio**: con `WORKER_SCRIPT`, staccato dall'API (sopravvive ai suoi riavvii) e con il `.env` letto al momento; un worker avviato altrove non viene duplicato (409).
 - `domain/process/manager.py`: `ProcessManager` (file PID con l'ora d'avvio, così un PID riusato non inganna; stop di tutto l'albero dei processi).
+
+## Copilot
+
+**`CopilotService`**: un agent task delegato a GitHub Copilot CLI ([client](../domain/client/copilot/README.md)) su un repository del progetto. Una sessione (`copilot_session`, messaggi in `copilot_message`) vive in due fasi, sempre sulla **stessa sessione di Copilot**:
+
+1. **Preparazione** (`planning`, nell'API, mentre l'utente aspetta). `start(progetto, nota del task, repository)` manda il primo turno: il markdown del task e la richiesta di leggere il codice, fare domande e proporre un piano, senza modificare niente. Poi `send(id, testo)`: un turno per messaggio, in modalità piano (sola lettura, la blocca il CLI).
+2. **Esecuzione** (nel worker). `approve(id)` mette la sessione in coda (`queued`), segnalando come avviso i file già modificati nel repository. Il worker (`run_next`) riprende la conversazione in autopilot, senza commit.
+
+- **HEAD prima e dopo**: se è cambiato (un commit malgrado i divieti), la sessione lo dice (`head_moved`) e non annulla niente: decide l'utente.
+- **File cambiati**: il `git status` del repository a fine esecuzione.
+- **Una esecuzione alla volta per repository**: le altre aspettano in coda (`claim_next` salta i repository occupati); la preparazione intanto si può fare.
+- **Annullamento** (`cancel`): una sessione in coda non parte; una in esecuzione la ferma il worker, che legge `cancel_requested` ogni pochi secondi. Timeout: `COPILOT_EXECUTION_TIMEOUT_MINUTES` (esecuzione), `COPILOT_PLANNING_TIMEOUT_MINUTES` (un turno di preparazione).
+- **Il task segue**: in corso durante l'esecuzione, fatto se va a buon fine, da fare altrimenti. L'esito resta nella sessione, non nella nota.
+- Dopo un'esecuzione la chat può continuare (si torna in preparazione) e un nuovo ok fa partire un'altra esecuzione. `fail_interrupted()` all'avvio del worker chiude le esecuzioni rimaste a metà.
+- Niente mascheramento: Copilot legge comunque il codice del repository.
 
 ## Definizioni da file
 

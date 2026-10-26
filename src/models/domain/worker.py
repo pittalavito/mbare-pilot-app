@@ -14,3 +14,5 @@ class WorkerStatus(BaseModel):
     last_seen: datetime
     busy_run_id: int | None = None
     """The pipeline run being executed; None = waiting for the queue."""
+    busy_copilot_session_id: int | None = None
+    """The Copilot session being executed."""

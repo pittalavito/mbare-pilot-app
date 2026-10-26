@@ -1,5 +1,5 @@
 """Automation worker: a process apart from the API that executes the queued
-pipeline runs, one at a time. Started by the API from the app's header (or `python src/worker.py`);
+pipeline runs and Copilot executions, one at a time. Started by the API from the app's header (or `python src/worker.py`);
 more workers can run together (the queue never hands a run to two of them).
 
 While alive it beats every few seconds in Redis (also during a long run, from
@@ -35,8 +35,9 @@ class _Heartbeat:
         self._pipelines = pipelines
         self._stop = threading.Event()
 
-    def busy(self, run_id: int | None) -> None:
+    def busy(self, run_id: int | None = None, copilot_session_id: int | None = None) -> None:
         self.status.busy_run_id = run_id
+        self.status.busy_copilot_session_id = copilot_session_id
         self._beat()
 
     def start(self) -> None:
@@ -65,8 +66,9 @@ def main() -> None:
     configure_logging(Config.get().app_log_level)
     container = Container()
     runner = container.pipeline_runner
+    copilot = container.copilot_service
     heartbeat = _Heartbeat(container.pipeline_service)
-    interrupted = runner.fail_interrupted()
+    interrupted = runner.fail_interrupted() + copilot.fail_interrupted()
     if interrupted:
         log_info(LogPrefix.WORKER, "%s esecuzioni interrotte segnate come fallite", interrupted)
     heartbeat.start()
@@ -75,14 +77,16 @@ def main() -> None:
     try:
         while True:
             try:
-                run = runner.run_next(on_claim=lambda claimed: heartbeat.busy(claimed.id))
-                if run is None:
+                done = runner.run_next(on_claim=lambda claimed: heartbeat.busy(run_id=claimed.id))
+                if done is None:
+                    done = copilot.run_next(on_claim=lambda claimed: heartbeat.busy(copilot_session_id=claimed.id))
+                if done is None:
                     time.sleep(_POLL_SECONDS)
                 else:
-                    heartbeat.busy(None)
+                    heartbeat.busy()
             except Exception:  # e.g. the run was deleted while running: keep serving the queue
                 log_exception(LogPrefix.WORKER, "Esecuzione non completata")
-                heartbeat.busy(None)
+                heartbeat.busy()
                 time.sleep(_POLL_SECONDS)
     except KeyboardInterrupt:
         log_info(LogPrefix.WORKER, "Fermato")

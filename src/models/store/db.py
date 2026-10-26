@@ -288,6 +288,43 @@ class PipelineStepRunTable(SQLModel, table=True):
     finished_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
 
 
+# ------------------------------------------------------------------ copilot
+
+class CopilotSessionTable(SQLModel, table=True):
+    """An agent task delegated to Copilot CLI: the planning chat, then the
+    execution. Also the worker queue of the executions (``queued`` rows)."""
+    __tablename__ = "copilot_session"
+
+    id: int | None = Field(default=None, primary_key=True)
+    project_name: str = _project_fk(nullable=False)
+    task_note: str
+    repository: str = ""
+    copilot_session_id: str = Field(unique=True)
+    status: str = Field(index=True)
+    """``planning`` | ``queued`` | ``running`` | ``done`` | ``failed`` | ``cancelled``."""
+    cancel_requested: bool = False
+    head_before: str | None = None
+    head_after: str | None = None
+    changed_files: list[str] = Field(default_factory=list, sa_type=JSON)
+    premium_requests: int = 0
+    error: str | None = Field(default=None, sa_type=Text)
+    created_at: datetime = _timestamp(index=True)
+    updated_at: datetime = _timestamp()
+    started_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
+    finished_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
+
+
+class CopilotMessageTable(SQLModel, table=True):
+    __tablename__ = "copilot_message"
+
+    id: int | None = Field(default=None, primary_key=True)
+    session_id: int = Field(foreign_key="copilot_session.id", index=True, ondelete="CASCADE")
+    role: str
+    """``user`` | ``copilot`` | ``event``."""
+    content: str = Field(sa_type=Text)
+    created_at: datetime = _timestamp()
+
+
 # ---------------------------------------------------------------------- RAG
 
 class DocumentTable(SQLModel, table=True):

@@ -172,6 +172,18 @@ class GitService:
         files = [c.path for c in self._git.status(toplevel).changes if c.kind is not GitChangeKind.UNTRACKED]
         return GitStashApplyResult(ref=ref, message=stashes[ref].message, files=files)
 
+    def repository_folder(self, project_name: str, subpath: str = "") -> Path:
+        """``subpath`` (``""`` = the project folder) as an absolute folder,
+        checked: inside the project and inside a git repository."""
+        folder = self._folder(project_name, subpath)
+        if self._git.toplevel(folder) is None:
+            raise ValidationError(f"{folder} non è dentro un repository git.")
+        return folder
+
+    def head(self, project_name: str, subpath: str = "") -> str:
+        """The commit HEAD points to."""
+        return self._git.head(self.repository_folder(project_name, subpath))
+
     def project_folder(self, project_name: str) -> Path | None:
         """The project's code folder as saved (it may not exist any more); None
         for an unknown project. For hiding it in messages."""

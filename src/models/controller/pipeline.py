@@ -144,6 +144,8 @@ class WorkerResponse(BaseModel):
     last_seen: datetime
     busy_run_id: int | None
     """The run being executed; None = waiting for the queue."""
+    busy_copilot_session_id: int | None = None
+    """The Copilot session being executed."""
 
     @classmethod
     def from_status(cls, status: WorkerStatus) -> "WorkerResponse":

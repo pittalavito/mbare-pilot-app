@@ -28,6 +28,8 @@ from domain.store.db.store import (
     DbPipelineStepRepository,
     DbPipelineStepRunRepository,
     DbChatModelRepository,
+    DbCopilotMessageRepository,
+    DbCopilotSessionRepository,
     DbProjectRepository,
     DbPromptRepository,
     DbRoleRepository,
@@ -42,6 +44,7 @@ from models.domain.agent import AgentConfig, AgentRole, AgentRunRecord, AgentRun
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
 from models.domain.chat import ChatModel
 from models.domain.chatbot import ChatMessage, ChatRoute, Chatbot, Conversation
+from models.domain.copilot import CopilotMessage, CopilotSession, CopilotSessionStatus
 from models.domain.pipeline import Pipeline, PipelineRun, PipelineStepRun, RunStatus
 from models.domain.project import Project, ProjectSource
 from models.domain.masking import MaskCategory, MaskEntry
@@ -78,6 +81,8 @@ class StoreService:
         self._pipeline_edge_repository = DbPipelineEdgeRepository(engine)
         self._pipeline_run_repository = DbPipelineRunRepository(engine)
         self._pipeline_step_run_repository = DbPipelineStepRunRepository(engine)
+        self._copilot_session_repository = DbCopilotSessionRepository(engine)
+        self._copilot_message_repository = DbCopilotMessageRepository(engine)
         self._traces_repository = RedisTraceRepository(redis_client)
         self._workers_repository = RedisWorkerRepository(redis_client)
         self._masks_repository = RedisMaskRepository(redis_client)
@@ -394,6 +399,44 @@ class StoreService:
 
     def delete_atlassian_favorites_of_other_sites(self, project_name: str, site: str) -> int:
         return self._atlassian_favorite_repository.delete_other_sites(project_name, site)
+
+    # --------------------------------------------------------------- copilot
+    def save_copilot_session(self, session: CopilotSession) -> CopilotSession:
+        """Insert (``id`` None) or update."""
+        return DbAdapter.to_copilot_session(self._copilot_session_repository.save(DbFactory.to_copilot_session_row(session)))
+
+    def update_copilot_session(self, session_id: int, **changes) -> CopilotSession:
+        """Only ``changes`` (domain field names and values), not the whole row."""
+        row = DbFactory.to_copilot_session_row(self.get_copilot_session(session_id).model_copy(update=changes))
+        fields = {name: getattr(row, name) for name in changes}
+        return DbAdapter.to_copilot_session(self._copilot_session_repository.update_fields(session_id, fields))
+
+    def get_copilot_session(self, session_id: int) -> CopilotSession | None:
+        row = self._copilot_session_repository.get(session_id)
+        return DbAdapter.to_copilot_session(row) if row else None
+
+    def list_copilot_sessions(self, project_name: str) -> list[CopilotSession]:
+        """Newest first."""
+        return [DbAdapter.to_copilot_session(row) for row in self._copilot_session_repository.list_for_project(project_name)]
+
+    def list_copilot_sessions_by_status(self, status: CopilotSessionStatus) -> list[CopilotSession]:
+        return [DbAdapter.to_copilot_session(row) for row in self._copilot_session_repository.list_by_status(status.value)]
+
+    def claim_next_copilot_session(self) -> CopilotSession | None:
+        """The next queued execution whose repository is free, now ``running``."""
+        row = self._copilot_session_repository.claim_next()
+        return DbAdapter.to_copilot_session(row) if row else None
+
+    def delete_copilot_session(self, session_id: int) -> bool:
+        """With its messages."""
+        return self._copilot_session_repository.delete(session_id)
+
+    def add_copilot_message(self, message: CopilotMessage) -> CopilotMessage:
+        return DbAdapter.to_copilot_message(self._copilot_message_repository.save(DbFactory.to_copilot_message_row(message)))
+
+    def list_copilot_messages(self, session_id: int) -> list[CopilotMessage]:
+        """Oldest first."""
+        return [DbAdapter.to_copilot_message(row) for row in self._copilot_message_repository.list_for_session(session_id)]
 
     # ----------------------------------------------------------------- files
     def list_files(self, prefix: str = "") -> list[StoredFile]:

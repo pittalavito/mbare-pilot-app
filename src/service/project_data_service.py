@@ -45,6 +45,13 @@ class ProjectDataService:
         """The agent tasks, as (note name, task)."""
         return self._typed_notes(project_name, NoteType.AGENT_TASK, parse_agent_task)
 
+    def agent_task(self, project_name: str, note_name: str) -> AgentTask:
+        """One agent task; NotFoundError when missing, ValidationError when the note is of another type."""
+        name = note_file_name(note_name)
+        if note_type(name) != NoteType.AGENT_TASK:
+            raise ValidationError(f"{name} non è un agent task.")
+        return parse_agent_task(self.read_note(project_name, name), _title(name))
+
     def create_agent_task(self, project_name: str, task: AgentTask) -> str:
         """A new note named after the title (``agent-task-<title>.md``); returns its name."""
         return self._create_typed(project_name, NoteType.AGENT_TASK, task.title, render_agent_task(task))

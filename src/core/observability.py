@@ -34,6 +34,7 @@ class LogPrefix(StrEnum):
     WORKER = "WORKER"
     MODEL_SERVICE = "MODEL_SERVICE"
     BACKUP_SERVICE = "BACKUP_SERVICE"
+    COPILOT_SERVICE = "COPILOT_SERVICE"
 
 
 def configure_logging(log_level: str) -> None:

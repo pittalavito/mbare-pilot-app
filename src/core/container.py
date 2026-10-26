@@ -8,6 +8,7 @@ from config import Config
 from core.observability import LogPrefix, configure_logging, observed
 
 from domain.chat.models_default import DEFAULT_CHAT_MODELS
+from domain.client.copilot.client import CopilotClient
 from domain.client.embedding.embedder import Factory as EmbedderFactory
 from domain.process.manager import ProcessManager
 from domain.project.folder_browser import FolderBrowser
@@ -19,6 +20,7 @@ from service.backup_service import BackupService
 from service.chat_route_service import ChatRouteService
 from service.chat_service import ChatService
 from service.chatbot_service import ChatbotService
+from service.copilot_service import CopilotService
 from service.definition_service import DefinitionService
 from service.git_service import GitService
 from service.masking_service import MaskingService
@@ -55,6 +57,18 @@ class Container:
             worker_command=[sys.executable, config.worker_script],
         )
         self.backup_service = BackupService.from_config()
+        # todof: tutta sta roba non può andare interna a copilot service inoltre git hub service a che serve
+        self.copilot_service = CopilotService(
+            store_service=self.store_service,
+            git_service=self.git_service,
+            project_data_service=self.project_data_service,
+            client=CopilotClient(
+                config.copilot_command, config.copilot_model,
+                config.copilot_github_token.get_secret_value() if config.copilot_github_token else None,
+            ),
+            planning_timeout_seconds=config.copilot_planning_timeout_minutes * 60,
+            execution_timeout_seconds=config.copilot_execution_timeout_minutes * 60,
+        )
         self.agent_service = AgentService(
             chat_service=self.chat_service,
             agent_config_service=self.agent_config_service,

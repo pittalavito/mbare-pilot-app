@@ -75,6 +75,18 @@ class Config(BaseSettings):
     worker_script: str = "src/worker.py"
     """The worker's entry point, relative to the app folder."""
 
+    # --- GitHub Copilot CLI (agent tasks delegated from the app) ---
+    copilot_command: str = "copilot"
+    """The CLI: a name on the PATH or a path (npm install -g @github/copilot)."""
+    copilot_model: str = ""
+    """Empty = Copilot's default model."""
+    copilot_github_token: SecretStr | None = None
+    """A GitHub token for Copilot; empty = the login made with ``copilot`` → /login."""
+    copilot_planning_timeout_minutes: float = 5
+    """A turn of the planning chat (the API waits for it)."""
+    copilot_execution_timeout_minutes: float = 60
+    """An execution in the worker."""
+
     # --- Datapizza tracing ---
     datapizza_trace_summary: bool = False
     """Print datapizza's "Trace Summary" panel (spans, duration, tokens) to the console after every run."""

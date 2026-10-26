@@ -23,6 +23,7 @@ from domain.store.db.pipeline_repository import (
     DbPipelineStepRunRepository,
 )
 from domain.store.db.chat_model_repository import DbChatModelRepository
+from domain.store.db.copilot_repository import DbCopilotMessageRepository, DbCopilotSessionRepository
 from domain.store.db.project_repository import DbProjectRepository
 from domain.store.db.prompt_repository import DbPromptRepository
 from domain.store.db.repository import Engine
@@ -42,6 +43,7 @@ from models.domain.agent import (
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
 from models.domain.chat import ChatModel, EmbeddingModelName
 from models.domain.chatbot import ChatMessage, ChatRoute, Chatbot, Conversation, MessageRole
+from models.domain.copilot import CopilotMessage, CopilotMessageRole, CopilotSession, CopilotSessionStatus
 from models.domain.pipeline import (
     INPUT_NODE,
     EdgeConditionKind,
@@ -63,6 +65,8 @@ from models.store.db import (
     ChatbotTable,
     ChatRouteTable,
     ConversationTable,
+    CopilotMessageTable,
+    CopilotSessionTable,
     MessageTable,
     ChatModelTable,
     PipelineEdgeTable,
@@ -92,6 +96,8 @@ __all__ = [
     "DbPipelineStepRepository",
     "DbPipelineStepRunRepository",
     "DbChatModelRepository",
+    "DbCopilotMessageRepository",
+    "DbCopilotSessionRepository",
     "DbProjectRepository",
     "DbPromptRepository",
     "DbRoleRepository",
@@ -109,6 +115,21 @@ def _as_utc(value: datetime) -> datetime:
 
 class Adapter:
     """Read seam: DB rows -> domain models."""
+
+    @staticmethod
+    def to_copilot_session(row: CopilotSessionTable) -> CopilotSession:
+        return CopilotSession(**{
+            **row.model_dump(),
+            "status": CopilotSessionStatus(row.status),
+            "created_at": _as_utc(row.created_at),
+            "updated_at": _as_utc(row.updated_at),
+            "started_at": _as_utc(row.started_at) if row.started_at else None,
+            "finished_at": _as_utc(row.finished_at) if row.finished_at else None,
+        })
+
+    @staticmethod
+    def to_copilot_message(row: CopilotMessageTable) -> CopilotMessage:
+        return CopilotMessage(**{**row.model_dump(), "role": CopilotMessageRole(row.role), "created_at": _as_utc(row.created_at)})
 
     @staticmethod
     def to_run_summary(row: AgentRunTable) -> AgentRunSummary:
@@ -319,6 +340,14 @@ class Adapter:
 
 class Factory:
     """Write seam: domain models -> DB rows."""
+
+    @staticmethod
+    def to_copilot_session_row(session: CopilotSession) -> CopilotSessionTable:
+        return CopilotSessionTable(**{**session.model_dump(), "status": session.status.value, "changed_files": list(session.changed_files)})
+
+    @staticmethod
+    def to_copilot_message_row(message: CopilotMessage) -> CopilotMessageTable:
+        return CopilotMessageTable(**{**message.model_dump(), "role": message.role.value})
 
     @staticmethod
     def to_chatbot_row(chatbot: Chatbot) -> ChatbotTable:

@@ -16,6 +16,10 @@ Valori derivati:
 |---|---|---|
 | `data_home` | `MBARE_PILOT_HOME` | `~/.mbare-pilot` |
 | `worker_script` | `WORKER_SCRIPT` | `src/worker.py`: il worker che l'API avvia (`ProcessService`) |
+| `copilot_command` | `COPILOT_COMMAND` | `copilot`: GitHub Copilot CLI (nome nel PATH o percorso) |
+| `copilot_model` | `COPILOT_MODEL` | vuoto: il modello predefinito di Copilot |
+| `copilot_github_token` | `COPILOT_GITHUB_TOKEN` | vuoto: vale il login fatto con `copilot` → `/login` |
+| `copilot_planning_timeout_minutes`, `copilot_execution_timeout_minutes` | `COPILOT_PLANNING_TIMEOUT_MINUTES`, `COPILOT_EXECUTION_TIMEOUT_MINUTES` | 5 e 60: un turno di preparazione, un'esecuzione |
 | `app_root`, `run_dir`, `logs_dir` | cartella dell'app, `resource/run`, `resource/logs` | file PID e log di API e worker |
 | `web_dist` | `web/dist` | il frontend compilato che l'API serve (`core/server.py`) |
 | `project_data_root` | `data_home / "project"` | note, file caricati e contesto dei progetti (`project/<slug>/`) |

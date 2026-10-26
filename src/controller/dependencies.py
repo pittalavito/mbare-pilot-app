@@ -7,6 +7,7 @@ from service.atlassian_service import AtlassianService
 from service.backup_service import BackupService
 from service.chat_route_service import ChatRouteService
 from service.chatbot_service import ChatbotService
+from service.copilot_service import CopilotService
 from service.definition_service import DefinitionService
 from service.process_service import ProcessService
 from service.git_service import GitService
@@ -72,3 +73,7 @@ def masking_service(request: Request) -> MaskingService:
 
 def process_service(request: Request) -> ProcessService:
     return request.app.state.container.process_service
+
+
+def copilot_service(request: Request) -> CopilotService:
+    return request.app.state.container.copilot_service
