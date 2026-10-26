@@ -26,11 +26,20 @@ HELLO_AGENT = """agents:
 """The example agent the tests build on, as the data folder's global-agent.yml
 has it: a Container creates it at startup, as in the app."""
 
+CODING_AGENT = """plan_prompt: |
+  Ti affido il task qui sotto. Leggi il codice, fai le tue domande e aspetta il mio ok.
+
+  {task}
+execute_prompt: Ok, procedi con il piano concordato, senza commit.
+denied_tools: ["shell(git commit)", "shell(git push)", "shell(git reset)"]
+"""
+"""Copilot's prompts and denied tools (global-coding-agent.yml): required to use Copilot."""
+
 
 @pytest.fixture(autouse=True)
 def config(tmp_path):
     """The app-wide Config for every test: no .env, fake URLs and keys, data in
-    a tmp dir whose definition/global-agent.yml holds the example agent."""
+    a tmp dir whose definition/ holds the example agent and Copilot's definition."""
     test_config = Config(
         _env_file=None,
         database_url="sqlite://",
@@ -41,6 +50,7 @@ def config(tmp_path):
     )
     test_config.definitions_root.mkdir(parents=True)
     (test_config.definitions_root / "global-agent.yml").write_text(HELLO_AGENT, encoding="utf-8")
+    (test_config.definitions_root / "global-coding-agent.yml").write_text(CODING_AGENT, encoding="utf-8")
     Config.set(test_config)
     yield test_config
     Config.set(None)

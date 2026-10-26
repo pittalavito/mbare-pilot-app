@@ -57,3 +57,5 @@ class CopilotMessageResponse(BaseModel):
 class CopilotStatusResponse(BaseModel):
     installed: bool
     version: str | None
+    definition_error: str | None = None
+    """Why the coding-agent definition (prompts, denied tools) cannot be used; None when fine."""

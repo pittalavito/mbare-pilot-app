@@ -103,6 +103,7 @@ function CopilotCard() {
       ) : (
         <Text size="xs" c="orange">Non installato: <code>npm install -g @github/copilot</code>, poi <code>copilot</code> → <code>/login</code>.</Text>
       )}
+      {status.data?.definition_error && <Text size="xs" c="orange">Prompt e divieti: {status.data.definition_error}</Text>}
     </Card>
   );
 }

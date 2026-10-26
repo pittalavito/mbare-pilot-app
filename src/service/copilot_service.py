@@ -6,9 +6,12 @@ A session lives in two phases:
    Copilot the task and asks it to read the code, ask its questions and
    propose a plan; then the user and Copilot chat. Plan mode: nothing changes.
 2. **Execution** (in the worker, after ``approve``): the same Copilot session
-   resumes in autopilot and changes the files, never commits
-   (``EXECUTION_DENIED``). HEAD is read before and after: if it moved, the
-   session says so (nothing is undone: that is the user's call).
+   resumes in autopilot and changes the files, minus the denied tools (no
+   commits). HEAD is read before and after: if it moved, the session says so
+   (nothing is undone: that is the user's call).
+
+The prompts and the denied tools come from the coding-agent definition in the
+data folder (domain/project/coding_agent.py), read at every use.
 
 One execution at a time per repository (the queue waits); after an execution
 the chat can go on and a new ok starts a new one. The task's status follows:
@@ -19,28 +22,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
+from config import Config
 from core.error import AppError, ConflictError, NotFoundError, UpstreamError, ValidationError
 from core.observability import LogPrefix, log_exception, observed
-from domain.client.copilot.client import CopilotClient, CopilotMode
-from models.domain.copilot import CopilotMessage, CopilotMessageRole, CopilotSession, CopilotSessionStatus, CopilotTurn
+from domain.client.copilot.client import NOT_FOUND, CopilotClient, CopilotMode
+from domain.project import coding_agent
+from models.domain.copilot import CodingAgentSettings, CopilotMessage, CopilotMessageRole, CopilotSession, CopilotSessionStatus, CopilotTurn
 from models.domain.note import TaskStatus
 from service.git_service import GitService
 from service.project_data_service import ProjectDataService
 from service.store_service import StoreService
-
-# todof: scriviao meglio sta parte di
-FIRST_PROMPT = """Ti affido il task qui sotto, sul repository in cui ti trovi. Prima di cambiare qualcosa:
-1. leggi il codice che ti serve;
-2. fammi le domande necessarie per chiarire il task, poche e precise;
-3. quando non hai più domande, proponi un piano breve e aspetta il mio ok.
-Parliamo attraverso un'app, a turni: ogni mio messaggio ti arriva come un nuovo turno, quindi fai pure le tue domande e aspetta la risposta. Adesso sei in modalità piano e non puoi modificare niente: è giusto così. Il via lo do io con il pulsante «Ok, parti» dell'app, che ti riattiva per eseguire il piano; non chiedermi di uscire dalla modalità piano né di premere tasti. Anche dopo l'ok non farai commit, push né altre operazioni git che cambiano la storia, l'indice o i branch: il commit lo faccio io.
-
-{task}"""
-
-EXECUTE_PROMPT = (
-    "Ok, procedi con il piano concordato. Non fare commit, push né altre operazioni git che cambiano la storia, "
-    "l'indice o i branch. Alla fine riassumi cosa hai cambiato (file e motivo) e se i criteri di accettazione sono soddisfatti."
-)
 
 _CANCEL_CHECK_SECONDS = 2.0
 
@@ -71,10 +62,39 @@ class CopilotService:
         self._planning_timeout = planning_timeout_seconds
         self._execution_timeout = execution_timeout_seconds
 
+    @classmethod
+    def from_config(cls, store_service: StoreService, git_service: GitService, project_data_service: ProjectDataService) -> "CopilotService":
+        """The CLI, model, token and timeouts from the Config (COPILOT_*).
+        ``git_service`` resolves the repository folder and reads HEAD and
+        ``git status`` around an execution (moved HEAD, changed files)."""
+        config = Config.get()
+        token = config.copilot_github_token.get_secret_value() if config.copilot_github_token else None
+        return cls(
+            store_service=store_service,
+            git_service=git_service,
+            project_data_service=project_data_service,
+            client=CopilotClient(config.copilot_command, config.copilot_model, token),
+            planning_timeout_seconds=config.copilot_planning_timeout_minutes * 60,
+            execution_timeout_seconds=config.copilot_execution_timeout_minutes * 60,
+        )
+
     # ------------------------------------------------------------------ read
     def version(self) -> str | None:
         """The installed Copilot CLI, None when missing."""
         return self._client.version()
+
+    def coding_agent(self, project_name: str | None = None) -> CodingAgentSettings:
+        """Prompts and denied tools: the global definition, with the project's
+        fields over it. Raises ValidationError when missing or broken."""
+        return coding_agent.load(self._store.read_definition, project_name)
+
+    def coding_agent_error(self, project_name: str | None = None) -> str | None:
+        """Why Copilot cannot start with the current definition files; None when it can."""
+        try:
+            self.coding_agent(project_name)
+        except AppError as exc:
+            return str(exc)
+        return None
 
     def sessions(self, project_name: str) -> list[CopilotSession]:
         """A project's sessions, newest first."""
@@ -95,15 +115,18 @@ class CopilotService:
         """A new session on an agent task: the first planning turn runs now,
         so the session comes back with Copilot's questions (or the error)."""
         if not self._client.available:
-            raise UpstreamError("Copilot CLI non trovato: installalo (npm install -g @github/copilot) e fai il login.")
+            raise UpstreamError(NOT_FOUND)
+        settings = self.coding_agent(project_name)
         self._data.agent_task(project_name, task_note)  # exists and is an agent task
         folder = self._git.repository_folder(project_name, repository)
         task = self._data.read_note(project_name, task_note)
         session = self._store.save_copilot_session(CopilotSession(
-            project_name=project_name, task_note=task_note, repository=repository.strip().strip("/\\"),
+            project_name=project_name, 
+            task_note=task_note, 
+            repository=repository.strip().strip("/\\"),
             copilot_session_id=str(uuid4()),
         ))
-        return self._plan_turn(session, folder, FIRST_PROMPT.format(task=task.strip()))
+        return self._plan_turn(session, folder, coding_agent.plan_prompt(settings, task))
 
     @observed(LogPrefix.COPILOT_SERVICE)
     def send(self, session_id: int, text: str) -> CopilotSession:
@@ -169,6 +192,7 @@ class CopilotService:
         if on_claim:
             on_claim(session)
         try:
+            settings = self.coding_agent(session.project_name)
             folder = self._git.repository_folder(session.project_name, session.repository)
             head_before = self._git.head(session.project_name, session.repository)
         except AppError as exc:
@@ -177,9 +201,9 @@ class CopilotService:
         session = self._update(session, head_before=head_before, head_after=None, changed_files=[], error=None)
         self._message(session, CopilotMessageRole.EVENT, "▶️ Esecuzione partita: Copilot modifica i file, senza commit.")
         self._set_task_status(session, TaskStatus.IN_PROGRESS)
-        self._message(session, CopilotMessageRole.USER, EXECUTE_PROMPT)
-        turn = self._client.turn(folder, session.copilot_session_id, EXECUTE_PROMPT, CopilotMode.EXECUTE,
-                                 self._execution_timeout, self._cancel_check(session.id))
+        self._message(session, CopilotMessageRole.USER, settings.execute_prompt)
+        turn = self._client.turn(folder, session.copilot_session_id, settings.execute_prompt, CopilotMode.EXECUTE,
+                                 self._execution_timeout, settings.denied_tools, self._cancel_check(session.id))
         session = self._record(session, turn)
         return self._finish(session, turn)
 

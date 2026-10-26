@@ -8,11 +8,13 @@ mbare-pilot-data/
     global-agent.yml          agenti della Libreria (globali)                       agents: [...]
     global-chat-bot.yml       chatbot di ogni progetto che non ha il suo            un chatbot
     global-automation.yml     automation di ogni progetto (salvo stesso nome)       automations: [...]
+    global-coding-agent.yml   prompt e divieti di Copilot (obbligatorio per usarlo) un coding agent
     project/
       <slug>/                 es. gestionali-navi
         chat-bot.yml          il chatbot del progetto                               un chatbot
         agent.yml             gli agenti del progetto                               agents: [...]
         automation.yml        le automation del progetto                            automations: [...]
+        coding-agent.yml      campi che sostituiscono quelli globali di Copilot     un coding agent
   project/
     <slug>/
       notes/                  note scritte dall'app: generiche, agent-task-<titolo>.md, todo-list-<titolo>.md
@@ -104,6 +106,26 @@ automations:
 - **Collegamenti**: `if` è `always` (default), `contains`, `not_contains`, `matches` (regex) o `otherwise`; `value` per le prime tre. `from: input` è l'input dell'esecuzione.
 - **Gli step restano gli stessi**: in aggiornamento uno step con lo stesso nome tiene il suo id (storico, versioni del prompt) e la sua **posizione nel grafo** dell'editor. Uno step tolto dal file sparisce dall'automation.
 
+## Coding agent (`global-coding-agent.yml`, `coding-agent.yml`)
+
+Quello che l'app dice a GitHub Copilot negli agent task delegati ([service](src/service/README.md#copilot)). **Non si sincronizza**: Copilot lo legge a ogni uso (inizio della preparazione, avvio dell'esecuzione), quindi una modifica vale dal turno successivo.
+
+```yaml
+plan_prompt: |                     # primo turno della preparazione; {task} = il markdown del task
+  Ti affido il task qui sotto...
+  {task}
+# oppure: plan_prompt_file: piano.md   (un file accanto a questo)
+execute_prompt: Ok, procedi con il piano concordato...   # oppure execute_prompt_file
+denied_tools:                      # i --deny-tool dell'esecuzione: l'elenco completo
+  - shell(git commit)
+  - shell(git push)
+```
+
+- **Il globale è obbligatorio**: senza `global-coding-agent.yml`, o con un file rotto, Copilot non parte. L'errore si vede nella scheda Copilot e in Admin → Servizi. Non ci sono testi di riserva nel codice: un file sbagliato non deve allentare i divieti.
+- **Override per progetto**: `project/<slug>/coding-agent.yml` può avere solo alcuni campi; quelli che scrive sostituiscono i globali per quel progetto. `denied_tools` si sostituisce per intero (anche con `[]`).
+- **Divieti**: nessuno è aggiunto dal codice. La rete di sicurezza resta il controllo dell'HEAD prima e dopo l'esecuzione.
+- **Regole**: `plan_prompt` deve contenere `{task}` (le altre graffe restano come sono); uno solo tra `x_prompt` e `x_prompt_file`; un campo sconosciuto è un errore.
+
 ## Codice
 
 | Dove | Cosa |
@@ -111,6 +133,7 @@ automations:
 | `domain/project/data_paths.py` | la struttura della cartella dei dati e i nomi dei file |
 | `models/domain/definitions.py` | i modelli degli elementi (`AgentFile`, `ChatbotFile`, `AutomationFile`, `StepFile`, `EdgeFile`) e del report (`SyncReport`, `SyncItem`) |
 | `service/definition_service.py` | `DefinitionService.sync(progetto)`: legge, valida, applica con i servizi di agenti, chatbot e automation |
+| `domain/project/coding_agent.py` | `load(read, progetto)`: il coding agent di Copilot, globale più override del progetto (usato da `CopilotService`) |
 | `service/store_service.py` | `read_definition`, `save_definition`: i file di `definition/` |
 | `controller/definition_controller.py` | `POST /projects/{p}/definitions/sync` |
 | `web/src/pages/settings/SettingsTab.tsx` | la sezione nelle Impostazioni del progetto (frontend) |

@@ -75,6 +75,15 @@ class CopilotMessage(BaseModel):
     created_at: datetime = Field(default_factory=_utc_now)
 
 
+class CodingAgentSettings(BaseModel):
+    """What the app tells Copilot, from the coding-agent definition files."""
+    plan_prompt: str
+    """The first planning turn; ``{task}`` becomes the task's markdown."""
+    execute_prompt: str
+    denied_tools: list[str]
+    """``--deny-tool`` of the execution, e.g. ``shell(git commit)``."""
+
+
 class CopilotTurn(BaseModel):
     """What one invocation of Copilot CLI answered."""
     message: str

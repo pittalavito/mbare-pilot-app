@@ -7,6 +7,7 @@ src/domain/project/
   data_paths.py       percorsi e nomi dei dati del progetto (funzioni pure, niente disco)
   note_templates.py   i template delle note tipizzate: markdown da e verso i campi
   folder_browser.py   FolderBrowser: navigare e creare cartelle, solo dentro PROJECT_ROOTS
+  coding_agent.py     prompt e divieti di Copilot dai file di definition/ (vedi definitions.md)
 ```
 
 Un progetto ha **due posti** distinti:

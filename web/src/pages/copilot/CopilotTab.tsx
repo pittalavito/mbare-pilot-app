@@ -32,7 +32,7 @@ export function CopilotTab() {
   const { project = "" } = useParams();
   const [search, setSearch] = useSearchParams();
   const sessions = useCopilotSessions(project);
-  const status = useCopilotStatus();
+  const status = useCopilotStatus(project);
   const [delegating, setDelegating] = useState(false);
   const requested = Number(search.get("session"));
   const selected = sessions.data?.find((session) => session.id === requested) ?? sessions.data?.[0];
@@ -41,10 +41,17 @@ export function CopilotTab() {
     <Grid gutter="md">
       <Grid.Col span={{ base: 12, md: 3 }}>
         <Stack gap="xs">
-          <Button onClick={() => setDelegating(true)} disabled={status.data && !status.data.installed}>🤖 Delega un task</Button>
+          <Button onClick={() => setDelegating(true)} disabled={status.data && (!status.data.installed || !!status.data.definition_error)}>
+            🤖 Delega un task
+          </Button>
           {status.data && !status.data.installed && (
             <Alert color="orange" p="xs">
               <Text size="xs">Copilot CLI non è installato: <code>npm install -g @github/copilot</code>, poi <code>copilot</code> → <code>/login</code>.</Text>
+            </Alert>
+          )}
+          {status.data?.definition_error && (
+            <Alert color="orange" p="xs">
+              <Text size="xs">Prompt e divieti di Copilot: {status.data.definition_error}</Text>
             </Alert>
           )}
           {sessions.isPending && <Loader size="sm" />}

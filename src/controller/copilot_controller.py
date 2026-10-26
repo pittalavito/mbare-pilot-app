@@ -13,10 +13,11 @@ router = APIRouter(tags=["copilot"])
 
 
 @router.get("/copilot/status")
-def copilot_status(service: CopilotService = Depends(copilot_service)) -> CopilotStatusResponse:
-    """Whether Copilot CLI is installed, and its version."""
+def copilot_status(project: str | None = None, service: CopilotService = Depends(copilot_service)) -> CopilotStatusResponse:
+    """Whether Copilot CLI is installed, its version, and what is wrong with the
+    coding-agent definition (the global one, plus ``project``'s when given)."""
     version = service.version()
-    return CopilotStatusResponse(installed=version is not None, version=version)
+    return CopilotStatusResponse(installed=version is not None, version=version, definition_error=service.coding_agent_error(project))
 
 
 @router.get("/projects/{project}/copilot-sessions")

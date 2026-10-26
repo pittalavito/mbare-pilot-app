@@ -42,7 +42,7 @@ Tutti i path qui sotto stanno sotto `/api` (`core/server.py` monta l'API lì e s
 | Mascheramento | `GET/POST /projects/{p}/masking`, `DELETE /projects/{p}/masking/{alias}` |
 | Processi | `GET /admin/worker`, `POST /admin/worker/start`, `POST /admin/worker/stop` (409 se ne gira uno avviato altrove), `GET /admin/logs/{api\|worker}?lines=` |
 | Definizioni da file | `POST /projects/{p}/definitions/sync` (vedi [definitions](../../definitions.md)) |
-| Copilot | `GET /copilot/status`, `GET/POST /projects/{p}/copilot-sessions`, `GET/DELETE /copilot-sessions/{id}`, `GET/POST /copilot-sessions/{id}/messages`, `POST /copilot-sessions/{id}/approve`, `POST /copilot-sessions/{id}/cancel` |
+| Copilot | `GET /copilot/status[?project=]` (CLI e coding agent), `GET/POST /projects/{p}/copilot-sessions`, `GET/DELETE /copilot-sessions/{id}`, `GET/POST /copilot-sessions/{id}/messages`, `POST /copilot-sessions/{id}/approve`, `POST /copilot-sessions/{id}/cancel` |
 | Admin | `GET /admin/config`, `GET /observability/runs`, `GET /observability/runs/{run_id}/trace`, `GET /observability/tool-calls`, `GET/POST /admin/backups`, `GET /admin/backups/{nome}` |
 
 ## Convenzioni

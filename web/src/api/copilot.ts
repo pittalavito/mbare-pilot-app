@@ -15,15 +15,20 @@ export type CopilotStatus = CopilotSession["status"];
 export const isExecuting = (session: CopilotSession) => session.status === "queued" || session.status === "running";
 
 export const copilotKeys = {
-  status: ["copilot", "status"] as const,
+  status: (project?: string) => ["copilot", "status", project ?? ""] as const,
   sessions: (project: string) => ["projects", project, "copilot-sessions"] as const,
   session: (id: number) => ["copilot-sessions", id] as const,
   messages: (id: number) => ["copilot-sessions", id, "messages"] as const,
 };
 
-/** Whether Copilot CLI is installed, and its version. */
-export function useCopilotStatus() {
-  return useQuery({ queryKey: copilotKeys.status, queryFn: () => unwrap(api.GET("/copilot/status")), staleTime: 60_000 });
+/** Whether Copilot CLI is installed, its version, and what is wrong with the
+ * coding-agent definition (the global one, plus the project's when given). */
+export function useCopilotStatus(project?: string) {
+  return useQuery({
+    queryKey: copilotKeys.status(project),
+    queryFn: () => unwrap(api.GET("/copilot/status", { params: { query: { project } } })),
+    staleTime: 60_000,
+  });
 }
 
 /** Newest first; refreshed every 3 seconds while one of them is executing. */

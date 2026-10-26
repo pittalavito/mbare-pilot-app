@@ -13,7 +13,7 @@ import pytest
 from sqlmodel import SQLModel, create_engine
 
 from core.error import ConflictError, UpstreamError, ValidationError
-from domain.client.copilot.client import EXECUTION_DENIED, CopilotClient, CopilotMode
+from domain.client.copilot.client import CopilotClient, CopilotMode
 from models.domain.copilot import CopilotMessageRole, CopilotSessionStatus
 from models.domain.note import AgentTask, TaskStatus
 from models.domain.project import Project, ProjectSource
@@ -125,7 +125,9 @@ def test_the_ok_runs_copilot_in_the_worker_without_commits_and_closes_the_task(s
     assert data.agent_task("acme", note).status == TaskStatus.DONE
     execution = _turns(tmp_path, session)[-1]
     assert execution["mode"] == "autopilot" and "--allow-all-tools" in execution["args"]
-    assert all(tool in execution["args"] for tool in EXECUTION_DENIED)
+    denied = [execution["args"][i + 1] for i, arg in enumerate(execution["args"]) if arg == "--deny-tool"]
+    assert denied == ["shell(git commit)", "shell(git push)", "shell(git reset)"]  # global-coding-agent.yml of conftest
+    assert execution["prompt"] == "Ok, procedi con il piano concordato, senza commit."
     assert service.messages(session.id)[-2].content == "Ho creato copilot.txt. Criteri soddisfatti."
     assert service.run_next() is None  # nothing else queued
 
@@ -243,6 +245,56 @@ def test_executions_left_running_by_a_dead_worker_fail_at_restart(store_service,
         service.approve(session.id)  # only from planning
 
 
+# --------------------------------------------------- coding-agent definition
+
+def test_the_project_definition_replaces_the_global_fields_and_prompts_can_be_files(store_service, data, project, config, tmp_path):
+    folder = config.definitions_root / "project" / "acme"
+    folder.mkdir(parents=True)
+    (folder / "piano.md").write_text("Piano su misura con {braces} JSON.\n\n{task}\n", encoding="utf-8")
+    (folder / "coding-agent.yml").write_text("plan_prompt_file: piano.md\ndenied_tools: []\n", encoding="utf-8")
+    service = _service(store_service, data)
+
+    settings = service.coding_agent("acme")
+    assert settings.denied_tools == [] and settings.execute_prompt.startswith("Ok, procedi")  # execute_prompt from the global
+    session = service.start("acme", _task(data), "api")
+    assert service.messages(session.id)[0].content.startswith("Piano su misura con {braces} JSON.\n\n# Aggiungi copilot.txt")
+    service.approve(session.id)
+    assert "--deny-tool" not in _turns(tmp_path, service.run_next())[-1]["args"]
+    assert service.coding_agent().denied_tools  # other projects: the global list
+
+
+@pytest.mark.parametrize("text, error", [
+    (None, "Manca definition/global-coding-agent.yml"),
+    ("plan_prompt: senza segnaposto\nexecute_prompt: vai\ndenied_tools: []\n", "{task}"),
+    ("plan_prompt: '{task}'\ndenied_tools: []\n", "manca execute_prompt"),
+    ("plan_prompt: '{task}'\nexecute_prompt: vai\ndenied_tools: []\ndenyed: []\n", "denyed"),
+    ("plan_prompt: '{task}'\nplan_prompt_file: p.md\nexecute_prompt: vai\ndenied_tools: []\n", "uno dei due"),
+    ("plan_prompt_file: manca.md\nexecute_prompt: vai\ndenied_tools: []\n", "non trovato o vuoto"),
+    ("plan_prompt: [rotto\n", "YAML non valido"),
+])
+def test_a_missing_or_broken_global_definition_stops_copilot(store_service, data, project, config, text, error):
+    path = config.definitions_root / "global-coding-agent.yml"
+    path.unlink()
+    if text is not None:
+        path.write_text(text, encoding="utf-8")
+    service = _service(store_service, data)
+
+    assert error in service.coding_agent_error("acme")
+    with pytest.raises(ValidationError, match=error.replace("{", r"\{").replace("}", r"\}")):
+        service.start("acme", _task(data), "api")
+
+
+def test_an_execution_fails_when_the_definition_broke_after_the_ok(store_service, data, project, config):
+    service = _service(store_service, data)
+    session = service.start("acme", _task(data), "api")
+    service.approve(session.id)
+    (config.definitions_root / "global-coding-agent.yml").unlink()
+
+    session = service.run_next()
+
+    assert session.status == CopilotSessionStatus.FAILED and "Manca definition/global-coding-agent.yml" in session.error
+
+
 # -------------------------------------------------------------------- client
 
 def test_the_client_reports_a_missing_cli_and_reads_the_last_message(tmp_path, monkeypatch):
@@ -256,3 +308,6 @@ def test_the_client_reports_a_missing_cli_and_reads_the_last_message(tmp_path, m
     assert (turn.error, turn.message, turn.premium_requests) == (None, "Domanda 1: confermi? (turni in questa sessione: 1)", 1)
     recorded = json.loads((tmp_path / "state" / "s2.json").read_text(encoding="utf-8"))
     assert recorded[0]["prompt"] == "prima riga\nseconda riga"  # multi-line prompts arrive whole
+
+    CopilotClient(FAKE).turn(tmp_path, "s2", "vai", CopilotMode.PLAN, 30, denied_tools=["shell(git commit)"])
+    assert "--deny-tool" not in json.loads((tmp_path / "state" / "s2.json").read_text(encoding="utf-8"))[-1]["args"]  # plan mode: no denials

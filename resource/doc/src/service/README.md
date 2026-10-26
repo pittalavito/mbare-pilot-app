@@ -100,6 +100,8 @@ L'utente mette in cache un **suo** messaggio scegliendo un'automation del proget
 - **Il task segue**: in corso durante l'esecuzione, fatto se va a buon fine, da fare altrimenti. L'esito resta nella sessione, non nella nota.
 - Dopo un'esecuzione la chat può continuare (si torna in preparazione) e un nuovo ok fa partire un'altra esecuzione. `fail_interrupted()` all'avvio del worker chiude le esecuzioni rimaste a metà.
 - Niente mascheramento: Copilot legge comunque il codice del repository.
+- **Prompt e divieti**: dal coding agent della cartella dei dati (`global-coding-agent.yml`, con l'override `project/<slug>/coding-agent.yml`; [definizioni](../../definitions.md#coding-agent-global-coding-agentyml-coding-agentyml)), letto da `coding_agent(progetto)` a ogni `start` e a ogni avvio dell'esecuzione. Se manca o è rotto: `start` dà errore, un'esecuzione già in coda fallisce con il motivo. `coding_agent_error(progetto)` lo dice a `GET /copilot/status?project=`.
+- **Costruzione**: il Container chiama `CopilotService.from_config(...)`, che crea il `CopilotClient` e i timeout dalle impostazioni `COPILOT_*`. Dipende da `GitService` per la cartella del repository (controllata), l'HEAD prima e dopo e il `git status`; da `ProjectDataService` per il task e il suo stato.
 
 ## Definizioni da file
 

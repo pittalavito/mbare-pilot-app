@@ -2,7 +2,9 @@
 under ``<MBARE_PILOT_HOME>/definition/`` (layout in domain/project/data_paths.py):
 ``agent.yml`` / ``global-agent.yml`` hold a list ``agents:`` of ``AgentFile``,
 ``automation.yml`` / ``global-automation.yml`` a list ``automations:`` of
-``AutomationFile``, ``chat-bot.yml`` / ``global-chat-bot.yml`` one ``ChatbotFile``.
+``AutomationFile``, ``chat-bot.yml`` / ``global-chat-bot.yml`` one ``ChatbotFile``,
+``coding-agent.yml`` / ``global-coding-agent.yml`` one ``CodingAgentFile``
+(read by CopilotService at every use, never synced).
 
 DefinitionService validates them and applies them on request ("sync"): what
 is in the files is created or updated, matched by name, and the file wins over
@@ -53,6 +55,28 @@ class ChatbotFile(_File):
     def _one_prompt(self) -> "ChatbotFile":
         if (self.system_prompt is None) == (self.system_prompt_file is None):
             raise ValueError("scrivi system_prompt oppure system_prompt_file (uno dei due)")
+        return self
+
+
+class CodingAgentFile(_File):
+    """``global-coding-agent.yml`` (and ``project/<slug>/coding-agent.yml``,
+    whose fields replace the global ones): what the app tells Copilot.
+    ``plan_prompt`` is the first planning turn (``{task}`` = the task's
+    markdown), ``execute_prompt`` the turn that starts the execution,
+    ``denied_tools`` the ``--deny-tool`` of the execution (e.g. ``shell(git
+    commit)``): the whole list, nothing is added by the code. A prompt can be
+    in a file next to this one (``*_prompt_file``), used as it is."""
+    plan_prompt: Prompt | None = None
+    plan_prompt_file: str | None = None
+    execute_prompt: Prompt | None = None
+    execute_prompt_file: str | None = None
+    denied_tools: list[Prompt] | None = None
+
+    @model_validator(mode="after")
+    def _one_source(self) -> "CodingAgentFile":
+        for name in ("plan_prompt", "execute_prompt"):
+            if getattr(self, name) is not None and getattr(self, f"{name}_file") is not None:
+                raise ValueError(f"scrivi {name} oppure {name}_file (uno dei due)")
         return self
 
 

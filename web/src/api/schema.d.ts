@@ -1273,7 +1273,8 @@ export interface paths {
         };
         /**
          * Copilot Status
-         * @description Whether Copilot CLI is installed, and its version.
+         * @description Whether Copilot CLI is installed, its version, and what is wrong with the
+         *     coding-agent definition (the global one, plus ``project``'s when given).
          */
         get: operations["copilot_status_copilot_status_get"];
         put?: never;
@@ -1865,6 +1866,8 @@ export interface components {
             installed: boolean;
             /** Version */
             version: string | null;
+            /** Definition Error */
+            definition_error?: string | null;
         };
         /** CreateFromScratchRequest */
         CreateFromScratchRequest: {
@@ -5331,7 +5334,9 @@ export interface operations {
     };
     copilot_status_copilot_status_get: {
         parameters: {
-            query?: never;
+            query?: {
+                project?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -5345,6 +5350,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CopilotStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

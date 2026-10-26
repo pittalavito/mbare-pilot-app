@@ -4,7 +4,10 @@ GitHub Copilot CLI eseguito come sottoprocesso: un **turno** (`copilot -p`) per 
 
 ```
 src/domain/client/copilot/
-  client.py     CopilotClient, CopilotMode, EXECUTION_DENIED
+  client.py     CopilotClient, CopilotMode: argomenti per modalità, turn(), version()
+  cli.py        trovare il CLI (resolve), niente finestra di console (NO_WINDOW)
+  process.py    eseguire un turno: pipe in background, timeout, annullamento, kill dell'albero
+  output.py     l'output JSONL → CopilotTurn
 ```
 
 Prerequisito: `npm install -g @github/copilot`, poi `copilot` → `/login` con l'account che ha Copilot (oppure `COPILOT_GITHUB_TOKEN`).
@@ -14,19 +17,20 @@ Prerequisito: `npm install -g @github/copilot`, poi `copilot` → `/login` con l
 | Modalità | Argomenti | Cosa può fare Copilot |
 |---|---|---|
 | `PLAN` (preparazione) | `--mode plan` | legge il codice e risponde; il CLI stesso blocca ogni modifica fuori dalla sua cartella di sessione |
-| `EXECUTE` (esecuzione) | `--mode autopilot --allow-all-tools --no-ask-user` e un `--deny-tool` per ogni voce di `EXECUTION_DENIED` | modifica i file e lancia comandi, ma non `git commit`, `push`, `add`, `restore`, `reset`, `checkout`, `switch`, `stash`, `rebase`, `merge`, `tag`, `branch`, `clean`… |
+| `EXECUTE` (esecuzione) | `--mode autopilot --allow-all-tools --no-ask-user` e un `--deny-tool` per ogni voce di `denied_tools` | modifica i file e lancia comandi, tranne quelli vietati |
 
 Sempre: `--add-dir <repository>`, `--output-format json`, `--no-color`; `--model` se `COPILOT_MODEL` è impostato.
 
-I divieti bloccano i comandi per nome (anche dentro un comando composto), non uno script che faccia un commit da sé: per questo il servizio controlla l'HEAD prima e dopo (vedi [service](../../../service/README.md#copilot)).
+I divieti **non sono nel codice**: li passa il servizio, dal file `global-coding-agent.yml` della cartella dei dati ([definizioni](../../../../definitions.md#coding-agent-global-coding-agentyml-coding-agentyml)). Bloccano i comandi per nome (anche dentro un comando composto), non uno script che faccia un commit da sé: per questo il servizio controlla l'HEAD prima e dopo (vedi [service](../../../service/README.md#copilot)).
 
-## `turn(cwd, session_id, prompt, mode, timeout_seconds, should_cancel)`
+## `turn(cwd, session_id, prompt, mode, timeout_seconds, denied_tools, should_cancel)`
 
 - Restituisce un `CopilotTurn`: l'ultimo `assistant.message` con testo, l'exit code e le richieste premium usate dalla sessione (dall'evento `result`). Non solleva per gli errori di Copilot: finiscono in `error`.
-- **Timeout e annullamento**: ogni mezzo secondo controlla `should_cancel()` e la scadenza; se serve, chiude Copilot e tutto quello che ha avviato (`psutil`).
-- **Windows**: npm installa un lanciatore `.cmd`, che taglierebbe il prompt al primo a capo. Il client lo riconosce e chiama `node …/@github/copilot/npm-loader.js` direttamente. Nessuna finestra di console (`CREATE_NO_WINDOW`).
+- `denied_tools` vale solo in `EXECUTE`.
+- **Timeout e annullamento** (`process.py`): ogni mezzo secondo controlla `should_cancel()` e la scadenza; se serve, chiude Copilot e tutto quello che ha avviato (`psutil`).
+- **Windows** (`cli.py`): npm installa un lanciatore `.cmd`, che taglierebbe il prompt al primo a capo. Il client lo riconosce e chiama `node …/@github/copilot/npm-loader.js` direttamente. Nessuna finestra di console (`CREATE_NO_WINDOW`).
 - `version()`: `copilot --version`, `None` se non è installato.
 
 ## Test
 
-`test/fake_copilot.py` imita il CLI (stesso output JSONL, memoria dei turni per sessione, niente scritture in modalità piano). Lo usano `test/unit/service/test_copilot_service.py` e `test/unit/api/test_copilot_api.py`, su repository git veri in una cartella temporanea.
+`test/fake_copilot.py` imita il CLI (stesso output JSONL, memoria dei turni per sessione, niente scritture in modalità piano). Lo usano `test/unit/service/test_copilot_service.py` e `test/unit/api/test_copilot_api.py`, su repository git veri in una cartella temporanea. La definizione di prova (`CODING_AGENT`) la scrive `test/conftest.py`.
