@@ -5,6 +5,7 @@ import { AdminPage } from "../pages/admin/AdminPage";
 import { AutomationTab } from "../pages/automation/AutomationTab";
 import { AtlassianTab } from "../pages/atlassian/AtlassianTab";
 import { ChatTab } from "../pages/chat/ChatTab";
+import { CopilotTab } from "../pages/copilot/CopilotTab";
 import { LibraryPage } from "../pages/library/LibraryPage";
 import { DataTab } from "../pages/data/DataTab";
 import { GitTab } from "../pages/git/GitTab";
@@ -23,6 +24,7 @@ const PROJECT_TABS = [
   { path: "automation/new", lazy: automationEditor },
   { path: "automation/:pipelineId/edit", lazy: automationEditor },
   { path: "data", element: <DataTab /> },
+  { path: "copilot", element: <CopilotTab /> },
   { path: "git", element: <GitTab /> },
   { path: "atlassian", element: <AtlassianTab /> },
   { path: "settings", element: <SettingsTab /> },

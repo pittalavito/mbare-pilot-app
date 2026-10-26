@@ -8,6 +8,7 @@ import { useSearchParams } from "react-router-dom";
 import {
   type CatalogModel, type RunSummary, backupUrl, useAgentRuns, useBackups, useConfig, useExportDb, useModels, useSaveModels, useToolCalls, useTrace,
 } from "../../api/admin";
+import { useCopilotStatus } from "../../api/copilot";
 import { localTime, size } from "../../format";
 
 /** The Admin page, one tab per area (``?tab=``): services, observability, models, backups.
@@ -70,6 +71,7 @@ function Services() {
       </Accordion>
       <DashboardCard title="Redis Dashboard" port={redis} description={`Redis via redis-commander su :${redis}.`} />
       <DashboardCard title="SQL Dashboard" port={postgres} description={`Postgres via Adminer su :${postgres}: server postgres, credenziali dal .env.`} />
+      <CopilotCard />
     </Stack>
   );
 }
@@ -84,6 +86,23 @@ function DashboardCard({ title, port, description }: { title: string; port: numb
         </div>
         <Button component="a" href={dashboardUrl(port)} target="_blank" rel="noreferrer" variant="default">Apri</Button>
       </Group>
+    </Card>
+  );
+}
+
+/** GitHub Copilot CLI, which the agent tasks are delegated to. */
+function CopilotCard() {
+  const status = useCopilotStatus();
+  return (
+    <Card withBorder>
+      <Text fw={600}>GitHub Copilot CLI</Text>
+      {status.isPending ? (
+        <Loader size="xs" />
+      ) : status.data?.installed ? (
+        <Text size="xs" c="dimmed">✅ {status.data.version} · per il login: <code>copilot</code> → <code>/login</code></Text>
+      ) : (
+        <Text size="xs" c="orange">Non installato: <code>npm install -g @github/copilot</code>, poi <code>copilot</code> → <code>/login</code>.</Text>
+      )}
     </Card>
   );
 }

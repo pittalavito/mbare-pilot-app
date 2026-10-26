@@ -11,6 +11,7 @@ const TABS = [
   { value: "chat", label: "💬 Chat" },
   { value: "automation", label: "⚙️ Automation" },
   { value: "data", label: "🗂️ Dati" },
+  { value: "copilot", label: "🤖 Copilot" },
   { value: "git", label: "🌿 Git" },
   { value: "atlassian", label: "🔷 Atlassian" },
   { value: "settings", label: "🔧 Impostazioni" },

@@ -7,6 +7,7 @@ import {
   type AgentTask, type AgentTaskBody, type TodoList, type TodoListBody, useAgentTasks, useDeleteNote, useSaveAgentTask, useSaveTodoList, useTodoLists,
 } from "../../api/projectData";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { DelegateModal } from "../copilot/DelegateModal";
 import { ChecklistEditor } from "./ChecklistEditor";
 
 /** The typed notes of the Dati tab: agent tasks and todo lists. On disk they
@@ -131,8 +132,11 @@ function TitleModal({ title, opened, loading, onClose, onCreate }: {
 }
 
 /** Save (Ctrl+S too) and delete, with the unsaved marker; shared by the two editors. */
-function EditorShell({ project, name, dirty, valid, saving, error, onSave, children }: {
-  project: string; name: string; dirty: boolean; valid: boolean; saving: boolean; error?: string; onSave: () => void; children: ReactNode;
+function EditorShell({ project, name, dirty, valid, saving, error, onSave, actions, children }: {
+  project: string; name: string; dirty: boolean; valid: boolean; saving: boolean; error?: string; onSave: () => void;
+  /** More buttons next to «Salva». */
+  actions?: ReactNode;
+  children: ReactNode;
 }) {
   const remove = useDeleteNote(project);
   return (
@@ -151,6 +155,7 @@ function EditorShell({ project, name, dirty, valid, saving, error, onSave, child
       <Group>
         <Button onClick={onSave} loading={saving} disabled={!dirty || !valid}>Salva</Button>
         <Text size="xs" c="dimmed">Ctrl+S salva</Text>
+        {actions}
         <ConfirmButton ml="auto" message={`Eliminare ${name}?`} loading={remove.isPending} error={remove.error?.message} onConfirm={() => remove.mutate(name)}>
           Elimina
         </ConfirmButton>
@@ -171,13 +176,24 @@ function AgentTaskEditor({ project, task }: { project: string; task: AgentTask }
   const [form, setForm] = useState<AgentTaskBody>(() => fields(task));
   const set = (patch: Partial<AgentTaskBody>) => setForm((current) => ({ ...current, ...patch }));
   const dirty = JSON.stringify(form) !== JSON.stringify(fields(task));
+  const [delegating, setDelegating] = useState(false);
   const onSave = () =>
     save.mutate(
       { name: task.name, body: { ...form, criteria: (form.criteria ?? []).filter((item) => item.text.trim()) } },
       { onSuccess: (saved) => { setForm(fields(saved)); notifications.show({ message: `${saved.title} salvato.` }); } },
     );
   return (
-    <EditorShell project={project} name={task.name} dirty={dirty} valid={!!form.title.trim()} saving={save.isPending} error={save.error?.message} onSave={onSave}>
+    <EditorShell
+      project={project} name={task.name} dirty={dirty} valid={!!form.title.trim()} saving={save.isPending} error={save.error?.message} onSave={onSave}
+      actions={
+        <>
+          <Button variant="light" onClick={() => setDelegating(true)} disabled={dirty} title={dirty ? "Salva prima il task: Copilot legge il file" : undefined}>
+            🤖 Delega a Copilot
+          </Button>
+          <DelegateModal project={project} task={task.name} opened={delegating} onClose={() => setDelegating(false)} />
+        </>
+      }
+    >
       <TextInput label="Titolo" value={form.title} onChange={(event) => set({ title: event.currentTarget.value })} />
       <SegmentedControl
         style={{ alignSelf: "flex-start" }}

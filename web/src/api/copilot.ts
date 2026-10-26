@@ -1,0 +1,101 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import { api, unwrap } from "./client";
+import { dataKeys } from "./projectData";
+import type { components } from "./schema";
+
+/** Agent tasks delegated to GitHub Copilot CLI: sessions, the planning chat
+ * (each message waits for Copilot's answer), the ok, cancellation. */
+
+export type CopilotSession = components["schemas"]["CopilotSessionResponse"];
+export type CopilotMessage = components["schemas"]["CopilotMessageResponse"];
+export type CopilotStatus = CopilotSession["status"];
+
+/** Queued or running: the worker has it, the page follows it. */
+export const isExecuting = (session: CopilotSession) => session.status === "queued" || session.status === "running";
+
+export const copilotKeys = {
+  status: ["copilot", "status"] as const,
+  sessions: (project: string) => ["projects", project, "copilot-sessions"] as const,
+  session: (id: number) => ["copilot-sessions", id] as const,
+  messages: (id: number) => ["copilot-sessions", id, "messages"] as const,
+};
+
+/** Whether Copilot CLI is installed, and its version. */
+export function useCopilotStatus() {
+  return useQuery({ queryKey: copilotKeys.status, queryFn: () => unwrap(api.GET("/copilot/status")), staleTime: 60_000 });
+}
+
+/** Newest first; refreshed every 3 seconds while one of them is executing. */
+export function useCopilotSessions(project: string) {
+  return useQuery({
+    queryKey: copilotKeys.sessions(project),
+    queryFn: () => unwrap(api.GET("/projects/{project}/copilot-sessions", { params: { path: { project } } })),
+    refetchInterval: (query) => (query.state.data?.some(isExecuting) ? 3_000 : false),
+  });
+}
+
+/** The messages of a session; ``live`` refreshes them while it executes. */
+export function useCopilotMessages(id: number | undefined, live: boolean) {
+  return useQuery({
+    queryKey: copilotKeys.messages(id ?? 0),
+    queryFn: () => unwrap(api.GET("/copilot-sessions/{session_id}/messages", { params: { path: { session_id: id! } } })),
+    enabled: id !== undefined,
+    refetchInterval: live ? 3_000 : false,
+  });
+}
+
+/** After any change: the session list (status) and the session's messages; the task's status too. */
+function useRefresh(project: string) {
+  const queryClient = useQueryClient();
+  return (id: number) =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: copilotKeys.sessions(project) }),
+      queryClient.invalidateQueries({ queryKey: copilotKeys.messages(id) }),
+      queryClient.invalidateQueries({ queryKey: dataKeys.agentTasks(project) }),
+    ]);
+}
+
+/** Delegate an agent task: resolves when Copilot has answered the first turn (tens of seconds). */
+export function useStartCopilot(project: string) {
+  const refresh = useRefresh(project);
+  return useMutation({
+    mutationFn: (body: { task_note: string; repository: string }) =>
+      unwrap(api.POST("/projects/{project}/copilot-sessions", { params: { path: { project } }, body })),
+    onSuccess: (session) => refresh(session.id),
+  });
+}
+
+/** A message of the planning chat; resolves with Copilot's answer. */
+export function useSendCopilotMessage(project: string) {
+  const refresh = useRefresh(project);
+  return useMutation({
+    mutationFn: ({ id, text }: { id: number; text: string }) =>
+      unwrap(api.POST("/copilot-sessions/{session_id}/messages", { params: { path: { session_id: id } }, body: { text } })),
+    onSettled: (_, __, { id }) => refresh(id),
+  });
+}
+
+export function useApproveCopilot(project: string) {
+  const refresh = useRefresh(project);
+  return useMutation({
+    mutationFn: (id: number) => unwrap(api.POST("/copilot-sessions/{session_id}/approve", { params: { path: { session_id: id } } })),
+    onSettled: (_, __, id) => refresh(id),
+  });
+}
+
+export function useCancelCopilot(project: string) {
+  const refresh = useRefresh(project);
+  return useMutation({
+    mutationFn: (id: number) => unwrap(api.POST("/copilot-sessions/{session_id}/cancel", { params: { path: { session_id: id } } })),
+    onSettled: (_, __, id) => refresh(id),
+  });
+}
+
+export function useDeleteCopilotSession(project: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => unwrap(api.DELETE("/copilot-sessions/{session_id}", { params: { path: { session_id: id } } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: copilotKeys.sessions(project) }),
+  });
+}
