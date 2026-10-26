@@ -10,7 +10,7 @@ import { CopilotTab } from "./CopilotTab";
 afterEach(() => vi.unstubAllGlobals());
 
 const session = (patch: Partial<CopilotSession> = {}): CopilotSession => ({
-  id: 4, project_name: "acme", task_note: "agent-task-fix-porto.md", repository: "api", status: "planning", cancel_requested: false,
+  id: 4, project_name: "acme", task_note: "agent-task-fix-porto.md", repository: "api", prompt: "", model: "", status: "planning", cancel_requested: false,
   head_before: null, head_after: null, head_moved: false, changed_files: [], premium_requests: 1, error: null,
   created_at: "2026-10-26T10:00:00Z", updated_at: "2026-10-26T10:00:00Z", started_at: null, finished_at: null, ...patch,
 });
@@ -79,7 +79,7 @@ describe("CopilotTab", () => {
     const started = vi.fn(async (request: Request) => ({ ...session({ id: 9 }), ...(await request.json()) }));
     const TASK = { name: "agent-task-fix-porto.md", title: "Fix porto", status: "todo", objective: "", context: "", criteria: [], constraints: "" };
     mockApi({
-      "GET /copilot/status": { installed: true, version: "x" },
+      "GET /copilot/status": { installed: true, version: "x", prompts: ["bug"], models: ["gpt-5"], default_model: "" },
       "GET /projects/acme/notes": [],
       "GET /projects/acme/agent-tasks": [TASK],
       "GET /projects/acme/git/repositories": [{ path: "api", name: "api" }],
@@ -93,10 +93,12 @@ describe("CopilotTab", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Delega a Copilot/ }));
     const dialog = await screen.findByRole("dialog");
     await waitFor(() => expect(within(dialog).getByRole("button", { name: "Delega" })).toBeEnabled()); // the only repository is chosen
+    expect(within(dialog).getByDisplayValue("Predefinito (plan_prompt)")).toBeInTheDocument();
+    expect(within(dialog).getByDisplayValue("Predefinito (di Copilot)")).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "Delega" }));
 
     await waitFor(() => expect(started).toHaveBeenCalled());
-    expect(await started.mock.results[0].value).toMatchObject({ task_note: "agent-task-fix-porto.md", repository: "api" });
+    expect(await started.mock.results[0].value).toMatchObject({ task_note: "agent-task-fix-porto.md", repository: "api", prompt: "", model: "" });
     expect(await screen.findByText("Domanda")).toBeInTheDocument(); // now on the Copilot tab, its chat open
   });
 });

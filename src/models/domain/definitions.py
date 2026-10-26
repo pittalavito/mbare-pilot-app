@@ -71,6 +71,8 @@ class CodingAgentFile(_File):
     execute_prompt: Prompt | None = None
     execute_prompt_file: str | None = None
     denied_tools: list[Prompt] | None = None
+    models: list[Prompt] | None = None
+    """Copilot models to choose from when delegating (``--model``), e.g. ``claude-sonnet-4.5``."""
 
     @model_validator(mode="after")
     def _one_source(self) -> "CodingAgentFile":

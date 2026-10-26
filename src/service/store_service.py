@@ -461,5 +461,11 @@ class StoreService:
             return None
         return self._definitions_repository.read(path).decode("utf-8")
 
+    def list_definitions(self, folder: str) -> list[str]:
+        """The files directly in ``<data_home>/definition/<folder>``, as paths relative to ``definition/``."""
+        prefix = folder.strip("/")
+        return [stored.file_id for stored in self._definitions_repository.list(prefix)
+                if stored.file_id.rsplit("/", 1)[0] == prefix]
+
     def save_definition(self, path: str, text: str) -> None:
         self._definitions_repository.save(path, text.encode("utf-8"))

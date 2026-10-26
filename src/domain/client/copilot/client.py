@@ -44,6 +44,11 @@ class CopilotClient:
     def available(self) -> bool:
         return self._command is not None
 
+    @property
+    def model(self) -> str:
+        """The default model; ``""`` = Copilot's own."""
+        return self._model
+
     def version(self) -> str | None:
         """``GitHub Copilot CLI 1.0.103.``, None when not installed or not answering."""
         if self._command is None:
@@ -63,20 +68,21 @@ class CopilotClient:
         timeout_seconds: float,
         denied_tools: Sequence[str] = (),
         should_cancel: Callable[[], bool] = lambda: False,
+        model: str = "",
     ) -> CopilotTurn:
         """One message to the session and Copilot's answer. ``denied_tools``
-        count only in execute mode. Never raises for Copilot's own failures:
-        they come back in ``error``."""
+        count only in execute mode; ``model`` overrides the default. Never
+        raises for Copilot's own failures: they come back in ``error``."""
         if self._command is None:
             return CopilotTurn(message="", exit_code=-1, error=NOT_FOUND)
-        argv = [*self._command, *self._arguments(cwd, session_id, prompt, mode, denied_tools)]
+        argv = [*self._command, *self._arguments(cwd, session_id, prompt, mode, denied_tools, model or self._model)]
         try:
             result = process.run(argv, cwd, self._environment(), timeout_seconds, should_cancel)
         except OSError as exc:
             return CopilotTurn(message="", exit_code=-1, error=f"Impossibile avviare Copilot CLI: {exc}")
         return to_turn(result, timeout_seconds)
 
-    def _arguments(self, cwd: Path, session_id: str, prompt: str, mode: CopilotMode, denied_tools: Sequence[str]) -> list[str]:
+    def _arguments(self, cwd: Path, session_id: str, prompt: str, mode: CopilotMode, denied_tools: Sequence[str], model: str) -> list[str]:
         arguments = ["-p", prompt, "--session-id", session_id, "--add-dir", str(cwd), "--output-format", "json", "--no-color"]
         if mode == CopilotMode.PLAN:
             arguments += ["--mode", "plan"]
@@ -84,8 +90,8 @@ class CopilotClient:
             arguments += ["--mode", "autopilot", "--allow-all-tools", "--no-ask-user"]
             for tool in denied_tools:
                 arguments += ["--deny-tool", tool]
-        if self._model:
-            arguments += ["--model", self._model]
+        if model:
+            arguments += ["--model", model]
         return arguments
 
     def _environment(self) -> dict[str, str]:

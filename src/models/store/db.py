@@ -300,6 +300,10 @@ class CopilotSessionTable(SQLModel, table=True):
     task_note: str
     repository: str = ""
     copilot_session_id: str = Field(unique=True)
+    prompt: str = ""
+    """The planning prompt chosen (a coding-agent/<name>.md); ``""`` = the default."""
+    model: str = ""
+    """Copilot's model for every turn; ``""`` = COPILOT_MODEL or Copilot's default."""
     status: str = Field(index=True)
     """``planning`` | ``queued`` | ``running`` | ``done`` | ``failed`` | ``cancelled``."""
     cancel_requested: bool = False

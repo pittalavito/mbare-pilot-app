@@ -9,12 +9,14 @@ mbare-pilot-data/
     global-chat-bot.yml       chatbot di ogni progetto che non ha il suo            un chatbot
     global-automation.yml     automation di ogni progetto (salvo stesso nome)       automations: [...]
     global-coding-agent.yml   prompt e divieti di Copilot (obbligatorio per usarlo) un coding agent
+    coding-agent/<nome>.md    prompt di preparazione da scegliere quando deleghi    testo con {task}
     project/
       <slug>/                 es. gestionali-navi
         chat-bot.yml          il chatbot del progetto                               un chatbot
         agent.yml             gli agenti del progetto                               agents: [...]
         automation.yml        le automation del progetto                            automations: [...]
         coding-agent.yml      campi che sostituiscono quelli globali di Copilot     un coding agent
+        coding-agent/<nome>.md  prompt del progetto (vince sul globale con lo stesso nome)
   project/
     <slug>/
       notes/                  note scritte dall'app: generiche, agent-task-<titolo>.md, todo-list-<titolo>.md
@@ -119,10 +121,16 @@ execute_prompt: Ok, procedi con il piano concordato...   # oppure execute_prompt
 denied_tools:                      # i --deny-tool dell'esecuzione: l'elenco completo
   - shell(git commit)
   - shell(git push)
+models: [gpt-5, claude-sonnet-4.5] # facoltativo: i modelli tra cui scegliere quando deleghi
 ```
 
+**Scelta alla delega**: nella finestra «Delega a Copilot» si scelgono il **prompt** e il **modello**. Restano salvati nella sessione (`prompt`, `model`) e il modello vale per ogni turno, esecuzione compresa.
+
+- **Prompt**: «Predefinito» è `plan_prompt`; le altre opzioni sono i file `<nome>.md` di `definition/coding-agent/` e di `definition/project/<slug>/coding-agent/` (a parità di nome vince quello del progetto). Ognuno deve contenere `{task}`: un file senza è un errore come un yml rotto.
+- **Modello**: «Predefinito» è `COPILOT_MODEL` (vuoto = quello di Copilot); le altre opzioni sono `models:`. Un modello fuori elenco viene rifiutato. Il chatbot (`delegate_task`) usa sempre i predefiniti.
+
 - **Il globale è obbligatorio**: senza `global-coding-agent.yml`, o con un file rotto, Copilot non parte. L'errore si vede nella scheda Copilot e in Admin → Servizi. Non ci sono testi di riserva nel codice: un file sbagliato non deve allentare i divieti.
-- **Override per progetto**: `project/<slug>/coding-agent.yml` può avere solo alcuni campi; quelli che scrive sostituiscono i globali per quel progetto. `denied_tools` si sostituisce per intero (anche con `[]`).
+- **Override per progetto**: `project/<slug>/coding-agent.yml` può avere solo alcuni campi; quelli che scrive sostituiscono i globali per quel progetto. `denied_tools` e `models` si sostituiscono per intero (anche con `[]`).
 - **Divieti**: nessuno è aggiunto dal codice. La rete di sicurezza resta il controllo dell'HEAD prima e dopo l'esecuzione.
 - **Regole**: `plan_prompt` deve contenere `{task}` (le altre graffe restano come sono); uno solo tra `x_prompt` e `x_prompt_file`; un campo sconosciuto è un errore.
 

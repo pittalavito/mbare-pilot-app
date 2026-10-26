@@ -11,6 +11,10 @@ class CopilotSessionRequest(BaseModel):
     """The agent task's note (``agent-task-<title>.md``)."""
     repository: str = ""
     """Folder of the repository inside the project (``""`` = the project folder)."""
+    prompt: str = ""
+    """One of the status' ``prompts``; ``""`` = the definition's ``plan_prompt``."""
+    model: str = ""
+    """One of the status' ``models``; ``""`` = the default."""
 
 
 class CopilotMessageRequest(BaseModel):
@@ -22,6 +26,10 @@ class CopilotSessionResponse(BaseModel):
     project_name: str
     task_note: str
     repository: str
+    prompt: str
+    """The planning prompt chosen; ``""`` = the default."""
+    model: str
+    """``""`` = the default."""
     status: str
     """``planning`` | ``queued`` | ``running`` | ``done`` | ``failed`` | ``cancelled``."""
     cancel_requested: bool
@@ -59,3 +67,9 @@ class CopilotStatusResponse(BaseModel):
     version: str | None
     definition_error: str | None = None
     """Why the coding-agent definition (prompts, denied tools) cannot be used; None when fine."""
+    prompts: list[str] = []
+    """Planning prompts to choose from besides the default (``coding-agent/<name>.md``)."""
+    models: list[str] = []
+    """Models to choose from besides the default."""
+    default_model: str = ""
+    """COPILOT_MODEL; ``""`` = Copilot's own default."""

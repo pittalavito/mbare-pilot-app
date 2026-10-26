@@ -14,10 +14,15 @@ router = APIRouter(tags=["copilot"])
 
 @router.get("/copilot/status")
 def copilot_status(project: str | None = None, service: CopilotService = Depends(copilot_service)) -> CopilotStatusResponse:
-    """Whether Copilot CLI is installed, its version, and what is wrong with the
-    coding-agent definition (the global one, plus ``project``'s when given)."""
+    """Whether Copilot CLI is installed, its version, the prompts and models to
+    choose from when delegating, and what is wrong with the coding-agent
+    definition (the global one, plus ``project``'s when given)."""
     version = service.version()
-    return CopilotStatusResponse(installed=version is not None, version=version, definition_error=service.coding_agent_error(project))
+    settings, error = service.coding_agent_or_error(project)
+    return CopilotStatusResponse(
+        installed=version is not None, version=version, definition_error=error, default_model=service.default_model,
+        prompts=list(settings.prompts) if settings else [], models=settings.models if settings else [],
+    )
 
 
 @router.get("/projects/{project}/copilot-sessions")
@@ -29,7 +34,7 @@ def list_sessions(project: str, service: CopilotService = Depends(copilot_servic
 @router.post("/projects/{project}/copilot-sessions", status_code=status.HTTP_201_CREATED)
 def start_session(project: str, request: CopilotSessionRequest, service: CopilotService = Depends(copilot_service)) -> CopilotSessionResponse:
     """Delegate an agent task: the first planning turn runs now (Copilot reads the code and asks)."""
-    return CopilotSessionResponse.from_session(service.start(project, request.task_note, request.repository))
+    return CopilotSessionResponse.from_session(service.start(project, request.task_note, request.repository, request.prompt, request.model))
 
 
 @router.get("/copilot-sessions/{session_id}")

@@ -45,6 +45,10 @@ class CopilotSession(BaseModel):
     """Folder of the repository inside the project (``""`` = the project folder)."""
     copilot_session_id: str
     """Copilot's own session (UUID): every turn resumes it."""
+    prompt: str = ""
+    """The planning prompt chosen when delegating (``coding-agent/<name>.md``); ``""`` = the definition's ``plan_prompt``."""
+    model: str = ""
+    """Copilot's model, for every turn of the session; ``""`` = COPILOT_MODEL or Copilot's default."""
     status: CopilotSessionStatus = CopilotSessionStatus.PLANNING
     cancel_requested: bool = False
     """Set by the API, read by the worker that is running it."""
@@ -82,6 +86,11 @@ class CodingAgentSettings(BaseModel):
     execute_prompt: str
     denied_tools: list[str]
     """``--deny-tool`` of the execution, e.g. ``shell(git commit)``."""
+    models: list[str] = Field(default_factory=list)
+    """The models to choose from when delegating (besides the default)."""
+    prompts: dict[str, str] = Field(default_factory=dict)
+    """The planning prompts to choose from instead of ``plan_prompt``: name
+    (file name without ``.md``) → text, from ``coding-agent/`` folders."""
 
 
 class CopilotTurn(BaseModel):

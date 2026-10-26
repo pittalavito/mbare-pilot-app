@@ -3,14 +3,15 @@
 live in their own files under domain/store/db/.
 
 Schema migrations are out of scope (no Alembic): ``create_all`` creates the
-missing tables at startup. A table whose columns changed in code is recreated
-only while it is empty (with the tables referencing it); with rows the app
-stops and says which table to migrate by hand.
+missing tables at startup. A column added in code that is nullable or has a
+scalar default is added in place (``ALTER TABLE ADD COLUMN``), rows kept. Any
+other change recreates the table only while it is empty (with the tables
+referencing it); with rows the app stops and says which table to migrate by hand.
 """
 import json
 from typing import Any, Generic, Sequence, TypeVar
 
-from sqlalchemy import func, inspect, text
+from sqlalchemy import func, inspect, literal, text
 from sqlalchemy.engine import Engine as SqlAlchemyEngine
 from sqlmodel import Session, SQLModel, create_engine, select
 
@@ -37,9 +38,36 @@ class Engine:
             # chunk.embedding is a pgvector column (image pgvector/pgvector).
             with engine.begin() as connection:
                 connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        Engine._add_missing_columns(engine)
         Engine._drop_outdated_empty_tables(engine)
         SQLModel.metadata.create_all(engine)
         return engine
+
+    @staticmethod
+    def _add_missing_columns(engine: SqlAlchemyEngine) -> None:
+        """The columns the code has and an existing table lacks, when they can
+        be added without touching its rows: nullable, or with a scalar default
+        (written as the column's DEFAULT, so existing rows get it)."""
+        existing = set(inspect(engine).get_table_names())
+        added = []
+        with engine.begin() as connection:
+            for table in SQLModel.metadata.sorted_tables:
+                if table.name not in existing:
+                    continue
+                present = {column["name"] for column in inspect(connection).get_columns(table.name)}
+                for column in table.columns:
+                    if column.name in present or column.primary_key:
+                        continue
+                    default = column.default.arg if column.default is not None and column.default.is_scalar else None
+                    if default is None and not column.nullable:
+                        continue  # left to the recreate below
+                    ddl = f"ALTER TABLE {table.name} ADD COLUMN {column.name} {column.type.compile(dialect=engine.dialect)}"
+                    if default is not None:
+                        ddl += f" NOT NULL DEFAULT {literal(default).compile(dialect=engine.dialect, compile_kwargs={'literal_binds': True})}"
+                    connection.execute(text(ddl))
+                    added.append(f"{table.name}.{column.name}")
+        if added:
+            log_warning(LogPrefix.DB_ENGINE, "Colonne aggiunte allo schema: %s", ", ".join(added))
 
     @staticmethod
     def _drop_outdated_empty_tables(engine: SqlAlchemyEngine) -> None:

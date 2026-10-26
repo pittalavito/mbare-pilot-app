@@ -120,7 +120,8 @@ function SessionView({ project, session, onDeleted }: { project: string; session
             <Badge variant="light" color={STATUS[session.status]?.color}>{STATUS[session.status]?.label}</Badge>
           </Group>
           <Text size="xs" c="dimmed">
-            <code>{repoLabel(session.repository)}</code> · richieste premium usate: {session.premium_requests}
+            <code>{repoLabel(session.repository)}</code> · prompt: {session.prompt || "predefinito"} · modello:{" "}
+            {session.model || "predefinito"} · richieste premium usate: {session.premium_requests}
           </Text>
         </Stack>
         <Group gap="xs">

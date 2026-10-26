@@ -86,15 +86,19 @@ class CopilotService:
     def coding_agent(self, project_name: str | None = None) -> CodingAgentSettings:
         """Prompts and denied tools: the global definition, with the project's
         fields over it. Raises ValidationError when missing or broken."""
-        return coding_agent.load(self._store.read_definition, project_name)
+        return coding_agent.load(self._store, project_name)
 
-    def coding_agent_error(self, project_name: str | None = None) -> str | None:
-        """Why Copilot cannot start with the current definition files; None when it can."""
+    @property
+    def default_model(self) -> str:
+        """COPILOT_MODEL; ``""`` = Copilot's own default."""
+        return self._client.model
+
+    def coding_agent_or_error(self, project_name: str | None = None) -> tuple[CodingAgentSettings | None, str | None]:
+        """The definition, or why Copilot cannot start with the current files."""
         try:
-            self.coding_agent(project_name)
+            return self.coding_agent(project_name), None
         except AppError as exc:
-            return str(exc)
-        return None
+            return None, str(exc)
 
     def sessions(self, project_name: str) -> list[CopilotSession]:
         """A project's sessions, newest first."""
@@ -111,22 +115,27 @@ class CopilotService:
 
     # -------------------------------------------------------------- planning
     @observed(LogPrefix.COPILOT_SERVICE)
-    def start(self, project_name: str, task_note: str, repository: str = "") -> CopilotSession:
+    def start(self, project_name: str, task_note: str, repository: str = "", prompt: str = "", model: str = "") -> CopilotSession:
         """A new session on an agent task: the first planning turn runs now,
-        so the session comes back with Copilot's questions (or the error)."""
+        so the session comes back with Copilot's questions (or the error).
+        ``prompt``: one of the definition's prompts (``""`` = ``plan_prompt``);
+        ``model``: one of its models (``""`` = the default), for every turn."""
         if not self._client.available:
             raise UpstreamError(NOT_FOUND)
         settings = self.coding_agent(project_name)
+        model = coding_agent.check_model(settings, model)
         self._data.agent_task(project_name, task_note)  # exists and is an agent task
         folder = self._git.repository_folder(project_name, repository)
-        task = self._data.read_note(project_name, task_note)
+        first_turn = coding_agent.plan_prompt(settings, self._data.read_note(project_name, task_note), prompt.strip())
         session = self._store.save_copilot_session(CopilotSession(
-            project_name=project_name, 
-            task_note=task_note, 
+            project_name=project_name,
+            task_note=task_note,
             repository=repository.strip().strip("/\\"),
             copilot_session_id=str(uuid4()),
+            prompt=prompt.strip(),
+            model=model,
         ))
-        return self._plan_turn(session, folder, coding_agent.plan_prompt(settings, task))
+        return self._plan_turn(session, folder, first_turn)
 
     @observed(LogPrefix.COPILOT_SERVICE)
     def send(self, session_id: int, text: str) -> CopilotSession:
@@ -143,7 +152,7 @@ class CopilotService:
     def _plan_turn(self, session: CopilotSession, folder: Path, prompt: str) -> CopilotSession:
         self._message(session, CopilotMessageRole.USER, prompt)
         session = self._update(session, status=CopilotSessionStatus.PLANNING, error=None)
-        turn = self._client.turn(folder, session.copilot_session_id, prompt, CopilotMode.PLAN, self._planning_timeout)
+        turn = self._client.turn(folder, session.copilot_session_id, prompt, CopilotMode.PLAN, self._planning_timeout, model=session.model)
         return self._record(session, turn)
 
     @observed(LogPrefix.COPILOT_SERVICE)
@@ -203,7 +212,7 @@ class CopilotService:
         self._set_task_status(session, TaskStatus.IN_PROGRESS)
         self._message(session, CopilotMessageRole.USER, settings.execute_prompt)
         turn = self._client.turn(folder, session.copilot_session_id, settings.execute_prompt, CopilotMode.EXECUTE,
-                                 self._execution_timeout, settings.denied_tools, self._cancel_check(session.id))
+                                 self._execution_timeout, settings.denied_tools, self._cancel_check(session.id), model=session.model)
         session = self._record(session, turn)
         return self._finish(session, turn)
 

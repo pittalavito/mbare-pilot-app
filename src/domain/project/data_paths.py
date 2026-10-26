@@ -5,8 +5,9 @@ naming rules for notes and uploaded files. Pure functions: no filesystem here.
       global-agent.yml               agents of the Library (global)
       global-chat-bot.yml            chatbot of every project that has none of its own
       global-automation.yml          automations of every project (unless it defines one with that name)
-      global-coding-agent.yml        Copilot's prompts and denied tools
-      project/<slug>/chat-bot.yml, agent.yml, automation.yml, coding-agent.yml
+      global-coding-agent.yml        Copilot's prompts, denied tools and models
+      coding-agent/<name>.md         planning prompts to choose from when delegating
+      project/<slug>/chat-bot.yml, agent.yml, automation.yml, coding-agent.yml, coding-agent/
     project/<slug>/
       notes/                         notes written in the app; the type is in the name:
                                      agent-task-<title>.md, todo-list-<title>.md, else generic
@@ -36,6 +37,9 @@ AGENTS_FILE = "agent.yml"
 AUTOMATIONS_FILE = "automation.yml"
 CODING_AGENT_FILE = "coding-agent.yml"
 """Under ``definition/project/<slug>/``."""
+CODING_AGENT_PROMPTS_DIR = "coding-agent"
+"""Planning prompts to choose from when delegating (``<name>.md``), under
+``definition/`` and ``definition/project/<slug>/`` (the project's win by name)."""
 
 _NOT_SLUG = re.compile(r"[^a-z0-9]+")
 _INVALID_FILE_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')

@@ -1273,8 +1273,9 @@ export interface paths {
         };
         /**
          * Copilot Status
-         * @description Whether Copilot CLI is installed, its version, and what is wrong with the
-         *     coding-agent definition (the global one, plus ``project``'s when given).
+         * @description Whether Copilot CLI is installed, its version, the prompts and models to
+         *     choose from when delegating, and what is wrong with the coding-agent
+         *     definition (the global one, plus ``project``'s when given).
          */
         get: operations["copilot_status_copilot_status_get"];
         put?: never;
@@ -1818,6 +1819,16 @@ export interface components {
              * @default
              */
             repository: string;
+            /**
+             * Prompt
+             * @default
+             */
+            prompt: string;
+            /**
+             * Model
+             * @default
+             */
+            model: string;
         };
         /** CopilotSessionResponse */
         CopilotSessionResponse: {
@@ -1829,6 +1840,10 @@ export interface components {
             task_note: string;
             /** Repository */
             repository: string;
+            /** Prompt */
+            prompt: string;
+            /** Model */
+            model: string;
             /** Status */
             status: string;
             /** Cancel Requested */
@@ -1868,6 +1883,21 @@ export interface components {
             version: string | null;
             /** Definition Error */
             definition_error?: string | null;
+            /**
+             * Prompts
+             * @default []
+             */
+            prompts: string[];
+            /**
+             * Models
+             * @default []
+             */
+            models: string[];
+            /**
+             * Default Model
+             * @default
+             */
+            default_model: string;
         };
         /** CreateFromScratchRequest */
         CreateFromScratchRequest: {

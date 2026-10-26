@@ -263,6 +263,43 @@ def test_the_project_definition_replaces_the_global_fields_and_prompts_can_be_fi
     assert service.coding_agent().denied_tools  # other projects: the global list
 
 
+def test_delegating_with_a_chosen_prompt_and_model_uses_them_for_every_turn(store_service, data, project, config, tmp_path):
+    root = config.definitions_root
+    (root / "global-coding-agent.yml").write_text(
+        (root / "global-coding-agent.yml").read_text(encoding="utf-8") + "models: [gpt-5, claude-sonnet-4.5]\n", encoding="utf-8")
+    (root / "coding-agent").mkdir()
+    (root / "coding-agent" / "refactor.md").write_text("Solo refactoring.\n{task}", encoding="utf-8")
+    (root / "coding-agent" / "bug.md").write_text("Trova il bug.\n{task}", encoding="utf-8")
+    (root / "coding-agent" / "note.txt").write_text("non è un prompt", encoding="utf-8")
+    (root / "project" / "acme" / "coding-agent").mkdir(parents=True)
+    (root / "project" / "acme" / "coding-agent" / "bug.md").write_text("Bug, a modo di acme.\n{task}", encoding="utf-8")
+    service = _service(store_service, data)
+
+    assert list(service.coding_agent("acme").prompts) == ["bug", "refactor"]
+    assert service.coding_agent("acme").prompts["bug"].startswith("Bug, a modo di acme.")  # the project's wins
+    session = service.start("acme", _task(data), "api", prompt="bug", model="gpt-5")
+    service.send(session.id, "ok")
+    service.approve(session.id)
+    session = service.run_next()
+
+    assert (session.prompt, session.model) == ("bug", "gpt-5")
+    assert service.messages(session.id)[0].content.startswith("Bug, a modo di acme.\n# Aggiungi copilot.txt")
+    turns = _turns(tmp_path, session)
+    assert len(turns) == 3 and all(turn["args"][turn["args"].index("--model") + 1] == "gpt-5" for turn in turns)
+    with pytest.raises(ValidationError, match="Modello non previsto"):
+        service.start("acme", _task(data, "Altro"), "api", model="gpt-4")
+    with pytest.raises(ValidationError, match="Prompt non trovato"):
+        service.start("acme", _task(data, "Altro ancora"), "api", prompt="manca")
+    assert "--model" not in _turns(tmp_path, service.start("acme", _task(data, "Default"), "api"))[0]["args"]
+
+
+def test_a_prompt_file_without_the_task_placeholder_is_an_error(store_service, data, project, config):
+    (config.definitions_root / "coding-agent").mkdir()
+    (config.definitions_root / "coding-agent" / "rotto.md").write_text("Niente segnaposto", encoding="utf-8")
+
+    assert "coding-agent/rotto.md deve contenere {task}" in _service(store_service, data).coding_agent_or_error()[1]
+
+
 @pytest.mark.parametrize("text, error", [
     (None, "Manca definition/global-coding-agent.yml"),
     ("plan_prompt: senza segnaposto\nexecute_prompt: vai\ndenied_tools: []\n", "{task}"),
@@ -279,7 +316,7 @@ def test_a_missing_or_broken_global_definition_stops_copilot(store_service, data
         path.write_text(text, encoding="utf-8")
     service = _service(store_service, data)
 
-    assert error in service.coding_agent_error("acme")
+    assert error in service.coding_agent_or_error("acme")[1]
     with pytest.raises(ValidationError, match=error.replace("{", r"\{").replace("}", r"\}")):
         service.start("acme", _task(data), "api")
 

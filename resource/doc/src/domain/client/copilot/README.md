@@ -19,11 +19,11 @@ Prerequisito: `npm install -g @github/copilot`, poi `copilot` → `/login` con l
 | `PLAN` (preparazione) | `--mode plan` | legge il codice e risponde; il CLI stesso blocca ogni modifica fuori dalla sua cartella di sessione |
 | `EXECUTE` (esecuzione) | `--mode autopilot --allow-all-tools --no-ask-user` e un `--deny-tool` per ogni voce di `denied_tools` | modifica i file e lancia comandi, tranne quelli vietati |
 
-Sempre: `--add-dir <repository>`, `--output-format json`, `--no-color`; `--model` se `COPILOT_MODEL` è impostato.
+Sempre: `--add-dir <repository>`, `--output-format json`, `--no-color`; `--model` con il modello del turno (quello scelto per la sessione, altrimenti `COPILOT_MODEL`), se c'è.
 
 I divieti **non sono nel codice**: li passa il servizio, dal file `global-coding-agent.yml` della cartella dei dati ([definizioni](../../../../definitions.md#coding-agent-global-coding-agentyml-coding-agentyml)). Bloccano i comandi per nome (anche dentro un comando composto), non uno script che faccia un commit da sé: per questo il servizio controlla l'HEAD prima e dopo (vedi [service](../../../service/README.md#copilot)).
 
-## `turn(cwd, session_id, prompt, mode, timeout_seconds, denied_tools, should_cancel)`
+## `turn(cwd, session_id, prompt, mode, timeout_seconds, denied_tools, should_cancel, model)`
 
 - Restituisce un `CopilotTurn`: l'ultimo `assistant.message` con testo, l'exit code e le richieste premium usate dalla sessione (dall'evento `result`). Non solleva per gli errori di Copilot: finiscono in `error`.
 - `denied_tools` vale solo in `EXECUTE`.

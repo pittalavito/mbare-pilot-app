@@ -26,10 +26,11 @@ Le tabelle stanno in [`models/store/db.py`](../../../models/README.md), con la m
 `Engine.create_db_engine(DATABASE_URL)` si connette e prepara lo schema all'avvio:
 
 1. su Postgres attiva l'estensione **pgvector** (`CREATE EXTENSION IF NOT EXISTS vector`);
-2. controlla le tabelle esistenti: se le colonne nel codice sono cambiate, la tabella va ricreata;
-3. `create_all` crea le tabelle che mancano.
+2. aggiunge alle tabelle esistenti le **colonne nuove** che si possono aggiungere senza toccare le righe: nullable, o con un default scalare (es. `model: str = ""`), che diventa il `DEFAULT` della colonna (`ALTER TABLE … ADD COLUMN`, nel log);
+3. controlla le tabelle esistenti: se le colonne nel codice sono ancora diverse (una tolta, rinominata, nuova obbligatoria senza default), la tabella va ricreata;
+4. `create_all` crea le tabelle che mancano.
 
-**Niente migrazioni** (niente Alembic). Una tabella cambiata nel codice viene ricreata, insieme alle tabelle che la referenziano, **solo se sono tutte vuote**. Se ha dati l'app non parte e dice quale tabella migrare o svuotare a mano: così non si perde mai niente in silenzio.
+**Niente migrazioni** (niente Alembic). A parte l'aggiunta di colonne del punto 2, una tabella cambiata nel codice viene ricreata, insieme alle tabelle che la referenziano, **solo se sono tutte vuote**. Se ha dati l'app non parte e dice quale tabella migrare o svuotare a mano: così non si perde mai niente in silenzio. Il tipo di una colonna esistente non viene confrontato.
 
 ## Base dei repository (`SqlRepository`)
 
@@ -75,6 +76,6 @@ Il token Atlassian entra e esce già cifrato: la cifratura con [`SecretBox`](../
 ## Test
 
 - `test/unit/domain/store/db/test_run_repository.py`: salvataggio di una run con le tool call, elenco dalla più recente, cancellazione.
-- `test/unit/domain/store/db/test_schema_refresh.py`: tabella cambiata e vuota ricreata con chi la referenzia, tabella cambiata con dati che blocca l'avvio, schema aggiornato lasciato com'è.
+- `test/unit/domain/store/db/test_schema_refresh.py`: colonna nuova con default aggiunta tenendo le righe, tabella cambiata e vuota ricreata con chi la referenzia, tabella cambiata con dati che blocca l'avvio, schema aggiornato lasciato com'è.
 
 Girano su SQLite in memoria, con la fixture `engine` di `test/conftest.py`. Gli altri repository sono coperti dai test dei service.
