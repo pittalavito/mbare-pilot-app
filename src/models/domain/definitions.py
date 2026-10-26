@@ -13,7 +13,7 @@ fields are errors (``extra="forbid"``): a typo never passes silently."""
 from enum import StrEnum
 from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
 from models.domain.agent import Name
 from models.domain.chat import ModelKey
@@ -58,6 +58,38 @@ class ChatbotFile(_File):
         return self
 
 
+class ModelPriceFile(_File):
+    """USD per 1M tokens, as GitHub's "Models and pricing for GitHub Copilot" lists them."""
+    input: float = Field(ge=0)
+    cached_input: float = Field(ge=0)
+    cache_write: float | None = Field(default=None, ge=0)
+    """None where GitHub lists none."""
+    output: float = Field(ge=0)
+
+
+class LongContextPriceFile(ModelPriceFile):
+    """The tier above ``above`` input tokens."""
+    above: int = Field(gt=0)
+
+
+class ModelFile(ModelPriceFile):
+    """An element of ``models:`` with its price; a plain name has none."""
+    name: Prompt
+    note: str = ""
+    input: float | None = Field(default=None, ge=0)
+    cached_input: float | None = Field(default=None, ge=0)
+    output: float | None = Field(default=None, ge=0)
+    long_context: LongContextPriceFile | None = None
+
+    @model_validator(mode="after")
+    def _whole_price(self) -> "ModelFile":
+        if (self.input is None) != (self.output is None) or (self.cached_input is not None and self.input is None):
+            raise ValueError(f"modello {self.name}: scrivi input, cached_input e output insieme (o nessuno)")
+        if self.long_context is not None and self.input is None:
+            raise ValueError(f"modello {self.name}: long_context vuole anche il prezzo base")
+        return self
+
+
 class CodingAgentFile(_File):
     """``global-coding-agent.yml`` (and ``project/<slug>/coding-agent.yml``,
     whose fields replace the global ones): what the app tells Copilot.
@@ -71,8 +103,15 @@ class CodingAgentFile(_File):
     execute_prompt: Prompt | None = None
     execute_prompt_file: str | None = None
     denied_tools: list[Prompt] | None = None
-    models: list[Prompt] | None = None
-    """Copilot models to choose from when delegating (``--model``), e.g. ``claude-sonnet-4.5``."""
+    models: list[ModelFile] | None = None
+    """Copilot models to choose from when delegating (``--model``): a name, or
+    ``{name, input, cached_input, cache_write, output, note, long_context}``."""
+
+    @field_validator("models", mode="before")
+    @classmethod
+    def _plain_names(cls, value: Any) -> Any:
+        """A plain name is a model without a price (errors then name the right fields)."""
+        return [{"name": item} if isinstance(item, str) else item for item in value] if isinstance(value, list) else value
 
     @model_validator(mode="after")
     def _one_source(self) -> "CodingAgentFile":

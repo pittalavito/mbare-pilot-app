@@ -121,13 +121,22 @@ execute_prompt: Ok, procedi con il piano concordato...   # oppure execute_prompt
 denied_tools:                      # i --deny-tool dell'esecuzione: l'elenco completo
   - shell(git commit)
   - shell(git push)
-models: [gpt-5, claude-sonnet-4.5] # facoltativo: i modelli tra cui scegliere quando deleghi
+models:                            # facoltativo: i modelli tra cui scegliere quando deleghi
+  - auto                           # un nome semplice: senza prezzo
+  - name: claude-haiku-5.5         # con il prezzo: USD per 1M token, dalla pagina di GitHub
+    note: Per task piccoli         # facoltativa, compare nella delega
+    input: 0.10
+    cached_input: 0.01
+    cache_write: 0.125             # facoltativo (GitHub non lo indica per tutti)
+    output: 0.50
+    long_context: {above: 100000, input: 0.50, cached_input: 0.05, cache_write: 0.625, output: 2.50}
 ```
 
 **Scelta alla delega**: nella finestra «Delega a Copilot» si scelgono il **prompt** e il **modello**. Restano salvati nella sessione (`prompt`, `model`) e il modello vale per ogni turno, esecuzione compresa.
 
 - **Prompt**: «Predefinito» è `plan_prompt`; le altre opzioni sono i file `<nome>.md` di `definition/coding-agent/` e di `definition/project/<slug>/coding-agent/` (a parità di nome vince quello del progetto). Ognuno deve contenere `{task}`: un file senza è un errore come un yml rotto.
-- **Modello**: «Predefinito» è `COPILOT_MODEL` (vuoto = quello di Copilot); le altre opzioni sono `models:`. Un modello fuori elenco viene rifiutato. Il chatbot (`delegate_task`) usa sempre i predefiniti.
+- **Modello**: «Predefinito» è `COPILOT_MODEL` (vuoto = quello di Copilot); le altre opzioni sono `models:`, **dalla più economica** (prezzo di input + output; quelle senza prezzo in fondo, nell'ordine del file). Per il modello scelto la finestra mostra il prezzo completo, la nota e quanto è costato davvero finora (crediti AI medi per turno, da `copilot_turn`). Un modello fuori elenco viene rifiutato.
+- **Prezzi**: si copiano dalla pagina [Models and pricing for GitHub Copilot](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing) (USD per 1M token; 1 credito AI = 0,01 $): il CLI non li espone fuori dal picker `/model`. `input`, `cached_input` e `output` vanno insieme; `long_context` vale sopra `above` token di input. Un nome ripetuto è un errore. Il chatbot (`delegate_task`) usa sempre i predefiniti.
 
 - **Il globale è obbligatorio**: senza `global-coding-agent.yml`, o con un file rotto, Copilot non parte. L'errore si vede nella scheda Copilot e in Admin → Servizi. Non ci sono testi di riserva nel codice: un file sbagliato non deve allentare i divieti.
 - **Override per progetto**: `project/<slug>/coding-agent.yml` può avere solo alcuni campi; quelli che scrive sostituiscono i globali per quel progetto. `denied_tools` e `models` si sostituiscono per intero (anche con `[]`).

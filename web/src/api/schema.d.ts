@@ -1870,6 +1870,25 @@ export interface components {
              */
             created_at: string;
         };
+        /**
+         * CopilotModelOptionResponse
+         * @description A model to choose from when delegating: its price (from the
+         *     coding-agent definition) and what it actually cost so far.
+         */
+        CopilotModelOptionResponse: {
+            /** Name */
+            name: string;
+            /** Note */
+            note: string;
+            price: components["schemas"]["CopilotPriceResponse"] | null;
+            /** Long Context Above */
+            long_context_above: number | null;
+            long_context_price: components["schemas"]["CopilotPriceResponse"] | null;
+            /** Turns */
+            turns: number;
+            /** Average Ai Credits */
+            average_ai_credits: number | null;
+        };
         /** CopilotModelUsageResponse */
         CopilotModelUsageResponse: {
             /** Model */
@@ -1877,6 +1896,20 @@ export interface components {
             /** Turns */
             turns: number;
             usage: components["schemas"]["CopilotUsageResponse"];
+        };
+        /**
+         * CopilotPriceResponse
+         * @description USD per 1M tokens (1 AI credit = 0.01 USD).
+         */
+        CopilotPriceResponse: {
+            /** Input */
+            input: number;
+            /** Cached Input */
+            cached_input: number;
+            /** Cache Write */
+            cache_write: number | null;
+            /** Output */
+            output: number;
         };
         /** CopilotSessionRequest */
         CopilotSessionRequest: {
@@ -1969,7 +2002,7 @@ export interface components {
              * Models
              * @default []
              */
-            models: string[];
+            models: components["schemas"]["CopilotModelOptionResponse"][];
             /**
              * Default Model
              * @default

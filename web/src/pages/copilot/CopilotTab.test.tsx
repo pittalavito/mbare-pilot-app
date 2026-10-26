@@ -85,7 +85,14 @@ describe("CopilotTab", () => {
     const started = vi.fn(async (request: Request) => ({ ...session({ id: 9 }), ...(await request.json()) }));
     const TASK = { name: "agent-task-fix-porto.md", title: "Fix porto", status: "todo", objective: "", context: "", criteria: [], constraints: "" };
     mockApi({
-      "GET /copilot/status": { installed: true, version: "x", prompts: ["bug"], models: ["gpt-5"], default_model: "" },
+      "GET /copilot/status": {
+        installed: true, version: "x", prompts: ["bug"], default_model: "",
+        models: [{
+          name: "claude-haiku-5.5", note: "per i task piccoli", price: { input: 0.1, cached_input: 0.01, cache_write: 0.125, output: 0.5 },
+          long_context_above: 100000, long_context_price: { input: 0.5, cached_input: 0.05, cache_write: 0.625, output: 2.5 },
+          turns: 3, average_ai_credits: 0.34,
+        }],
+      },
       "GET /projects/acme/notes": [],
       "GET /projects/acme/agent-tasks": [TASK],
       "GET /projects/acme/git/repositories": [{ path: "api", name: "api" }],
@@ -100,11 +107,15 @@ describe("CopilotTab", () => {
     const dialog = await screen.findByRole("dialog");
     await waitFor(() => expect(within(dialog).getByRole("button", { name: "Delega" })).toBeEnabled()); // the only repository is chosen
     expect(within(dialog).getByDisplayValue("Predefinito (plan_prompt)")).toBeInTheDocument();
-    expect(within(dialog).getByDisplayValue("Predefinito (di Copilot)")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByDisplayValue("Predefinito (di Copilot)"));
+    fireEvent.click(await screen.findByRole("option", { name: "claude-haiku-5.5 · $0,10 / $0,50" }));
+    expect(await within(dialog).findByText("per i task piccoli")).toBeInTheDocument();
+    expect(within(dialog).getByText(/Finora: 0,34 crediti AI per turno in media \(3 turni/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Oltre 100.000 token di input/)).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "Delega" }));
 
     await waitFor(() => expect(started).toHaveBeenCalled());
-    expect(await started.mock.results[0].value).toMatchObject({ task_note: "agent-task-fix-porto.md", repository: "api", prompt: "", model: "" });
+    expect(await started.mock.results[0].value).toMatchObject({ task_note: "agent-task-fix-porto.md", repository: "api", prompt: "", model: "claude-haiku-5.5" });
     expect(await screen.findByText("Domanda")).toBeInTheDocument(); // now on the Copilot tab, its chat open
   });
 });

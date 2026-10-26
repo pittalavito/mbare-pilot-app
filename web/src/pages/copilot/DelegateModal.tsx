@@ -1,8 +1,9 @@
-import { Alert, Button, Group, Loader, Modal, Select, Stack, Text } from "@mantine/core";
+import { Alert, Button, Card, Group, Loader, Modal, Select, Stack, Text } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { useCopilotStatus, useStartCopilot } from "../../api/copilot";
+import { type CopilotModelOption, useCopilotStatus, useStartCopilot } from "../../api/copilot";
+import { credits } from "../../format";
 import { useRepositories } from "../../api/git";
 import { useAgentTasks } from "../../api/projectData";
 
@@ -10,6 +11,10 @@ const repoLabel = (path: string) => path || "(cartella del progetto)";
 /** The Select's value for "the default" (the API's ``""``). */
 const DEFAULT = "__default__";
 const fromSelect = (value: string | null) => (value === null || value === DEFAULT ? "" : value);
+/** Copilot's prices are in USD: $0,125. */
+const usd = (value: number) => `$${value.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 3 })}`;
+const modelLabel = (option: CopilotModelOption) =>
+  option.price ? `${option.name} · ${usd(option.price.input)} / ${usd(option.price.output)}` : `${option.name} · prezzo non indicato`;
 
 /** Delegate an agent task to Copilot on a repository of the project: the
  * planning chat opens with Copilot's first answer (it reads the task and the
@@ -36,6 +41,9 @@ export function DelegateModal({ project, task, opened, onClose }: { project: str
   useEffect(() => {
     if (repository === null && repositories.data?.length === 1) setRepository(repositories.data[0].path);
   }, [repositories.data, repository]);
+
+  const models = status.data?.models ?? [];
+  const chosenModel = models.find((option) => option.name === model);
 
   const delegate = () =>
     chosenTask !== null && repository !== null &&
@@ -87,16 +95,17 @@ export function DelegateModal({ project, task, opened, onClose }: { project: str
           />
           <Select
             label="Modello"
-            description="models: del coding agent"
+            description="Dal più economico (prezzi per 1M token in / out)"
             data={[
               { value: DEFAULT, label: `Predefinito (${status.data?.default_model || "di Copilot"})` },
-              ...(status.data?.models ?? []).map((name) => ({ value: name, label: name })),
+              ...models.map((option) => ({ value: option.name, label: modelLabel(option) })),
             ]}
             value={model}
             onChange={setModel}
             allowDeselect={false}
           />
         </Group>
+        {chosenModel && <ModelDetail option={chosenModel} />}
         {status.data?.definition_error && <Alert color="orange">Prompt e divieti di Copilot: {status.data.definition_error}</Alert>}
         {start.error && <Alert color="red">{start.error.message}</Alert>}
         {start.isPending && (
@@ -111,5 +120,31 @@ export function DelegateModal({ project, task, opened, onClose }: { project: str
         </Group>
       </Stack>
     </Modal>
+  );
+}
+
+/** The chosen model: its full price (from the coding-agent definition) and
+ * what it actually cost per turn in the delegations so far. */
+function ModelDetail({ option }: { option: CopilotModelOption }) {
+  const tier = (price: NonNullable<CopilotModelOption["price"]>) =>
+    `in ${usd(price.input)} · cache letta ${usd(price.cached_input)}` +
+    `${price.cache_write === null ? "" : ` · cache scritta ${usd(price.cache_write)}`} · out ${usd(price.output)}`;
+  return (
+    <Card withBorder p="xs">
+      <Stack gap={2}>
+        {option.note && <Text size="sm">{option.note}</Text>}
+        <Text size="xs" c="dimmed">
+          {option.price ? `Per 1M token: ${tier(option.price)}` : "Prezzo non indicato in global-coding-agent.yml."}
+        </Text>
+        {option.long_context_price && option.long_context_above !== null && (
+          <Text size="xs" c="dimmed">Oltre {option.long_context_above.toLocaleString("it-IT")} token di input: {tier(option.long_context_price)}</Text>
+        )}
+        <Text size="xs" c="dimmed">
+          {option.average_ai_credits === null
+            ? "Mai usato finora nelle deleghe."
+            : `Finora: ${credits(option.average_ai_credits)} crediti AI per turno in media (${option.turns} turni; 1 credito = 0,01 $).`}
+        </Text>
+      </Stack>
+    </Card>
   );
 }

@@ -79,6 +79,24 @@ class CopilotMessage(BaseModel):
     created_at: datetime = Field(default_factory=_utc_now)
 
 
+class CopilotPrice(BaseModel):
+    """USD per 1M tokens (1 AI credit = 0.01 USD)."""
+    input: float
+    cached_input: float
+    cache_write: float | None = None
+    output: float
+
+
+class CopilotModel(BaseModel):
+    """A model to choose from when delegating, with its price when the definition has one."""
+    name: str
+    note: str = ""
+    price: CopilotPrice | None = None
+    long_context_above: int | None = None
+    """Input tokens above which ``long_context_price`` applies."""
+    long_context_price: CopilotPrice | None = None
+
+
 class CodingAgentSettings(BaseModel):
     """What the app tells Copilot, from the coding-agent definition files."""
     plan_prompt: str
@@ -86,8 +104,8 @@ class CodingAgentSettings(BaseModel):
     execute_prompt: str
     denied_tools: list[str]
     """``--deny-tool`` of the execution, e.g. ``shell(git commit)``."""
-    models: list[str] = Field(default_factory=list)
-    """The models to choose from when delegating (besides the default)."""
+    models: list[CopilotModel] = Field(default_factory=list)
+    """The models to choose from when delegating (besides the default), as written."""
     prompts: dict[str, str] = Field(default_factory=dict)
     """The planning prompts to choose from instead of ``plan_prompt``: name
     (file name without ``.md``) → text, from ``coding-agent/`` folders."""

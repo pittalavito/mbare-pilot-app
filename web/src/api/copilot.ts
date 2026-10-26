@@ -12,6 +12,7 @@ export type CopilotMessage = components["schemas"]["CopilotMessageResponse"];
 export type CopilotStatus = CopilotSession["status"];
 export type CopilotUsage = components["schemas"]["CopilotUsageResponse"];
 export type CopilotTurn = components["schemas"]["CopilotTurnResponse"];
+export type CopilotModelOption = components["schemas"]["CopilotModelOptionResponse"];
 
 /** Queued or running: the worker has it, the page follows it. */
 export const isExecuting = (session: CopilotSession) => session.status === "queued" || session.status === "running";

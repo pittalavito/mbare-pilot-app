@@ -5,7 +5,7 @@ and for Observability (/observability/copilot/...)."""
 from fastapi import APIRouter, Depends, Response, status
 
 from controller.dependencies import copilot_service
-from models.controller.copilot import CopilotMessageRequest, CopilotMessageResponse, CopilotModelUsageResponse, CopilotSessionRequest, CopilotSessionResponse, CopilotSessionUsageResponse, CopilotStatusResponse, CopilotTurnResponse
+from models.controller.copilot import CopilotMessageRequest, CopilotMessageResponse, CopilotModelOptionResponse, CopilotModelUsageResponse, CopilotSessionRequest, CopilotSessionResponse, CopilotSessionUsageResponse, CopilotStatusResponse, CopilotTurnResponse
 from service.copilot_service import CopilotService
 
 router = APIRouter(tags=["copilot"])
@@ -20,7 +20,8 @@ def copilot_status(project: str | None = None, service: CopilotService = Depends
     settings, error = service.coding_agent_or_error(project)
     return CopilotStatusResponse(
         installed=version is not None, version=version, definition_error=error, default_model=service.default_model,
-        prompts=list(settings.prompts) if settings else [], models=settings.models if settings else [],
+        prompts=list(settings.prompts) if settings else [],
+        models=[CopilotModelOptionResponse.from_option(model, usage) for model, usage in service.model_options(settings)] if settings else [],
     )
 
 

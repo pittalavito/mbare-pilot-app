@@ -417,3 +417,39 @@ def test_the_usage_file_is_read_as_copilot_writes_it(tmp_path):
     assert read_usage(tmp_path / "manca.json") == (None, "")
     (tmp_path / "rotto.json").write_text("{non json", encoding="utf-8")
     assert read_usage(tmp_path / "rotto.json") == (None, "")
+
+
+def test_models_come_with_their_price_cheapest_first_and_what_they_cost_so_far(store_service, data, project, config):
+    path = config.definitions_root / "global-coding-agent.yml"
+    path.write_text(path.read_text(encoding="utf-8") + """models:
+  - auto
+  - {name: caro, input: 4, cached_input: 0.2, cache_write: 5, output: 20, note: per i task difficili}
+  - {name: economico, input: 0.1, cached_input: 0.01, cache_write: 0.125, output: 0.5,
+     long_context: {above: 100000, input: 0.5, cached_input: 0.05, cache_write: 0.625, output: 2.5}}
+  - {name: senza-cache-write, input: 2, cached_input: 0.1, output: 10}
+""", encoding="utf-8")
+    service = _service(store_service, data)
+    session = service.start("acme", _task(data), "api", model="economico")
+    service.send(session.id, "ok")
+
+    options = service.model_options(service.coding_agent("acme"))
+
+    assert [model.name for model, _ in options] == ["economico", "senza-cache-write", "caro", "auto"]
+    economico, usage = options[0]
+    assert (economico.long_context_above, economico.long_context_price.output) == (100000, 2.5)
+    assert (usage.turns, round(usage.usage.ai_credits, 2)) == (2, 0.2)
+    assert options[1][0].price.cache_write is None and options[2][0].note == "per i task difficili"
+    assert options[3][0].price is None and options[3][1] is None  # a plain name: no price, never used
+
+
+@pytest.mark.parametrize("models, error", [
+    ("[{name: x, input: 1}]", "insieme"),
+    ("[{name: x, input: 1, output: 2, prezzo: 3}]", "prezzo"),
+    ("[x, {name: x, input: 1, output: 2}]", "modelli ripetuti in models: x"),
+    ("[{name: x, output: 1, input: 1, long_context: {input: 2, cached_input: 0, output: 3}}]", "above"),
+])
+def test_a_wrong_model_price_is_an_error(store_service, data, project, config, models, error):
+    path = config.definitions_root / "global-coding-agent.yml"
+    path.write_text(path.read_text(encoding="utf-8") + f"models: {models}\n", encoding="utf-8")
+
+    assert error in _service(store_service, data).coding_agent_or_error()[1]

@@ -3,7 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from models.domain.copilot import CopilotMessage, CopilotModelUsage, CopilotSession, CopilotTurnRecord, CopilotUsage
+from models.domain.copilot import CopilotMessage, CopilotModel, CopilotModelUsage, CopilotSession, CopilotTurnRecord, CopilotUsage
 
 
 class CopilotSessionRequest(BaseModel):
@@ -69,8 +69,8 @@ class CopilotStatusResponse(BaseModel):
     """Why the coding-agent definition (prompts, denied tools) cannot be used; None when fine."""
     prompts: list[str] = []
     """Planning prompts to choose from besides the default (``coding-agent/<name>.md``)."""
-    models: list[str] = []
-    """Models to choose from besides the default."""
+    models: list["CopilotModelOptionResponse"] = []
+    """Models to choose from besides the default, the cheapest first."""
     default_model: str = ""
     """COPILOT_MODEL; ``""`` = Copilot's own default."""
 
@@ -132,3 +132,36 @@ class CopilotModelUsageResponse(BaseModel):
     @classmethod
     def from_model_usage(cls, item: CopilotModelUsage) -> "CopilotModelUsageResponse":
         return cls(model=item.model, turns=item.turns, usage=CopilotUsageResponse.from_usage(item.usage))
+
+
+class CopilotPriceResponse(BaseModel):
+    """USD per 1M tokens (1 AI credit = 0.01 USD)."""
+    input: float
+    cached_input: float
+    cache_write: float | None
+    output: float
+
+
+class CopilotModelOptionResponse(BaseModel):
+    """A model to choose from when delegating: its price (from the
+    coding-agent definition) and what it actually cost so far."""
+    name: str
+    note: str
+    price: CopilotPriceResponse | None
+    long_context_above: int | None
+    long_context_price: CopilotPriceResponse | None
+    turns: int
+    """Turns recorded with this model, every project."""
+    average_ai_credits: float | None
+    """AI credits per turn on average; None = never used."""
+
+    @classmethod
+    def from_option(cls, model: CopilotModel, usage: CopilotModelUsage | None) -> "CopilotModelOptionResponse":
+        turns = usage.turns if usage else 0
+        return cls(
+            **model.model_dump(), turns=turns,
+            average_ai_credits=round(usage.usage.ai_credits / turns, 4) if usage and turns else None,
+        )
+
+
+CopilotStatusResponse.model_rebuild()

@@ -14,8 +14,8 @@ from pydantic import ValidationError as PydanticValidationError
 
 from core.error import ValidationError
 from domain.project.data_paths import CODING_AGENT_FILE, CODING_AGENT_PROMPTS_DIR, GLOBAL_CODING_AGENT_FILE, NOTE_SUFFIX, data_file_name, project_definitions
-from models.domain.copilot import CodingAgentSettings
-from models.domain.definitions import CodingAgentFile
+from models.domain.copilot import CodingAgentSettings, CopilotModel, CopilotPrice
+from models.domain.definitions import CodingAgentFile, ModelFile
 
 TASK_PLACEHOLDER = "{task}"
 _PROMPTS = ("plan_prompt", "execute_prompt")
@@ -56,8 +56,9 @@ def plan_prompt(settings: CodingAgentSettings, task: str, prompt: str = "") -> s
 def check_model(settings: CodingAgentSettings, model: str) -> str:
     """``model`` when it is one of ``settings.models`` (``""`` = the default)."""
     model = model.strip()
-    if model and model not in settings.models:
-        raise ValidationError(f"Modello non previsto: {model}. Disponibili: {', '.join(settings.models) or 'solo il predefinito'}.")
+    names = [item.name for item in settings.models]
+    if model and model not in names:
+        raise ValidationError(f"Modello non previsto: {model}. Disponibili: {', '.join(names) or 'solo il predefinito'}.")
     return model
 
 
@@ -85,10 +86,25 @@ def _values(files: DefinitionFiles, path: str, folder: str, required: bool) -> d
                 raise ValidationError(f"definition/{path}: file del prompt non trovato o vuoto: {prompt_path}")
         if prompt is not None:
             values[name] = prompt
-    for name in ("denied_tools", "models"):
-        if getattr(spec, name) is not None:
-            values[name] = getattr(spec, name)
+    if spec.denied_tools is not None:
+        values["denied_tools"] = spec.denied_tools
+    if spec.models is not None:
+        values["models"] = [_model(item) for item in spec.models]
+        names = [model.name for model in values["models"]]
+        if duplicated := sorted({name for name in names if names.count(name) > 1}):
+            raise ValidationError(f"definition/{path}: modelli ripetuti in models: {', '.join(duplicated)}")
     return values
+
+
+def _model(item: ModelFile) -> CopilotModel:
+    """An element of ``models:``, with its price when it has one."""
+    price = lambda tier: CopilotPrice(input=tier.input, cached_input=tier.cached_input or 0.0, cache_write=tier.cache_write, output=tier.output)  # noqa: E731
+    return CopilotModel(
+        name=item.name, note=item.note.strip(),
+        price=price(item) if item.input is not None else None,
+        long_context_above=item.long_context.above if item.long_context else None,
+        long_context_price=price(item.long_context) if item.long_context else None,
+    )
 
 
 def _prompts(files: DefinitionFiles, folder: str) -> dict[str, str]:

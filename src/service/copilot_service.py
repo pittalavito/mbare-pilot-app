@@ -28,7 +28,7 @@ from core.observability import LogPrefix, log_exception, observed
 from domain.client.copilot.client import NOT_FOUND, CopilotClient, CopilotMode
 from domain.project import coding_agent
 from models.domain.copilot import (
-    CodingAgentSettings, CopilotMessage, CopilotMessageRole, CopilotModelUsage, CopilotPhase, CopilotSession, CopilotSessionStatus,
+    CodingAgentSettings, CopilotMessage, CopilotMessageRole, CopilotModel, CopilotModelUsage, CopilotPhase, CopilotSession, CopilotSessionStatus,
     CopilotTurn, CopilotTurnRecord, CopilotUsage,
 )
 from models.domain.note import TaskStatus
@@ -90,6 +90,14 @@ class CopilotService:
         """Prompts and denied tools: the global definition, with the project's
         fields over it. Raises ValidationError when missing or broken."""
         return coding_agent.load(self._store, project_name)
+
+    def model_options(self, settings: CodingAgentSettings) -> list[tuple[CopilotModel, CopilotModelUsage | None]]:
+        """The definition's models, the cheapest first (input + output price;
+        those without a price last, in the file's order), each with what it
+        used so far in every project (None = never used)."""
+        used = {item.model: item for item in self._store.copilot_usage_by_model()}
+        ordered = sorted(settings.models, key=lambda model: (model.price is None, model.price.input + model.price.output if model.price else 0.0))
+        return [(model, used.get(model.name)) for model in ordered]
 
     @property
     def default_model(self) -> str:
