@@ -5,6 +5,7 @@ import { IconFileText, IconPlayerPlay, IconPlayerStop } from "@tabler/icons-reac
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api, unwrap } from "../api/client";
+import { useWorkerState, workerKey } from "../api/worker";
 import { LogsDrawer } from "./LogsDrawer";
 
 const WORKER_LABELS = {
@@ -43,15 +44,11 @@ export function BackendStatus() {
 
 function WorkerControl() {
   const queryClient = useQueryClient();
-  const worker = useQuery({
-    queryKey: ["worker"],
-    queryFn: () => unwrap(api.GET("/admin/worker")),
-    refetchInterval: 5_000,
-  });
+  const worker = useWorkerState();
   const action = useMutation({
     mutationFn: (verb: "start" | "stop") =>
       unwrap(verb === "start" ? api.POST("/admin/worker/start") : api.POST("/admin/worker/stop")),
-    onSuccess: (state) => queryClient.setQueryData(["worker"], state),
+    onSuccess: (state) => queryClient.setQueryData(workerKey, state),
     onError: (error) => notifications.show({ color: "red", title: "Worker", message: error.message }),
   });
   if (!worker.data) return null;

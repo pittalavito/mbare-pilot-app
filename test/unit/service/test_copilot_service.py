@@ -143,6 +143,25 @@ def test_a_commit_during_the_execution_is_reported_not_undone(store_service, dat
     assert any("L'HEAD è cambiato" in message.content for message in service.messages(session.id))
 
 
+def test_a_repository_without_commits_works_and_its_first_commit_is_reported(store_service, data, project):
+    fresh = project / "nuovo"
+    fresh.mkdir()
+    _git(fresh, "init", "-q")  # no commit yet: no HEAD
+    service = _service(store_service, data)
+
+    clean = service.start("acme", _task(data, "Parti da zero"), "nuovo")
+    service.approve(clean.id)
+    clean = service.run_next()
+    assert (clean.status, clean.head_before, clean.head_after, clean.head_moved) == (CopilotSessionStatus.DONE, "", "", False)
+    assert clean.changed_files == ["copilot.txt"]
+
+    committed = service.start("acme", _task(data, "Fai COMMIT subito"), "nuovo")
+    service.approve(committed.id)
+    committed = service.run_next()
+    assert committed.head_before == "" and committed.head_moved
+    assert any("nessun commit →" in message.content for message in service.messages(committed.id))
+
+
 def test_a_failed_execution_reopens_the_task_and_the_chat_can_go_on(store_service, data, project):
     service = _service(store_service, data)
     note = _task(data, "FAIL apposta")

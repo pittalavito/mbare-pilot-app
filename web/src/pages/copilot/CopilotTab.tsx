@@ -6,6 +6,7 @@ import {
   type CopilotMessage, type CopilotSession, isExecuting, useApproveCopilot, useCancelCopilot, useCopilotMessages, useCopilotSessions,
   useCopilotStatus, useDeleteCopilotSession, useSendCopilotMessage,
 } from "../../api/copilot";
+import { useWorkerState } from "../../api/worker";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Markdown } from "../../components/Markdown";
 import { DelegateModal } from "./DelegateModal";
@@ -143,7 +144,7 @@ function SessionView({ project, session, onDeleted }: { project: string; session
       {(approve.error || cancel.error) && <Alert color="red">{(approve.error ?? cancel.error)!.message}</Alert>}
       {session.head_moved && (
         <Alert color="red" title="L'HEAD è cambiato durante l'esecuzione">
-          Un commit o un'altra operazione git non autorizzata ({session.head_before?.slice(0, 8)} → {session.head_after?.slice(0, 8)}). Controlla il
+          Un commit o un'altra operazione git non autorizzata ({session.head_before?.slice(0, 8) || "nessun commit"} → {session.head_after?.slice(0, 8)}). Controlla il
           repository: non è stato annullato niente.
         </Alert>
       )}
@@ -174,6 +175,7 @@ function SessionView({ project, session, onDeleted }: { project: string; session
         </ScrollArea>
       </Card>
       {send.error && <Alert color="red">{send.error.message}</Alert>}
+      {session.status === "queued" && <QueueHint />}
       <Group align="flex-end" wrap="nowrap">
         <Textarea
           style={{ flex: 1 }}
@@ -194,6 +196,21 @@ function SessionView({ project, session, onDeleted }: { project: string; session
         <Button onClick={submit} loading={send.isPending} disabled={!text.trim() || executing}>Invia</Button>
       </Group>
     </Stack>
+  );
+}
+
+/** Who runs the execution: the worker, which must be on and started after the app's last update. */
+function QueueHint() {
+  const worker = useWorkerState();
+  if (worker.isPending) return null;
+  if (!worker.data?.workers.length) {
+    return <Alert color="orange">Nessun worker attivo: l'esecuzione resta in coda. Avvialo dal menu Worker in alto a destra.</Alert>;
+  }
+  return (
+    <Text size="xs" c="dimmed">
+      In coda per il worker. Se non parte, riavvia il worker dal menu in alto a destra: dopo un aggiornamento dell'app un worker già acceso
+      usa ancora il codice vecchio.
+    </Text>
   );
 }
 

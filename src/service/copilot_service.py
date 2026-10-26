@@ -28,11 +28,12 @@ from service.git_service import GitService
 from service.project_data_service import ProjectDataService
 from service.store_service import StoreService
 
+# todof: scriviao meglio sta parte di
 FIRST_PROMPT = """Ti affido il task qui sotto, sul repository in cui ti trovi. Prima di cambiare qualcosa:
 1. leggi il codice che ti serve;
 2. fammi le domande necessarie per chiarire il task, poche e precise;
 3. quando non hai più domande, proponi un piano breve e aspetta il mio ok.
-Adesso non modificare niente. Anche dopo l'ok non farai commit, push né altre operazioni git che cambiano la storia, l'indice o i branch: il commit lo faccio io.
+Parliamo attraverso un'app, a turni: ogni mio messaggio ti arriva come un nuovo turno, quindi fai pure le tue domande e aspetta la risposta. Adesso sei in modalità piano e non puoi modificare niente: è giusto così. Il via lo do io con il pulsante «Ok, parti» dell'app, che ti riattiva per eseguire il piano; non chiedermi di uscire dalla modalità piano né di premere tasti. Anche dopo l'ok non farai commit, push né altre operazioni git che cambiano la storia, l'indice o i branch: il commit lo faccio io.
 
 {task}"""
 
@@ -42,6 +43,10 @@ EXECUTE_PROMPT = (
 )
 
 _CANCEL_CHECK_SECONDS = 2.0
+
+
+def _short(commit: str) -> str:
+    return commit[:8] or "nessun commit"
 
 
 def _now() -> datetime:
@@ -202,7 +207,7 @@ class CopilotService:
                                cancel_requested=False, finished_at=_now())
         if session.head_moved:
             self._message(session, CopilotMessageRole.EVENT,
-                          f"⚠️ L'HEAD è cambiato durante l'esecuzione ({session.head_before[:8]} → {session.head_after[:8]}): "
+                          f"⚠️ L'HEAD è cambiato durante l'esecuzione ({_short(session.head_before)} → {_short(session.head_after)}): "
                           "un commit o un'altra operazione git non autorizzata. Controlla prima di continuare: non ho annullato niente.")
         summary = {CopilotSessionStatus.DONE: "✅ Finita", CopilotSessionStatus.FAILED: "❌ Fallita", CopilotSessionStatus.CANCELLED: "⏹️ Annullata"}
         files = f": {len(changed)} file modificati nel repository." if changed else ": nessun file modificato."

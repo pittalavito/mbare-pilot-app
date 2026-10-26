@@ -1,11 +1,10 @@
 import { Accordion, Alert, Button, Card, Group, Loader, Select, Stack, Text, Textarea, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { type Pipeline, type Run, type Step, isFinished, useDeleteRun, useEnqueueRun, usePipelines, useRuns } from "../../api/automation";
-import { api, unwrap } from "../../api/client";
+import { useWorkerState } from "../../api/worker";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { KIND_LABELS, type Kind } from "./graphDraft";
 
@@ -89,7 +88,7 @@ function RunForm({ pipeline }: { pipeline: Pipeline }) {
 
 /** Who executes the queue: the running workers, or a warning when there is none. */
 function WorkerStatus() {
-  const worker = useQuery({ queryKey: ["admin", "worker"], queryFn: () => unwrap(api.GET("/admin/worker")), refetchInterval: 5_000 });
+  const worker = useWorkerState();
   const workers = worker.data?.workers ?? [];
   if (worker.isPending) return null;
   if (!workers.length) {

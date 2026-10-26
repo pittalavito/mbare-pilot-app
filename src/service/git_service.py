@@ -181,8 +181,9 @@ class GitService:
         return folder
 
     def head(self, project_name: str, subpath: str = "") -> str:
-        """The commit HEAD points to."""
-        return self._git.head(self.repository_folder(project_name, subpath))
+        """The commit HEAD points to; ``""`` in a repository without commits yet (just ``git init``)."""
+        folder = self.repository_folder(project_name, subpath)
+        return self._git.head(folder) if self._git.commit_exists(folder, "HEAD") else ""
 
     def project_folder(self, project_name: str) -> Path | None:
         """The project's code folder as saved (it may not exist any more); None

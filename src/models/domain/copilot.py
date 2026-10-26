@@ -49,6 +49,7 @@ class CopilotSession(BaseModel):
     cancel_requested: bool = False
     """Set by the API, read by the worker that is running it."""
     head_before: str | None = None
+    """HEAD when the execution started; ``""`` = the repository had no commits."""
     head_after: str | None = None
     changed_files: list[str] = Field(default_factory=list)
     """``git status`` of the repository when the execution ended."""
