@@ -15,6 +15,9 @@ from tool.context import ToolContext
 from tool.list.automation.automation_status import AUTOMATION_STATUS
 from tool.list.automation.list_automations import LIST_AUTOMATIONS
 from tool.list.automation.run_automation import RUN_AUTOMATION
+from tool.list.copilot.copilot_status import COPILOT_STATUS
+from tool.list.copilot.delegate_task import DELEGATE_TASK
+from tool.list.copilot.list_agent_tasks import LIST_AGENT_TASKS
 from tool.list.git.git_pull_fast_forward import GIT_PULL_FAST_FORWARD
 from tool.list.git.git_stash import GIT_STASH
 from tool.list.git.git_stash_apply import GIT_STASH_APPLY
@@ -30,6 +33,9 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         LIST_AUTOMATIONS,
         RUN_AUTOMATION,
         AUTOMATION_STATUS,
+        LIST_AGENT_TASKS,
+        DELEGATE_TASK,
+        COPILOT_STATUS,
         READ_CONTEXT,
         GIT_STATUS,
         GIT_PULL_FAST_FORWARD,

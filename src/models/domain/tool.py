@@ -39,6 +39,36 @@ class AutomationStatusResponse(BaseModel):
     steps: list[AutomationStepStatus] = Field(..., description="The steps run so far, in order.")
 
 
+class AgentTaskInfo(BaseModel):
+    task: str = Field(..., description="The task's note name (agent-task-<title>.md): what delegate_task wants.")
+    title: str
+    status: str = Field(..., description="todo, in_progress or done.")
+
+
+class ListAgentTasksResponse(BaseModel):
+    tasks: list[AgentTaskInfo] = Field(..., description="The project's agent tasks.")
+
+
+class DelegateTaskResponse(BaseModel):
+    """The planning chat with Copilot is open: Copilot's questions are there, not here."""
+    session_id: int = Field(..., description="The Copilot session: copilot_status wants it.")
+    task: str
+    repository: MaskRepositoryName = Field(..., description="Repository folder inside the project ('' = the project folder).")
+    copilot_answered: bool = Field(..., description="Copilot read the task and answered (questions or a plan) in its chat.")
+    chat: str = Field(..., description="Link to the Copilot chat in the app: give it to the user as a markdown link.")
+    next_step: str = Field(..., description="What the user has to do now.")
+
+
+class CopilotStatusResponse(BaseModel):
+    """Only statuses: Copilot's messages and the diff are in the Copilot chat."""
+    session_id: int
+    task: str
+    status: str = Field(..., description="planning (chat open, waiting for the user's ok), queued, running, done, failed or cancelled.")
+    changed_files: int = Field(..., description="Files changed in the repository when the execution ended.")
+    head_moved: bool = Field(..., description="True when a commit happened despite the rules: the user must check.")
+    chat: str = Field(..., description="Link to the Copilot chat in the app.")
+
+
 class ReadContextResponse(BaseModel):
     files: dict[str, str] = Field(..., description="File name -> its markdown content.")
 

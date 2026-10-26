@@ -12,6 +12,9 @@ I tool che un agente può chiamare durante una run:
 | `list_automations` | **con contesto**, solo chatbot | le automation del progetto che si possono lanciare adesso (attive, con step), con la descrizione |
 | `run_automation` | **con contesto**, solo chatbot | lancia un'automation del progetto in background e riporta l'id dell'esecuzione |
 | `automation_status` | **con contesto**, solo chatbot | stato di un'esecuzione di un'automation del progetto e dei suoi step: solo gli stati, niente output né messaggi d'errore |
+| `list_agent_tasks` | **con contesto**, solo chatbot | gli agent task del progetto (nome, titolo, stato): quelli che si possono delegare |
+| `delegate_task` | **con contesto**, solo chatbot | delega un agent task a Copilot su un repository: apre la chat di preparazione e restituisce il link |
+| `copilot_status` | **con contesto**, solo chatbot | stato di un task delegato: solo lo stato, quanti file ha cambiato e se l'HEAD si è mosso |
 | `read_context` | **con contesto** | il contesto del progetto per il chatbot: i `.md` di `project/<slug>/context/` (la cartella che indicizzerà il RAG); ultima risorsa |
 
 ```
@@ -25,6 +28,10 @@ src/tool/
       run_automation.py lancia un'automation del progetto
       automation_status.py  stato di un'esecuzione
       list_automations.py   automation lanciabili del progetto
+    copilot/
+      list_agent_tasks.py  agent task del progetto
+      delegate_task.py  delega un agent task a Copilot (apre la chat)
+      copilot_status.py stato di un task delegato
     project/
       read_context.py   contesto del progetto per il chatbot
     git/
@@ -47,7 +54,7 @@ run:    AgentService ──build_tools(nomi, ToolContext)──► tool datapizz
 ```
 
 - **I tool stanno sopra i service**: un tool usa i service (es. `GitService`) attraverso il `ToolContext`, mai il Container.
-- **Solo chatbot**: una `ToolSpec` con `chatbot_only=True` (`list_automations`, `run_automation`, `automation_status`) funziona solo nelle run del chatbot; `/tools` lo riporta (`chatbot_only`, calcolato dal codice, non salvato) e la UI la propone solo nel form del chatbot.
+- **Solo chatbot**: una `ToolSpec` con `chatbot_only=True` (`list_automations`, `run_automation`, `automation_status`, `list_agent_tasks`, `delegate_task`, `copilot_status`) funziona solo nelle run del chatbot; `/tools` lo riporta (`chatbot_only`, calcolato dal codice, non salvato) e la UI la propone solo nel form del chatbot.
 - **Catalogo**: all'avvio il registry viene copiato nella tabella `tool`. Un tool tolto dal codice resta nel catalogo con `available = False`: non si può più scegliere, e gli agenti che lo usano non partono finché non lo tolgono.
 - **`build_tools(nomi, context)`**: costruisce i tool scelti per una run, nell'ordine dato; `ValidationError` se un nome non ha implementazione.
 
@@ -56,7 +63,7 @@ run:    AgentService ──build_tools(nomi, ToolContext)──► tool datapizz
 Creato da `AgentService` per ogni run:
 
 - `project_name`: il progetto della run (`None` fuori da un progetto);
-- i service che i tool possono usare: `git`, `pipelines` (`PipelineService`, per le automation), `project_data` (`ProjectDataService`, per il contesto del chatbot);
+- i service che i tool possono usare: `git`, `pipelines` (`PipelineService`, per le automation), `project_data` (`ProjectDataService`, per il contesto del chatbot e gli agent task), `copilot` (`CopilotService`, per delegare a Copilot);
 - `origin`: cosa ha avviato la run (chat, automation, manuale): i tool delle automation funzionano solo con `chat`, cioè nel chatbot;
 **Il mascheramento non sta nei tool**: il contesto non ha sessione né funzioni di registrazione. Lo gestisce `AgentMask` (`domain/agent/masking.py`), che avvolge ogni tool attorno alla run: gli argomenti arrivano smascherati, l'output esce serializzato e mascherato. Un tool dichiara i suoi valori sensibili nel **modello di output** (vedi [service](../service/README.md#mascheramento)): `MaskRepositoryName`, `MaskPersonName`, `MaskEmailAddress` (campi singoli) o `MaskRepositoryNames` (liste), da `models/domain/masking.py`. Un tool non chiama nulla per registrare.
 
@@ -80,6 +87,16 @@ Il chatbot mette in coda un'esecuzione di un'automation del progetto e risponde 
 - **Senza conferma**: il chatbot le lancia da solo.
 - **Chi può usarlo**: solo il **chatbot** di un progetto (run con origine `chat`, `chatbot_run()`), come `automation_status`. Non un agente lanciato a mano né uno step **dentro un'automation** (potrebbe rilanciarla all'infinito), né una run fuori da un progetto: lì il tool non elenca niente e risponde con un errore.
 - **Errori** (automation sconosciuta, con l'elenco di quelle disponibili; automation non valida): tornano all'agente come `{"error": ...}`.
+
+## Copilot: `delegate_task(task, repository)`
+
+Il chatbot delega un agent task (`agent-task-<titolo>.md`, l'elenco lo dà `list_agent_tasks`) a GitHub Copilot su un repository del progetto ([service](../service/README.md#copilot)).
+
+- **Conferma**: la descrizione del tool chiede al chatbot di dire quale task e quale repository e di aspettare un sì esplicito nel messaggio successivo. La rete di sicurezza vera è dopo: il tool apre solo la **chat di preparazione** (Copilot legge e fa domande, non può modificare niente); l'esecuzione parte solo con «Ok, parti» nella chat.
+- **Cosa restituisce**: id della sessione, se Copilot ha risposto, il **link** alla chat (`/projects/<progetto>/copilot?session=<id>`) e il passo successivo. Le domande di Copilot restano nella sua chat: possono citare il codice.
+- **Tempo**: il primo turno di Copilot gira dentro la chiamata (decine di secondi).
+- `copilot_status(session_id)`: solo lo stato, quanti file sono cambiati e `head_moved`; sessioni di altri progetti non trovate.
+- Solo nel chatbot di un progetto (`copilot_run()`), come i tool delle automation.
 
 ## Pull: `git_pull_fast_forward(repository)`
 
@@ -146,6 +163,7 @@ In entrambi i casi: il modello di output in `models/domain/tool.py`.
 - `test/unit/tool/test_hello_world.py`
 - `test/unit/tool/test_run_automation.py`: run messa in coda con risposta immediata, solo automation attive e con step nella descrizione, automation sconosciuta, niente lancio fuori dal chatbot di un progetto (run manuale, fuori da un progetto, dentro un'automation, anche eseguita davvero dal runner).
 - `test/unit/tool/test_automation_status.py`: solo gli stati dell'esecuzione e degli step, mai output o errori; esecuzioni di altri progetti non trovate; solo nel chatbot.
+- `test/unit/tool/test_copilot_tools.py`: elenco dei task, delega che apre la chat senza riportare le risposte di Copilot, stato, errori con i repository disponibili, solo nel chatbot (con il finto Copilot di `test/fake_copilot.py`).
 - `test/unit/tool/test_read_context.py`: i `.md` di `context/`, nient'altro; errori senza file o senza progetto.
 - `test/unit/tool/test_git_write.py`: pull e stash con un remoto vero: commit arrivati, già aggiornato, modifiche locali che bloccano, file non tracciati che non bloccano, branch divergente mai unito, branch senza upstream, autori registrati per il mascheramento, errori senza percorsi locali; stash dei soli file tracciati, stash e poi pull, niente da mettere da parte; stash apply dell'ultimo o di uno indicato (lo stash resta), errori (nessuno stash, stash inesistente o non valido, modifiche locali), conflitti segnalati.
 - `test/unit/tool/test_git_tools.py`: `git_status` su un repository vero; progetto deciso dalla run, errori con i repository disponibili, percorsi fuori dal progetto, run senza progetto, schema degli argomenti, percorsi locali nascosti negli errori. Serve `git` nel PATH.

@@ -77,6 +77,7 @@ class Container:
             pipeline_service=self.pipeline_service,
             masking_service=self.masking_service,
             project_data_service=self.project_data_service,
+            copilot_service=self.copilot_service,
         )
         self.chat_route_service = ChatRouteService(
             store_service=self.store_service,

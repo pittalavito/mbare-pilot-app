@@ -13,6 +13,7 @@ from models.domain.chat import split_model_key
 from models.domain.chatbot import ChatMessage
 from service.agent_config_service import AgentConfigService
 from service.chat_service import ChatService
+from service.copilot_service import CopilotService
 from service.git_service import GitService
 from service.masking_service import MaskingService
 from service.model_service import require_usable_model
@@ -34,10 +35,12 @@ class AgentService:
         pipeline_service: PipelineService | None = None,
         masking_service: MaskingService | None = None,
         project_data_service: ProjectDataService | None = None,
+        copilot_service: CopilotService | None = None,
     ):
         """``pipeline_service`` lets the agents start automations (tool run_automation);
         ``masking_service`` hides the project's sensitive values from the LLM;
-        ``project_data_service`` lets them read the project's context (tool read_context)."""
+        ``project_data_service`` lets them read the project's context (tool read_context);
+        ``copilot_service`` lets the chatbot delegate agent tasks to Copilot (tool delegate_task)."""
         self._chat_service = chat_service
         self._agent_config_service = agent_config_service
         self._store_service = store_service
@@ -45,6 +48,7 @@ class AgentService:
         self._pipeline_service = pipeline_service
         self._masking_service = masking_service
         self._project_data_service = project_data_service
+        self._copilot_service = copilot_service
 
     def run(self, config_name: str, task_input: str, *, project_name: str | None = None, origin: RunOrigin = RunOrigin.MANUAL, history: list[ChatMessage] | None = None) -> AgentRunRecord:
         """Run the agent configured as ``config_name`` (see ``run_definition``)."""
@@ -71,6 +75,7 @@ class AgentService:
             pipelines=self._pipeline_service, 
             origin=origin, 
             project_data=self._project_data_service,
+            copilot=self._copilot_service,
         )
         tools = mask.wrap(build_tools(definition.tool_names, context))
         agent = AgentFactory.create_agent(definition, client, tools)

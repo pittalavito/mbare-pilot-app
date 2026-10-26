@@ -10,6 +10,7 @@ from models.domain.agent import RunOrigin
 from service.git_service import GitService
 
 if TYPE_CHECKING:  # services imported only for the type
+    from service.copilot_service import CopilotService
     from service.pipeline_service import PipelineService
     from service.project_data_service import ProjectDataService
 
@@ -25,6 +26,8 @@ class ToolContext:
     """What triggered the run (the automation tools work only in a chatbot's run)."""
     project_data: "ProjectDataService | None" = None
     """For reading the project's context files (tool read_context); None = not possible."""
+    copilot: "CopilotService | None" = None
+    """For delegating agent tasks to Copilot (tools delegate_task, copilot_status); None = not possible."""
 
     def require_project(self) -> str:
         """The run's project; ValidationError for tools that need one."""
