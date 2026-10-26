@@ -35,4 +35,4 @@ I divieti **non sono nel codice**: li passa il servizio, dal file `global-coding
 
 ## Test
 
-`test/fake_copilot.py` imita il CLI (stesso output JSONL, memoria dei turni per sessione, niente scritture in modalità piano). Lo usano `test/unit/service/test_copilot_service.py` e `test/unit/api/test_copilot_api.py`, su repository git veri in una cartella temporanea. La definizione di prova (`CODING_AGENT`) la scrive `test/conftest.py`.
+`test/fake_copilot.py` imita il CLI (stesso output JSONL, memoria dei turni per sessione, niente scritture in modalità piano). Lo usano `test/unit/service/test_copilot_service.py` e `test/unit/api/test_copilot_api.py`, su repository git veri in una cartella temporanea. La definizione di prova (`CODING_AGENT`) la scrive `test/conftest.py`. Il CLI vero non parte mai nei test, perché consuma crediti AI: la Config dei test ha `copilot_command` su un comando che non esiste, quindi un Container non trova Copilot finché un test non gli dà il finto (`test/unit/core/test_container.py` lo verifica).

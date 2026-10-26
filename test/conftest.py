@@ -38,7 +38,8 @@ denied_tools: ["shell(git commit)", "shell(git push)", "shell(git reset)"]
 
 @pytest.fixture(autouse=True)
 def config(tmp_path):
-    """The app-wide Config for every test: no .env, fake URLs and keys, data in
+    """The app-wide Config for every test: no .env, fake URLs and keys, no real
+    Copilot CLI (a Container's client finds none until a test gives it the fake), data in
     a tmp dir whose definition/ holds the example agent and Copilot's definition."""
     test_config = Config(
         _env_file=None,
@@ -47,6 +48,7 @@ def config(tmp_path):
         openai_api_key="test",
         mbare_pilot_home=str(tmp_path / "home"),
         mbare_pilot_secret_key=Fernet.generate_key().decode(),
+        copilot_command="copilot-disabled-in-tests",  # never the real CLI (it spends AI credits): tests use test/fake_copilot.py
     )
     test_config.definitions_root.mkdir(parents=True)
     (test_config.definitions_root / "global-agent.yml").write_text(HELLO_AGENT, encoding="utf-8")
