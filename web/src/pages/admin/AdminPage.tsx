@@ -2,6 +2,7 @@ import {
   Accordion, ActionIcon, Alert, Anchor, Button, Card, Checkbox, Code, Group, Loader, NumberInput, Select, Stack, Table, Tabs, Text, TextInput, Title,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -9,6 +10,7 @@ import {
   type CatalogModel, type RunSummary, backupUrl, useAgentRuns, useBackups, useConfig, useExportDb, useModels, useSaveModels, useToolCalls, useTrace,
 } from "../../api/admin";
 import { useCopilotStatus } from "../../api/copilot";
+import { CopilotUsage } from "./CopilotUsage";
 import { localTime, size } from "../../format";
 
 /** The Admin page, one tab per area (``?tab=``): services, observability, models, backups.
@@ -111,12 +113,14 @@ function CopilotCard() {
 // ------------------------------------------------------------ observability
 
 function Observability() {
+  const queryClient = useQueryClient();
   const runs = useAgentRuns();
   const calls = useToolCalls();
   return (
     <Stack gap="sm">
       <Group>
-        <Button variant="default" size="xs" loading={runs.isFetching || calls.isFetching} onClick={() => { runs.refetch(); calls.refetch(); }}>
+        <Button variant="default" size="xs" loading={runs.isFetching || calls.isFetching}
+                onClick={() => queryClient.invalidateQueries({ queryKey: ["observability"] })}>
           ⟳ Aggiorna
         </Button>
       </Group>
@@ -124,7 +128,9 @@ function Observability() {
         <Tabs.List mb="sm">
           <Tabs.Tab value="runs">Agent Runs</Tabs.Tab>
           <Tabs.Tab value="tools">Tool Calls</Tabs.Tab>
+          <Tabs.Tab value="copilot">Copilot</Tabs.Tab>
         </Tabs.List>
+        <Tabs.Panel value="copilot"><CopilotUsage /></Tabs.Panel>
         <Tabs.Panel value="runs"><AgentRuns runs={runs.data} error={runs.error?.message} /></Tabs.Panel>
         <Tabs.Panel value="tools">
           {calls.error && <Alert color="red">{calls.error.message}</Alert>}

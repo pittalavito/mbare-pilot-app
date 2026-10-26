@@ -10,6 +10,8 @@ import type { components } from "./schema";
 export type CopilotSession = components["schemas"]["CopilotSessionResponse"];
 export type CopilotMessage = components["schemas"]["CopilotMessageResponse"];
 export type CopilotStatus = CopilotSession["status"];
+export type CopilotUsage = components["schemas"]["CopilotUsageResponse"];
+export type CopilotTurn = components["schemas"]["CopilotTurnResponse"];
 
 /** Queued or running: the worker has it, the page follows it. */
 export const isExecuting = (session: CopilotSession) => session.status === "queued" || session.status === "running";
@@ -19,6 +21,9 @@ export const copilotKeys = {
   sessions: (project: string) => ["projects", project, "copilot-sessions"] as const,
   session: (id: number) => ["copilot-sessions", id] as const,
   messages: (id: number) => ["copilot-sessions", id, "messages"] as const,
+  usage: (id: number) => ["copilot-sessions", id, "turns"] as const,
+  turns: ["observability", "copilot", "turns"] as const,
+  models: (days: number | null) => ["observability", "copilot", "models", days] as const,
 };
 
 /** Whether Copilot CLI is installed, its version, and what is wrong with the
@@ -50,6 +55,29 @@ export function useCopilotMessages(id: number | undefined, live: boolean) {
   });
 }
 
+/** What each turn of a session used, and the sum; ``live`` refreshes it while it executes. */
+export function useCopilotSessionUsage(id: number | undefined, live: boolean) {
+  return useQuery({
+    queryKey: copilotKeys.usage(id ?? 0),
+    queryFn: () => unwrap(api.GET("/copilot-sessions/{session_id}/turns", { params: { path: { session_id: id! } } })),
+    enabled: id !== undefined,
+    refetchInterval: live ? 3_000 : false,
+  });
+}
+
+/** Observability: every session's turns, newest first. */
+export function useCopilotTurns() {
+  return useQuery({ queryKey: copilotKeys.turns, queryFn: () => unwrap(api.GET("/observability/copilot/turns")) });
+}
+
+/** Observability: totals per model over the last ``days`` (null = ever). */
+export function useCopilotModelUsage(days: number | null) {
+  return useQuery({
+    queryKey: copilotKeys.models(days),
+    queryFn: () => unwrap(api.GET("/observability/copilot/models", { params: { query: { days: days ?? undefined } } })),
+  });
+}
+
 /** After any change: the session list (status) and the session's messages; the task's status too. */
 function useRefresh(project: string) {
   const queryClient = useQueryClient();
@@ -57,6 +85,7 @@ function useRefresh(project: string) {
     Promise.all([
       queryClient.invalidateQueries({ queryKey: copilotKeys.sessions(project) }),
       queryClient.invalidateQueries({ queryKey: copilotKeys.messages(id) }),
+      queryClient.invalidateQueries({ queryKey: copilotKeys.usage(id) }),
       queryClient.invalidateQueries({ queryKey: dataKeys.agentTasks(project) }),
     ]);
 }

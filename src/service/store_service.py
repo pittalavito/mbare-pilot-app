@@ -6,6 +6,8 @@ and the local file store, all from ``Config.get()``. The repositories deal only
 in rows/records; the per-store ``Adapter``/``Factory`` translate to and from the
 domain models.
 """
+from datetime import datetime
+
 import redis
 from sqlalchemy.engine import Engine as SqlAlchemyEngine
 
@@ -30,6 +32,7 @@ from domain.store.db.store import (
     DbChatModelRepository,
     DbCopilotMessageRepository,
     DbCopilotSessionRepository,
+    DbCopilotTurnRepository,
     DbProjectRepository,
     DbPromptRepository,
     DbRoleRepository,
@@ -44,7 +47,7 @@ from models.domain.agent import AgentConfig, AgentRole, AgentRunRecord, AgentRun
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
 from models.domain.chat import ChatModel
 from models.domain.chatbot import ChatMessage, ChatRoute, Chatbot, Conversation
-from models.domain.copilot import CopilotMessage, CopilotSession, CopilotSessionStatus
+from models.domain.copilot import CopilotMessage, CopilotModelUsage, CopilotSession, CopilotSessionStatus, CopilotTurnRecord
 from models.domain.pipeline import Pipeline, PipelineRun, PipelineStepRun, RunStatus
 from models.domain.project import Project, ProjectSource
 from models.domain.masking import MaskCategory, MaskEntry
@@ -83,6 +86,7 @@ class StoreService:
         self._pipeline_step_run_repository = DbPipelineStepRunRepository(engine)
         self._copilot_session_repository = DbCopilotSessionRepository(engine)
         self._copilot_message_repository = DbCopilotMessageRepository(engine)
+        self._copilot_turn_repository = DbCopilotTurnRepository(engine)
         self._traces_repository = RedisTraceRepository(redis_client)
         self._workers_repository = RedisWorkerRepository(redis_client)
         self._masks_repository = RedisMaskRepository(redis_client)
@@ -437,6 +441,21 @@ class StoreService:
     def list_copilot_messages(self, session_id: int) -> list[CopilotMessage]:
         """Oldest first."""
         return [DbAdapter.to_copilot_message(row) for row in self._copilot_message_repository.list_for_session(session_id)]
+
+    def add_copilot_turn(self, turn: CopilotTurnRecord) -> CopilotTurnRecord:
+        return DbAdapter.to_copilot_turn(self._copilot_turn_repository.save(DbFactory.to_copilot_turn_row(turn)))
+
+    def list_copilot_turns(self, limit: int = 100, project_name: str | None = None) -> list[CopilotTurnRecord]:
+        """Newest first."""
+        return [DbAdapter.to_copilot_turn(row) for row in self._copilot_turn_repository.list_recent(limit, project_name)]
+
+    def list_copilot_session_turns(self, session_id: int) -> list[CopilotTurnRecord]:
+        """Oldest first."""
+        return [DbAdapter.to_copilot_turn(row) for row in self._copilot_turn_repository.list_for_session(session_id)]
+
+    def copilot_usage_by_model(self, since: datetime | None = None, project_name: str | None = None) -> list[CopilotModelUsage]:
+        """The most AI credits first."""
+        return [DbAdapter.to_copilot_model_usage(row) for row in self._copilot_turn_repository.totals_by_model(since, project_name)]
 
     # ----------------------------------------------------------------- files
     def list_files(self, prefix: str = "") -> list[StoredFile]:

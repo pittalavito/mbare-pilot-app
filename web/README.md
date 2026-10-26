@@ -64,6 +64,7 @@ src/
     masking.ts        valori mascherati e sincronizzazione delle definizioni YAML
     agents.ts         agenti, ruoli e versioni dei prompt, per scope (Libreria o progetto)
     admin.ts          config, observability (run, tool call, trace), catalogo modelli, backup del DB
+    copilot.ts        sessioni Copilot, chat, ok e annullamento, uso per sessione e per Observability
     copilot.ts        sessioni Copilot: delega, chat di preparazione, ok, annullamento (polling durante l'esecuzione)
   app/
     router.tsx        le rotte
@@ -78,7 +79,7 @@ src/
     git/              tab Git: commit con filtri e file modificati
     atlassian/        tab Atlassian: Jira, Confluence, preferiti
     library/          pagina Libreria: agenti globali (la stessa sezione Agenti) e catalogo dei tool
-    admin/            pagina Admin: servizi, observability, modelli, backup (tab in ?tab=)
+    admin/            pagina Admin: servizi, observability (agent run, tool call, Copilot), modelli, backup (tab in ?tab=)
     settings/         tab Impostazioni: generale, Atlassian, mascheramento, definizioni, agenti, rimozione
     copilot/          tab Copilot: task delegati, chat con Copilot, «Ok, parti», file cambiati; modale «Delega a Copilot» (anche dal form del task)
     chat/             tab Chat: conversazioni, messaggi in markdown, «Metti in cache», modale del chatbot

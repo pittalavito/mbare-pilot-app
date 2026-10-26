@@ -1355,6 +1355,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/copilot-sessions/{session_id}/turns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Session Usage
+         * @description What each turn used (AI credits, tokens), oldest first, and the sum.
+         */
+        get: operations["session_usage_copilot_sessions__session_id__turns_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/observability/copilot/turns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recent Turns
+         * @description Every session's turns, newest first (deleted sessions too).
+         */
+        get: operations["recent_turns_observability_copilot_turns_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/observability/copilot/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Usage By Model
+         * @description Totals per model over the last ``days`` (omitted = ever), the most AI credits first.
+         */
+        get: operations["usage_by_model_observability_copilot_models_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/copilot-sessions/{session_id}/approve": {
         parameters: {
             query?: never;
@@ -1810,6 +1870,14 @@ export interface components {
              */
             created_at: string;
         };
+        /** CopilotModelUsageResponse */
+        CopilotModelUsageResponse: {
+            /** Model */
+            model: string;
+            /** Turns */
+            turns: number;
+            usage: components["schemas"]["CopilotUsageResponse"];
+        };
         /** CopilotSessionRequest */
         CopilotSessionRequest: {
             /** Task Note */
@@ -1875,6 +1943,15 @@ export interface components {
             /** Finished At */
             finished_at: string | null;
         };
+        /**
+         * CopilotSessionUsageResponse
+         * @description A session's turns and their sum.
+         */
+        CopilotSessionUsageResponse: {
+            total: components["schemas"]["CopilotUsageResponse"];
+            /** Turns */
+            turns: components["schemas"]["CopilotTurnResponse"][];
+        };
         /** CopilotStatusResponse */
         CopilotStatusResponse: {
             /** Installed */
@@ -1898,6 +1975,57 @@ export interface components {
              * @default
              */
             default_model: string;
+        };
+        /** CopilotTurnResponse */
+        CopilotTurnResponse: {
+            /** Id */
+            id: number;
+            /** Session Id */
+            session_id: number;
+            /** Project Name */
+            project_name: string;
+            /** Task Note */
+            task_note: string;
+            /** Phase */
+            phase: string;
+            /** Model */
+            model: string;
+            /** Ok */
+            ok: boolean;
+            /** Cancelled */
+            cancelled: boolean;
+            /** Error */
+            error: string | null;
+            /** Duration Ms */
+            duration_ms: number;
+            usage: components["schemas"]["CopilotUsageResponse"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * CopilotUsageResponse
+         * @description Copilot's accounting: AI credits (premium requests on the legacy plan) and tokens; no EUR.
+         */
+        CopilotUsageResponse: {
+            /** Premium Requests */
+            premium_requests: number;
+            /** Ai Credits */
+            ai_credits: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Cache Read Tokens */
+            cache_read_tokens: number;
+            /** Cache Write Tokens */
+            cache_write_tokens: number;
+            /** Reasoning Tokens */
+            reasoning_tokens: number;
+            /** Api Duration Ms */
+            api_duration_ms: number;
         };
         /** CreateFromScratchRequest */
         CreateFromScratchRequest: {
@@ -5572,6 +5700,101 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CopilotSessionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    session_usage_copilot_sessions__session_id__turns_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CopilotSessionUsageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recent_turns_observability_copilot_turns_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                project?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CopilotTurnResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    usage_by_model_observability_copilot_models_get: {
+        parameters: {
+            query?: {
+                days?: number | null;
+                project?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CopilotModelUsageResponse"][];
                 };
             };
             /** @description Validation Error */

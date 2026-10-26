@@ -23,7 +23,7 @@ from domain.store.db.pipeline_repository import (
     DbPipelineStepRunRepository,
 )
 from domain.store.db.chat_model_repository import DbChatModelRepository
-from domain.store.db.copilot_repository import DbCopilotMessageRepository, DbCopilotSessionRepository
+from domain.store.db.copilot_repository import USAGE_COLUMNS, DbCopilotMessageRepository, DbCopilotSessionRepository, DbCopilotTurnRepository
 from domain.store.db.project_repository import DbProjectRepository
 from domain.store.db.prompt_repository import DbPromptRepository
 from domain.store.db.repository import Engine
@@ -43,7 +43,9 @@ from models.domain.agent import (
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
 from models.domain.chat import ChatModel, EmbeddingModelName
 from models.domain.chatbot import ChatMessage, ChatRoute, Chatbot, Conversation, MessageRole
-from models.domain.copilot import CopilotMessage, CopilotMessageRole, CopilotSession, CopilotSessionStatus
+from models.domain.copilot import (
+    CopilotMessage, CopilotMessageRole, CopilotModelUsage, CopilotPhase, CopilotSession, CopilotSessionStatus, CopilotTurnRecord, CopilotUsage,
+)
 from models.domain.pipeline import (
     INPUT_NODE,
     EdgeConditionKind,
@@ -67,6 +69,7 @@ from models.store.db import (
     ConversationTable,
     CopilotMessageTable,
     CopilotSessionTable,
+    CopilotTurnTable,
     MessageTable,
     ChatModelTable,
     PipelineEdgeTable,
@@ -98,6 +101,7 @@ __all__ = [
     "DbChatModelRepository",
     "DbCopilotMessageRepository",
     "DbCopilotSessionRepository",
+    "DbCopilotTurnRepository",
     "DbProjectRepository",
     "DbPromptRepository",
     "DbRoleRepository",
@@ -126,6 +130,17 @@ class Adapter:
             "started_at": _as_utc(row.started_at) if row.started_at else None,
             "finished_at": _as_utc(row.finished_at) if row.finished_at else None,
         })
+
+    @staticmethod
+    def to_copilot_turn(row: CopilotTurnTable) -> CopilotTurnRecord:
+        data = row.model_dump()
+        usage = CopilotUsage(**{name: data.pop(name) for name in USAGE_COLUMNS})
+        return CopilotTurnRecord(**{**data, "phase": CopilotPhase(row.phase), "usage": usage, "created_at": _as_utc(row.created_at)})
+
+    @staticmethod
+    def to_copilot_model_usage(row: tuple) -> CopilotModelUsage:
+        """A row of ``totals_by_model``: ``(model, turns, *usage sums)``."""
+        return CopilotModelUsage(model=row[0], turns=row[1], usage=CopilotUsage(**dict(zip(USAGE_COLUMNS, row[2:]))))
 
     @staticmethod
     def to_copilot_message(row: CopilotMessageTable) -> CopilotMessage:
@@ -344,6 +359,11 @@ class Factory:
     @staticmethod
     def to_copilot_session_row(session: CopilotSession) -> CopilotSessionTable:
         return CopilotSessionTable(**{**session.model_dump(), "status": session.status.value, "changed_files": list(session.changed_files)})
+
+    @staticmethod
+    def to_copilot_turn_row(turn: CopilotTurnRecord) -> CopilotTurnTable:
+        data = turn.model_dump(exclude={"usage"})
+        return CopilotTurnTable(**{**data, **turn.usage.model_dump(), "phase": turn.phase.value})
 
     @staticmethod
     def to_copilot_message_row(message: CopilotMessage) -> CopilotMessageTable:

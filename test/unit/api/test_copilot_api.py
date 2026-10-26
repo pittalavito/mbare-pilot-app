@@ -44,6 +44,16 @@ def test_delegate_chat_approve_cancel_and_delete(client):
     assert [m["role"] for m in client.get(f"/copilot-sessions/{sid}/messages").json()] == ["user", "copilot", "user", "copilot"]
     assert client.post(f"/copilot-sessions/{sid}/messages", json={"text": "  "}).status_code == 400
 
+    usage = client.get(f"/copilot-sessions/{sid}/turns").json()
+    assert [turn["phase"] for turn in usage["turns"]] == ["plan", "plan"]
+    assert (usage["total"]["premium_requests"], usage["total"]["ai_credits"], usage["total"]["input_tokens"]) == (2, 0.2, 2000)
+    assert [turn["session_id"] for turn in client.get("/observability/copilot/turns", params={"project": "acme"}).json()] == [sid, sid]
+    assert client.get("/observability/copilot/models", params={"days": 7}).json() == [{
+        "model": "fake-default", "turns": 2,
+        "usage": {"premium_requests": 2, "ai_credits": 0.2, "input_tokens": 2000, "output_tokens": 20, "cache_read_tokens": 1000,
+                  "cache_write_tokens": 200, "reasoning_tokens": 10, "api_duration_ms": 100},
+    }]
+
     assert client.post(f"/copilot-sessions/{sid}/approve").json()["status"] == "queued"
     assert client.delete(f"/copilot-sessions/{sid}").status_code == 409  # queued: cancel it first
     assert client.post(f"/copilot-sessions/{sid}/cancel").json()["status"] == "cancelled"

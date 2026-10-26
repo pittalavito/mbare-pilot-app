@@ -8,7 +8,10 @@ arguments it got. What it does depends on the task (the session's first prompt):
 - ``SLEEP``: the execution sleeps (for cancellation and timeouts);
 - ``FAIL``: the execution fails (exit code 1, message on stderr).
 
-In plan mode it never writes in the working directory, as the real CLI."""
+In plan mode it never writes in the working directory, as the real CLI. With
+``--usage-output-file`` it writes the session's cumulative usage like the real
+one: each turn adds 1 premium request, 0.1 AI credits, 1000 input and 10 output
+tokens (a turn killed while sleeping writes nothing)."""
 import json
 import os
 import subprocess
@@ -30,12 +33,16 @@ def main() -> int:
     session_file.write_text(json.dumps(turns), encoding="utf-8")
     task = turns[0]["prompt"]
 
+    usage_file = args[args.index("--usage-output-file") + 1] if "--usage-output-file" in args else None
+    model = args[args.index("--model") + 1] if "--model" in args else "fake-default"
     if mode == "plan":
         _answer(f"Domanda {len(turns)}: confermi? (turni in questa sessione: {len(turns)})", len(turns))
+        _usage(usage_file, len(turns), model)
         return 0
     if "FAIL" in task:
         print("errore simulato", file=sys.stderr)
         _answer("Non ce l'ho fatta.", len(turns), exit_code=1)
+        _usage(usage_file, len(turns), model)
         return 1
     if "SLEEP" in task:
         time.sleep(60)
@@ -45,6 +52,7 @@ def main() -> int:
         subprocess.run(["git", "-c", "user.name=Copilot", "-c", "user.email=c@example.com", "commit", "-qm", "copilot"],
                        check=True, capture_output=True)
     _answer("Ho creato copilot.txt. Criteri soddisfatti.", len(turns))
+    _usage(usage_file, len(turns), model)
     return 0
 
 
@@ -54,6 +62,19 @@ def _answer(text: str, premium_requests: int, exit_code: int = 0) -> None:
     print(json.dumps({"type": "assistant.message", "data": {"content": text}}))
     print(json.dumps({"type": "result", "exitCode": exit_code, "usage": {"premiumRequests": premium_requests}}))
     sys.stdout.flush()
+
+
+def _usage(path: str | None, turns: int, model: str) -> None:
+    """The session's totals after ``turns`` turns, in the real CLI's format."""
+    if path is None:
+        return
+    usage = {"inputTokens": 1000 * turns, "outputTokens": 10 * turns, "cacheReadTokens": 500 * turns,
+             "cacheWriteTokens": 100 * turns, "reasoningTokens": 5 * turns}
+    Path(path).write_text(json.dumps({
+        "totalPremiumRequestCost": turns, "totalNanoAiu": 100_000_000 * turns, "totalApiDurationMs": 50 * turns,
+        "modelMetrics": {model: {"requests": {"count": turns, "cost": turns}, "usage": usage}},
+        "currentModel": model,
+    }), encoding="utf-8")
 
 
 if __name__ == "__main__":

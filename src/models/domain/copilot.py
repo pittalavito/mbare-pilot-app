@@ -93,6 +93,37 @@ class CodingAgentSettings(BaseModel):
     (file name without ``.md``) → text, from ``coding-agent/`` folders."""
 
 
+class CopilotUsage(BaseModel):
+    """Copilot's accounting: of a whole Copilot session so far (what the CLI
+    writes with ``--usage-output-file``, cumulative across resumed turns) or of
+    one turn (the difference). Copilot bills in AI credits (premium requests on
+    the legacy plan), not in tokens × a price: no EUR here."""
+    premium_requests: float = 0.0
+    nano_aiu: int = 0
+    """AI credits × 10⁹ (Copilot's own unit, exact)."""
+    input_tokens: int = 0
+    """Cached ones included."""
+    output_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
+    reasoning_tokens: int = 0
+    api_duration_ms: int = 0
+
+    @property
+    def ai_credits(self) -> float:
+        return self.nano_aiu / 1e9
+
+    def __add__(self, other: "CopilotUsage") -> "CopilotUsage":
+        return CopilotUsage(**{name: getattr(self, name) + getattr(other, name) for name in CopilotUsage.model_fields})
+
+    def since(self, previous: "CopilotUsage") -> "CopilotUsage":
+        """What was added after ``previous`` (both cumulative). When a total
+        went down Copilot started counting again: all of this is new."""
+        if any(getattr(self, name) < getattr(previous, name) for name in CopilotUsage.model_fields):
+            return self
+        return CopilotUsage(**{name: getattr(self, name) - getattr(previous, name) for name in CopilotUsage.model_fields})
+
+
 class CopilotTurn(BaseModel):
     """What one invocation of Copilot CLI answered."""
     message: str
@@ -103,3 +134,38 @@ class CopilotTurn(BaseModel):
     error: str | None = None
     """Why the turn failed (exit code, timeout, cancellation), None when it succeeded."""
     cancelled: bool = False
+    usage: CopilotUsage | None = None
+    """The session's totals after this turn; None when Copilot wrote none (killed, not started)."""
+    model: str = ""
+    """The model Copilot used last, as it reports it."""
+
+
+class CopilotPhase(StrEnum):
+    PLAN = "plan"
+    EXECUTE = "execute"
+
+
+class CopilotTurnRecord(BaseModel):
+    """One turn of a session for observability: what it used. Kept when the
+    session is deleted (``session_id`` is a plain number)."""
+    id: int | None = None
+    session_id: int
+    project_name: str
+    task_note: str
+    phase: CopilotPhase
+    model: str = ""
+    """The model Copilot reported, else the one asked for; ``""`` = unknown."""
+    ok: bool = True
+    cancelled: bool = False
+    error: str | None = None
+    duration_ms: int = 0
+    """Wall time of the turn, Copilot's start included."""
+    usage: CopilotUsage = Field(default_factory=CopilotUsage)
+    created_at: datetime = Field(default_factory=_utc_now)
+
+
+class CopilotModelUsage(BaseModel):
+    """What one model used, over the turns asked for."""
+    model: str
+    turns: int
+    usage: CopilotUsage

@@ -12,3 +12,9 @@ export function size(bytes: number): string {
 
 /** A timestamp of the API (UTC) in the local time of the browser. */
 export const localTime = (value: string) => new Date(value).toLocaleString("it-IT");
+
+/** A count: 26.736. */
+export const count = (value: number) => value.toLocaleString("it-IT");
+
+/** Copilot's AI credits: 0,34. */
+export const credits = (value: number) => value.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });

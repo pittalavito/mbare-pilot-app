@@ -3,12 +3,13 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 
 import {
-  type CopilotMessage, type CopilotSession, isExecuting, useApproveCopilot, useCancelCopilot, useCopilotMessages, useCopilotSessions,
-  useCopilotStatus, useDeleteCopilotSession, useSendCopilotMessage,
+  type CopilotMessage, type CopilotSession, isExecuting, useApproveCopilot, useCancelCopilot, useCopilotMessages, useCopilotSessionUsage,
+  useCopilotSessions, useCopilotStatus, useDeleteCopilotSession, useSendCopilotMessage,
 } from "../../api/copilot";
 import { useWorkerState } from "../../api/worker";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Markdown } from "../../components/Markdown";
+import { count, credits } from "../../format";
 import { DelegateModal } from "./DelegateModal";
 
 /** The Copilot tab of a project: the agent tasks delegated to GitHub Copilot
@@ -89,6 +90,7 @@ export function CopilotTab() {
 function SessionView({ project, session, onDeleted }: { project: string; session: CopilotSession; onDeleted: () => void }) {
   const executing = isExecuting(session);
   const messages = useCopilotMessages(session.id, executing);
+  const usage = useCopilotSessionUsage(session.id, executing);
   const send = useSendCopilotMessage(project);
   const approve = useApproveCopilot(project);
   const cancel = useCancelCopilot(project);
@@ -121,8 +123,14 @@ function SessionView({ project, session, onDeleted }: { project: string; session
           </Group>
           <Text size="xs" c="dimmed">
             <code>{repoLabel(session.repository)}</code> · prompt: {session.prompt || "predefinito"} · modello:{" "}
-            {session.model || "predefinito"} · richieste premium usate: {session.premium_requests}
+            {session.model || "predefinito"}
           </Text>
+          {usage.data && (
+            <Text size="xs" c="dimmed" title={`${usage.data.turns.length} turni · cache letta ${count(usage.data.total.cache_read_tokens)} · scritta ${count(usage.data.total.cache_write_tokens)} · reasoning ${count(usage.data.total.reasoning_tokens)}`}>
+              Uso: {credits(usage.data.total.ai_credits)} crediti AI · {usage.data.total.premium_requests} richieste premium · token{" "}
+              {count(usage.data.total.input_tokens)} in / {count(usage.data.total.output_tokens)} out
+            </Text>
+          )}
         </Stack>
         <Group gap="xs">
           {session.status === "planning" && (

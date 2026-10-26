@@ -18,7 +18,40 @@ const MODELS = [
   { provider: "openai", model: "gpt-4o", input_per_1m: 2.3, output_per_1m: 9.2, active: true, in_use: false },
 ];
 
+const USAGE = {
+  premium_requests: 3, ai_credits: 1.27, input_tokens: 26736, output_tokens: 97, cache_read_tokens: 0, cache_write_tokens: 26732,
+  reasoning_tokens: 92, api_duration_ms: 2842,
+};
+const TURN = {
+  id: 1, session_id: 4, project_name: "acme", task_note: "agent-task-fix-porto.md", phase: "execute", model: "claude-haiku-5.5",
+  ok: true, cancelled: false, error: null, duration_ms: 6064, usage: USAGE, created_at: "2026-10-26T11:30:00Z",
+};
+
 describe("AdminPage", () => {
+  it("shows what Copilot used per model and turn by turn, with the link to the session", async () => {
+    const models = vi.fn((request: Request) => {
+      const days = new URL(request.url).searchParams.get("days");
+      return days ? [{ model: "claude-haiku-5.5", turns: 1, usage: USAGE }] : [];
+    });
+    mockApi({
+      "GET /admin/config": { settings: {}, redis_dashboard_port: 8081, postgres_dashboard_port: 8082 },
+      "GET /observability/runs": [],
+      "GET /observability/tool-calls": [],
+      "GET /observability/copilot/models": models,
+      "GET /observability/copilot/turns": [TURN],
+    });
+    renderPage(<AdminPage />, { route: "/admin?tab=observability" });
+
+    fireEvent.click(await screen.findByRole("tab", { name: "Copilot" }));
+    expect(await screen.findAllByText("1,27")).toHaveLength(2); // per model and the turn
+    expect(screen.getAllByText("26.736 / 97")).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "fix porto" })).toHaveAttribute("href", "/projects/acme/copilot?session=4");
+    expect(screen.getByText("esecuzione")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Sempre"));
+    expect(await screen.findByText("Nessun turno di Copilot nel periodo.")).toBeInTheDocument();
+  });
+
   it("shows the runs and the trace of the one clicked", async () => {
     mockApi({
       "GET /admin/config": { settings: {}, redis_dashboard_port: 8081, postgres_dashboard_port: 8082 },

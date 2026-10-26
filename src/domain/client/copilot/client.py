@@ -9,10 +9,14 @@ Two modes:
 - **execute**: ``--mode autopilot --allow-all-tools``, minus the tools the
   caller denies (``denied_tools``, from the coding-agent definition).
 
+Every turn also asks for the usage file (``--usage-output-file``, in a temp
+folder): the session's totals come back in ``CopilotTurn.usage``.
+
 Finding the CLI is in cli.py, running it in process.py, reading its output
-in output.py."""
+in output.py and its usage file in usage.py."""
 import os
 import subprocess
+import tempfile
 from collections.abc import Callable, Sequence
 from enum import StrEnum
 from pathlib import Path
@@ -20,6 +24,7 @@ from pathlib import Path
 from domain.client.copilot import process
 from domain.client.copilot.cli import NO_WINDOW, resolve
 from domain.client.copilot.output import to_turn
+from domain.client.copilot.usage import read_usage
 from models.domain.copilot import CopilotTurn
 
 NOT_FOUND = "Copilot CLI non trovato: installalo (npm install -g @github/copilot) e fai il login."
@@ -75,12 +80,16 @@ class CopilotClient:
         raises for Copilot's own failures: they come back in ``error``."""
         if self._command is None:
             return CopilotTurn(message="", exit_code=-1, error=NOT_FOUND)
-        argv = [*self._command, *self._arguments(cwd, session_id, prompt, mode, denied_tools, model or self._model)]
-        try:
-            result = process.run(argv, cwd, self._environment(), timeout_seconds, should_cancel)
-        except OSError as exc:
-            return CopilotTurn(message="", exit_code=-1, error=f"Impossibile avviare Copilot CLI: {exc}")
-        return to_turn(result, timeout_seconds)
+        with tempfile.TemporaryDirectory(prefix="mbare-copilot-") as folder:
+            usage_file = Path(folder) / "usage.json"
+            argv = [*self._command, *self._arguments(cwd, session_id, prompt, mode, denied_tools, model or self._model),
+                    "--usage-output-file", str(usage_file)]
+            try:
+                result = process.run(argv, cwd, self._environment(), timeout_seconds, should_cancel)
+            except OSError as exc:
+                return CopilotTurn(message="", exit_code=-1, error=f"Impossibile avviare Copilot CLI: {exc}")
+            usage, used_model = read_usage(usage_file)
+        return to_turn(result, timeout_seconds).model_copy(update={"usage": usage, "model": used_model})
 
     def _arguments(self, cwd: Path, session_id: str, prompt: str, mode: CopilotMode, denied_tools: Sequence[str], model: str) -> list[str]:
         arguments = ["-p", prompt, "--session-id", session_id, "--add-dir", str(cwd), "--output-format", "json", "--no-color"]

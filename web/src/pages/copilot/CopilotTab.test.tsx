@@ -36,12 +36,18 @@ describe("CopilotTab", () => {
       "GET /copilot/status": { installed: true, version: "GitHub Copilot CLI 1.0.103." },
       "GET /projects/acme/copilot-sessions": [session()],
       "GET /copilot-sessions/4/messages": MESSAGES,
+      "GET /copilot-sessions/4/turns": {
+        total: { premium_requests: 2, ai_credits: 0.68, input_tokens: 53472, output_tokens: 194, cache_read_tokens: 0, cache_write_tokens: 0,
+                 reasoning_tokens: 0, api_duration_ms: 0 },
+        turns: [],
+      },
       "POST /copilot-sessions/4/messages": sent,
       "POST /copilot-sessions/4/approve": approved,
     });
     renderTab();
 
     expect(await screen.findByText("Domanda")).toHaveProperty("tagName", "STRONG"); // Copilot's markdown
+    expect(await screen.findByText(/0,68 crediti AI · 2 richieste premium · token 53.472 in \/ 194 out/)).toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText(/Rispondi a Copilot/), { target: { value: "ValueError" } });
     fireEvent.keyDown(screen.getByPlaceholderText(/Rispondi a Copilot/), { key: "Enter" });
     await waitFor(() => expect(sent).toHaveBeenCalled());

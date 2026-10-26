@@ -18,7 +18,7 @@ the chat can go on and a new ok starts a new one. The task's status follows:
 in progress while it runs, done when it succeeds, back to todo otherwise."""
 import time
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -27,7 +27,10 @@ from core.error import AppError, ConflictError, NotFoundError, UpstreamError, Va
 from core.observability import LogPrefix, log_exception, observed
 from domain.client.copilot.client import NOT_FOUND, CopilotClient, CopilotMode
 from domain.project import coding_agent
-from models.domain.copilot import CodingAgentSettings, CopilotMessage, CopilotMessageRole, CopilotSession, CopilotSessionStatus, CopilotTurn
+from models.domain.copilot import (
+    CodingAgentSettings, CopilotMessage, CopilotMessageRole, CopilotModelUsage, CopilotPhase, CopilotSession, CopilotSessionStatus,
+    CopilotTurn, CopilotTurnRecord, CopilotUsage,
+)
 from models.domain.note import TaskStatus
 from service.git_service import GitService
 from service.project_data_service import ProjectDataService
@@ -113,6 +116,20 @@ class CopilotService:
     def messages(self, session_id: int) -> list[CopilotMessage]:
         return self._store.list_copilot_messages(self.session(session_id).id)
 
+    # ----------------------------------------------------------------- usage
+    def session_turns(self, session_id: int) -> list[CopilotTurnRecord]:
+        """What each turn of the session used, oldest first."""
+        return self._store.list_copilot_session_turns(self.session(session_id).id)
+
+    def recent_turns(self, limit: int = 100, project_name: str | None = None) -> list[CopilotTurnRecord]:
+        """Every session's turns, newest first (also of deleted sessions)."""
+        return self._store.list_copilot_turns(limit, project_name)
+
+    def usage_by_model(self, days: int | None = None, project_name: str | None = None) -> list[CopilotModelUsage]:
+        """Totals per model over the last ``days`` (None = ever), the most AI credits first."""
+        since = _now() - timedelta(days=days) if days else None
+        return self._store.copilot_usage_by_model(since, project_name)
+
     # -------------------------------------------------------------- planning
     @observed(LogPrefix.COPILOT_SERVICE)
     def start(self, project_name: str, task_note: str, repository: str = "", prompt: str = "", model: str = "") -> CopilotSession:
@@ -152,7 +169,9 @@ class CopilotService:
     def _plan_turn(self, session: CopilotSession, folder: Path, prompt: str) -> CopilotSession:
         self._message(session, CopilotMessageRole.USER, prompt)
         session = self._update(session, status=CopilotSessionStatus.PLANNING, error=None)
+        started = time.monotonic()
         turn = self._client.turn(folder, session.copilot_session_id, prompt, CopilotMode.PLAN, self._planning_timeout, model=session.model)
+        self._record_usage(session, turn, CopilotPhase.PLAN, started)
         return self._record(session, turn)
 
     @observed(LogPrefix.COPILOT_SERVICE)
@@ -211,8 +230,10 @@ class CopilotService:
         self._message(session, CopilotMessageRole.EVENT, "▶️ Esecuzione partita: Copilot modifica i file, senza commit.")
         self._set_task_status(session, TaskStatus.IN_PROGRESS)
         self._message(session, CopilotMessageRole.USER, settings.execute_prompt)
+        started = time.monotonic()
         turn = self._client.turn(folder, session.copilot_session_id, settings.execute_prompt, CopilotMode.EXECUTE,
                                  self._execution_timeout, settings.denied_tools, self._cancel_check(session.id), model=session.model)
+        self._record_usage(session, turn, CopilotPhase.EXECUTE, started)
         session = self._record(session, turn)
         return self._finish(session, turn)
 
@@ -257,6 +278,28 @@ class CopilotService:
             self._message(session, CopilotMessageRole.EVENT, f"❌ {turn.error}")
         return self._update(session, premium_requests=max(session.premium_requests, turn.premium_requests),
                             error=turn.error if not turn.cancelled else None)
+
+    def _record_usage(self, session: CopilotSession, turn: CopilotTurn, phase: CopilotPhase, started: float) -> None:
+        """The turn's row for observability. Copilot reports the session's
+        totals: the turn used what they grew since the turns already recorded
+        (a turn killed before writing them is caught up by the next one).
+        Best effort: a failure here never stops the session."""
+        try:
+            previous = sum((recorded.usage for recorded in self._store.list_copilot_session_turns(session.id)), CopilotUsage())
+            self._store.add_copilot_turn(CopilotTurnRecord(
+                session_id=session.id,
+                project_name=session.project_name,
+                task_note=session.task_note,
+                phase=phase,
+                model=turn.model or session.model or self._client.model,
+                ok=turn.error is None,
+                cancelled=turn.cancelled,
+                error=turn.error,
+                duration_ms=int((time.monotonic() - started) * 1000),
+                usage=turn.usage.since(previous) if turn.usage else CopilotUsage(),
+            ))
+        except Exception:  # noqa: BLE001 - observability must not break the session
+            log_exception(LogPrefix.COPILOT_SERVICE, "Uso del turno non registrato (sessione %s)", session.id)
 
     def _cancel_check(self, session_id: int) -> Callable[[], bool]:
         """Polled by the client while Copilot runs: reads the DB every few seconds."""

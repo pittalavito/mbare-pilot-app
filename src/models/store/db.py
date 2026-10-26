@@ -9,13 +9,15 @@ Schema overview (project-centric):
            ├─ pipeline ── pipeline_step, pipeline_edge (graph)
            │      └── pipeline_run (also the worker queue) ── pipeline_step_run
            ├─ document ── chunk (pgvector embedding)
+           ├─ copilot_session (also the worker queue) ── copilot_message
+           ├─ copilot_turn                                  (usage per turn, no FK: kept after deletion)
            └─ agent_run ── tool_call                        (+ verbatim trace in Redis)
   tool, function, chat_model: global catalogs.
 """
 from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import JSON, Column, DateTime, Text, UniqueConstraint
+from sqlalchemy import JSON, BigInteger, Column, DateTime, Text, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -327,6 +329,33 @@ class CopilotMessageTable(SQLModel, table=True):
     """``user`` | ``copilot`` | ``event``."""
     content: str = Field(sa_type=Text)
     created_at: datetime = _timestamp()
+
+
+class CopilotTurnTable(SQLModel, table=True):
+    """What one turn of a Copilot session used (observability). ``session_id``
+    is a plain column, no FK: the history survives the session's deletion."""
+    __tablename__ = "copilot_turn"
+
+    id: int | None = Field(default=None, primary_key=True)
+    session_id: int = Field(index=True)
+    project_name: str = Field(index=True)
+    task_note: str
+    phase: str
+    """``plan`` | ``execute``."""
+    model: str = Field(default="", index=True)
+    ok: bool = True
+    cancelled: bool = False
+    error: str | None = Field(default=None, sa_type=Text)
+    duration_ms: int = 0
+    premium_requests: float = 0.0
+    nano_aiu: int = Field(default=0, sa_type=BigInteger)
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
+    reasoning_tokens: int = 0
+    api_duration_ms: int = 0
+    created_at: datetime = _timestamp(index=True)
 
 
 # ---------------------------------------------------------------------- RAG

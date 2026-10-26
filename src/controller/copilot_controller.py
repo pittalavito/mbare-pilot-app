@@ -1,12 +1,11 @@
 """Agent tasks delegated to GitHub Copilot CLI: sessions per project, the
 planning chat (each message waits for Copilot's answer), the ok that queues
-the execution for the worker, cancellation."""
+the execution for the worker, cancellation; what the turns used, per session
+and for Observability (/observability/copilot/...)."""
 from fastapi import APIRouter, Depends, Response, status
 
 from controller.dependencies import copilot_service
-from models.controller.copilot import (
-    CopilotMessageRequest, CopilotMessageResponse, CopilotSessionRequest, CopilotSessionResponse, CopilotStatusResponse,
-)
+from models.controller.copilot import CopilotMessageRequest, CopilotMessageResponse, CopilotModelUsageResponse, CopilotSessionRequest, CopilotSessionResponse, CopilotSessionUsageResponse, CopilotStatusResponse, CopilotTurnResponse
 from service.copilot_service import CopilotService
 
 router = APIRouter(tags=["copilot"])
@@ -46,6 +45,24 @@ def get_session(session_id: int, service: CopilotService = Depends(copilot_servi
 def list_messages(session_id: int, service: CopilotService = Depends(copilot_service)) -> list[CopilotMessageResponse]:
     """Oldest first."""
     return [CopilotMessageResponse.from_message(message) for message in service.messages(session_id)]
+
+
+@router.get("/copilot-sessions/{session_id}/turns")
+def session_usage(session_id: int, service: CopilotService = Depends(copilot_service)) -> CopilotSessionUsageResponse:
+    """What each turn used (AI credits, tokens), oldest first, and the sum."""
+    return CopilotSessionUsageResponse.from_turns(service.session_turns(session_id))
+
+
+@router.get("/observability/copilot/turns")
+def recent_turns(limit: int = 100, project: str | None = None, service: CopilotService = Depends(copilot_service)) -> list[CopilotTurnResponse]:
+    """Every session's turns, newest first (deleted sessions too)."""
+    return [CopilotTurnResponse.from_turn(turn) for turn in service.recent_turns(limit, project)]
+
+
+@router.get("/observability/copilot/models")
+def usage_by_model(days: int | None = None, project: str | None = None, service: CopilotService = Depends(copilot_service)) -> list[CopilotModelUsageResponse]:
+    """Totals per model over the last ``days`` (omitted = ever), the most AI credits first."""
+    return [CopilotModelUsageResponse.from_model_usage(item) for item in service.usage_by_model(days, project)]
 
 
 @router.post("/copilot-sessions/{session_id}/messages")

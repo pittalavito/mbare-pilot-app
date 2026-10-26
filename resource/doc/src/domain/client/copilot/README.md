@@ -8,6 +8,7 @@ src/domain/client/copilot/
   cli.py        trovare il CLI (resolve), niente finestra di console (NO_WINDOW)
   process.py    eseguire un turno: pipe in background, timeout, annullamento, kill dell'albero
   output.py     l'output JSONL → CopilotTurn
+  usage.py      il file d'uso (--usage-output-file) → CopilotUsage
 ```
 
 Prerequisito: `npm install -g @github/copilot`, poi `copilot` → `/login` con l'account che ha Copilot (oppure `COPILOT_GITHUB_TOKEN`).
@@ -27,6 +28,7 @@ I divieti **non sono nel codice**: li passa il servizio, dal file `global-coding
 
 - Restituisce un `CopilotTurn`: l'ultimo `assistant.message` con testo, l'exit code e le richieste premium usate dalla sessione (dall'evento `result`). Non solleva per gli errori di Copilot: finiscono in `error`.
 - `denied_tools` vale solo in `EXECUTE`.
+- **Uso** (`usage.py`): ogni turno passa `--usage-output-file` (in una cartella temporanea, cancellata subito dopo) e mette il contenuto in `CopilotTurn.usage`: richieste premium, crediti AI (`totalNanoAiu`, in miliardesimi), token di input (cache compresa), output, cache letta e scritta, reasoning, la somma su `modelMetrics`, più il modello usato per ultimo (`currentModel`). Sono i **totali della sessione di Copilot**, cumulativi tra un turno e l'altro (come l'`accountingSnapshot` del suo session state): la differenza la calcola il servizio. Un file che manca (Copilot fermato prima di scriverlo) o illeggibile dà `None`.
 - **Timeout e annullamento** (`process.py`): ogni mezzo secondo controlla `should_cancel()` e la scadenza; se serve, chiude Copilot e tutto quello che ha avviato (`psutil`).
 - **Windows** (`cli.py`): npm installa un lanciatore `.cmd`, che taglierebbe il prompt al primo a capo. Il client lo riconosce e chiama `node …/@github/copilot/npm-loader.js` direttamente. Nessuna finestra di console (`CREATE_NO_WINDOW`).
 - `version()`: `copilot --version`, `None` se non è installato.

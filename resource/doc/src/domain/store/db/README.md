@@ -63,7 +63,7 @@ Il token Atlassian entra e esce già cifrato: la cifratura con [`SecretBox`](../
 
 ## Cose da sapere
 
-- **Cancellazione a cascata**: rimuovere un progetto cancella dal DB quello che gli appartiene (agenti, chatbot con le conversazioni, automation con le loro esecuzioni, sito e preferiti Atlassian). Restano le run degli agenti (`agent_run`, `tool_call`: lo storico di Observability, senza chiave esterna verso il progetto) e le cartelle sul disco.
+- **Cancellazione a cascata**: rimuovere un progetto cancella dal DB quello che gli appartiene (agenti, chatbot con le conversazioni, automation con le loro esecuzioni, sito e preferiti Atlassian). Restano le run degli agenti (`agent_run`, `tool_call`: lo storico di Observability, senza chiave esterna verso il progetto), l'uso dei turni di Copilot (`copilot_turn`, senza chiave esterna nemmeno verso la sessione) e le cartelle sul disco.
 - **RAG non ancora implementato**: le tabelle `document` e `chunk` (con l'embedding pgvector) esistono, ma non hanno repository né codice che le usi.
 
 ## Aggiungere una tabella

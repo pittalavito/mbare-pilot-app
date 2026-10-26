@@ -348,3 +348,72 @@ def test_the_client_reports_a_missing_cli_and_reads_the_last_message(tmp_path, m
 
     CopilotClient(FAKE).turn(tmp_path, "s2", "vai", CopilotMode.PLAN, 30, denied_tools=["shell(git commit)"])
     assert "--deny-tool" not in json.loads((tmp_path / "state" / "s2.json").read_text(encoding="utf-8"))[-1]["args"]  # plan mode: no denials
+
+
+# --------------------------------------------------------------------- usage
+
+def test_each_turn_records_what_it_used_out_of_the_session_totals(store_service, data, project, config):
+    (config.definitions_root / "global-coding-agent.yml").write_text(
+        (config.definitions_root / "global-coding-agent.yml").read_text(encoding="utf-8") + "models: [gpt-5]\n", encoding="utf-8")
+    service = _service(store_service, data)
+    session = service.start("acme", _task(data), "api", model="gpt-5")
+    service.send(session.id, "ok")
+    service.approve(session.id)
+    service.run_next()
+
+    turns = service.session_turns(session.id)
+
+    assert [turn.phase.value for turn in turns] == ["plan", "plan", "execute"]
+    assert all(turn.model == "gpt-5" and turn.ok and turn.duration_ms > 0 for turn in turns)
+    # the fake reports cumulative totals (1, 2, 3 turns): each row holds one turn's share
+    assert [(turn.usage.premium_requests, turn.usage.nano_aiu, turn.usage.input_tokens) for turn in turns] == [(1, 100_000_000, 1000)] * 3
+    (by_model,) = service.usage_by_model(days=30, project_name="acme")
+    assert (by_model.model, by_model.turns, by_model.usage.output_tokens, round(by_model.usage.ai_credits, 2)) == ("gpt-5", 3, 30, 0.3)
+    service.delete(session.id)
+    assert len(service.recent_turns(project_name="acme")) == 3  # the history outlives the session
+
+
+def test_a_turn_killed_before_writing_its_usage_records_none(store_service, data, project):
+    service = _service(store_service, data, execution_timeout=1)
+    session = service.start("acme", _task(data, "SLEEP"), "api")
+    service.approve(session.id)
+    service.run_next()
+
+    plan, execute = service.session_turns(session.id)
+
+    assert plan.usage.premium_requests == 1 and plan.model == "fake-default"
+    assert (execute.ok, execute.usage.premium_requests, execute.usage.nano_aiu) == (False, 0, 0)
+    assert "Nessuna risposta" in execute.error
+
+
+def test_usage_since_takes_the_difference_or_everything_after_a_reset():
+    from models.domain.copilot import CopilotUsage
+    before, after = CopilotUsage(premium_requests=2, nano_aiu=10, input_tokens=100), CopilotUsage(premium_requests=3, nano_aiu=25, input_tokens=180)
+
+    assert after.since(before) == CopilotUsage(premium_requests=1, nano_aiu=15, input_tokens=80)
+    assert before.since(after) == before  # totals went down: Copilot counts again from zero
+
+
+def test_the_usage_file_is_read_as_copilot_writes_it(tmp_path):
+    """Trimmed from a real ``--usage-output-file`` of Copilot CLI 1.0.103."""
+    from domain.client.copilot.usage import read_usage
+    path = tmp_path / "usage.json"
+    path.write_text(json.dumps({
+        "totalPremiumRequestCost": 1, "totalUserRequests": 1, "totalNanoAiu": 339040000, "aiCreditsStatus": "complete",
+        "tokenDetails": {"input": {"tokenCount": 4}, "cache_read": {"tokenCount": 0}, "cache_write": {"tokenCount": 26732}, "output": {"tokenCount": 97}},
+        "totalApiDurationMs": 2842,
+        "modelMetrics": {"claude-haiku-5.5": {
+            "requests": {"count": 1, "cost": 1},
+            "usage": {"inputTokens": 26736, "outputTokens": 97, "cacheReadTokens": 0, "cacheWriteTokens": 26732, "reasoningTokens": 92},
+            "totalNanoAiu": 339040000,
+        }},
+        "currentModel": "claude-haiku-5.5",
+    }), encoding="utf-8")
+
+    usage, model = read_usage(path)
+
+    assert model == "claude-haiku-5.5" and round(usage.ai_credits, 4) == 0.339
+    assert (usage.premium_requests, usage.input_tokens, usage.output_tokens, usage.cache_write_tokens, usage.reasoning_tokens, usage.api_duration_ms) == (1, 26736, 97, 26732, 92, 2842)
+    assert read_usage(tmp_path / "manca.json") == (None, "")
+    (tmp_path / "rotto.json").write_text("{non json", encoding="utf-8")
+    assert read_usage(tmp_path / "rotto.json") == (None, "")
