@@ -127,6 +127,16 @@ export function useCancelCopilot(project: string) {
   });
 }
 
+/** Every session of an agent task (before deleting the task); 409 if one is queued or running. */
+export function useDeleteTaskSessions(project: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (taskNote: string) =>
+      unwrap(api.DELETE("/projects/{project}/copilot-sessions", { params: { path: { project }, query: { task_note: taskNote } } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: copilotKeys.sessions(project) }),
+  });
+}
+
 export function useDeleteCopilotSession(project: string) {
   const queryClient = useQueryClient();
   return useMutation({

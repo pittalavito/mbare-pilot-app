@@ -68,3 +68,11 @@ def test_status_and_validation(client):
     }
     assert client.get("/copilot/status", params={"project": "acme"}).json()["definition_error"] is None
     assert client.post("/projects/acme/copilot-sessions", json={"task_note": "agent-task-manca.md"}).status_code == 404
+
+
+def test_deleting_the_sessions_of_a_task(client):
+    task = client.post("/projects/acme/agent-tasks", json={"title": "Da buttare"}).json()["name"]
+    client.post("/projects/acme/copilot-sessions", json={"task_note": task})
+
+    assert client.delete("/projects/acme/copilot-sessions", params={"task_note": task}).json() == {"deleted": 1}
+    assert client.get("/projects/acme/copilot-sessions").json() == []

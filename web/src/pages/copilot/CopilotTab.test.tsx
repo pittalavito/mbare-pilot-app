@@ -81,6 +81,20 @@ describe("CopilotTab", () => {
     expect(screen.getByText(/L'HEAD è cambiato/)).toBeInTheDocument();
   });
 
+  it("marks the sessions whose agent task was deleted", async () => {
+    const TASK = { name: "agent-task-fix-porto.md", title: "Fix porto", status: "todo", objective: "", context: "", criteria: [], constraints: "" };
+    mockApi({
+      "GET /copilot/status": { installed: true, version: "x" },
+      "GET /projects/acme/agent-tasks": [TASK],
+      "GET /projects/acme/copilot-sessions": [session(), session({ id: 5, task_note: "agent-task-sparito.md" })],
+      "GET /copilot-sessions/4/messages": MESSAGES,
+    });
+    renderTab();
+
+    expect(await screen.findByText("task eliminato")).toBeInTheDocument();
+    expect(screen.getAllByText("task eliminato")).toHaveLength(1); // only «sparito»
+  });
+
   it("delegates a task from its form and opens its chat", async () => {
     const started = vi.fn(async (request: Request) => ({ ...session({ id: 9 }), ...(await request.json()) }));
     const TASK = { name: "agent-task-fix-porto.md", title: "Fix porto", status: "todo", objective: "", context: "", criteria: [], constraints: "" };

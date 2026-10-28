@@ -32,6 +32,31 @@ describe("typed notes", () => {
     expect(screen.queryByText("agent-task-fix-porto.md")).not.toBeInTheDocument();
   });
 
+  it("deleting an agent task can delete its Copilot sessions too", async () => {
+    const order: string[] = [];
+    const sessionsDeleted = vi.fn((request: Request) => {
+      order.push(`sessioni ${new URL(request.url).searchParams.get("task_note")}`);
+      return { deleted: 2 };
+    });
+    const noteDeleted = vi.fn(() => { order.push("nota"); return {}; });
+    mockApi({
+      "GET /projects/acme/notes": NOTES,
+      "GET /projects/acme/agent-tasks": [TASK],
+      "GET /projects/acme/copilot-sessions": [{ id: 1, task_note: TASK.name }, { id: 2, task_note: TASK.name }, { id: 3, task_note: "agent-task-altro.md" }],
+      "DELETE /projects/acme/copilot-sessions": sessionsDeleted,
+      "DELETE /projects/acme/notes/agent-task-fix-porto.md": noteDeleted,
+    });
+    renderData();
+
+    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Elimina" }));
+    expect(await screen.findByRole("checkbox", { name: /Elimina anche le 2 sessioni Copilot di questo task/ })).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Sì, elimina" }));
+
+    await waitFor(() => expect(noteDeleted).toHaveBeenCalled());
+    expect(order).toEqual(["sessioni agent-task-fix-porto.md", "nota"]);
+  });
+
   it("edits an agent task as a form and saves its fields", async () => {
     const saved = vi.fn(async (request: Request) => ({ name: TASK.name, ...(await request.json()) }));
     mockApi({ "GET /projects/acme/notes": NOTES, "GET /projects/acme/agent-tasks": [TASK], "PUT /projects/acme/agent-tasks/agent-task-fix-porto.md": saved });

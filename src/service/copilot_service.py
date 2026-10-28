@@ -27,6 +27,7 @@ from core.error import AppError, ConflictError, NotFoundError, UpstreamError, Va
 from core.observability import LogPrefix, log_exception, observed
 from domain.client.copilot.client import NOT_FOUND, CopilotClient, CopilotMode
 from domain.project import coding_agent
+from domain.project.data_paths import note_file_name
 from models.domain.copilot import (
     CodingAgentSettings, CopilotMessage, CopilotMessageRole, CopilotModel, CopilotModelUsage, CopilotPhase, CopilotSession, CopilotSessionStatus,
     CopilotTurn, CopilotTurnRecord, CopilotUsage,
@@ -218,6 +219,19 @@ class CopilotService:
         if session.status in (CopilotSessionStatus.QUEUED, CopilotSessionStatus.RUNNING):
             raise ConflictError("La sessione è in coda o in esecuzione: annullala prima.")
         self._store.delete_copilot_session(session.id)
+
+    @observed(LogPrefix.COPILOT_SERVICE)
+    def delete_task_sessions(self, project_name: str, task_note: str) -> int:
+        """Every session of an agent task (e.g. before deleting the task), with
+        their messages; none if one of them is queued or running. The usage of
+        their turns stays in Observability. Returns how many were deleted."""
+        name = note_file_name(task_note)
+        sessions = [session for session in self._store.list_copilot_sessions(project_name) if note_file_name(session.task_note) == name]
+        if any(session.status in (CopilotSessionStatus.QUEUED, CopilotSessionStatus.RUNNING) for session in sessions):
+            raise ConflictError("Una sessione di questo task è in coda o in esecuzione: annullala prima.")
+        for session in sessions:
+            self._store.delete_copilot_session(session.id)
+        return len(sessions)
 
     # ---------------------------------------------------------------- worker
     def run_next(self, on_claim: Callable[[CopilotSession], None] | None = None) -> CopilotSession | None:

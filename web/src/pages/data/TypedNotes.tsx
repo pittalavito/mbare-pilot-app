@@ -1,8 +1,9 @@
-import { Alert, Badge, Button, Grid, Group, Loader, Modal, NavLink, SegmentedControl, Stack, Text, TextInput, Textarea } from "@mantine/core";
+import { Alert, Badge, Button, Checkbox, Grid, Group, Loader, Modal, NavLink, SegmentedControl, Stack, Text, TextInput, Textarea } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { type ReactNode, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
+import { useCopilotSessions, useDeleteTaskSessions } from "../../api/copilot";
 import {
   type AgentTask, type AgentTaskBody, type TodoList, type TodoListBody, useAgentTasks, useDeleteNote, useSaveAgentTask, useSaveTodoList, useTodoLists,
 } from "../../api/projectData";
@@ -132,13 +133,30 @@ function TitleModal({ title, opened, loading, onClose, onCreate }: {
 }
 
 /** Save (Ctrl+S too) and delete, with the unsaved marker; shared by the two editors. */
-function EditorShell({ project, name, dirty, valid, saving, error, onSave, actions, children }: {
+function EditorShell({ project, name, dirty, valid, saving, error, onSave, actions, alsoDelete, children }: {
   project: string; name: string; dirty: boolean; valid: boolean; saving: boolean; error?: string; onSave: () => void;
   /** More buttons next to «Salva». */
   actions?: ReactNode;
+  /** Something to delete with the note, offered as a checkbox (checked) in the confirmation. */
+  alsoDelete?: { label: string; run: () => Promise<unknown>; error?: string };
   children: ReactNode;
 }) {
   const remove = useDeleteNote(project);
+  const [withExtra, setWithExtra] = useState(true);
+  const [extraPending, setExtraPending] = useState(false);
+  const onDelete = async () => {
+    if (alsoDelete && withExtra) {
+      setExtraPending(true);
+      try {
+        await alsoDelete.run();
+      } catch {
+        return; // its error shows in the popover; the note stays
+      } finally {
+        setExtraPending(false);
+      }
+    }
+    remove.mutate(name);
+  };
   return (
     <Stack
       gap="sm"
@@ -156,7 +174,18 @@ function EditorShell({ project, name, dirty, valid, saving, error, onSave, actio
         <Button onClick={onSave} loading={saving} disabled={!dirty || !valid}>Salva</Button>
         <Text size="xs" c="dimmed">Ctrl+S salva</Text>
         {actions}
-        <ConfirmButton ml="auto" message={`Eliminare ${name}?`} loading={remove.isPending} error={remove.error?.message} onConfirm={() => remove.mutate(name)}>
+        <ConfirmButton
+          ml="auto"
+          message={
+            <Stack gap="xs">
+              <Text size="sm">Eliminare {name}?</Text>
+              {alsoDelete && <Checkbox size="xs" label={alsoDelete.label} checked={withExtra} onChange={(event) => setWithExtra(event.currentTarget.checked)} />}
+            </Stack>
+          }
+          loading={remove.isPending || extraPending}
+          error={alsoDelete?.error ?? remove.error?.message}
+          onConfirm={onDelete}
+        >
           Elimina
         </ConfirmButton>
       </Group>
@@ -173,6 +202,9 @@ const fields = <T extends object>(item: T & { name: string }) => {
 
 function AgentTaskEditor({ project, task }: { project: string; task: AgentTask }) {
   const save = useSaveAgentTask(project);
+  const sessions = useCopilotSessions(project);
+  const deleteSessions = useDeleteTaskSessions(project);
+  const taskSessions = (sessions.data ?? []).filter((session) => session.task_note === task.name).length;
   const [form, setForm] = useState<AgentTaskBody>(() => fields(task));
   const set = (patch: Partial<AgentTaskBody>) => setForm((current) => ({ ...current, ...patch }));
   const dirty = JSON.stringify(form) !== JSON.stringify(fields(task));
@@ -185,6 +217,11 @@ function AgentTaskEditor({ project, task }: { project: string; task: AgentTask }
   return (
     <EditorShell
       project={project} name={task.name} dirty={dirty} valid={!!form.title.trim()} saving={save.isPending} error={save.error?.message} onSave={onSave}
+      alsoDelete={taskSessions ? {
+        label: `Elimina anche ${taskSessions === 1 ? "la sessione Copilot" : `le ${taskSessions} sessioni Copilot`} di questo task (l'uso resta in Observability)`,
+        run: () => deleteSessions.mutateAsync(task.name),
+        error: deleteSessions.error?.message,
+      } : undefined}
       actions={
         <>
           <Button variant="light" onClick={() => setDelegating(true)} disabled={dirty} title={dirty ? "Salva prima il task: Copilot legge il file" : undefined}>

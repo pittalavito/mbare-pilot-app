@@ -453,3 +453,21 @@ def test_a_wrong_model_price_is_an_error(store_service, data, project, config, m
     path.write_text(path.read_text(encoding="utf-8") + f"models: {models}\n", encoding="utf-8")
 
     assert error in _service(store_service, data).coding_agent_or_error()[1]
+
+
+def test_deleting_a_tasks_sessions_keeps_the_others_and_the_usage(store_service, data, project):
+    service = _service(store_service, data)
+    note, other = _task(data), _task(data, "Altro")
+    first, second = service.start("acme", note, "api"), service.start("acme", note, "web")
+    kept = service.start("acme", other, "api")
+    service.approve(second.id)
+
+    with pytest.raises(ConflictError):
+        service.delete_task_sessions("acme", note)  # one is queued: nothing deleted
+    assert len(service.sessions("acme")) == 3
+    service.cancel(second.id)
+
+    assert service.delete_task_sessions("acme", note.removesuffix(".md")) == 2  # the note's name, with or without .md
+    assert [session.id for session in service.sessions("acme")] == [kept.id]
+    assert {turn.session_id for turn in service.recent_turns(project_name="acme")} == {first.id, second.id, kept.id}
+    assert service.delete_task_sessions("acme", note) == 0

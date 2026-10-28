@@ -1304,7 +1304,11 @@ export interface paths {
          * @description Delegate an agent task: the first planning turn runs now (Copilot reads the code and asks).
          */
         post: operations["start_session_projects__project__copilot_sessions_post"];
-        delete?: never;
+        /**
+         * Delete Task Sessions
+         * @description Every session of an agent task, with their messages (409 if one is queued or running); the files Copilot changed stay.
+         */
+        delete: operations["delete_task_sessions_projects__project__copilot_sessions_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1850,6 +1854,11 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** CopilotDeletedResponse */
+        CopilotDeletedResponse: {
+            /** Deleted */
+            deleted: number;
         };
         /** CopilotMessageRequest */
         CopilotMessageRequest: {
@@ -5607,6 +5616,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CopilotSessionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_task_sessions_projects__project__copilot_sessions_delete: {
+        parameters: {
+            query: {
+                task_note: string;
+            };
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CopilotDeletedResponse"];
                 };
             };
             /** @description Validation Error */

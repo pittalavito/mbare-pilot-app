@@ -5,7 +5,7 @@ and for Observability (/observability/copilot/...)."""
 from fastapi import APIRouter, Depends, Response, status
 
 from controller.dependencies import copilot_service
-from models.controller.copilot import CopilotMessageRequest, CopilotMessageResponse, CopilotModelOptionResponse, CopilotModelUsageResponse, CopilotSessionRequest, CopilotSessionResponse, CopilotSessionUsageResponse, CopilotStatusResponse, CopilotTurnResponse
+from models.controller.copilot import CopilotDeletedResponse, CopilotMessageRequest, CopilotMessageResponse, CopilotModelOptionResponse, CopilotModelUsageResponse, CopilotSessionRequest, CopilotSessionResponse, CopilotSessionUsageResponse, CopilotStatusResponse, CopilotTurnResponse
 from service.copilot_service import CopilotService
 
 router = APIRouter(tags=["copilot"])
@@ -35,6 +35,12 @@ def list_sessions(project: str, service: CopilotService = Depends(copilot_servic
 def start_session(project: str, request: CopilotSessionRequest, service: CopilotService = Depends(copilot_service)) -> CopilotSessionResponse:
     """Delegate an agent task: the first planning turn runs now (Copilot reads the code and asks)."""
     return CopilotSessionResponse.from_session(service.start(project, request.task_note, request.repository, request.prompt, request.model))
+
+
+@router.delete("/projects/{project}/copilot-sessions")
+def delete_task_sessions(project: str, task_note: str, service: CopilotService = Depends(copilot_service)) -> CopilotDeletedResponse:
+    """Every session of an agent task, with their messages (409 if one is queued or running); the files Copilot changed stay."""
+    return CopilotDeletedResponse(deleted=service.delete_task_sessions(project, task_note))
 
 
 @router.get("/copilot-sessions/{session_id}")

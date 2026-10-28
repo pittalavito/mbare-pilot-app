@@ -6,6 +6,7 @@ import {
   type CopilotMessage, type CopilotSession, isExecuting, useApproveCopilot, useCancelCopilot, useCopilotMessages, useCopilotSessionUsage,
   useCopilotSessions, useCopilotStatus, useDeleteCopilotSession, useSendCopilotMessage,
 } from "../../api/copilot";
+import { useAgentTasks } from "../../api/projectData";
 import { useWorkerState } from "../../api/worker";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Markdown } from "../../components/Markdown";
@@ -33,6 +34,9 @@ export function CopilotTab() {
   const { project = "" } = useParams();
   const [search, setSearch] = useSearchParams();
   const sessions = useCopilotSessions(project);
+  const tasks = useAgentTasks(project);
+  /** The agent tasks that exist: a session of another one outlived its task. */
+  const taskNames = tasks.data && new Set(tasks.data.map((task) => task.name));
   const status = useCopilotStatus(project);
   const [delegating, setDelegating] = useState(false);
   const requested = Number(search.get("session"));
@@ -64,7 +68,11 @@ export function CopilotTab() {
             <NavLink
               key={session.id}
               label={taskLabel(session.task_note)}
-              description={repoLabel(session.repository)}
+              description={
+                taskNames && !taskNames.has(session.task_note)
+                  ? <>{repoLabel(session.repository)} · <Text span size="xs" c="orange">task eliminato</Text></>
+                  : repoLabel(session.repository)
+              }
               rightSection={<Badge size="xs" variant="light" color={STATUS[session.status]?.color}>{STATUS[session.status]?.label}</Badge>}
               active={session.id === selected?.id}
               onClick={() => setSearch({ session: String(session.id) }, { replace: true })}

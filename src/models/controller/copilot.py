@@ -165,3 +165,8 @@ class CopilotModelOptionResponse(BaseModel):
 
 
 CopilotStatusResponse.model_rebuild()
+
+
+class CopilotDeletedResponse(BaseModel):
+    deleted: int
+    """How many sessions were deleted."""
