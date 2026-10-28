@@ -26,6 +26,10 @@ mbare-pilot-data/
 
 `base-agent.yml` (in `definition/` e in `project/<slug>/`) è previsto ma non ancora implementato.
 
+**Per cominciare**: `python resource/scripts/init-definitions.py` copia in `definition/` i file di esempio di [resource/definition-example](../definition-example/README.md) che mancano (globali e un prompt di Copilot), senza mai sovrascrivere i tuoi. Un test li tiene validi.
+
+**Versionare**: `definition/` è configurazione (prompt, automation, coding agent): tienila in un suo repo git privato. `project/<slug>/` (note, file, contesto) sono dati: fuori da git, con un backup.
+
 ## Come si applicano
 
 **All'avvio** dell'app vengono creati gli agenti di `global-agent.yml` che **mancano** (gli agenti di default, es. `hello`, vivono qui). Quelli che esistono restano come sono, anche se cambiati da UI; un file rotto viene segnalato nel log e l'app parte lo stesso.

@@ -1,0 +1,10 @@
+# Agenti della Libreria (globali). All'avvio vengono creati quelli che mancano;
+# con «Sincronizza da file» il file vince. Formato: resource/doc/definitions.md
+agents:
+  - name: hello
+    description: Agente di esempio con i tool hello_world
+    role: hello
+    model: openai/gpt-4o
+    max_steps: 4
+    tools: [hello_world]
+    system_prompt: Sei un assistente. Usa i tool a disposizione quando servono.

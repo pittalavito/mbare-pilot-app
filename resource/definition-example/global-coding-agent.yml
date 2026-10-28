@@ -1,0 +1,110 @@
+# Prompt e divieti di GitHub Copilot (agent task delegati dall'app).
+# Letto a ogni uso: una modifica vale dal turno successivo.
+# Un progetto può sostituire uno o più campi con definition/project/<slug>/coding-agent.yml.
+# Al posto di plan_prompt / execute_prompt si può usare plan_prompt_file / execute_prompt_file
+# (un file .md accanto a questo).
+# Altri prompt di preparazione da scegliere quando deleghi: i file .md di definition/coding-agent/
+# (e di definition/project/<slug>/coding-agent/), ognuno con {task}.
+
+# Primo turno della preparazione (modalità piano, sola lettura). {task} = il markdown del task.
+plan_prompt: |
+  Ti affido il task qui sotto, sul repository in cui ti trovi. Prima di cambiare qualcosa:
+  1. leggi il codice che ti serve;
+  2. fammi le domande necessarie per chiarire il task, poche e precise;
+  3. quando non hai più domande, proponi un piano breve e aspetta il mio ok.
+  Parliamo attraverso un'app, a turni: ogni mio messaggio ti arriva come un nuovo turno, quindi fai pure le tue domande e aspetta la risposta. Adesso sei in modalità piano e non puoi modificare niente: è giusto così. Il via lo do io con il pulsante «Ok, parti» dell'app, che ti riattiva per eseguire il piano; non chiedermi di uscire dalla modalità piano né di premere tasti. Anche dopo l'ok non farai commit, push né altre operazioni git che cambiano la storia, l'indice o i branch: il commit lo faccio io.
+
+  {task}
+
+# Turno che avvia l'esecuzione (dopo «Ok, parti»).
+execute_prompt: >-
+  Ok, procedi con il piano concordato. Non fare commit, push né altre operazioni git che cambiano la storia,
+  l'indice o i branch. Alla fine riassumi cosa hai cambiato (file e motivo) e se i criteri di accettazione sono soddisfatti.
+
+# --deny-tool dell'esecuzione: l'elenco completo (il codice non ne aggiunge).
+# L'app controlla comunque l'HEAD prima e dopo e segnala se è cambiato.
+denied_tools:
+  - shell(git commit)
+  - shell(git push)
+  - shell(git add)
+  - shell(git rm)
+  - shell(git mv)
+  - shell(git restore)
+  - shell(git reset)
+  - shell(git checkout)
+  - shell(git switch)
+  - shell(git stash)
+  - shell(git rebase)
+  - shell(git merge)
+  - shell(git cherry-pick)
+  - shell(git revert)
+  - shell(git am)
+  - shell(git tag)
+  - shell(git branch)
+  - shell(git clean)
+  - shell(git update-ref)
+  - shell(git worktree)
+
+# Modelli tra cui scegliere quando deleghi (--model), oltre a «Predefinito» (COPILOT_MODEL o quello di Copilot).
+# Nomi dal catalogo di Copilot CLI 1.0.103 (`copilot help config`); quelli disponibili dipendono dal tuo piano.
+# Prezzi: USD per 1M token (input, cached_input, cache_write, output), dalla pagina di GitHub
+# «Models and pricing for GitHub Copilot» (https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing),
+# letta il 2026-10-26. 1 credito AI = 0,01 $. I prezzi cambiano: ricontrollali ogni tanto.
+# Un nome senza prezzi va bene (es. auto). Nella delega i modelli compaiono dal più economico.
+models:
+  - name: claude-haiku-5.5
+    note: Il più economico. Per task piccoli e ben definiti.
+    input: 0.10
+    cached_input: 0.01
+    cache_write: 0.125
+    output: 0.50
+    long_context: {above: 100000, input: 0.50, cached_input: 0.05, cache_write: 0.625, output: 2.50}
+  - name: gpt-6-luna
+    note: Prezzo di Haiku 5.5, ma la tariffa base vale fino a 272K token di input (Haiku fino a 100K). Per task che leggono molto codice.
+    input: 0.10
+    cached_input: 0.01
+    cache_write: 0.125
+    output: 0.50
+    long_context: {above: 272000, input: 0.20, cached_input: 0.02, cache_write: 0.25, output: 0.75}
+  - name: gpt-5.6-luna
+    input: 0.20
+    cached_input: 0.02
+    cache_write: 0.25
+    output: 1.20
+    long_context: {above: 200000, input: 0.40, cached_input: 0.04, cache_write: 0.50, output: 1.80}
+  - name: mai-code-1.1-flash
+    note: GitHub non indica il cache write.
+    input: 0.20
+    cached_input: 0.02
+    output: 1.20
+  - name: claude-sonnet-5.5
+    input: 2.00
+    cached_input: 0.10
+    cache_write: 2.50
+    output: 10.00
+  - name: gpt-6.1-sol
+    input: 2.00
+    cached_input: 0.10
+    cache_write: 2.50
+    output: 10.00
+    long_context: {above: 272000, input: 4.00, cached_input: 0.20, cache_write: 5.00, output: 15.00}
+  - name: gemini-4-argon
+    note: Prezzo promozionale fino al 1° dicembre 2026; GitHub non indica il cache write.
+    input: 2.00
+    cached_input: 0.10
+    output: 10.00
+  - name: claude-opus-5.5
+    input: 4.00
+    cached_input: 0.20
+    cache_write: 5.00
+    output: 20.00
+  - name: claude-fable-5.1
+    note: Il più caro. Per i task più difficili.
+    input: 10.00
+    cached_input: 0.25
+    cache_write: 12.50
+    output: 50.00
+  - name: gpt-5.5
+    note: Non è nella pagina dei prezzi di GitHub.
+  - name: auto
+    note: Sceglie Copilot; il prezzo dipende dal modello che usa.

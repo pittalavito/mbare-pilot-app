@@ -1,0 +1,19 @@
+# Automation di ogni progetto (salvo che il progetto ne abbia una con lo stesso nome).
+automations:
+  - name: Stato del mattino
+    description: Stato git di tutti i repository del progetto, riassunto in una nota (prima quelli che chiedono attenzione).
+    steps:
+      - name: Stato git
+        function: git_status
+        params: {repository: "*"}
+      - name: Riassunto
+        model: openrouter/google/gemini-3.1-flash-lite-preview
+        system_prompt: |
+          Ricevi lo stato git dei repository di un progetto. Scrivi un riassunto breve in italiano, in markdown:
+          1. «Da guardare»: i repository con commit da pullare, commit da pushare, file modificati, un branch diverso
+             da main/master o lo stato non letto. Per ognuno una riga: nome, cosa c'è e cosa conviene fare.
+          2. «A posto»: gli altri, tutti in una riga.
+          Se è tutto a posto, dillo in una frase. Usa solo quello che c'è nel testo: non inventare niente.
+      - name: Nota
+        function: save_note
+        params: {title: "stato-del-mattino-{date}"}

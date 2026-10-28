@@ -68,7 +68,8 @@ def _values(files: DefinitionFiles, path: str, folder: str, required: bool) -> d
     raw = _yaml(path, text) if text is not None else None
     if raw is None:
         if required:
-            raise ValidationError(f"Manca definition/{path} (prompt e divieti di Copilot): crealo per usare Copilot.")
+            raise ValidationError(f"Manca definition/{path} (prompt e divieti di Copilot): crealo per usare Copilot "
+                                  "(un esempio: python resource/scripts/init-definitions.py).")
         return {}
     try:
         spec = CodingAgentFile.model_validate(raw)

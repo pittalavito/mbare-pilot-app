@@ -19,7 +19,13 @@ python resource/scripts/start-venv.py
 python resource/scripts/start-docker.py
 ```
 
-4. Avvia l'app: compila il frontend se serve e avvia l'API, che serve tutto su `API_URL`. Il worker si accende dall'intestazione della pagina.
+4. Copia le definizioni di esempio nella cartella dei dati (`MBARE_PILOT_HOME`), solo quelle che mancano. Senza `global-coding-agent.yml` Copilot non parte ([esempi](resource/definition-example/README.md)):
+
+```bash
+python resource/scripts/init-definitions.py
+```
+
+5. Avvia l'app: compila il frontend se serve e avvia l'API, che serve tutto su `API_URL`. Il worker si accende dall'intestazione della pagina.
 
 ```bash
 python resource/scripts/run-app.py
@@ -36,6 +42,8 @@ Test con coverage (il frontend ha i suoi: `npm test` in `web/`):
 ```bash
 python resource/scripts/run-test.py
 ```
+
+La cartella dei dati sta **fuori dal repo**: le note e i file dei progetti non vanno nella storia del codice. Le definizioni (`definition/`) conviene versionarle in un loro repo git privato.
 
 Export del DB in `../mbare-pilot-back-up/db/` (anche da **Admin → Backup**):
 
