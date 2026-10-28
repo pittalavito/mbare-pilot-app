@@ -128,4 +128,30 @@ describe("typed notes", () => {
     await waitFor(() => expect(created).toHaveBeenCalled());
     expect(await created.mock.results[0].value).toEqual({ name: "todo-list-spesa.md", title: "Spesa", items: [], references: [] });
   });
+
+  it("the settings choose the shown types: references get their own tab, hidden types lose theirs", async () => {
+    const saved = vi.fn(async (request: Request) => request.json());
+    mockApi({
+      "GET /projects/acme/data-settings": { visible_note_types: ["generic", "agent_task", "todo_list"] },
+      "PUT /projects/acme/data-settings": saved,
+      "GET /projects/acme/notes": NOTES,
+      "GET /projects/acme/references": [{
+        name: "context-reference-orfano.md", title: "Orfano", kind: "context_reference", source: "", source_url: "", repository: "", path: "",
+        lines: "", content: "", linked_from: [],
+      }],
+    });
+    renderData();
+
+    expect(screen.queryByRole("tab", { name: /Riferimenti/ })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("tab", { name: /Impostazioni/ }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Todo list/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Riferimenti di contesto/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Salva" }));
+
+    await waitFor(() => expect(saved).toHaveBeenCalled());
+    expect(await saved.mock.results[0].value).toEqual({ visible_note_types: ["generic", "agent_task", "context_reference"] });
+    expect(screen.queryByRole("tab", { name: /Todo list/ })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("tab", { name: /Riferimenti/ }));
+    expect(await screen.findByText("Non collegato a niente")).toBeInTheDocument();
+  });
 });

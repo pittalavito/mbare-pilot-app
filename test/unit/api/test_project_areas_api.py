@@ -105,6 +105,14 @@ def test_references_linked_from_a_task_and_a_todo_list(client):
     assert client.delete("/projects/acme/references/code-reference-login.md").status_code == 404
 
 
+def test_data_settings(client):
+    assert client.get("/projects/acme/data-settings").json() == {"visible_note_types": ["generic", "agent_task", "todo_list"]}
+    saved = client.put("/projects/acme/data-settings", json={"visible_note_types": ["code_reference", "generic"]})
+    assert saved.json() == {"visible_note_types": ["generic", "code_reference"]}
+    assert client.put("/projects/acme/data-settings", json={"visible_note_types": ["boh"]}).status_code == 422
+    assert client.get("/projects/acme").json()["name"] == "acme"
+
+
 def test_agent_tasks_and_todo_lists(client):
     created = client.post("/projects/acme/agent-tasks", json={"title": "Fix porto", "criteria": [{"text": "test verdi"}]})
     assert created.status_code == 201 and created.json()["name"] == "agent-task-fix-porto.md"

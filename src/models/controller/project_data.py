@@ -118,3 +118,10 @@ class ReferenceResponse(ReferenceBody):
     @classmethod
     def from_reference(cls, name: str, kind: NoteType, reference: Reference, linked_from: list[str]) -> "ReferenceResponse":
         return cls(name=name, kind=kind.value, linked_from=linked_from, **reference.model_dump())
+
+
+# ----------------------------------------------------------------- settings
+
+class DataSettingsBody(BaseModel):
+    visible_note_types: list[NoteType]
+    """The note types the Dati tab shows: ``generic``, ``agent_task``, ``todo_list``, ``code_reference``, ``context_reference``."""

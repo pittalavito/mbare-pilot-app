@@ -12,7 +12,7 @@ from models.domain.note import NoteType
 from controller.dependencies import project_data_service
 from service.project_data_service import ProjectDataService
 from models.controller.project_data import (
-    AgentTaskBody, AgentTaskResponse, DataFileResponse, NoteRequest, NoteResponse, ReferenceBody, ReferenceCreateBody, ReferenceResponse,
+    AgentTaskBody, AgentTaskResponse, DataFileResponse, DataSettingsBody, NoteRequest, NoteResponse, ReferenceBody, ReferenceCreateBody, ReferenceResponse,
     TodoListBody, TodoListResponse,
 )
 
@@ -112,6 +112,19 @@ def delete_reference(project: str, note: str, service: ProjectDataService = Depe
     if not service.delete_reference(project, note):
         raise NotFoundError(f"Riferimento non trovato: {note}")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ----------------------------------------------------------------- settings
+
+@router.get("/data-settings")
+def data_settings(project: str, service: ProjectDataService = Depends(project_data_service)) -> DataSettingsBody:
+    """What the Dati tab shows (the default types until the project chooses)."""
+    return DataSettingsBody(visible_note_types=service.visible_note_types(project))
+
+
+@router.put("/data-settings")
+def save_data_settings(project: str, request: DataSettingsBody, service: ProjectDataService = Depends(project_data_service)) -> DataSettingsBody:
+    return DataSettingsBody(visible_note_types=service.save_visible_note_types(project, request.visible_note_types))
 
 
 # -------------------------------------------------------------------- files

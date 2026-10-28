@@ -146,3 +146,17 @@ def test_only_references_can_be_linked_and_saved_as_references(data_service):
         data_service.save_reference("My App", task, Reference(title="x"))
     with pytest.raises(NotFoundError):
         data_service.save_reference("My App", "code-reference-manca.md", Reference(title="x"))
+
+
+# ----------------------------------------------------------------- settings
+
+def test_the_dati_tab_shows_the_default_types_until_the_project_chooses(data_service, store_service):
+    assert data_service.visible_note_types("My App") == [NoteType.GENERIC, NoteType.AGENT_TASK, NoteType.TODO_LIST]
+
+    saved = data_service.save_visible_note_types("My App", [NoteType.CONTEXT_REFERENCE, NoteType.GENERIC, NoteType.GENERIC])
+
+    assert saved == [NoteType.GENERIC, NoteType.CONTEXT_REFERENCE] == data_service.visible_note_types("My App")
+    assert store_service.get_project("My App").description == ""  # the rest of the project untouched
+    assert data_service.save_visible_note_types("My App", []) == []  # nothing shown is a choice too
+    with pytest.raises(NotFoundError):
+        data_service.visible_note_types("nessuno")

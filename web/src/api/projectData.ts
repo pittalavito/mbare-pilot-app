@@ -193,3 +193,25 @@ export function useDeleteReference(project: string) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: dataKeys.typed(project) }),
   });
 }
+
+// ----------------------------------------------------------------- settings
+
+export type DataSettings = components["schemas"]["DataSettingsBody"];
+
+const settingsKey = (project: string) => ["projects", project, "data-settings"] as const;
+
+/** Which note types the Dati tab shows (the default ones until the project chooses). */
+export function useDataSettings(project: string) {
+  return useQuery({
+    queryKey: settingsKey(project),
+    queryFn: () => unwrap(api.GET("/projects/{project}/data-settings", { params: { path: { project } } })),
+  });
+}
+
+export function useSaveDataSettings(project: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: DataSettings) => unwrap(api.PUT("/projects/{project}/data-settings", { params: { path: { project } }, body })),
+    onSuccess: (saved) => queryClient.setQueryData(settingsKey(project), saved),
+  });
+}

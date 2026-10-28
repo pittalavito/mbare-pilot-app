@@ -69,7 +69,7 @@ export function ReferencesSection({ project, value, onChange }: { project: strin
   );
 }
 
-function ReferenceSummary({ reference }: { reference: Reference }) {
+export function ReferenceSummary({ reference }: { reference: Reference }) {
   const kind = KINDS[reference.kind as ReferenceKind];
   const where = [reference.repository, reference.path, reference.lines && `righe ${reference.lines}`].filter(Boolean).join(" · ");
   const others = reference.linked_from.length;
@@ -88,8 +88,10 @@ function ReferenceSummary({ reference }: { reference: Reference }) {
 }
 
 /** Create (no ``reference``) or edit a reference; deleting it unlinks it everywhere. */
-function ReferenceModal({ project, reference, opened, onClose, onCreated, onDeleted }: {
+export function ReferenceModal({ project, reference, opened, onClose, onCreated, onDeleted, createLabel = "Crea e collega" }: {
   project: string; reference?: Reference; opened: boolean; onClose: () => void;
+  /** The create button: «Crea e collega» from a task, «Crea» where nothing links it. */
+  createLabel?: string;
   onCreated: (name: string) => void;
   /** The server unlinks it everywhere: the open form drops it too. */
   onDeleted: (name: string) => void;
@@ -145,7 +147,7 @@ function ReferenceModal({ project, reference, opened, onClose, onCreated, onDele
         />
         {save.error && <Alert color="red">{save.error.message}</Alert>}
         <Group>
-          <Button onClick={submit} loading={save.isPending} disabled={!form.title.trim()}>{reference ? "Salva" : "Crea e collega"}</Button>
+          <Button onClick={submit} loading={save.isPending} disabled={!form.title.trim()}>{reference ? "Salva" : createLabel}</Button>
           {reference && (
             <ConfirmButton
               ml="auto"

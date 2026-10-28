@@ -19,6 +19,10 @@ class ProjectSource(StrEnum):
     """A new, empty folder created for the project."""
 
 
+DEFAULT_VISIBLE_NOTE_TYPES = [NoteType.GENERIC, NoteType.AGENT_TASK, NoteType.TODO_LIST]
+"""The references stay inside the tasks and todo lists that link them."""
+
+
 class Project(BaseModel):
     name: Name
     description: str = ""
@@ -27,6 +31,8 @@ class Project(BaseModel):
     """Absolute path of the project folder."""
     embedding_model: EmbeddingModelName = EmbeddingModelName.OPENAI_TEXT_EMBEDDING_3_SMALL
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    visible_note_types: list[NoteType] | None = None
+    """The note types the Dati tab shows; None = DEFAULT_VISIBLE_NOTE_TYPES."""
 
 
 class ProjectDataKind(StrEnum):

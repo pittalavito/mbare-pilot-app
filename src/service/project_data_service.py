@@ -18,7 +18,7 @@ from domain.project.note_templates import (
     parse_agent_task, parse_reference, parse_todo_list, render_agent_task, render_reference, render_todo_list,
 )
 from models.domain.note import AgentTask, NoteType, Reference, TodoList
-from models.domain.project import ProjectDataFile, ProjectDataKind
+from models.domain.project import DEFAULT_VISIBLE_NOTE_TYPES, ProjectDataFile, ProjectDataKind
 from models.store.files import StoredFile
 from service.store_service import StoreService
 
@@ -141,6 +141,19 @@ class ProjectDataService:
         if self._store.get_file(self._id(project_name, NOTES_DIR, name)) is None:
             raise NotFoundError(f"Nota non trovata: {name}")
         self.save_note(project_name, name, content)
+
+    # -------------------------------------------------------------- settings
+    def visible_note_types(self, project_name: str) -> list[NoteType]:
+        """The note types the Dati tab shows (the project's choice, else the default ones)."""
+        project = self._store.get_project(self._project(project_name))
+        return project.visible_note_types if project.visible_note_types is not None else list(DEFAULT_VISIBLE_NOTE_TYPES)
+
+    def save_visible_note_types(self, project_name: str, kinds: list[NoteType]) -> list[NoteType]:
+        """In the order of NoteType, each once."""
+        project = self._store.get_project(self._project(project_name))
+        ordered = [kind for kind in NoteType if kind in set(kinds)]
+        self._store.save_project(project.model_copy(update={"visible_note_types": ordered}))
+        return ordered
 
     # ----------------------------------------------------------------- files
     def list_files(self, project_name: str) -> list[ProjectDataFile]:

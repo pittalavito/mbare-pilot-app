@@ -665,6 +665,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/data-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Data Settings
+         * @description What the Dati tab shows (the default types until the project chooses).
+         */
+        get: operations["data_settings_projects__project__data_settings_get"];
+        /** Save Data Settings */
+        put: operations["save_data_settings_projects__project__data_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project}/files": {
         parameters: {
             query?: never;
@@ -2178,6 +2199,11 @@ export interface components {
             /** Note Type */
             note_type?: string | null;
         };
+        /** DataSettingsBody */
+        DataSettingsBody: {
+            /** Visible Note Types */
+            visible_note_types: components["schemas"]["NoteType"][];
+        };
         /** DefinitionEntryResponse */
         DefinitionEntryResponse: {
             kind: components["schemas"]["DefinitionKind"];
@@ -2417,6 +2443,11 @@ export interface components {
             /** Content */
             content: string;
         };
+        /**
+         * NoteType
+         * @enum {string}
+         */
+        NoteType: "generic" | "agent_task" | "todo_list" | "code_reference" | "context_reference";
         /** OpenFolderRequest */
         OpenFolderRequest: {
             /** Folder */
@@ -4613,6 +4644,72 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    data_settings_projects__project__data_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataSettingsBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_data_settings_projects__project__data_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DataSettingsBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataSettingsBody"];
+                };
             };
             /** @description Validation Error */
             422: {

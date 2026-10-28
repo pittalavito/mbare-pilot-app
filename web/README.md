@@ -75,7 +75,7 @@ src/
   pages/
     projects/         lista dei progetti, «Apri cartella» e «Crea da zero»
     project/          pagina del progetto: intestazione e tab (una rotta per tab)
-    data/             tab Dati: note markdown (modifica/anteprima, Ctrl+S), agent task e todo list (form dei template, con i riferimenti collegati: ReferencesSection), file
+    data/             tab Dati: note markdown (modifica/anteprima, Ctrl+S), agent task e todo list (form dei template, con i riferimenti collegati: ReferencesSection), riferimenti, file; ⚙️ Impostazioni sceglie i tipi mostrati (DataSettings)
     git/              tab Git: commit con filtri e file modificati
     atlassian/        tab Atlassian: Jira, Confluence, preferiti
     library/          pagina Libreria: agenti globali (la stessa sezione Agenti) e catalogo dei tool

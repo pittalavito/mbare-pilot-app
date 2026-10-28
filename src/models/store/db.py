@@ -43,6 +43,8 @@ class ProjectTable(SQLModel, table=True):
     embedding_model: str
     """Embedding model of the project's RAG index (EmbeddingModelName value)."""
     created_at: datetime = _timestamp()
+    visible_note_types: list[str] | None = Field(default=None, sa_type=JSON)
+    """The note types the Dati tab shows (NoteType values); NULL = the default ones."""
 
 
 class ProjectAtlassianTable(SQLModel, table=True):

@@ -4,30 +4,42 @@ import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 
 import {
-  type DataFile, NOTE_PREFIXES, fileUrl, useDeleteFile, useDeleteNote, useFiles, useNote, useNotes, useSaveNote, useUploadFiles,
+  type DataFile, NOTE_PREFIXES, fileUrl, useDataSettings, useDeleteFile, useDeleteNote, useFiles, useNote, useNotes, useSaveNote, useUploadFiles,
 } from "../../api/projectData";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Markdown } from "../../components/Markdown";
 import { localTime, size } from "../../format";
+import { DEFAULT_VISIBLE, DataSettings, REFERENCE_TYPES, References } from "./DataSettings";
 import { AgentTasks, TodoLists } from "./TypedNotes";
 
 /** The Dati tab of a project: its own data, kept by the app apart from its
- * code: notes written here (generic, agent tasks, todo lists: all markdown
- * files, typed by their name) and uploaded files (sources of the RAG index). */
+ * code: notes written here (generic, agent tasks, todo lists, references: all
+ * markdown files, typed by their name) and uploaded files (sources of the RAG
+ * index). Which note types it shows is a setting of the project (⚙️). */
 export function DataTab() {
   const { project = "" } = useParams();
+  const settings = useDataSettings(project);
+  const visible = settings.data?.visible_note_types ?? (settings.error ? DEFAULT_VISIBLE : []); // unreadable: the defaults, with the error
+  const references = REFERENCE_TYPES.filter((kind) => visible.includes(kind));
+  const tabs = [
+    visible.includes("generic") && { value: "notes", label: "📝 Note", panel: <Notes project={project} /> },
+    visible.includes("agent_task") && { value: "agent-tasks", label: "🤖 Agent task", panel: <AgentTasks project={project} /> },
+    visible.includes("todo_list") && { value: "todo-lists", label: "✅ Todo list", panel: <TodoLists project={project} /> },
+    references.length > 0 && { value: "references", label: "📎 Riferimenti", panel: <References project={project} kinds={references} /> },
+    { value: "files", label: "📎 File", panel: <Files project={project} /> },
+    { value: "settings", label: "⚙️ Impostazioni", panel: <DataSettings project={project} /> },
+  ].filter((tab) => !!tab);
+  const [tab, setTab] = useState<string | null>(null);
+  const current = tabs.some((item) => item.value === tab) ? tab : tabs[0].value; // a hidden tab falls back to the first one
+
+  if (settings.isPending) return <Loader size="sm" />;
   return (
-    <Tabs defaultValue="notes" keepMounted={false}>
+    <Tabs value={current} onChange={setTab} keepMounted={false}>
+      {settings.error && <Alert color="red" mb="sm">{settings.error.message}</Alert>}
       <Tabs.List mb="md">
-        <Tabs.Tab value="notes">📝 Note</Tabs.Tab>
-        <Tabs.Tab value="agent-tasks">🤖 Agent task</Tabs.Tab>
-        <Tabs.Tab value="todo-lists">✅ Todo list</Tabs.Tab>
-        <Tabs.Tab value="files">📎 File</Tabs.Tab>
+        {tabs.map((item) => <Tabs.Tab key={item.value} value={item.value}>{item.label}</Tabs.Tab>)}
       </Tabs.List>
-      <Tabs.Panel value="notes"><Notes project={project} /></Tabs.Panel>
-      <Tabs.Panel value="agent-tasks"><AgentTasks project={project} /></Tabs.Panel>
-      <Tabs.Panel value="todo-lists"><TodoLists project={project} /></Tabs.Panel>
-      <Tabs.Panel value="files"><Files project={project} /></Tabs.Panel>
+      {tabs.map((item) => <Tabs.Panel key={item.value} value={item.value}>{item.panel}</Tabs.Panel>)}
     </Tabs>
   );
 }
