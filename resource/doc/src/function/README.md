@@ -4,7 +4,7 @@ Le **funzioni** delle automation: codice Python che uno step esegue **senza LLM*
 
 | Funzione | Cosa fa | Parametri |
 |---|---|---|
-| `git_status` | branch, push/pull e file modificati di un repository del progetto, come testo | `repository` (vuoto = usa l'input dello step) |
+| `git_status` | branch, push/pull e file modificati di un repository del progetto, come testo; con `*` di tutti i repository, uno dopo l'altro (un repository illeggibile lo dice nel testo, gli altri restano) | `repository` (vuoto = usa l'input dello step; `*` = tutti) |
 | `save_note` | salva l'input dello step come nota del progetto (tab Dati → Note) | `title` (`{date}` e `{time}` diventano data e ora; stesso nome = nota sovrascritta) |
 
 ```
@@ -78,4 +78,4 @@ Poi la spec in `FUNCTION_REGISTRY` (`registry.py`). Per una funzione senza param
 
 ## Test
 
-`test/unit/service/test_function_steps.py`: ogni funzione ha descrizione e default per tutti i parametri, parametri sbagliati che nominano il campo, step non validi rifiutati al salvataggio, esecuzione dal runner (`git_status` su un repository vero che passa l'output a un agente, `save_note`), errori attesi e imprevisti.
+`test/unit/service/test_function_steps.py`: ogni funzione ha descrizione e default per tutti i parametri, parametri sbagliati che nominano il campo, step non validi rifiutati al salvataggio, esecuzione dal runner (`git_status` su un repository vero che passa l'output a un agente e con `*` su tutti, anche con un repository illeggibile, `save_note`), errori attesi e imprevisti.

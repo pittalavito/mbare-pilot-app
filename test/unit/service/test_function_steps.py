@@ -140,6 +140,35 @@ def test_git_status_function(service, runner, project):
     assert "1 file modificati" in run.output and "- main.py: modified, non staged" in run.output
 
 
+def test_git_status_of_every_repository(service, masked_runner, masking, project):
+    web = project.parent / "web"
+    web.mkdir()
+    _git(web, "init", "-q")
+    (web / "app.js").write_text("nuovo", encoding="utf-8")
+    broken = project.parent / "rotto"
+    (broken / ".git").mkdir(parents=True)  # looks like a repository, git cannot read it
+
+    run = _run(service, masked_runner, [_function(function="git_status", repository="*")])
+
+    assert run.status is RunStatus.DONE and run.output.startswith("3 repository nel progetto.")
+    assert "Repository api · branch" in run.output and "Nessun file modificato." in run.output
+    assert "Repository web · branch" in run.output and "- app.js: untracked" in run.output
+    assert "Repository rotto · stato non letto:" in run.output  # the others are still there
+    assert sorted(entry.value for entry in masking.entries("shop")) == ["api", "rotto", "web"]
+
+
+def test_git_status_of_every_repository_needs_one(service, runner, store_service, tmp_path):
+    empty = tmp_path / "vuoto"
+    empty.mkdir()
+    store_service.save_project(Project(name="vuoto", source=ProjectSource.FOLDER, root_path=str(empty)))
+    pipeline = service.create_pipeline("vuoto", "P", steps=[_function(function="git_status", repository="*")])
+    service.enqueue(pipeline.id, "")
+
+    run = runner.run_next()
+
+    assert run.status is RunStatus.FAILED and "Nessun repository git" in run.steps[0].error
+
+
 def test_save_note_function(service, runner):
     run = _run(service, runner, [_function(function="save_note", title="Report {date}")], pipeline_input="Testo")
 
