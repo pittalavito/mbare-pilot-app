@@ -1,6 +1,6 @@
 # Definizioni da file
 
-Agenti, chatbot e automation si possono scrivere come **file YAML** nella cartella dei dati (`MBARE_PILOT_HOME`, es. `mbare-pilot-data`) invece che dalla UI. Si applicano a un progetto dalla UI con **Impostazioni → 📄 Definizioni da file → ⟳ Sincronizza da file** (o `POST /projects/{progetto}/definitions/sync`).
+Agenti, chatbot e automation si possono scrivere come **file YAML** nella cartella dei dati (`MBARE_PILOT_HOME`, es. `mbare-pilot-data`) invece che dalla UI. Si applicano a un progetto dalla UI con **Impostazioni → 📄 Definizioni da file**: la sezione elenca cosa definiscono i file (anteprima, `GET /projects/{progetto}/definitions`: per ogni elemento **nuovo**, **esiste** o **errore**, senza applicare niente), scegli gli elementi con le caselle e premi **⟳ Sincronizza selezionati** (`POST /projects/{progetto}/definitions/sync` con `{"only": [{kind, file, name}, ...]}`; senza corpo applica tutto).
 
 ```
 mbare-pilot-data/
@@ -34,7 +34,7 @@ mbare-pilot-data/
 
 **All'avvio** dell'app vengono creati gli agenti di `global-agent.yml` che **mancano** (gli agenti di default, es. `hello`, vivono qui). Quelli che esistono restano come sono, anche se cambiati da UI; un file rotto viene segnalato nel log e l'app parte lo stesso.
 
-La **sincronizzazione** di un progetto (il pulsante) applica, in quest'ordine, e il file vince:
+La **sincronizzazione** di un progetto applica, in quest'ordine, e il file vince (solo gli elementi scelti, se ne scegli alcuni):
 
 1. **`global-agent.yml`**: gli agenti della Libreria (con ruoli globali);
 2. **`project/<slug>/agent.yml`**: gli agenti del progetto;
@@ -156,6 +156,6 @@ models:                            # facoltativo: i modelli tra cui scegliere qu
 | `service/definition_service.py` | `DefinitionService.sync(progetto)`: legge, valida, applica con i servizi di agenti, chatbot e automation |
 | `domain/project/coding_agent.py` | `load(read, progetto)`: il coding agent di Copilot, globale più override del progetto (usato da `CopilotService`) |
 | `service/store_service.py` | `read_definition`, `save_definition`: i file di `definition/` |
-| `controller/definition_controller.py` | `POST /projects/{p}/definitions/sync` |
-| `web/src/pages/settings/SettingsTab.tsx` | la sezione nelle Impostazioni del progetto (frontend) |
-| `test/unit/service/test_definition_service.py` | agenti di progetto e globali, chatbot del progetto o globale, automation con grafo, posizioni e globali sostituite, file ed elementi rotti |
+| `controller/definition_controller.py` | `GET /projects/{p}/definitions` (anteprima), `POST /projects/{p}/definitions/sync` (tutto o `only`) |
+| `web/src/pages/settings/DefinitionsSection.tsx` | la sezione nelle Impostazioni del progetto: anteprima e scelta (frontend) |
+| `test/unit/service/test_definition_service.py` | agenti di progetto e globali, chatbot del progetto o globale, automation con grafo, posizioni e globali sostituite, file ed elementi rotti, anteprima senza effetti e sincronizzazione dei soli elementi scelti (API: `test/unit/api/test_definitions_api.py`) |

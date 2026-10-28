@@ -17,7 +17,7 @@ src/controller/
   pipeline_controller.py      automation, run, /functions, /workers
   atlassian_controller.py     /projects/{progetto}/atlassian
   masking_controller.py       /projects/{progetto}/masking
-  definition_controller.py    /projects/{progetto}/definitions/sync
+  definition_controller.py    /projects/{progetto}/definitions (anteprima), .../sync
   process_controller.py       /admin/worker, /admin/logs/{processo}
   admin_controller.py         /admin/config, /observability
 ```
@@ -41,7 +41,7 @@ Tutti i path qui sotto stanno sotto `/api` (`core/server.py` monta l'API lì e s
 | Atlassian | `GET/PUT/DELETE /projects/{p}/atlassian`, `POST .../atlassian/check`, `GET .../atlassian/jira/issues/{chiave}`, `GET .../atlassian/confluence/pages`, `GET .../atlassian/confluence/pages/{id}`, `GET .../atlassian/confluence/search?q=`, `GET/POST .../atlassian/favorites`, `DELETE .../atlassian/favorites/{id}` |
 | Mascheramento | `GET/POST /projects/{p}/masking`, `DELETE /projects/{p}/masking/{alias}` |
 | Processi | `GET /admin/worker`, `POST /admin/worker/start`, `POST /admin/worker/stop` (409 se ne gira uno avviato altrove), `GET /admin/logs/{api\|worker}?lines=` |
-| Definizioni da file | `POST /projects/{p}/definitions/sync` (vedi [definitions](../../definitions.md)) |
+| Definizioni da file | `GET /projects/{p}/definitions` (anteprima), `POST /projects/{p}/definitions/sync` (tutto, o `only` gli elementi scelti; vedi [definitions](../../definitions.md)) |
 | Copilot | `GET /copilot/status[?project=]` (CLI, coding agent, prompt e modelli da scegliere con prezzo e costo medio per turno), `GET /copilot-sessions/{id}/turns` (uso per turno e totale), `GET /observability/copilot/turns[?limit=&project=]`, `GET /observability/copilot/models[?days=&project=]`, `GET/POST/DELETE /projects/{p}/copilot-sessions` (DELETE `?task_note=`: le sessioni di un task), `GET/DELETE /copilot-sessions/{id}`, `GET/POST /copilot-sessions/{id}/messages`, `POST /copilot-sessions/{id}/approve`, `POST /copilot-sessions/{id}/cancel` |
 | Admin | `GET /admin/config`, `GET /observability/runs`, `GET /observability/runs/{run_id}/trace`, `GET /observability/tool-calls`, `GET/POST /admin/backups`, `GET /admin/backups/{nome}` |
 

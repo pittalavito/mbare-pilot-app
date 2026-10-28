@@ -97,24 +97,51 @@ describe("SettingsTab", () => {
     created_at: "2026-10-25T10:00:00Z", folder_exists: true,
   };
 
-  it("syncs the definitions and shows the report", async () => {
+  it("previews the definitions, syncs only the chosen ones and shows the report", async () => {
+    const synced = vi.fn(async (request: Request) => {
+      expect(await request.json()).toEqual({ only: [{ kind: "chatbot", file: "global-chat-bot.yml", name: "Bot" }] });
+      return { project_name: "acme", items: [{ kind: "chatbot", file: "global-chat-bot.yml", name: "Bot", outcome: "updated", message: "" }] };
+    });
     mockApi({
       "GET /projects/acme": PROJECT,
-      "POST /projects/acme/definitions/sync": {
-        project_name: "acme",
-        items: [
-          { kind: "chatbot", file: "chat-bot.yml", name: "Bot", outcome: "updated", message: "" },
-          { kind: "automation", file: "automation.yml", name: null, outcome: "error", message: "steps: campo obbligatorio" },
-        ],
-      },
+      "GET /projects/acme/definitions": [
+        { kind: "agent", file: "global-agent.yml", name: "hello", state: "new", message: "" },
+        { kind: "chatbot", file: "global-chat-bot.yml", name: "Bot", state: "exists", message: "" },
+        { kind: "automation", file: "project/acme/automation.yml", name: null, state: "error", message: "steps: campo obbligatorio" },
+      ],
+      "POST /projects/acme/definitions/sync": synced,
     });
     inProject("settings", <SettingsTab />);
 
     fireEvent.click(await screen.findByRole("button", { name: /Definizioni da file/ }));
-    fireEvent.click(await screen.findByRole("button", { name: /Sincronizza da file/ }));
-
     expect(await screen.findByText("steps: campo obbligatorio")).toBeInTheDocument();
-    expect(screen.getByText(/aggiornato/)).toHaveTextContent("🔄 aggiornato · Chatbot Bot · chat-bot.yml");
+    expect(screen.getByText("esiste: il file vince")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Sincronizza project/acme/automation.yml" })).toBeDisabled(); // broken: not choosable
+    expect(screen.getByRole("button", { name: /Sincronizza selezionati \(0\)/ })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Sincronizza Bot" }));
+    fireEvent.click(screen.getByRole("button", { name: /Sincronizza selezionati \(1\)/ }));
+
+    await waitFor(() => expect(synced).toHaveBeenCalled());
+    expect(await screen.findByText(/🔄 aggiornato/)).toHaveTextContent("🔄 aggiornato · Chatbot Bot · global-chat-bot.yml");
+  });
+
+  it("selects every element that can be synced at once", async () => {
+    mockApi({
+      "GET /projects/acme": PROJECT,
+      "GET /projects/acme/definitions": [
+        { kind: "agent", file: "global-agent.yml", name: "hello", state: "new", message: "" },
+        { kind: "automation", file: "a.yml", name: "Rotta", state: "error", message: "no" },
+        { kind: "automation", file: "a.yml", name: "Buona", state: "new", message: "" },
+      ],
+    });
+    inProject("settings", <SettingsTab />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /Definizioni da file/ }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Seleziona tutti" }));
+
+    expect(screen.getByRole("button", { name: /Sincronizza selezionati \(2\)/ })).toBeEnabled();
+    expect(screen.getByRole("checkbox", { name: "Sincronizza Rotta" })).not.toBeChecked();
   });
 
   it("removes the project only after confirming, then goes back to the list", async () => {

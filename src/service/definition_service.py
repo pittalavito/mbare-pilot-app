@@ -14,10 +14,15 @@ file wins over changes made from the UI. What is not in the files is left as it
 is. An element with errors is skipped and reported; the others are applied.
 An empty file (or one with only comments) defines nothing.
 
+``preview(project)`` lists what the files define without applying anything
+(new or already there, or the error), and ``sync(project, only)`` can apply
+just the elements chosen from it.
+
 At startup ``seed_global_agents()`` creates the agents of ``global-agent.yml``
 that do not exist yet (a new installation has them; changes made from the UI
 stay until the next sync)."""
-from collections.abc import Callable
+from collections.abc import Callable, Collection
+from dataclasses import dataclass
 from typing import Any
 
 import yaml
@@ -29,7 +34,10 @@ from core.observability import LogPrefix, log_warning, observed
 from domain.pipeline.graph import linear_edges
 from domain.project.data_paths import AGENTS_FILE, AUTOMATIONS_FILE, CHATBOT_FILE, GLOBAL_AGENTS_FILE, GLOBAL_AUTOMATIONS_FILE, GLOBAL_CHATBOT_FILE, data_file_name, project_definitions
 from models.domain.agent import AgentConfig, AgentRole
-from models.domain.definitions import AgentFile, AutomationFile, ChatbotFile, DefinitionKind, StepFile, SyncItem, SyncOutcome, SyncReport
+from models.domain.definitions import (
+    AgentFile, AutomationFile, ChatbotFile, DefinitionEntry, DefinitionKey, DefinitionKind, DefinitionState, StepFile, SyncItem, SyncOutcome,
+    SyncReport,
+)
 from models.domain.pipeline import Pipeline, PipelineEdge, PipelineStep, StepAgent, StepKind
 from service.agent_config_service import AgentConfigService
 from service.chatbot_service import ChatbotService
@@ -49,23 +57,52 @@ class DefinitionService:
         self._pipelines = pipeline_service
 
     @observed(LogPrefix.DEFINITION_SERVICE)
-    def sync(self, project_name: str) -> SyncReport:
-        """Global agents, the project's agents, its chatbot, its automations."""
+    def sync(self, project_name: str, only: Collection[DefinitionKey] | None = None) -> SyncReport:
+        """Global agents, the project's agents, its chatbot, its automations;
+        ``only`` = just these elements (as ``preview`` lists them), None = all."""
+        chosen = None if only is None else {DefinitionKey(kind=key.kind, file=key.file, name=key.name) for key in only}  # entries too
+        items = [element.apply_to_item() for element in self._elements(project_name) if chosen is None or element.key in chosen]
+        return SyncReport(project_name=project_name, items=items)
+
+    def preview(self, project_name: str) -> list[DefinitionEntry]:
+        """What the files define, nothing applied: each element new or already
+        there (found by name: a sync would update it), or why it would fail."""
+        return [self._entry(project_name, element) for element in self._elements(project_name)]
+
+    def _elements(self, project_name: str) -> list["_Element"]:
+        """Every element of the project's files, in the order a sync applies them."""
         if self._store.get_project(project_name) is None:
             raise NotFoundError(f"Progetto non trovato: {project_name}")
         folder = project_definitions(project_name)
-        items = self._list(DefinitionKind.AGENT, GLOBAL_AGENTS_FILE, _AGENTS_KEY, AgentFile, lambda spec: self._sync_agent(None, spec))
-        items += self._list(DefinitionKind.AGENT, f"{folder}/{AGENTS_FILE}", _AGENTS_KEY, AgentFile, lambda spec: self._sync_agent(project_name, spec))
-        items += self._chatbot(project_name, folder)
-        items += self._automations(project_name, folder)
-        return SyncReport(project_name=project_name, items=items)
+        elements = self._list(DefinitionKind.AGENT, GLOBAL_AGENTS_FILE, _AGENTS_KEY, AgentFile, lambda spec: self._sync_agent(None, spec))
+        elements += self._list(DefinitionKind.AGENT, f"{folder}/{AGENTS_FILE}", _AGENTS_KEY, AgentFile, lambda spec: self._sync_agent(project_name, spec))
+        elements += self._chatbot(project_name, folder)
+        elements += self._automations(project_name, folder)
+        return elements
+
+    def _entry(self, project_name: str, element: "_Element") -> DefinitionEntry:
+        common = dict(kind=element.kind, file=element.file, name=element.name)
+        try:
+            element.validate()
+        except PydanticValidationError as exc:
+            return DefinitionEntry(**common, state=DefinitionState.ERROR, message=_first_error(exc))
+        except AppError as exc:
+            return DefinitionEntry(**common, state=DefinitionState.ERROR, message=str(exc))
+        if element.kind is DefinitionKind.AGENT:
+            exists = self._store.get_agent_config(element.name) is not None
+        elif element.kind is DefinitionKind.CHATBOT:
+            exists = bool(self._chatbots.list_chatbots(project_name))  # one per project: it would be updated
+        else:
+            exists = any(pipeline.name.lower() == element.name.lower() for pipeline in self._pipelines.list_pipelines(project_name))
+        return DefinitionEntry(**common, state=DefinitionState.EXISTS if exists else DefinitionState.NEW)
 
     @observed(LogPrefix.DEFINITION_SERVICE)
     def seed_global_agents(self) -> list[SyncItem]:
         """At startup: the agents of global-agent.yml that do not exist yet; the
         existing ones are left as they are. Errors are logged, never raised:
         a broken file must not stop the app."""
-        items = self._list(DefinitionKind.AGENT, GLOBAL_AGENTS_FILE, _AGENTS_KEY, AgentFile, self._create_missing_global_agent)
+        elements = self._list(DefinitionKind.AGENT, GLOBAL_AGENTS_FILE, _AGENTS_KEY, AgentFile, self._create_missing_global_agent)
+        items = [element.apply_to_item() for element in elements]
         for item in items:
             if item.outcome is SyncOutcome.ERROR:
                 log_warning(LogPrefix.DEFINITION_SERVICE, "%s · %s: %s", item.file, item.name or "?", item.message)
@@ -77,8 +114,8 @@ class DefinitionService:
         return self._sync_agent(None, spec)
 
     # ---------------------------------------------------------------- files
-    def _list(self, kind: DefinitionKind, path: str, key: str, schema: type[BaseModel], sync: Callable[[Any], SyncOutcome], skip: Callable[[dict], bool] = lambda raw: False) -> list[SyncItem]:
-        """One item per element of the file's ``key`` list (``skip`` leaves some out)."""
+    def _list(self, kind: DefinitionKind, path: str, key: str, schema: type[BaseModel], sync: Callable[[Any], SyncOutcome], skip: Callable[[dict], bool] = lambda raw: False) -> list["_Element"]:
+        """One element per item of the file's ``key`` list (``skip`` leaves some out)."""
         try:
             raw = self._read(path)
             if raw is None:
@@ -87,9 +124,9 @@ class DefinitionService:
             if not isinstance(elements, list):
                 raise ValidationError(f"il file deve avere la lista «{key}:».")
         except AppError as exc:
-            return [SyncItem(kind=kind, file=path, outcome=SyncOutcome.ERROR, message=str(exc))]
+            return [_Element(kind, path, None, None, schema, sync, error=str(exc))]
         return [
-            _apply(kind, path, element, index, schema, sync)
+            _Element(kind, path, element, index, schema, sync)
             for index, element in enumerate(elements, start=1)
             if not (isinstance(element, dict) and skip(element))
         ]
@@ -134,15 +171,16 @@ class DefinitionService:
         return SyncOutcome.CREATED if existing is None else SyncOutcome.UPDATED
 
     # -------------------------------------------------------------- chatbot
-    def _chatbot(self, project_name: str, folder: str) -> list[SyncItem]:
+    def _chatbot(self, project_name: str, folder: str) -> list["_Element"]:
         """The project's chat-bot.yml, else the global one (a base for every project)."""
         for path, prompt_folder in ((f"{folder}/{CHATBOT_FILE}", folder), (GLOBAL_CHATBOT_FILE, "")):
             try:
                 raw = self._read(path)
             except AppError as exc:
-                return [SyncItem(kind=DefinitionKind.CHATBOT, file=path, outcome=SyncOutcome.ERROR, message=str(exc))]
+                return [_Element(DefinitionKind.CHATBOT, path, None, None, ChatbotFile, None, error=str(exc))]
             if raw is not None:
-                return [_apply(DefinitionKind.CHATBOT, path, raw, None, ChatbotFile, lambda spec: self._sync_chatbot(project_name, spec, prompt_folder))]
+                sync = lambda spec, prompt_folder=prompt_folder: self._sync_chatbot(project_name, spec, prompt_folder)  # noqa: E731
+                return [_Element(DefinitionKind.CHATBOT, path, raw, None, ChatbotFile, sync)]
         return []
 
     def _sync_chatbot(self, project_name: str, spec: ChatbotFile, prompt_folder: str) -> SyncOutcome:
@@ -173,7 +211,7 @@ class DefinitionService:
         return SyncOutcome.UPDATED
 
     # ---------------------------------------------------------- automations
-    def _automations(self, project_name: str, folder: str) -> list[SyncItem]:
+    def _automations(self, project_name: str, folder: str) -> list["_Element"]:
         """The project's automations, then the global ones it does not redefine (by name)."""
         sync = lambda spec: self._sync_automation(project_name, spec)  # noqa: E731
         path = f"{folder}/{AUTOMATIONS_FILE}"
@@ -202,19 +240,47 @@ class DefinitionService:
         return SyncOutcome.UPDATED
 
 
-def _apply(kind: DefinitionKind, path: str, raw: Any, index: int | None, schema: type[BaseModel], sync: Callable[[Any], SyncOutcome]) -> SyncItem:
-    """Validate and apply one element; its errors become the item's message."""
-    label = raw.get("name") if isinstance(raw, dict) and raw.get("name") else (f"elemento {index}" if index else None)
-    try:
-        if not isinstance(raw, dict):
+@dataclass
+class _Element:
+    """One element of a definition file, to preview or apply. ``raw`` None =
+    the file itself could not be read (``error`` says why)."""
+    kind: DefinitionKind
+    file: str
+    raw: Any
+    index: int | None
+    schema: type[BaseModel]
+    apply: Callable[[Any], SyncOutcome] | None
+    error: str = ""
+
+    @property
+    def name(self) -> str | None:
+        """What it defines; ``elemento N`` without a name, None for a broken file."""
+        if isinstance(self.raw, dict) and self.raw.get("name"):
+            return str(self.raw["name"])
+        return f"elemento {self.index}" if self.index else None
+
+    @property
+    def key(self) -> DefinitionKey:
+        return DefinitionKey(kind=self.kind, file=self.file, name=self.name)
+
+    def validate(self) -> BaseModel:
+        """The element as its schema; ValidationError or pydantic's error otherwise."""
+        if self.error:
+            raise ValidationError(self.error)
+        if not isinstance(self.raw, dict):
             raise ValidationError("ogni elemento deve contenere dei campi (nome: valore).")
-        spec = schema.model_validate(raw)
-        outcome = sync(spec)
-    except PydanticValidationError as exc:
-        return SyncItem(kind=kind, file=path, name=label, outcome=SyncOutcome.ERROR, message=_first_error(exc))
-    except AppError as exc:
-        return SyncItem(kind=kind, file=path, name=label, outcome=SyncOutcome.ERROR, message=str(exc))
-    return SyncItem(kind=kind, file=path, name=spec.name, outcome=outcome)
+        return self.schema.model_validate(self.raw)
+
+    def apply_to_item(self) -> SyncItem:
+        """Validate and apply it; its errors become the item's message."""
+        try:
+            spec = self.validate()
+            outcome = self.apply(spec)
+        except PydanticValidationError as exc:
+            return SyncItem(kind=self.kind, file=self.file, name=self.name, outcome=SyncOutcome.ERROR, message=_first_error(exc))
+        except AppError as exc:
+            return SyncItem(kind=self.kind, file=self.file, name=self.name, outcome=SyncOutcome.ERROR, message=str(exc))
+        return SyncItem(kind=self.kind, file=self.file, name=spec.name, outcome=outcome)
 
 
 def _step(spec: StepFile, previous: PipelineStep | None) -> PipelineStep:

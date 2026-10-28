@@ -5,6 +5,7 @@ matched by name; a broken element is reported and the others applied."""
 import pytest
 
 from core.error import NotFoundError
+from models.domain.definitions import DefinitionKey, DefinitionKind
 from models.domain.project import Project, ProjectSource
 from service.agent_service import AgentService
 from service.chat_service import ChatService
@@ -248,3 +249,40 @@ def test_missing_or_empty_files_define_nothing_and_an_unknown_project(services, 
     assert definitions.sync("acme").items == []
     with pytest.raises(NotFoundError):
         definitions.sync("missing")
+
+
+# --------------------------------------------------------- preview, choice
+
+def test_the_preview_lists_what_the_files_define_and_applies_nothing(services, store_service):
+    definitions, chatbots, pipelines = services
+    _write(store_service, f"{PROJECT_DIR}/agent.yml", "agents:" + REVIEWER + "  - {name: rotto}\n")
+    _write(store_service, f"{PROJECT_DIR}/automation.yml", "automations:" + CONTROLLO)
+    _write(store_service, "global-chat-bot.yml", f"name: Assistente\nmodel: {MODEL}\nsystem_prompt: Ciao.\n")
+    _write(store_service, "global-automation.yml", "automations: [rotto")
+    definitions.sync("acme", only=[DefinitionKey(kind=DefinitionKind.AGENT, file=f"{PROJECT_DIR}/agent.yml", name="reviewer")])
+
+    preview = [(entry.kind.value, entry.file, entry.name, entry.state.value) for entry in definitions.preview("acme")]
+
+    assert preview == [
+        ("agent", f"{PROJECT_DIR}/agent.yml", "reviewer", "exists"),
+        ("agent", f"{PROJECT_DIR}/agent.yml", "rotto", "error"),
+        ("chatbot", "global-chat-bot.yml", "Assistente", "new"),
+        ("automation", f"{PROJECT_DIR}/automation.yml", "Controllo", "new"),
+        ("automation", "global-automation.yml", None, "error"),
+    ]
+    assert "YAML non valido" in definitions.preview("acme")[-1].message
+    assert chatbots.list_chatbots("acme") == [] and pipelines.list_pipelines("acme") == []  # nothing applied
+
+
+def test_a_sync_can_apply_only_the_chosen_elements(services, store_service):
+    definitions, chatbots, pipelines = services
+    _write(store_service, f"{PROJECT_DIR}/agent.yml", "agents:" + REVIEWER)
+    _write(store_service, f"{PROJECT_DIR}/automation.yml", "automations:" + CONTROLLO + "  - {name: Altra, steps: [{name: S, function: git_status}]}\n")
+    _write(store_service, "global-chat-bot.yml", f"name: Assistente\nmodel: {MODEL}\nsystem_prompt: Ciao.\n")
+    chosen = [entry for entry in definitions.preview("acme") if entry.name in {"reviewer", "Controllo"}]
+
+    report = definitions.sync("acme", only=chosen)
+
+    assert _outcomes(report) == [(f"{PROJECT_DIR}/agent.yml", "reviewer", "created"), (f"{PROJECT_DIR}/automation.yml", "Controllo", "created")]
+    assert [p.name for p in pipelines.list_pipelines("acme")] == ["Controllo"] and chatbots.list_chatbots("acme") == []
+    assert definitions.sync("acme", only=[]).items == []

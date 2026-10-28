@@ -1172,6 +1172,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/definitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Definitions
+         * @description What the files define, nothing applied: each element new, already there or with its error.
+         */
+        get: operations["preview_definitions_projects__project__definitions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project}/definitions/sync": {
         parameters: {
             query?: never;
@@ -1183,8 +1203,9 @@ export interface paths {
         put?: never;
         /**
          * Sync Definitions
-         * @description Create or update what the project's files define (the file wins); one
-         *     item per file, errors included (a file with errors is skipped).
+         * @description Create or update what the project's files define (the file wins): all,
+         *     or ``only`` the elements chosen from the preview. One item per element,
+         *     errors included (an element with errors is skipped).
          */
         post: operations["sync_definitions_projects__project__definitions_sync_post"];
         delete?: never;
@@ -2102,6 +2123,34 @@ export interface components {
             /** Note Type */
             note_type?: string | null;
         };
+        /** DefinitionEntryResponse */
+        DefinitionEntryResponse: {
+            kind: components["schemas"]["DefinitionKind"];
+            /** File */
+            file: string;
+            /** Name */
+            name: string | null;
+            /** State */
+            state: string;
+            /** Message */
+            message: string;
+        };
+        /**
+         * DefinitionKeyRequest
+         * @description An element to sync, as the preview lists it.
+         */
+        DefinitionKeyRequest: {
+            kind: components["schemas"]["DefinitionKind"];
+            /** File */
+            file: string;
+            /** Name */
+            name: string | null;
+        };
+        /**
+         * DefinitionKind
+         * @enum {string}
+         */
+        DefinitionKind: "agent" | "chatbot" | "automation";
         /**
          * EdgeBody
          * @description An edge of the graph, both ways.
@@ -2655,6 +2704,11 @@ export interface components {
             project_name: string;
             /** Items */
             items: components["schemas"]["SyncItemResponse"][];
+        };
+        /** SyncRequest */
+        SyncRequest: {
+            /** Only */
+            only?: components["schemas"]["DefinitionKeyRequest"][] | null;
         };
         /**
          * TaskStatus
@@ -5408,7 +5462,7 @@ export interface operations {
             };
         };
     };
-    sync_definitions_projects__project__definitions_sync_post: {
+    preview_definitions_projects__project__definitions_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -5418,6 +5472,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DefinitionEntryResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_definitions_projects__project__definitions_sync_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SyncRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

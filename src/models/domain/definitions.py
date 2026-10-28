@@ -177,6 +177,33 @@ class DefinitionKind(StrEnum):
     AUTOMATION = "automation"
 
 
+class DefinitionKey(BaseModel):
+    """One element of the definition files, as a preview lists it and a sync
+    can choose it: kind, file (relative to ``definition/``) and name."""
+    model_config = ConfigDict(frozen=True)
+
+    kind: DefinitionKind
+    file: str
+    name: str | None
+
+
+class DefinitionState(StrEnum):
+    NEW = "new"
+    """Nothing with that name yet: a sync would create it."""
+    EXISTS = "exists"
+    """Already there (by name): a sync would update it, the file wins (or leave it unchanged)."""
+    ERROR = "error"
+    """The element (or its file) is broken: a sync would skip it."""
+
+
+class DefinitionEntry(DefinitionKey):
+    """An element of the preview: what a sync would do with it."""
+    model_config = ConfigDict(frozen=True)
+
+    state: DefinitionState
+    message: str = ""
+
+
 class SyncOutcome(StrEnum):
     CREATED = "created"
     UPDATED = "updated"

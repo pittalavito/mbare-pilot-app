@@ -1,13 +1,14 @@
 import { Accordion, Alert, Button, Group, Loader, Select, Stack, Table, Text, TextInput, Textarea } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { type MaskCategory, type SyncReport, useAddMask, useMaskEntries, useRemoveMask, useSyncDefinitions } from "../../api/masking";
+import { type MaskCategory, useAddMask, useMaskEntries, useRemoveMask } from "../../api/masking";
 import { type Project, useProject, useProjectOptions, useRemoveProject, useUpdateProject } from "../../api/projects";
 import { AgentsSection } from "../../components/agents/AgentsSection";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { AtlassianSettingsSection } from "./AtlassianSettingsSection";
+import { DefinitionsSection } from "./DefinitionsSection";
 
 /** The Impostazioni tab of a project: one collapsed section each, only the titles at first. */
 export function SettingsTab() {
@@ -20,7 +21,7 @@ export function SettingsTab() {
       <Section value="general" title="Generale"><General project={project.data} /></Section>
       <Section value="atlassian" title="🔷 Atlassian (Jira + Confluence)"><AtlassianSettingsSection project={name} /></Section>
       <Section value="masking" title="🕶️ Mascheramento dei dati"><Masking project={name} /></Section>
-      <Section value="definitions" title="📄 Definizioni da file"><Definitions project={name} /></Section>
+      <Section value="definitions" title="📄 Definizioni da file"><DefinitionsSection project={name} /></Section>
       <Section value="agents" title="🤖 Agenti del progetto"><AgentsSection scope={name} /></Section>
       <Section value="remove" title="🗑️ Rimuovi progetto"><Remove name={name} /></Section>
     </Accordion>
@@ -139,49 +140,6 @@ function Masking({ project }: { project: string }) {
           </Table.Tbody>
         </Table>
       )}
-    </Stack>
-  );
-}
-
-// -------------------------------------------------------------- definitions
-
-const OUTCOMES: Record<string, string> = { created: "✅ creato", updated: "🔄 aggiornato", unchanged: "➖ invariato", error: "❌ errore" };
-const KINDS: Record<string, string> = { agent: "Agente", chatbot: "Chatbot", automation: "Automation" };
-
-/** Agents, chatbots and automations written as YAML in the data folder, applied with one button: the file wins. */
-function Definitions({ project }: { project: string }) {
-  const sync = useSyncDefinitions(project);
-  const [report, setReport] = useState<SyncReport>();
-  useEffect(() => setReport(undefined), [project]);
-  return (
-    <Stack gap="sm">
-      <Text size="xs" c="dimmed">
-        Nella cartella dei dati, <code>definition/</code>: <code>global-agent.yml</code> (agenti della Libreria),{" "}
-        <code>global-chat-bot.yml</code> e <code>global-automation.yml</code> (base per ogni progetto) e{" "}
-        <code>project/&lt;progetto&gt;/</code> con <code>agent.yml</code>, <code>chat-bot.yml</code>, <code>automation.yml</code>. Il
-        pulsante crea o aggiorna quello che i file definiscono, cercandolo per nome: <b>il file vince</b> sulle modifiche fatte da
-        qui. Quello che non è nei file resta com'è.
-      </Text>
-      <Group>
-        <Button loading={sync.isPending} onClick={() => sync.mutate(undefined, { onSuccess: setReport })}>⟳ Sincronizza da file</Button>
-      </Group>
-      {sync.error && <Alert color="red">{sync.error.message}</Alert>}
-      {report && !report.items.length && <Alert>Nessun file di definizione nella cartella del progetto.</Alert>}
-      {report?.items.map((item, index) => {
-        const line = (
-          <>
-            {OUTCOMES[item.outcome] ?? item.outcome} · {KINDS[item.kind] ?? item.kind} <b>{item.name ?? "?"}</b> · <code>{item.file}</code>
-          </>
-        );
-        return item.outcome === "error" ? (
-          <Alert key={index} color="red">
-            <Text size="sm">{line}</Text>
-            <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>{item.message}</Text>
-          </Alert>
-        ) : (
-          <Text key={index} size="sm">{line}</Text>
-        );
-      })}
     </Stack>
   );
 }
