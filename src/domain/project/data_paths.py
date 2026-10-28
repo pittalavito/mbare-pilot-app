@@ -13,7 +13,8 @@ naming rules for notes and uploaded files. Pure functions: no filesystem here.
                                      agent-task-<title>.md, todo-list-<title>.md,
                                      code-reference-<title>.md, context-reference-<title>.md, else generic
       files/                         uploaded files
-      context/                       the project's context: read_context, the RAG later"""
+      context/                       the project's context: read_context, the RAG later
+      copilot/<session>/             the task and its references for Copilot, rebuilt every turn"""
 import re
 from pathlib import PurePath
 
@@ -24,6 +25,10 @@ NOTES_DIR = "notes"
 FILES_DIR = "files"
 CONTEXT_DIR = "context"
 """Markdown files about the project, written by hand (tool read_context)."""
+COPILOT_DIR = "copilot"
+"""``copilot/<session>/``: the agent task and its linked references as files,
+rebuilt by the app before every Copilot turn (Copilot reads them: --add-dir)."""
+TASK_FILE = "task.md"
 NOTE_SUFFIX = ".md"
 NOTE_PREFIXES = {
     NoteType.AGENT_TASK: "agent-task-",

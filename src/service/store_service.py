@@ -7,6 +7,7 @@ in rows/records; the per-store ``Adapter``/``Factory`` translate to and from the
 domain models.
 """
 from datetime import datetime
+from pathlib import Path
 
 import redis
 from sqlalchemy.engine import Engine as SqlAlchemyEngine
@@ -472,6 +473,14 @@ class StoreService:
 
     def delete_file(self, file_id: str) -> bool:
         return self._files_repository.delete(file_id)
+
+    def file_path(self, file_id: str) -> Path:
+        """Where ``file_id`` is on disk: for a program that reads it itself (Copilot's --add-dir)."""
+        return self._files_repository.path(file_id)
+
+    def delete_folder(self, prefix: str) -> bool:
+        """A folder of the file store with everything in it."""
+        return self._files_repository.delete_tree(prefix)
 
     # ----------------------------------------------------------- definitions
     def read_definition(self, path: str) -> str | None:

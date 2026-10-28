@@ -102,6 +102,9 @@ class CodingAgentSettings(BaseModel):
     plan_prompt: str
     """The first planning turn; ``{task}`` becomes the task's markdown."""
     execute_prompt: str
+    references_prompt: str = ""
+    """Added to the first turn when the task links references; ``{task_folder}``
+    = where they are as files. ``""`` = nothing added (Copilot still reads them)."""
     denied_tools: list[str]
     """``--deny-tool`` of the execution, e.g. ``shell(git commit)``."""
     models: list[CopilotModel] = Field(default_factory=list)

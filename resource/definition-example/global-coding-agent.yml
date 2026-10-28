@@ -21,6 +21,12 @@ execute_prompt: >-
   Ok, procedi con il piano concordato. Non fare commit, push né altre operazioni git che cambiano la storia,
   l'indice o i branch. Alla fine riassumi cosa hai cambiato (file e motivo) e se i criteri di accettazione sono soddisfatti.
 
+# Aggiunto al primo turno quando il task ha dei riferimenti collegati (facoltativo).
+# {task_folder} = la cartella con task.md e i riferimenti come file, che Copilot può leggere.
+references_prompt: >-
+  Il task ha dei riferimenti (codice e contesto): li trovi come file in {task_folder},
+  insieme a task.md. Leggili prima di fare domande o proporre il piano.
+
 # --deny-tool dell'esecuzione: l'elenco completo (il codice non ne aggiunge).
 # L'app controlla comunque l'HEAD prima e dopo e segnala se è cambiato.
 denied_tools:

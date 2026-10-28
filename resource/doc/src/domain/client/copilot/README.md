@@ -24,10 +24,11 @@ Sempre: `--add-dir <repository>`, `--output-format json`, `--no-color`; `--model
 
 I divieti **non sono nel codice**: li passa il servizio, dal file `global-coding-agent.yml` della cartella dei dati ([definizioni](../../../../definitions.md#coding-agent-global-coding-agentyml-coding-agentyml)). Bloccano i comandi per nome (anche dentro un comando composto), non uno script che faccia un commit da sé: per questo il servizio controlla l'HEAD prima e dopo (vedi [service](../../../service/README.md#copilot)).
 
-## `turn(cwd, session_id, prompt, mode, timeout_seconds, denied_tools, should_cancel, model)`
+## `turn(cwd, session_id, prompt, mode, timeout_seconds, denied_tools, should_cancel, model, extra_dirs)`
 
 - Restituisce un `CopilotTurn`: l'ultimo `assistant.message` con testo, l'exit code e le richieste premium usate dalla sessione (dall'evento `result`). Non solleva per gli errori di Copilot: finiscono in `error`.
 - `denied_tools` vale solo in `EXECUTE`.
+- `extra_dirs`: altre cartelle che Copilot può usare, un `--add-dir` ciascuna (il servizio ci passa la cartella del task con i suoi riferimenti).
 - **Uso** (`usage.py`): ogni turno passa `--usage-output-file` (in una cartella temporanea, cancellata subito dopo) e mette il contenuto in `CopilotTurn.usage`: richieste premium, crediti AI (`totalNanoAiu`, in miliardesimi), token di input (cache compresa), output, cache letta e scritta, reasoning, la somma su `modelMetrics`, più il modello usato per ultimo (`currentModel`). Sono i **totali della sessione di Copilot**, cumulativi tra un turno e l'altro (come l'`accountingSnapshot` del suo session state): la differenza la calcola il servizio. Un file che manca (Copilot fermato prima di scriverlo) o illeggibile dà `None`.
 - **Timeout e annullamento** (`process.py`): ogni mezzo secondo controlla `should_cancel()` e la scadenza; se serve, chiude Copilot e tutto quello che ha avviato (`psutil`).
 - **Windows** (`cli.py`): npm installa un lanciatore `.cmd`, che taglierebbe il prompt al primo a capo. Il client lo riconosce e chiama `node …/@github/copilot/npm-loader.js` direttamente. Nessuna finestra di console (`CREATE_NO_WINDOW`).

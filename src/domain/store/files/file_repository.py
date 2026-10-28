@@ -1,6 +1,7 @@
 """Generic files under the file store root, addressed by ``file_id`` (a path
 relative to the root, e.g. ``uploads/report.pdf``). Callers pass ids, never
 absolute paths."""
+import shutil
 from pathlib import Path
 
 from core.error import NotFoundError
@@ -43,6 +44,18 @@ class LocalFileRepository(FileStore):
         if not path.is_file():
             return False
         path.unlink()
+        return True
+
+    def path(self, file_id: str) -> Path:
+        """The absolute path of ``file_id`` (a file or a folder), checked to stay under the root."""
+        return self._safe_path(file_id)
+
+    def delete_tree(self, prefix: str) -> bool:
+        """The folder ``prefix`` with everything in it; True if it existed."""
+        path = self._safe_path(prefix)
+        if path == self.root or not path.is_dir():
+            return False
+        shutil.rmtree(path)
         return True
 
     def _to_stored(self, path: Path) -> StoredFile:

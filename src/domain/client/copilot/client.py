@@ -74,15 +74,18 @@ class CopilotClient:
         denied_tools: Sequence[str] = (),
         should_cancel: Callable[[], bool] = lambda: False,
         model: str = "",
+        extra_dirs: Sequence[Path] = (),
     ) -> CopilotTurn:
         """One message to the session and Copilot's answer. ``denied_tools``
-        count only in execute mode; ``model`` overrides the default. Never
-        raises for Copilot's own failures: they come back in ``error``."""
+        count only in execute mode; ``model`` overrides the default;
+        ``extra_dirs``: more folders Copilot may use (--add-dir), e.g. the
+        task's. Never raises for Copilot's own failures: they come back in ``error``."""
         if self._command is None:
             return CopilotTurn(message="", exit_code=-1, error=NOT_FOUND)
         with tempfile.TemporaryDirectory(prefix="mbare-copilot-") as folder:
             usage_file = Path(folder) / "usage.json"
             argv = [*self._command, *self._arguments(cwd, session_id, prompt, mode, denied_tools, model or self._model),
+                    *(argument for folder in extra_dirs for argument in ("--add-dir", str(folder))),
                     "--usage-output-file", str(usage_file)]
             try:
                 result = process.run(argv, cwd, self._environment(), timeout_seconds, should_cancel)

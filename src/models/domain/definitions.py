@@ -102,6 +102,10 @@ class CodingAgentFile(_File):
     plan_prompt_file: str | None = None
     execute_prompt: Prompt | None = None
     execute_prompt_file: str | None = None
+    references_prompt: Prompt | None = None
+    """Added to the first planning turn when the task links references:
+    ``{task_folder}`` = the folder with the task and its references as files."""
+    references_prompt_file: str | None = None
     denied_tools: list[Prompt] | None = None
     models: list[ModelFile] | None = None
     """Copilot models to choose from when delegating (``--model``): a name, or
@@ -115,7 +119,7 @@ class CodingAgentFile(_File):
 
     @model_validator(mode="after")
     def _one_source(self) -> "CodingAgentFile":
-        for name in ("plan_prompt", "execute_prompt"):
+        for name in ("plan_prompt", "execute_prompt", "references_prompt"):
             if getattr(self, name) is not None and getattr(self, f"{name}_file") is not None:
                 raise ValueError(f"scrivi {name} oppure {name}_file (uno dei due)")
         return self

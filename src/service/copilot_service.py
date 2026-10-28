@@ -150,14 +150,17 @@ class CopilotService:
             raise UpstreamError(NOT_FOUND)
         settings = self.coding_agent(project_name)
         model = coding_agent.check_model(settings, model)
-        self._data.agent_task(project_name, task_note)  # exists and is an agent task
+        task = self._data.agent_task(project_name, task_note)  # exists and is an agent task
         folder = self._git.repository_folder(project_name, repository)
         first_turn = coding_agent.plan_prompt(settings, self._data.read_note(project_name, task_note), prompt.strip())
+        session_id = str(uuid4())
+        if task.references and (note := coding_agent.references_note(settings, self._data.copilot_folder(project_name, task_note, session_id))):
+            first_turn += f"\n\n{note}"
         session = self._store.save_copilot_session(CopilotSession(
             project_name=project_name,
             task_note=task_note,
             repository=repository.strip().strip("/\\"),
-            copilot_session_id=str(uuid4()),
+            copilot_session_id=session_id,
             prompt=prompt.strip(),
             model=model,
         ))
@@ -179,7 +182,8 @@ class CopilotService:
         self._message(session, CopilotMessageRole.USER, prompt)
         session = self._update(session, status=CopilotSessionStatus.PLANNING, error=None)
         started = time.monotonic()
-        turn = self._client.turn(folder, session.copilot_session_id, prompt, CopilotMode.PLAN, self._planning_timeout, model=session.model)
+        turn = self._client.turn(folder, session.copilot_session_id, prompt, CopilotMode.PLAN, self._planning_timeout, model=session.model,
+                                 extra_dirs=self._task_folder(session))
         self._record_usage(session, turn, CopilotPhase.PLAN, started)
         return self._record(session, turn)
 
@@ -219,6 +223,7 @@ class CopilotService:
         if session.status in (CopilotSessionStatus.QUEUED, CopilotSessionStatus.RUNNING):
             raise ConflictError("La sessione è in coda o in esecuzione: annullala prima.")
         self._store.delete_copilot_session(session.id)
+        self._data.delete_copilot_folder(session.project_name, session.copilot_session_id)
 
     @observed(LogPrefix.COPILOT_SERVICE)
     def delete_task_sessions(self, project_name: str, task_note: str) -> int:
@@ -231,6 +236,7 @@ class CopilotService:
             raise ConflictError("Una sessione di questo task è in coda o in esecuzione: annullala prima.")
         for session in sessions:
             self._store.delete_copilot_session(session.id)
+            self._data.delete_copilot_folder(project_name, session.copilot_session_id)
         return len(sessions)
 
     # ---------------------------------------------------------------- worker
@@ -254,7 +260,8 @@ class CopilotService:
         self._message(session, CopilotMessageRole.USER, settings.execute_prompt)
         started = time.monotonic()
         turn = self._client.turn(folder, session.copilot_session_id, settings.execute_prompt, CopilotMode.EXECUTE,
-                                 self._execution_timeout, settings.denied_tools, self._cancel_check(session.id), model=session.model)
+                                 self._execution_timeout, settings.denied_tools, self._cancel_check(session.id), model=session.model,
+                                 extra_dirs=self._task_folder(session))
         self._record_usage(session, turn, CopilotPhase.EXECUTE, started)
         session = self._record(session, turn)
         return self._finish(session, turn)
@@ -322,6 +329,15 @@ class CopilotService:
             ))
         except Exception:  # noqa: BLE001 - observability must not break the session
             log_exception(LogPrefix.COPILOT_SERVICE, "Uso del turno non registrato (sessione %s)", session.id)
+
+    def _task_folder(self, session: CopilotSession) -> list[Path]:
+        """The task and its references as files, rebuilt now (they may have
+        changed since the last turn); none when the task was deleted meanwhile."""
+        try:
+            return [self._data.copilot_folder(session.project_name, session.task_note, session.copilot_session_id)]
+        except AppError:
+            log_exception(LogPrefix.COPILOT_SERVICE, "Cartella del task %s non preparata", session.task_note)
+            return []
 
     def _cancel_check(self, session_id: int) -> Callable[[], bool]:
         """Polled by the client while Copilot runs: reads the DB every few seconds."""

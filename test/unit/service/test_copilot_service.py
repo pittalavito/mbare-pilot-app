@@ -471,3 +471,50 @@ def test_deleting_a_tasks_sessions_keeps_the_others_and_the_usage(store_service,
     assert [session.id for session in service.sessions("acme")] == [kept.id]
     assert {turn.session_id for turn in service.recent_turns(project_name="acme")} == {first.id, second.id, kept.id}
     assert service.delete_task_sessions("acme", note) == 0
+
+
+# --------------------------------------------------------------- task folder
+
+def test_copilot_reads_the_task_and_its_references_from_a_folder_rebuilt_every_turn(store_service, data, project, config, tmp_path):
+    from models.domain.note import NoteType, Reference
+
+    path = config.definitions_root / "global-coding-agent.yml"
+    path.write_text(path.read_text(encoding="utf-8") + "references_prompt: 'I riferimenti sono in {task_folder}.'\n", encoding="utf-8")
+    service = _service(store_service, data)
+    ref = data.create_reference("acme", NoteType.CODE_REFERENCE, Reference(title="Login", path="src/a.py", content="v1"))
+    note = data.create_agent_task("acme", AgentTask(title="Con riferimenti", references=[ref, "context-reference-sparito.md"]))
+
+    session = service.start("acme", note, "api")
+
+    turn = _turns(tmp_path, session)[0]
+    folder = Path(turn["args"][[i for i, arg in enumerate(turn["args"]) if arg == "--add-dir"][1] + 1])
+    assert turn["prompt"].endswith(f"I riferimenti sono in {folder}.")
+    assert sorted(item.name for item in folder.iterdir()) == ["code-reference-login.md", "task.md"]  # the missing one is skipped
+    assert "# Con riferimenti" in (folder / "task.md").read_text(encoding="utf-8")
+
+    data.save_reference("acme", ref, Reference(title="Login", path="src/a.py", content="v2"))
+    service.send(session.id, "e adesso?")
+    assert "v2" in (folder / "code-reference-login.md").read_text(encoding="utf-8")  # always current
+    assert _turns(tmp_path, session)[1]["args"].count("--add-dir") == 2
+
+    service.delete(session.id)
+    assert not folder.exists()
+
+
+def test_without_references_nothing_is_added_and_a_deleted_task_still_lets_the_chat_go_on(store_service, data, project, tmp_path):
+    service = _service(store_service, data)
+    note = _task(data)
+    session = service.start("acme", note, "api")
+    assert "riferimenti" not in _turns(tmp_path, session)[0]["prompt"].lower()
+
+    data.delete_note("acme", note)
+    session = service.send(session.id, "ci sei?")
+
+    assert session.status == CopilotSessionStatus.PLANNING and _turns(tmp_path, session)[-1]["args"].count("--add-dir") == 1
+
+
+def test_a_references_prompt_needs_the_task_folder_placeholder(store_service, data, project, config):
+    path = config.definitions_root / "global-coding-agent.yml"
+    path.write_text(path.read_text(encoding="utf-8") + "references_prompt: senza segnaposto\n", encoding="utf-8")
+
+    assert "{task_folder}" in _service(store_service, data).coding_agent_or_error()[1]

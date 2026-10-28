@@ -7,6 +7,7 @@ The planning prompts to choose from when delegating are the ``<name>.md`` of
 
 The global file is required: a missing or broken file is an error, never a
 fallback to built-in texts (a wrong file must not loosen the denied tools)."""
+from pathlib import Path
 from typing import Protocol
 
 import yaml
@@ -18,7 +19,9 @@ from models.domain.copilot import CodingAgentSettings, CopilotModel, CopilotPric
 from models.domain.definitions import CodingAgentFile, ModelFile
 
 TASK_PLACEHOLDER = "{task}"
+TASK_FOLDER_PLACEHOLDER = "{task_folder}"
 _PROMPTS = ("plan_prompt", "execute_prompt")
+_OPTIONAL_PROMPTS = ("references_prompt",)
 
 
 class DefinitionFiles(Protocol):
@@ -42,7 +45,14 @@ def load(files: DefinitionFiles, project_name: str | None = None) -> CodingAgent
     if missing:
         raise ValidationError(f"definition/{GLOBAL_CODING_AGENT_FILE}: manca {', '.join(missing)}.")
     _check_placeholder("plan_prompt", values["plan_prompt"])
+    if values.get("references_prompt") and TASK_FOLDER_PLACEHOLDER not in values["references_prompt"]:
+        raise ValidationError(f"references_prompt deve contenere {TASK_FOLDER_PLACEHOLDER}: è dove sono il task e i suoi riferimenti.")
     return CodingAgentSettings(**values, prompts=dict(sorted(prompts.items())))
+
+
+def references_note(settings: CodingAgentSettings, task_folder: Path) -> str:
+    """What the first turn adds when the task links references; ``""`` without a references_prompt."""
+    return settings.references_prompt.replace(TASK_FOLDER_PLACEHOLDER, str(task_folder)) if settings.references_prompt else ""
 
 
 def plan_prompt(settings: CodingAgentSettings, task: str, prompt: str = "") -> str:
@@ -78,7 +88,7 @@ def _values(files: DefinitionFiles, path: str, folder: str, required: bool) -> d
         field = ".".join(str(part) for part in error["loc"])
         raise ValidationError(f"definition/{path}: {field + ': ' if field else ''}{error['msg'].removeprefix('Value error, ')}") from exc
     values: dict = {}
-    for name in _PROMPTS:
+    for name in (*_PROMPTS, *_OPTIONAL_PROMPTS):
         prompt, prompt_file = getattr(spec, name), getattr(spec, f"{name}_file")
         if prompt_file is not None:
             prompt_path = f"{folder}/{data_file_name(prompt_file)}".lstrip("/")

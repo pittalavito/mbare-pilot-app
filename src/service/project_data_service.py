@@ -2,9 +2,11 @@
 ``<MBARE_PILOT_HOME>/project/<slug>/``: ``notes/*.md`` (notes written in the app:
 generic, or typed by their name and written with a template: agent tasks, todo lists,
 and the code and context references they link by name),
-``files/*`` (uploaded documents) and ``context/*.md`` (the project's context,
-written by hand: what read_context gives the chatbot, and the RAG will index)."""
+``files/*`` (uploaded documents), ``context/*.md`` (the project's context,
+written by hand: what read_context gives the chatbot, and the RAG will index)
+and ``copilot/<session>/`` (an agent task and its references, for Copilot)."""
 from datetime import datetime, timezone
+from pathlib import Path
 
 from collections.abc import Callable
 
@@ -12,7 +14,8 @@ from pydantic import BaseModel
 
 from core.error import ConflictError, NotFoundError, ValidationError
 from domain.project.data_paths import (
-    CONTEXT_DIR, FILES_DIR, NOTE_SUFFIX, NOTES_DIR, data_file_name, note_file_name, note_type, project_slug, typed_note_file_name,
+    CONTEXT_DIR, COPILOT_DIR, FILES_DIR, NOTE_SUFFIX, NOTES_DIR, TASK_FILE, data_file_name, note_file_name, note_type, project_slug,
+    typed_note_file_name,
 )
 from domain.project.note_templates import (
     parse_agent_task, parse_reference, parse_todo_list, render_agent_task, render_reference, render_todo_list,
@@ -141,6 +144,26 @@ class ProjectDataService:
         if self._store.get_file(self._id(project_name, NOTES_DIR, name)) is None:
             raise NotFoundError(f"Nota non trovata: {name}")
         self.save_note(project_name, name, content)
+
+    # ---------------------------------------------------------- copilot folder
+    def copilot_folder(self, project_name: str, task_note: str, folder_id: str) -> Path:
+        """The agent task (``task.md``) and its linked references (by their
+        names) as files in ``copilot/<folder_id>/``, rebuilt from scratch so
+        they are always current; references that no longer exist are skipped.
+        Returns the folder's absolute path. NotFoundError when the task is gone."""
+        task_name = note_file_name(task_note)
+        task = self.agent_task(project_name, task_name)
+        prefix = self._id(project_name, COPILOT_DIR, data_file_name(folder_id))
+        self._store.delete_folder(prefix)
+        self._store.save_file(f"{prefix}/{TASK_FILE}", self.read_note(project_name, task_name).encode("utf-8"))
+        for name in task.references:
+            reference = self._id(project_name, NOTES_DIR, note_file_name(name))
+            if self._store.get_file(reference) is not None:
+                self._store.save_file(f"{prefix}/{note_file_name(name)}", self._store.read_file(reference))
+        return self._store.file_path(prefix)
+
+    def delete_copilot_folder(self, project_name: str, folder_id: str) -> None:
+        self._store.delete_folder(self._id(project_name, COPILOT_DIR, data_file_name(folder_id)))
 
     # -------------------------------------------------------------- settings
     def visible_note_types(self, project_name: str) -> list[NoteType]:

@@ -122,6 +122,8 @@ plan_prompt: |                     # primo turno della preparazione; {task} = il
   {task}
 # oppure: plan_prompt_file: piano.md   (un file accanto a questo)
 execute_prompt: Ok, procedi con il piano concordato...   # oppure execute_prompt_file
+references_prompt: >-              # facoltativo: aggiunto al primo turno se il task ha riferimenti
+  I riferimenti sono in {task_folder}, con task.md: leggili.   # oppure references_prompt_file
 denied_tools:                      # i --deny-tool dell'esecuzione: l'elenco completo
   - shell(git commit)
   - shell(git push)
@@ -145,6 +147,7 @@ models:                            # facoltativo: i modelli tra cui scegliere qu
 - **Il globale è obbligatorio**: senza `global-coding-agent.yml`, o con un file rotto, Copilot non parte. L'errore si vede nella scheda Copilot e in Admin → Servizi. Non ci sono testi di riserva nel codice: un file sbagliato non deve allentare i divieti.
 - **Override per progetto**: `project/<slug>/coding-agent.yml` può avere solo alcuni campi; quelli che scrive sostituiscono i globali per quel progetto. `denied_tools` e `models` si sostituiscono per intero (anche con `[]`).
 - **Divieti**: nessuno è aggiunto dal codice. La rete di sicurezza resta il controllo dell'HEAD prima e dopo l'esecuzione.
+- **Riferimenti del task**: prima di ogni turno l'app ricompone `project/<slug>/copilot/<sessione>/` nella cartella dei dati, con `task.md` e i riferimenti collegati come file, e la apre a Copilot (`--add-dir`): li legge da sé, sempre aggiornati. `references_prompt` (con `{task_folder}`, il percorso di quella cartella) glielo dice nel primo turno; senza, Copilot può leggerli ma nessuno glielo dice. La cartella sparisce con la sessione.
 - **Regole**: `plan_prompt` deve contenere `{task}` (le altre graffe restano come sono); uno solo tra `x_prompt` e `x_prompt_file`; un campo sconosciuto è un errore.
 
 ## Codice
