@@ -110,3 +110,39 @@ def test_projects_with_the_same_slug_conflict(store_service, tmp_path):
 
     with pytest.raises(ConflictError):
         projects.open_folder("my-app", "", tmp_path / "b")
+
+
+# ---------------------------------------------------------------- references
+
+def test_references_are_linked_to_tasks_and_todo_lists_many_to_many(data_service):
+    from models.domain.note import Reference
+
+    code = data_service.create_reference("My App", NoteType.CODE_REFERENCE, Reference(title="Login", repository="api", path="a.py"))
+    context = data_service.create_reference("My App", NoteType.CONTEXT_REFERENCE, Reference(title="Procedura", source="jira"))
+    task = data_service.create_agent_task("My App", AgentTask(title="Fix", references=[code, context]))
+    todo = data_service.create_todo_list("My App", TodoList(title="Rilascio", references=[context]))
+
+    assert (code, context) == ("code-reference-login.md", "context-reference-procedura.md")
+    assert [(name, kind) for name, kind, _ in data_service.references("My App")] == [(code, NoteType.CODE_REFERENCE), (context, NoteType.CONTEXT_REFERENCE)]
+    assert data_service.reference("My App", code)[1].path == "a.py"
+    assert data_service.linked_from("My App") == {code: [task], context: [task, todo]}
+
+    data_service.save_reference("My App", context, Reference(title="Procedura v2"))
+    assert data_service.reference("My App", context)[1].title == "Procedura v2"
+    assert data_service.delete_reference("My App", context)
+    assert data_service.agent_task("My App", task).references == [code]  # unlinked everywhere
+    assert data_service.todo_lists("My App")[0][1].references == []
+
+
+def test_only_references_can_be_linked_and_saved_as_references(data_service):
+    from models.domain.note import Reference
+
+    with pytest.raises(ValidationError, match="non è un riferimento"):
+        data_service.create_agent_task("My App", AgentTask(title="Fix", references=["appunti.md"]))
+    with pytest.raises(ValidationError):
+        data_service.create_reference("My App", NoteType.AGENT_TASK, Reference(title="x"))
+    task = data_service.create_agent_task("My App", AgentTask(title="Fix"))
+    with pytest.raises(ValidationError):
+        data_service.save_reference("My App", task, Reference(title="x"))
+    with pytest.raises(NotFoundError):
+        data_service.save_reference("My App", "code-reference-manca.md", Reference(title="x"))

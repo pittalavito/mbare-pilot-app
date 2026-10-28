@@ -57,6 +57,43 @@ describe("typed notes", () => {
     expect(order).toEqual(["sessioni agent-task-fix-porto.md", "nota"]);
   });
 
+  it("links references to an agent task: a new one, an existing one, and unlinks", async () => {
+    const REFERENCE = (name: string, title: string, kind: string, extra = {}) => ({
+      name, title, kind, source: "", source_url: "", repository: "", path: "", lines: "", content: "", linked_from: [], ...extra,
+    });
+    const created = vi.fn(async (request: Request) => REFERENCE("code-reference-login.md", "Login", "code_reference", await request.json()));
+    const saved = vi.fn(async (request: Request) => ({ name: TASK.name, ...(await request.json()) }));
+    mockApi({
+      "GET /projects/acme/notes": NOTES,
+      "GET /projects/acme/agent-tasks": [{ ...TASK, references: ["context-reference-procedura.md"] }],
+      "GET /projects/acme/references": [
+        REFERENCE("context-reference-procedura.md", "Procedura", "context_reference", { source: "confluence", linked_from: [TASK.name] }),
+        REFERENCE("context-reference-porto.md", "Porto", "context_reference"),
+      ],
+      "POST /projects/acme/references": created,
+      "PUT /projects/acme/agent-tasks/agent-task-fix-porto.md": saved,
+    });
+    renderData();
+
+    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    expect(await screen.findByText("Procedura")).toBeInTheDocument();
+    expect(screen.getByText("confluence")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Nuovo riferimento/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByText("Codice"));
+    fireEvent.change(within(dialog).getByLabelText("Titolo"), { target: { value: "Login" } });
+    fireEvent.change(within(dialog).getByLabelText("File"), { target: { value: "src/auth/login.py" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Crea e collega" }));
+    await waitFor(() => expect(created).toHaveBeenCalled());
+    expect(await created.mock.results[0].value).toMatchObject({ kind: "code_reference", title: "Login", path: "src/auth/login.py" });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Scollega Procedura" }));
+    fireEvent.click(screen.getByRole("button", { name: "Salva" }));
+    await waitFor(() => expect(saved).toHaveBeenCalled());
+    expect(await saved.mock.results[0].value).toMatchObject({ references: ["code-reference-login.md"] });
+  });
+
   it("edits an agent task as a form and saves its fields", async () => {
     const saved = vi.fn(async (request: Request) => ({ name: TASK.name, ...(await request.json()) }));
     mockApi({ "GET /projects/acme/notes": NOTES, "GET /projects/acme/agent-tasks": [TASK], "PUT /projects/acme/agent-tasks/agent-task-fix-porto.md": saved });
@@ -89,6 +126,6 @@ describe("typed notes", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Crea" }));
 
     await waitFor(() => expect(created).toHaveBeenCalled());
-    expect(await created.mock.results[0].value).toEqual({ name: "todo-list-spesa.md", title: "Spesa", items: [] });
+    expect(await created.mock.results[0].value).toEqual({ name: "todo-list-spesa.md", title: "Spesa", items: [], references: [] });
   });
 });

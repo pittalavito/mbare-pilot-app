@@ -1,6 +1,7 @@
 """A project's data, kept by the app apart from the project's code, under
 ``<MBARE_PILOT_HOME>/project/<slug>/``: ``notes/*.md`` (notes written in the app:
-generic, or typed by their name and written with a template: agent tasks, todo lists),
+generic, or typed by their name and written with a template: agent tasks, todo lists,
+and the code and context references they link by name),
 ``files/*`` (uploaded documents) and ``context/*.md`` (the project's context,
 written by hand: what read_context gives the chatbot, and the RAG will index)."""
 from datetime import datetime, timezone
@@ -13,8 +14,10 @@ from core.error import ConflictError, NotFoundError, ValidationError
 from domain.project.data_paths import (
     CONTEXT_DIR, FILES_DIR, NOTE_SUFFIX, NOTES_DIR, data_file_name, note_file_name, note_type, project_slug, typed_note_file_name,
 )
-from domain.project.note_templates import parse_agent_task, parse_todo_list, render_agent_task, render_todo_list
-from models.domain.note import AgentTask, NoteType, TodoList
+from domain.project.note_templates import (
+    parse_agent_task, parse_reference, parse_todo_list, render_agent_task, render_reference, render_todo_list,
+)
+from models.domain.note import AgentTask, NoteType, Reference, TodoList
 from models.domain.project import ProjectDataFile, ProjectDataKind
 from models.store.files import StoredFile
 from service.store_service import StoreService
@@ -54,10 +57,12 @@ class ProjectDataService:
 
     def create_agent_task(self, project_name: str, task: AgentTask) -> str:
         """A new note named after the title (``agent-task-<title>.md``); returns its name."""
+        _check_references(task.references)
         return self._create_typed(project_name, NoteType.AGENT_TASK, task.title, render_agent_task(task))
 
     def save_agent_task(self, project_name: str, note_name: str, task: AgentTask) -> None:
         """Rewrite an existing agent task (its name stays, also when the title changes)."""
+        _check_references(task.references)
         self._save_typed(project_name, NoteType.AGENT_TASK, note_name, render_agent_task(task))
 
     def todo_lists(self, project_name: str) -> list[tuple[str, TodoList]]:
@@ -65,10 +70,59 @@ class ProjectDataService:
         return self._typed_notes(project_name, NoteType.TODO_LIST, parse_todo_list)
 
     def create_todo_list(self, project_name: str, todo: TodoList) -> str:
+        _check_references(todo.references)
         return self._create_typed(project_name, NoteType.TODO_LIST, todo.title, render_todo_list(todo))
 
     def save_todo_list(self, project_name: str, note_name: str, todo: TodoList) -> None:
+        _check_references(todo.references)
         self._save_typed(project_name, NoteType.TODO_LIST, note_name, render_todo_list(todo))
+
+    # ------------------------------------------------------------ references
+    def references(self, project_name: str) -> list[tuple[str, NoteType, Reference]]:
+        """The code and context references, as (note name, type, reference)."""
+        notes = [note for note in self.list_notes(project_name) if note.note_type and note.note_type.is_reference]
+        return [(note.name, note.note_type, parse_reference(self.read_note(project_name, note.name), _title(note.name))) for note in notes]
+
+    def reference(self, project_name: str, note_name: str) -> tuple[NoteType, Reference]:
+        name = note_file_name(note_name)
+        kind = note_type(name)
+        if not kind.is_reference:
+            raise ValidationError(f"{name} non è un riferimento.")
+        return kind, parse_reference(self.read_note(project_name, name), _title(name))
+
+    def create_reference(self, project_name: str, kind: NoteType, reference: Reference) -> str:
+        """A new note ``code-reference-<title>.md`` or ``context-reference-<title>.md``; returns its name."""
+        if not kind.is_reference:
+            raise ValidationError(f"{kind} non è un tipo di riferimento.")
+        return self._create_typed(project_name, kind, reference.title, render_reference(reference, kind == NoteType.CODE_REFERENCE))
+
+    def save_reference(self, project_name: str, note_name: str, reference: Reference) -> None:
+        """Rewrite an existing reference (name and type stay)."""
+        kind = note_type(note_file_name(note_name))
+        if not kind.is_reference:
+            raise ValidationError(f"{note_file_name(note_name)} non è un riferimento.")
+        self._save_typed(project_name, kind, note_name, render_reference(reference, kind == NoteType.CODE_REFERENCE))
+
+    def delete_reference(self, project_name: str, note_name: str) -> bool:
+        """The reference, and its links from the agent tasks and todo lists."""
+        name = note_file_name(note_name)
+        if not note_type(name).is_reference:
+            raise ValidationError(f"{name} non è un riferimento.")
+        for task_name, task in self.agent_tasks(project_name):
+            if name in task.references:
+                self.save_agent_task(project_name, task_name, task.model_copy(update={"references": [r for r in task.references if r != name]}))
+        for todo_name, todo in self.todo_lists(project_name):
+            if name in todo.references:
+                self.save_todo_list(project_name, todo_name, todo.model_copy(update={"references": [r for r in todo.references if r != name]}))
+        return self.delete_note(project_name, name)
+
+    def linked_from(self, project_name: str) -> dict[str, list[str]]:
+        """Reference name → the agent tasks and todo lists that link it."""
+        links: dict[str, list[str]] = {}
+        for parent, item in [*self.agent_tasks(project_name), *self.todo_lists(project_name)]:
+            for name in item.references:
+                links.setdefault(name, []).append(parent)
+        return links
 
     def _typed_notes[T: BaseModel](self, project_name: str, kind: NoteType, parse: Callable[[str, str], T]) -> list[tuple[str, T]]:
         notes = [note for note in self.list_notes(project_name) if note.note_type == kind]
@@ -140,6 +194,13 @@ def _to_data_file(stored: StoredFile, kind: ProjectDataKind) -> ProjectDataFile:
         modified_at=datetime.fromtimestamp(stored.mtime_ns / 1e9, tz=timezone.utc),
         note_type=note_type(name) if kind == ProjectDataKind.NOTE else None,
     )
+
+
+def _check_references(names: list[str]) -> None:
+    """Links name reference notes (a missing one is tolerated: the file may have been removed by hand)."""
+    for name in names:
+        if not note_type(note_file_name(name)).is_reference:
+            raise ValidationError(f"{name} non è un riferimento: si possono collegare solo code-reference-… e context-reference-….")
 
 
 def _title(note_name: str) -> str:

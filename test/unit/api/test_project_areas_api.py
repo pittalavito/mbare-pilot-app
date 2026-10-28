@@ -85,6 +85,26 @@ def test_notes_crud(client):
     assert client.put("/projects/acme/notes/.hidden", json={"content": ""}).status_code == 400
 
 
+def test_references_linked_from_a_task_and_a_todo_list(client):
+    ref = client.post("/projects/acme/references", json={"kind": "code_reference", "title": "Login", "path": "src/a.py", "source": "jira"})
+    assert ref.status_code == 201 and ref.json()["name"] == "code-reference-login.md"
+    assert client.post("/projects/acme/references", json={"kind": "todo_list", "title": "x"}).status_code == 422
+    client.post("/projects/acme/agent-tasks", json={"title": "Fix", "references": ["code-reference-login.md"]})
+    client.post("/projects/acme/todo-lists", json={"title": "Giro", "references": ["code-reference-login.md"]})
+    assert client.post("/projects/acme/agent-tasks", json={"title": "Altro", "references": ["appunti.md"]}).status_code == 400
+
+    [listed] = client.get("/projects/acme/references").json()
+    assert (listed["path"], listed["source"], listed["linked_from"]) == ("src/a.py", "jira", ["agent-task-fix.md", "todo-list-giro.md"])
+    assert client.put("/projects/acme/references/code-reference-login.md", json={"title": "Login v2"}).json()["linked_from"] == [
+        "agent-task-fix.md", "todo-list-giro.md",
+    ]
+    assert [note["note_type"] for note in client.get("/projects/acme/notes").json() if note["name"].startswith("code-")] == ["code_reference"]
+
+    assert client.delete("/projects/acme/references/code-reference-login.md").status_code == 204
+    assert client.get("/projects/acme/agent-tasks").json()[0]["references"] == []
+    assert client.delete("/projects/acme/references/code-reference-login.md").status_code == 404
+
+
 def test_agent_tasks_and_todo_lists(client):
     created = client.post("/projects/acme/agent-tasks", json={"title": "Fix porto", "criteria": [{"text": "test verdi"}]})
     assert created.status_code == 201 and created.json()["name"] == "agent-task-fix-porto.md"

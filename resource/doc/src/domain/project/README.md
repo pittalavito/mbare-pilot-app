@@ -24,7 +24,7 @@ Solo funzioni pure: decidono nomi e percorsi, non toccano il disco.
 
 - **`project_slug(nome)`**: la cartella dei dati, minuscola e con `-` (`"My App"` → `my-app`).
 - **`note_file_name(nome)`**: `"Setup"` o `"setup.md"` → `setup.md`. Le note sono sempre markdown.
-- **`note_type(nome)`**: il tipo di una nota dal suo nome: `agent-task-…` → agent task, `todo-list-…` → todo list, altrimenti generica.
+- **`note_type(nome)`**: il tipo di una nota dal suo nome: `agent-task-…` → agent task, `todo-list-…` → todo list, `code-reference-…` e `context-reference-…` → riferimenti, altrimenti generica.
 - **`typed_note_file_name(tipo, titolo)`**: il nome di una nota tipizzata nuova, dal titolo (`agent-task-refactor-login.md`).
 - **`data_file_name(nome)`**: il nome di un file caricato, senza cartelle davanti (`C:\x\report.pdf` → `report.pdf`).
 - **Nomi rifiutati** (`ValidationError`): vuoti, `.` e `..`, che iniziano con `.`, con caratteri non validi su Windows (`< > : " / \ | ? *`). Così un nome non può mai uscire dalla cartella del progetto.
@@ -38,10 +38,14 @@ Sul disco sono **note come le altre** (markdown in `notes/`); il tipo sta nel no
 | Generica | qualsiasi altro | markdown libero |
 | Agent task | `agent-task-<titolo>.md` | `# titolo`, `Stato: da fare / in corso / fatto`, sezioni `## Obiettivo`, `## Contesto`, `## Criteri di accettazione` (checklist), `## Vincoli` |
 | Todo list | `todo-list-<titolo>.md` | `# titolo` e voci `- [ ] testo  (alta, 2026-10-30)`: priorità (`alta`, `media`, `bassa`) e scadenza facoltative |
+| Riferimento di codice | `code-reference-<titolo>.md` | `# titolo`, `Fonte: jira · <url>`, `Repository:`, `File:`, `Righe:`, sezione `## Contenuto` |
+| Riferimento di contesto | `context-reference-<titolo>.md` | come il precedente, senza repository, file e righe |
 
 - `render_*` scrive il markdown, `parse_*` lo rilegge: lettura tollerante, perché il file si può modificare a mano. Righe sconosciute ignorate, sezioni mancanti vuote, il titolo mancante preso dal nome. Al salvataggio successivo resta solo quello che il template conosce.
 - Il nome si decide alla creazione e non cambia più, anche se cambia il titolo.
+- **Riferimenti e collegamenti**: agent task e todo list collegano i riferimenti per nome nella sezione `## Riferimenti` (`- code-reference-login.md`, scritta solo se ce ne sono), **molti a molti**: uno stesso riferimento può stare in più task e liste. `Fonte` dice da dove è stato copiato (vuota = scritto a mano; `jira`, `confluence`, `dynatrace`… per gli import). I riferimenti non compaiono tra le note generiche: si vedono solo dentro ciò che li collega (sezione «📎 Riferimenti» dell'editor). Si possono collegare solo note `code-reference-…` e `context-reference-…`; un nome che non esiste più (file cancellato a mano) è tollerato e segnato «non trovato».
 - Servizio: `ProjectDataService.agent_tasks / create_agent_task / save_agent_task` e gli stessi per le todo list (409 se il nome esiste già, 400 se la nota è di un altro tipo). Si cancellano come note.
+- Riferimenti: `references / reference / create_reference / save_reference`, `linked_from` (riferimento → chi lo collega) e `delete_reference`, che lo scollega anche da tutti i task e le liste.
 
 ## Cartelle del PC (`folder_browser.py`)
 

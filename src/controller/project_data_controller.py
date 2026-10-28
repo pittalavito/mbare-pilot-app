@@ -3,14 +3,17 @@ uploaded files, under /projects/{project}/notes and /projects/{project}/files.
 A file is uploaded as the raw request body (PUT) and downloaded as bytes.
 
 Agent tasks and todo lists are notes too (deleted as notes), read and written
-as their template's fields under /agent-tasks and /todo-lists."""
+as their template's fields under /agent-tasks and /todo-lists. Code and context
+references, linked to them by name, under /references (deleting one unlinks it)."""
 from fastapi import APIRouter, Depends, Request, Response, status
 
 from core.error import NotFoundError
+from models.domain.note import NoteType
 from controller.dependencies import project_data_service
 from service.project_data_service import ProjectDataService
 from models.controller.project_data import (
-    AgentTaskBody, AgentTaskResponse, DataFileResponse, NoteRequest, NoteResponse, TodoListBody, TodoListResponse,
+    AgentTaskBody, AgentTaskResponse, DataFileResponse, NoteRequest, NoteResponse, ReferenceBody, ReferenceCreateBody, ReferenceResponse,
+    TodoListBody, TodoListResponse,
 )
 
 router = APIRouter(prefix="/projects/{project}", tags=["project data"])
@@ -77,6 +80,38 @@ def save_todo_list(project: str, note: str, request: TodoListBody, service: Proj
     todo = request.to_todo()
     service.save_todo_list(project, note, todo)
     return TodoListResponse.from_todo(note, todo)
+
+
+# --------------------------------------------------------------- references
+
+@router.get("/references")
+def list_references(project: str, service: ProjectDataService = Depends(project_data_service)) -> list[ReferenceResponse]:
+    """Every code and context reference, with what links it."""
+    links = service.linked_from(project)
+    return [ReferenceResponse.from_reference(name, kind, item, links.get(name, [])) for name, kind, item in service.references(project)]
+
+
+@router.post("/references", status_code=status.HTTP_201_CREATED)
+def create_reference(project: str, request: ReferenceCreateBody, service: ProjectDataService = Depends(project_data_service)) -> ReferenceResponse:
+    """A new note ``code-reference-<title>.md`` or ``context-reference-<title>.md`` (409 when it exists); link it from a task or todo list."""
+    kind, reference = NoteType(request.kind), request.to_reference()
+    return ReferenceResponse.from_reference(service.create_reference(project, kind, reference), kind, reference, [])
+
+
+@router.put("/references/{note}")
+def save_reference(project: str, note: str, request: ReferenceBody, service: ProjectDataService = Depends(project_data_service)) -> ReferenceResponse:
+    reference = request.to_reference()
+    service.save_reference(project, note, reference)
+    kind, _ = service.reference(project, note)
+    return ReferenceResponse.from_reference(note, kind, reference, service.linked_from(project).get(note, []))
+
+
+@router.delete("/references/{note}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_reference(project: str, note: str, service: ProjectDataService = Depends(project_data_service)) -> Response:
+    """The reference and its links from the agent tasks and todo lists."""
+    if not service.delete_reference(project, note):
+        raise NotFoundError(f"Riferimento non trovato: {note}")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # -------------------------------------------------------------------- files

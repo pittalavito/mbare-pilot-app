@@ -10,7 +10,7 @@ from models.domain.note import AgentTask, ChecklistItem, NoteType, TaskStatus, T
 
 TASK = AgentTask(
     title="Refactor del login", status=TaskStatus.IN_PROGRESS, objective="Spostare l'auth nel service.\nSenza fretta.",
-    context="Repository resevo-user-service.", criteria=[ChecklistItem(text="I test passano"), ChecklistItem(text="Nessuna API cambiata", done=True)],
+    context="Repository user-service.", criteria=[ChecklistItem(text="I test passano"), ChecklistItem(text="Nessuna API cambiata", done=True)],
     constraints="Non toccare lo schema del DB.",
 )
 
@@ -65,3 +65,32 @@ def test_the_type_of_a_note_is_in_its_name(name, kind):
 def test_typed_notes_are_named_after_their_title():
     assert typed_note_file_name(NoteType.AGENT_TASK, "Refactor del Login!") == "agent-task-refactor-del-login.md"
     assert typed_note_file_name(NoteType.TODO_LIST, "???") == "todo-list-senza-titolo.md"
+
+
+# ---------------------------------------------------------------- references
+
+def test_references_round_trip_with_their_links():
+    from domain.project.note_templates import parse_reference, render_reference
+    from models.domain.note import Reference
+
+    code = Reference(title="Login", source="jira", source_url="https://acme.atlassian.net/browse/NAV-7",
+                     repository="api", path="src/auth/login.py", lines="10-40", content="Qui si controlla la password.")
+    assert parse_reference(render_reference(code, code=True), "x") == code
+    context = Reference(title="Procedura", source_url="https://wiki/x", repository="ignorato", content="Passi.")
+    text = render_reference(context, code=False)
+    assert "Repository" not in text and parse_reference(text, "x") == context.model_copy(update={"repository": ""})
+
+    task = TASK.model_copy(update={"references": ["code-reference-login.md", "context-reference-procedura.md"]})
+    assert parse_agent_task(render_agent_task(task), "x") == task
+    todo = TodoList(title="Rilascio", items=[TodoItem(text="tag")], references=["context-reference-procedura.md"])
+    assert parse_todo_list(render_todo_list(todo), "x") == todo
+    assert "## Riferimenti" not in render_agent_task(TASK)  # only when there are some
+
+
+def test_reference_names_and_hand_written_links():
+    assert note_type("code-reference-login.md") is NoteType.CODE_REFERENCE
+    assert note_type("context-reference-x.md") is NoteType.CONTEXT_REFERENCE and NoteType.CONTEXT_REFERENCE.is_reference
+    assert typed_note_file_name(NoteType.CODE_REFERENCE, "Login OK") == "code-reference-login-ok.md"
+    text = "# T\n\n- [ ] voce\n\n## Riferimenti\n* code-reference-a.md\n- [x] non un link\n- code-reference-a.md\n"
+    todo = parse_todo_list(text, "x")
+    assert todo.references == ["code-reference-a.md"] and [item.text for item in todo.items] == ["voce"]

@@ -10,7 +10,8 @@ naming rules for notes and uploaded files. Pure functions: no filesystem here.
       project/<slug>/chat-bot.yml, agent.yml, automation.yml, coding-agent.yml, coding-agent/
     project/<slug>/
       notes/                         notes written in the app; the type is in the name:
-                                     agent-task-<title>.md, todo-list-<title>.md, else generic
+                                     agent-task-<title>.md, todo-list-<title>.md,
+                                     code-reference-<title>.md, context-reference-<title>.md, else generic
       files/                         uploaded files
       context/                       the project's context: read_context, the RAG later"""
 import re
@@ -24,7 +25,12 @@ FILES_DIR = "files"
 CONTEXT_DIR = "context"
 """Markdown files about the project, written by hand (tool read_context)."""
 NOTE_SUFFIX = ".md"
-NOTE_PREFIXES = {NoteType.AGENT_TASK: "agent-task-", NoteType.TODO_LIST: "todo-list-"}
+NOTE_PREFIXES = {
+    NoteType.AGENT_TASK: "agent-task-",
+    NoteType.TODO_LIST: "todo-list-",
+    NoteType.CODE_REFERENCE: "code-reference-",
+    NoteType.CONTEXT_REFERENCE: "context-reference-",
+}
 """The name of a typed note starts with the prefix of its type."""
 
 GLOBAL_AGENTS_FILE = "global-agent.yml"

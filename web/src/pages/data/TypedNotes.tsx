@@ -10,10 +10,12 @@ import {
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { DelegateModal } from "../copilot/DelegateModal";
 import { ChecklistEditor } from "./ChecklistEditor";
+import { ReferencesSection } from "./ReferencesSection";
 
 /** The typed notes of the Dati tab: agent tasks and todo lists. On disk they
  * are notes (``agent-task-<title>.md``, ``todo-list-<title>.md``) written with
- * their template; here each one is a form of its fields. */
+ * their template; here each one is a form of its fields, with the code and
+ * context references it links (ReferencesSection). */
 
 const STATUS = [
   { value: "todo", label: "Da fare", color: "gray" },
@@ -35,7 +37,7 @@ export function AgentTasks({ project }: { project: string }) {
         const status = STATUS.find((item) => item.value === task.status) ?? STATUS[0];
         return <Badge size="xs" variant="light" color={status.color}>{status.label}</Badge>;
       }}
-      create={(title, done) => save.mutate({ body: { title, status: "todo", objective: "", context: "", criteria: [], constraints: "" } }, done)}
+      create={(title, done) => save.mutate({ body: { title, status: "todo", objective: "", context: "", criteria: [], constraints: "", references: [] } }, done)}
       creating={save.isPending}
       renderEditor={(task) => <AgentTaskEditor key={task.name} project={project} task={task} />}
     />
@@ -56,7 +58,7 @@ export function TodoLists({ project }: { project: string }) {
         const done = todo.items.filter((item) => item.done).length;
         return <Badge size="xs" variant="light" color={todo.items.length && done === todo.items.length ? "green" : "gray"}>{done}/{todo.items.length}</Badge>;
       }}
-      create={(title, done) => save.mutate({ body: { title, items: [] } }, done)}
+      create={(title, done) => save.mutate({ body: { title, items: [], references: [] } }, done)}
       creating={save.isPending}
       renderEditor={(todo) => <TodoListEditor key={todo.name} project={project} todo={todo} />}
     />
@@ -245,6 +247,7 @@ function AgentTaskEditor({ project, task }: { project: string; task: AgentTask }
         <ChecklistEditor items={form.criteria ?? []} onChange={(criteria) => set({ criteria })} addLabel="Criterio" placeholder="es. I test passano" />
       </div>
       <Textarea label="Vincoli" description="Cosa non deve fare o toccare." autosize minRows={2} value={form.constraints ?? ""} onChange={(event) => set({ constraints: event.currentTarget.value })} />
+      <ReferencesSection project={project} value={form.references ?? []} onChange={(references) => set({ references })} />
     </EditorShell>
   );
 }
@@ -265,6 +268,7 @@ function TodoListEditor({ project, todo }: { project: string; todo: TodoList }) 
       <TextInput label="Titolo" value={form.title} onChange={(event) => setForm({ ...form, title: event.currentTarget.value })} />
       <Text size="sm" c="dimmed">{done} di {items.length} fatte</Text>
       <ChecklistEditor items={items} onChange={(next) => setForm({ ...form, items: next })} withDetails addLabel="Voce" />
+      <ReferencesSection project={project} value={form.references ?? []} onChange={(references) => setForm((current) => ({ ...current, references }))} />
     </EditorShell>
   );
 }

@@ -620,6 +620,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/references": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List References
+         * @description Every code and context reference, with what links it.
+         */
+        get: operations["list_references_projects__project__references_get"];
+        put?: never;
+        /**
+         * Create Reference
+         * @description A new note ``code-reference-<title>.md`` or ``context-reference-<title>.md`` (409 when it exists); link it from a task or todo list.
+         */
+        post: operations["create_reference_projects__project__references_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/references/{note}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save Reference */
+        put: operations["save_reference_projects__project__references__note__put"];
+        post?: never;
+        /**
+         * Delete Reference
+         * @description The reference and its links from the agent tasks and todo lists.
+         */
+        delete: operations["delete_reference_projects__project__references__note__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project}/files": {
         parameters: {
             query?: never;
@@ -1555,6 +1600,11 @@ export interface components {
              * @default
              */
             constraints: string;
+            /**
+             * References
+             * @default []
+             */
+            references: string[];
         };
         /** AgentTaskResponse */
         AgentTaskResponse: {
@@ -1582,6 +1632,11 @@ export interface components {
              * @default
              */
             constraints: string;
+            /**
+             * References
+             * @default []
+             */
+            references: string[];
             /** Name */
             name: string;
         };
@@ -2488,6 +2543,122 @@ export interface components {
             /** Created */
             created: boolean;
         };
+        /** ReferenceBody */
+        ReferenceBody: {
+            /** Title */
+            title: string;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+            /**
+             * Source Url
+             * @default
+             */
+            source_url: string;
+            /**
+             * Repository
+             * @default
+             */
+            repository: string;
+            /**
+             * Path
+             * @default
+             */
+            path: string;
+            /**
+             * Lines
+             * @default
+             */
+            lines: string;
+            /**
+             * Content
+             * @default
+             */
+            content: string;
+        };
+        /** ReferenceCreateBody */
+        ReferenceCreateBody: {
+            /** Title */
+            title: string;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+            /**
+             * Source Url
+             * @default
+             */
+            source_url: string;
+            /**
+             * Repository
+             * @default
+             */
+            repository: string;
+            /**
+             * Path
+             * @default
+             */
+            path: string;
+            /**
+             * Lines
+             * @default
+             */
+            lines: string;
+            /**
+             * Content
+             * @default
+             */
+            content: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "code_reference" | "context_reference";
+        };
+        /** ReferenceResponse */
+        ReferenceResponse: {
+            /** Title */
+            title: string;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+            /**
+             * Source Url
+             * @default
+             */
+            source_url: string;
+            /**
+             * Repository
+             * @default
+             */
+            repository: string;
+            /**
+             * Path
+             * @default
+             */
+            path: string;
+            /**
+             * Lines
+             * @default
+             */
+            lines: string;
+            /**
+             * Content
+             * @default
+             */
+            content: string;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+            /** Linked From */
+            linked_from: string[];
+        };
         /** RepositoryResponse */
         RepositoryResponse: {
             /** Path */
@@ -2737,6 +2908,11 @@ export interface components {
              * @default []
              */
             items: components["schemas"]["TodoItemBody"][];
+            /**
+             * References
+             * @default []
+             */
+            references: string[];
         };
         /** TodoListResponse */
         TodoListResponse: {
@@ -2747,6 +2923,11 @@ export interface components {
              * @default []
              */
             items: components["schemas"]["TodoItemBody"][];
+            /**
+             * References
+             * @default []
+             */
+            references: string[];
             /** Name */
             name: string;
         };
@@ -4300,6 +4481,138 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TodoListResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_references_projects__project__references_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_reference_projects__project__references_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReferenceCreateBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_reference_projects__project__references__note__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                note: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReferenceBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_reference_projects__project__references__note__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                note: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
