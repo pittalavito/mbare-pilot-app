@@ -216,7 +216,7 @@ def test_every_comparison_is_logged_with_its_similarities(chat, cache, pipelines
     assert f"voce {entry.id}=0.000 · soglia 0.90 → nessuna voce, risponde l'agente" in caplog.text
 
 
-def test_only_an_automation_chatbot_has_the_cache_and_its_fixed_tools(chat, cache, pipelines, conversation, agent_runs):
+def test_only_an_automation_chatbot_has_the_cache_and_each_kind_its_fixed_tools(chat, cache, pipelines, conversation, agent_runs):
     report = _automation(pipelines)
     custom = chat.create_chatbot("acme", "Libero", system_prompt="Fai tu.", model=MODEL, tool_names=["git_status"])
     talk = chat.new_conversation(custom.id)
@@ -229,3 +229,8 @@ def test_only_an_automation_chatbot_has_the_cache_and_its_fixed_tools(chat, cach
     assert edited.kind is ChatbotKind.AUTOMATION and edited.tool_names == automation.tool_names  # imposed, whatever is asked
     assert chat.update_chatbot(custom.id, name="Libero", system_prompt="Fai tu.", model=MODEL, tool_names=["git_status"]).tool_names == ["git_status"]
 
+
+    secretary = chat.create_chatbot("acme", "Segretario", system_prompt="Note.", model=MODEL, tool_names=["git_status"], kind=ChatbotKind.SECRETARY)
+    assert secretary.tool_names == ["list_todo_lists", "read_todo_list", "create_todo_list", "update_todo_list", "list_agent_tasks"]
+    with pytest.raises(ValidationError, match="solo dei chatbot di tipo automation"):
+        cache.add(_user_message(chat, chat.new_conversation(secretary.id), "lancia il report").id, report.id)

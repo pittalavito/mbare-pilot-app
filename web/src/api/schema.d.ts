@@ -1872,7 +1872,7 @@ export interface components {
          * ChatbotKind
          * @enum {string}
          */
-        ChatbotKind: "automation" | "custom";
+        ChatbotKind: "automation" | "secretary" | "custom";
         /**
          * ChatbotRequest
          * @description Create and update: the project comes from the URL and never changes.

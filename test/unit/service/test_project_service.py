@@ -3,6 +3,12 @@ import pytest
 from core.error import ConflictError, NotFoundError, ValidationError
 from domain.project.folder_browser import FolderBrowser
 from models.domain.project import ProjectSource
+from service.agent_service import AgentService
+from service.chat_service import ChatService
+from service.chatbot_service import ChatbotService
+from service.definition_service import DefinitionService
+from service.git_service import GitService
+from service.pipeline_service import PipelineService
 from service.project_service import ProjectService
 
 
@@ -80,3 +86,15 @@ def test_remove_does_not_delete_folder(project_service, root):
 
     project_service.remove("App")
     assert (root / "existing-app" / "main.py").exists()
+
+
+def test_a_new_project_gets_the_default_chatbots(store_service, root, agent_config_service):
+    chatbots = ChatbotService(store_service, agent_config_service, AgentService(ChatService(), agent_config_service, store_service, GitService(store_service)))
+    definitions = DefinitionService(store_service, agent_config_service, chatbots, PipelineService(store_service, agent_config_service))
+    projects = ProjectService(store_service, FolderBrowser([root]), definition_service=definitions)
+
+    projects.open_folder("App", "", root / "existing-app")
+    projects.create_from_scratch("Nuovo", "", root, "nuovo")
+
+    for name in ("App", "Nuovo"):
+        assert [(bot.name, bot.kind.value) for bot in chatbots.list_chatbots(name)] == [("Chat bot", "automation"), ("Segretario", "secretary")]

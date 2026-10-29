@@ -55,7 +55,9 @@ worker ──► PipelineRunner.run_next ──► claim (running) ──► ste
 
 **`ChatbotService`**: i chatbot di un progetto, **più d'uno**. Ognuno ha il **suo agente**, configurato nel chatbot stesso (system prompt, modello, max steps, tool) e separato dagli agenti della Libreria.
 
-- **Tipo** (`kind`): `automation` lancia le automation del progetto e ne controlla lo stato: i suoi tool sono **fissi** (`KIND_TOOLS`: `list_automations`, `run_automation`, `automation_status`), imposti dal codice al salvataggio e di nuovo a ogni messaggio, qualunque cosa dicano la UI, i file o il DB; ha la **cache delle automation**. `custom` (il default): i tool li scegli tu, niente cache. Altri tipi (es. Copilot, contesto) si aggiungono a `ChatbotKind` e `KIND_TOOLS`.
+- **Di default**: «Chat bot» (`automation`) e «Segretario» (`secretary`), in `domain/chat/chatbots_default.py`, li crea `DefinitionService.seed_default_chatbots` nei progetti che non li hanno (per nome): all'avvio (`Container._seed_defaults`) e alla creazione di un progetto (`ProjectService`). Solo creati, mai aggiornati; un errore (es. modello non nel catalogo) va nel log, non ferma l'app. La UI non crea né modifica chatbot: gli altri vengono dalle [definizioni](../../definitions.md).
+
+- **Tipo** (`kind`): `automation` lancia le automation del progetto e ne controlla lo stato: i suoi tool sono **fissi** (`KIND_TOOLS`: `list_automations`, `run_automation`, `automation_status`), imposti dal codice al salvataggio e di nuovo a ogni messaggio, qualunque cosa dicano la UI, i file o il DB; ha la **cache delle automation**. `secretary` aiuta con le note: todo list (legge, crea, aggiunge voci e spunta) e stato degli agent task, tool fissi anche lui (`list_todo_lists`, `read_todo_list`, `create_todo_list`, `update_todo_list`, `list_agent_tasks`), niente cache, mai i riferimenti. `custom` (il default): i tool li scegli tu, niente cache. Altri tipi (es. Copilot, contesto) si aggiungono a `ChatbotKind` e `KIND_TOOLS`.
 
 - **Creare e modificare**: modello usabile, tool disponibili, nome unico nel progetto (senza distinguere maiuscole e minuscole). Se cambia il system prompt, sale `prompt_version`, così ogni run dice quale prompt ha risposto.
 - **Conversazioni**: dalla più recente; eliminarne una elimina i suoi messaggi.
@@ -157,7 +159,7 @@ L'utente mette in cache un **suo** messaggio scegliendo un'automation del proget
 
 ## Progetti
 
-**`ProjectService`**: ogni percorso passa da `FolderBrowser`, quindi resta dentro `PROJECT_ROOTS`.
+**`ProjectService`**: ogni percorso passa da `FolderBrowser`, quindi resta dentro `PROJECT_ROOTS`. Un progetto nuovo riceve i chatbot di default (`DefinitionService.seed_default_chatbots`).
 
 | Metodo | Cosa fa |
 |---|---|

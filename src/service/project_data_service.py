@@ -72,6 +72,13 @@ class ProjectDataService:
         """The todo lists, as (note name, list)."""
         return self._typed_notes(project_name, NoteType.TODO_LIST, parse_todo_list)
 
+    def todo_list(self, project_name: str, note_name: str) -> TodoList:
+        """One todo list; NotFoundError when missing, ValidationError when the note is of another type."""
+        name = note_file_name(note_name)
+        if note_type(name) != NoteType.TODO_LIST:
+            raise ValidationError(f"{name} non è una todo list.")
+        return parse_todo_list(self.read_note(project_name, name), _title(name))
+
     def create_todo_list(self, project_name: str, todo: TodoList) -> str:
         _check_references(todo.references)
         return self._create_typed(project_name, NoteType.TODO_LIST, todo.title, render_todo_list(todo))

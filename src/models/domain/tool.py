@@ -43,6 +43,10 @@ class AgentTaskInfo(BaseModel):
     task: str = Field(..., description="The task's note name (agent-task-<title>.md): what delegate_task wants.")
     title: str
     status: str = Field(..., description="todo, in_progress or done.")
+    copilot_status: str | None = Field(
+        None, description="Status of the task's latest Copilot session (planning, queued, running, done, failed, cancelled); "
+                          "null = never delegated, or Copilot not available.",
+    )
 
 
 class ListAgentTasksResponse(BaseModel):
@@ -107,3 +111,31 @@ class GitStashApplyResponse(BaseModel):
     applied: bool = Field(..., description="False when it left conflicts.")
     files: list[str] = Field(..., description="Files changed in the working tree after applying.")
     conflicts: list[str] = Field(..., description="Files left in conflict, to resolve by hand.")
+
+
+class TodoListInfo(BaseModel):
+    name: str = Field(..., description="The list's note name (todo-list-<title>.md): what the other todo tools want.")
+    title: str
+    done: int = Field(..., description="Items done.")
+    total: int = Field(..., description="All the items.")
+
+
+class ListTodoListsResponse(BaseModel):
+    today: str = Field(..., description="Today's date (YYYY-MM-DD), for due dates such as 'by Friday'.")
+    todo_lists: list[TodoListInfo] = Field(..., description="The project's todo lists.")
+
+
+class TodoItemInfo(BaseModel):
+    number: int = Field(..., description="Position in the list, from 1: what update_todo_list wants.")
+    text: str
+    done: bool
+    priority: str | None = Field(None, description="high, medium or low.")
+    due: str | None = Field(None, description="Due date, YYYY-MM-DD.")
+
+
+class TodoListResponse(BaseModel):
+    """A todo list without its references: the secretary does not read them."""
+    name: str = Field(..., description="The list's note name.")
+    title: str
+    today: str = Field(..., description="Today's date (YYYY-MM-DD).")
+    items: list[TodoItemInfo]

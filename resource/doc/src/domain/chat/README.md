@@ -7,6 +7,7 @@ src/domain/chat/
   base.py             Factory.create_client(model_key): il client datapizza per un modello
   pricing.py          compute_cost: costo in EUR dai token
   models_default.py   DEFAULT_CHAT_MODELS: il catalogo iniziale
+  chatbots_default.py DEFAULT_CHATBOTS: i chatbot di ogni progetto («Chat bot» automation, «Segretario» secretary), creati dove mancano
 ```
 
 I modelli dati (`ChatModel`, `ModelProvider`, `ModelKey`) stanno in [`models/domain/chat.py`](../../models/README.md).

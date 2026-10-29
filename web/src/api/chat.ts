@@ -4,7 +4,6 @@ import { api, unwrap } from "./client";
 import type { components } from "./schema";
 
 export type Chatbot = components["schemas"]["ChatbotResponse"];
-export type ChatbotRequest = components["schemas"]["ChatbotRequest"];
 export type Conversation = components["schemas"]["ConversationResponse"];
 export type Message = components["schemas"]["MessageResponse"];
 export type AutomationCacheEntry = components["schemas"]["AutomationCacheEntryResponse"];
@@ -14,14 +13,17 @@ export const CACHE_MARK = "⚡";
 
 export type ChatbotKind = Chatbot["kind"];
 
-/** The kinds of chatbot: ``automation`` has fixed tools (as the backend's KIND_TOOLS) and the automation cache. */
-export const CHATBOT_KINDS: Record<ChatbotKind, { label: string; description: string; tools?: string[] }> = {
+/** The kinds of chatbot, as shown; their tools are the chatbot's ``tool_names`` (the backend's KIND_TOOLS). */
+export const CHATBOT_KINDS: Record<ChatbotKind, { label: string; description: string }> = {
   automation: {
     label: "Automation",
     description: "Lancia le automation del progetto e ne controlla lo stato: tool fissi e cache delle automation.",
-    tools: ["list_automations", "run_automation", "automation_status"],
   },
-  custom: { label: "Custom", description: "I tool li scegli tu; niente cache." },
+  secretary: {
+    label: "Segretario",
+    description: "Ti aiuta con le note: legge, crea e spunta le todo list, ti dice lo stato degli agent task; non legge i riferimenti.",
+  },
+  custom: { label: "Custom", description: "Tool scelti nella sua definizione; niente cache." },
 };
 
 export const chatKeys = {
@@ -35,28 +37,6 @@ export function useChatbots(project: string) {
   return useQuery({
     queryKey: chatKeys.chatbots(project),
     queryFn: () => unwrap(api.GET("/projects/{project}/chatbots", { params: { path: { project } } })),
-  });
-}
-
-/** Create (``id`` undefined) or update a chatbot. */
-export function useSaveChatbot(project: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, body }: { id?: number; body: ChatbotRequest }) =>
-      unwrap(
-        id === undefined
-          ? api.POST("/projects/{project}/chatbots", { params: { path: { project } }, body })
-          : api.PUT("/chatbots/{chatbot_id}", { params: { path: { chatbot_id: id } }, body }),
-      ),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: chatKeys.chatbots(project) }),
-  });
-}
-
-export function useDeleteChatbot(project: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) => unwrap(api.DELETE("/chatbots/{chatbot_id}", { params: { path: { chatbot_id: id } } })),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: chatKeys.chatbots(project) }),
   });
 }
 

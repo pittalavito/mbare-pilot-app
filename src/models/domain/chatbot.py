@@ -19,12 +19,16 @@ class ChatbotKind(StrEnum):
     AUTOMATION = "automation"
     """Launches the project's automations and checks how they went: only
     KIND_TOOLS' tools (whatever is saved), and the automation cache."""
+    SECRETARY = "secretary"
+    """Helps with the notes: reads, creates and ticks the todo lists, reads the
+    agent tasks' status; never the references. Only KIND_TOOLS' tools, no cache."""
     CUSTOM = "custom"
     """Its tools are chosen freely; no automation cache."""
 
 
 KIND_TOOLS: dict[ChatbotKind, list[str]] = {
     ChatbotKind.AUTOMATION: ["list_automations", "run_automation", "automation_status"],
+    ChatbotKind.SECRETARY: ["list_todo_lists", "read_todo_list", "create_todo_list", "update_todo_list", "list_agent_tasks"],
 }
 """The tools a kind imposes on its chatbots; a kind not here lets them be chosen."""
 

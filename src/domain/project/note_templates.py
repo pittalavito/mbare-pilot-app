@@ -110,6 +110,11 @@ def parse_todo_list(text: str, fallback_title: str) -> TodoList:
     return TodoList(title=title, items=[_todo_item(text, done) for done, text in _checks(lines)], references=_bullets(references))
 
 
+def parse_todo_item(text: str) -> TodoItem:
+    """One new item as written in the list: ``Taggare il commit  (alta, 2026-10-30)``, not done."""
+    return _todo_item(text.strip(), False)
+
+
 def _todo_item(text: str, done: bool) -> TodoItem:
     match = _DETAILS.match(text)
     if match is None or not (match.group(2) or match.group(3)):

@@ -324,3 +324,22 @@ def test_an_automation_chatbot_from_the_files_gets_its_fixed_tools(services, sto
     assert (bot.kind.value, bot.tool_names) == ("automation", ["list_automations", "run_automation", "automation_status"])
     assert _outcomes(definitions.sync("acme"))[0] == (f"{PROJECT_DIR}/chat-bots.yml", "Automazioni", "unchanged")
     assert "togli tools" in definitions.preview("acme")[1].message
+
+
+def test_the_default_chatbots_are_created_where_missing_and_never_changed(services, store_service, caplog):
+    definitions, chatbots, _ = services
+    mine = chatbots.create_chatbot("acme", "segretario", system_prompt="Mio.", model=MODEL)  # same name: left as it is
+
+    assert definitions.seed_default_chatbots(["acme"]) == 1
+    bots = {bot.name: bot for bot in chatbots.list_chatbots("acme")}
+    assert set(bots) == {"Chat bot", "segretario"}
+    assert bots["Chat bot"].kind.value == "automation" and bots["Chat bot"].tool_names == ["list_automations", "run_automation", "automation_status"]
+    assert bots["segretario"] == mine
+    assert definitions.seed_default_chatbots(["acme"]) == 0  # already there
+
+    store_service.save_project(Project(name="beta", source=ProjectSource.FOLDER, root_path="/code/beta"))
+    default_model = store_service.get_chat_model("openrouter/google/gemini-3.1-flash-lite-preview")
+    store_service.save_chat_model(default_model.model_copy(update={"active": False}))
+
+    assert definitions.seed_default_chatbots(["beta"]) == 0  # logged, not raised: the app starts anyway
+    assert chatbots.list_chatbots("beta") == [] and "è disattivato" in caplog.text

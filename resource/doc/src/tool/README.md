@@ -12,7 +12,11 @@ I tool che un agente può chiamare durante una run:
 | `list_automations` | **con contesto**, solo chatbot | le automation del progetto che si possono lanciare adesso (attive, con step), con la descrizione |
 | `run_automation` | **con contesto**, solo chatbot | lancia un'automation del progetto in background e riporta l'id dell'esecuzione |
 | `automation_status` | **con contesto**, solo chatbot | stato di un'esecuzione di un'automation del progetto e dei suoi step: solo gli stati, niente output né messaggi d'errore |
-| `list_agent_tasks` | **con contesto**, solo chatbot | gli agent task del progetto (nome, titolo, stato): quelli che si possono delegare |
+| `list_todo_lists` | **con contesto**, solo chatbot | le todo list del progetto (nome, titolo, voci fatte su totali) e la data di oggi |
+| `read_todo_list` | **con contesto**, solo chatbot | le voci numerate di una todo list (fatta, priorità, scadenza), senza i riferimenti |
+| `create_todo_list` | **con contesto**, solo chatbot | crea una todo list con le sue voci |
+| `update_todo_list` | **con contesto**, solo chatbot | aggiunge voci in fondo e spunta o despunta per numero; non cancella né rinomina, i riferimenti collegati restano |
+| `list_agent_tasks` | **con contesto**, solo chatbot | gli agent task del progetto (nome, titolo, stato) con lo stato dell'ultima sessione Copilot, se c'è Copilot: quelli che si possono delegare |
 | `delegate_task` | **con contesto**, solo chatbot | delega un agent task a Copilot su un repository: apre la chat di preparazione e restituisce il link |
 | `copilot_status` | **con contesto**, solo chatbot | stato di un task delegato: solo lo stato, quanti file ha cambiato e se l'HEAD si è mosso |
 | `read_context` | **con contesto** | il contesto del progetto per il chatbot: i `.md` di `project/<slug>/context/` (la cartella che indicizzerà il RAG); ultima risorsa |
@@ -28,8 +32,10 @@ src/tool/
       run_automation.py lancia un'automation del progetto
       automation_status.py  stato di un'esecuzione
       list_automations.py   automation lanciabili del progetto
+    notes/
+      todo_lists.py     todo list del segretario: elenco, lettura, creazione, voci e spunte
     copilot/
-      list_agent_tasks.py  agent task del progetto
+      list_agent_tasks.py  agent task del progetto, con lo stato Copilot
       delegate_task.py  delega un agent task a Copilot (apre la chat)
       copilot_status.py stato di un task delegato
     project/
@@ -54,7 +60,7 @@ run:    AgentService ──build_tools(nomi, ToolContext)──► tool datapizz
 ```
 
 - **I tool stanno sopra i service**: un tool usa i service (es. `GitService`) attraverso il `ToolContext`, mai il Container.
-- **Solo chatbot**: una `ToolSpec` con `chatbot_only=True` (`list_automations`, `run_automation`, `automation_status`, `list_agent_tasks`, `delegate_task`, `copilot_status`) funziona solo nelle run del chatbot; `/tools` lo riporta (`chatbot_only`, calcolato dal codice, non salvato) e la UI la propone solo nel form del chatbot.
+- **Solo chatbot**: una `ToolSpec` con `chatbot_only=True` (`list_automations`, `run_automation`, `automation_status`, `list_agent_tasks`, `delegate_task`, `copilot_status`, `list_todo_lists`, `read_todo_list`, `create_todo_list`, `update_todo_list`) funziona solo nelle run del chatbot; `/tools` lo riporta (`chatbot_only`, calcolato dal codice, non salvato) e la UI la propone solo nel form del chatbot.
 - **Catalogo**: all'avvio il registry viene copiato nella tabella `tool`. Un tool tolto dal codice resta nel catalogo con `available = False`: non si può più scegliere, e gli agenti che lo usano non partono finché non lo tolgono.
 - **`build_tools(nomi, context)`**: costruisce i tool scelti per una run, nell'ordine dato; `ValidationError` se un nome non ha implementazione.
 
@@ -63,7 +69,7 @@ run:    AgentService ──build_tools(nomi, ToolContext)──► tool datapizz
 Creato da `AgentService` per ogni run:
 
 - `project_name`: il progetto della run (`None` fuori da un progetto);
-- i service che i tool possono usare: `git`, `pipelines` (`PipelineService`, per le automation), `project_data` (`ProjectDataService`, per il contesto del chatbot e gli agent task), `copilot` (`CopilotService`, per delegare a Copilot);
+- i service che i tool possono usare: `git`, `pipelines` (`PipelineService`, per le automation), `project_data` (`ProjectDataService`, per il contesto del chatbot, gli agent task e le todo list), `copilot` (`CopilotService`, per delegare a Copilot);
 - `origin`: cosa ha avviato la run (chat, automation, manuale): i tool delle automation funzionano solo con `chat`, cioè nel chatbot;
 **Il mascheramento non sta nei tool**: il contesto non ha sessione né funzioni di registrazione. Lo gestisce `AgentMask` (`domain/agent/masking.py`), che avvolge ogni tool attorno alla run: gli argomenti arrivano smascherati, l'output esce serializzato e mascherato. Un tool dichiara i suoi valori sensibili nel **modello di output** (vedi [service](../service/README.md#mascheramento)): `MaskRepositoryName`, `MaskPersonName`, `MaskEmailAddress` (campi singoli) o `MaskRepositoryNames` (liste), da `models/domain/masking.py`. Un tool non chiama nulla per registrare.
 
@@ -87,6 +93,16 @@ Il chatbot mette in coda un'esecuzione di un'automation del progetto e risponde 
 - **Senza conferma**: il chatbot le lancia da solo.
 - **Chi può usarlo**: solo il **chatbot** di un progetto (run con origine `chat`, `chatbot_run()`), come `automation_status`. Non un agente lanciato a mano né uno step **dentro un'automation** (potrebbe rilanciarla all'infinito), né una run fuori da un progetto: lì il tool non elenca niente e risponde con un errore.
 - **Errori** (automation sconosciuta, con l'elenco di quelle disponibili; automation non valida): tornano all'agente come `{"error": ...}`.
+
+## Note: le todo list del segretario
+
+I tool del chatbot `secretary` ([service](../service/README.md)), in `notes/todo_lists.py`:
+
+- **Voci**: `create_todo_list(title, items)` e `update_todo_list(name, add, check, uncheck)` scrivono le voci nuove come nella nota: `testo  (alta, 2026-10-30)`, priorità e scadenza facoltative. Le voci esistenti si indicano col **numero** che dà `read_todo_list` (da 1); un numero fuori lista è un errore.
+- **Riferimenti**: mai letti né mostrati; aggiornando una lista restano collegati come prima.
+- **Niente cancellazioni**: né voci né liste, e il nome della nota non cambia.
+- **Data di oggi** nelle risposte, per scadenze come «entro venerdì».
+- Solo nel chatbot di un progetto (`notes_run()`: serve `project_data`, non Copilot). Anche `list_agent_tasks` usa questa condizione: senza Copilot dà lo stato delle note e `copilot_status` vuoto.
 
 ## Copilot: `delegate_task(task, repository)`
 

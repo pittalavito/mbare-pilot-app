@@ -1,8 +1,9 @@
 """Projects: open an existing code folder or create a new one from scratch,
 list, update and remove them. Every path goes through FolderBrowser, so it
-stays inside the configured roots."""
+stays inside the configured roots. A new project gets the default chatbots."""
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from core.error import ConflictError, NotFoundError, ValidationError
 from core.observability import LogPrefix, observed
@@ -12,12 +13,17 @@ from models.domain.chat import EmbeddingModelName
 from models.domain.project import Project, ProjectSource
 from service.store_service import StoreService
 
+if TYPE_CHECKING:  # imported only for the type
+    from service.definition_service import DefinitionService
+
 
 class ProjectService:
 
-    def __init__(self, store_service: StoreService, folder_browser: FolderBrowser):
+    def __init__(self, store_service: StoreService, folder_browser: FolderBrowser, definition_service: "DefinitionService | None" = None):
+        """``definition_service`` gives a new project the default chatbots; None = no chatbots."""
         self._store = store_service
         self._folders = folder_browser
+        self._definitions = definition_service
 
     @property
     def folders(self) -> FolderBrowser:
@@ -38,7 +44,7 @@ class ProjectService:
         """Register an existing folder as a project."""
         project = Project(name=name, description=description, source=ProjectSource.FOLDER, root_path=str(self._folders.resolve(folder)))
         self._require_unique(project)
-        return self._store.save_project(project)
+        return self._with_chatbots(self._store.save_project(project))
 
     @observed(LogPrefix.PROJECT_SERVICE)
     def create_from_scratch(self, name: str, description: str, parent: str | Path, folder_name: str) -> Project:
@@ -48,10 +54,16 @@ class ProjectService:
         self._require_unique(draft)
         folder = self._folders.create_folder(parent, folder_name)
         try:
-            return self._store.save_project(draft.model_copy(update={"root_path": str(folder)}))
+            project = self._store.save_project(draft.model_copy(update={"root_path": str(folder)}))
         except Exception:
             folder.rmdir()
             raise
+        return self._with_chatbots(project)
+
+    def _with_chatbots(self, project: Project) -> Project:
+        if self._definitions is not None:
+            self._definitions.seed_default_chatbots([project.name])
+        return project
 
     def update(self, name: str, *, description: str, embedding_model: EmbeddingModelName) -> Project:
         """Editable settings; name, source and folder are fixed."""

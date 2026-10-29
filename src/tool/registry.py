@@ -23,6 +23,7 @@ from tool.list.git.git_stash import GIT_STASH
 from tool.list.git.git_stash_apply import GIT_STASH_APPLY
 from tool.list.git.git_status import GIT_STATUS
 from tool.list.hello_world import hello_world
+from tool.list.notes.todo_lists import CREATE_TODO_LIST, LIST_TODO_LISTS, READ_TODO_LIST, UPDATE_TODO_LIST
 from tool.list.project.read_context import READ_CONTEXT
 from tool.spec import ToolSpec, static
 
@@ -33,6 +34,10 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         LIST_AUTOMATIONS,
         RUN_AUTOMATION,
         AUTOMATION_STATUS,
+        LIST_TODO_LISTS,
+        READ_TODO_LIST,
+        CREATE_TODO_LIST,
+        UPDATE_TODO_LIST,
         LIST_AGENT_TASKS,
         DELEGATE_TASK,
         COPILOT_STATUS,

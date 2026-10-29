@@ -5,53 +5,45 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { CHATBOT_KINDS, type Chatbot, useAutomationCache, useChatbots, useConversations, useDeleteConversation, useMessages, useSendMessage } from "../../api/chat";
 import { usePipelines } from "../../api/automation";
 import { ConfirmButton } from "../../components/ConfirmButton";
-import { ChatbotModal } from "./ChatbotModal";
+import { ChatbotDetails, KIND_COLORS } from "./ChatbotDetails";
 import { MessageItem } from "./MessageItem";
 
 /** The Chat tab of a project: its chatbots (each with its own agent) on the
  * left, ``?bot=`` the open one with its conversations, ``?c=`` the open
- * conversation on the right. A reply arrives whole (no streaming yet). An
+ * conversation on the right. The chatbots are not created nor edited here:
+ * every project has the default ones (from the code), the others come from
+ * Impostazioni → Definizioni da file. A reply arrives whole (no streaming yet). An
  * automation chatbot has the automation cache: «Metti in cache» on a message,
  * and a message starting with ``!`` skips it. */
 export function ChatTab() {
   const { project = "" } = useParams();
   const chatbots = useChatbots(project);
   const [botId, , openBot] = useChatParams();
-  const [editing, setEditing] = useState<Chatbot | "new">();
+  const [details, setDetails] = useState(false);
 
   if (chatbots.isPending) return <Loader size="sm" />;
   if (chatbots.error) return <Alert color="red">{chatbots.error.message}</Alert>;
   const chatbot = chatbots.data.find((bot) => bot.id === botId) ?? chatbots.data[0]; // unknown or none: the first by name
-  const modal = (
-    <ChatbotModal
-      project={project}
-      chatbot={editing === "new" ? undefined : editing}
-      opened={editing !== undefined}
-      onClose={() => setEditing(undefined)}
-      onSaved={(saved) => editing === "new" && openBot(saved.id)}
-    />
-  );
   if (!chatbot) {
     return (
-      <Stack align="flex-start">
-        <Text c="dimmed">Nessun chatbot: crea il primo del progetto e configura il suo agente (prompt, modello, tool). Puoi averne più di uno.</Text>
-        <Button onClick={() => setEditing("new")}>➕ Crea un chatbot</Button>
-        {modal}
-      </Stack>
+      <Text c="dimmed">
+        Nessun chatbot: i chatbot di default si creano all'avvio dell'API (se mancano, guarda il log: ad esempio il modello non è nel
+        catalogo); gli altri da Impostazioni → Definizioni da file.
+      </Text>
     );
   }
   return (
     <Grid gutter="md">
       <Grid.Col span={{ base: 12, md: 3 }}>
         <Stack gap="md">
-          <ChatbotList chatbots={chatbots.data} selected={chatbot} onSelect={(bot) => openBot(bot.id)} onAdd={() => setEditing("new")} />
-          <Sidebar key={chatbot.id} chatbot={chatbot} onEdit={() => setEditing(chatbot)} />
+          <ChatbotList chatbots={chatbots.data} selected={chatbot} onSelect={(bot) => openBot(bot.id)} />
+          <Sidebar key={chatbot.id} chatbot={chatbot} onDetails={() => setDetails(true)} />
         </Stack>
       </Grid.Col>
       <Grid.Col span={{ base: 12, md: 9 }}>
         <ConversationView key={chatbot.id} chatbot={chatbot} />
       </Grid.Col>
-      {modal}
+      <ChatbotDetails chatbot={chatbot} opened={details} onClose={() => setDetails(false)} />
     </Grid>
   );
 }
@@ -74,19 +66,16 @@ function useOpenConversation(): [number | undefined, (id: number | undefined) =>
 }
 
 /** The project's chatbots: one click opens it. */
-function ChatbotList({ chatbots, selected, onSelect, onAdd }: { chatbots: Chatbot[]; selected: Chatbot; onSelect: (bot: Chatbot) => void; onAdd: () => void }) {
+function ChatbotList({ chatbots, selected, onSelect }: { chatbots: Chatbot[]; selected: Chatbot; onSelect: (bot: Chatbot) => void }) {
   return (
     <Stack gap={4}>
-      <Group justify="space-between" wrap="nowrap">
-        <Text size="xs" fw={600} c="dimmed" tt="uppercase">Chatbot</Text>
-        <Button size="compact-xs" variant="subtle" onClick={onAdd}>➕ Nuovo chatbot</Button>
-      </Group>
+      <Text size="xs" fw={600} c="dimmed" tt="uppercase">Chatbot</Text>
       {chatbots.map((bot) => (
         <NavLink
           key={bot.id}
           label={bot.name}
           description={bot.description || undefined}
-          rightSection={<Badge size="xs" variant="light" color={bot.kind === "automation" ? "grape" : "gray"}>{CHATBOT_KINDS[bot.kind].label}</Badge>}
+          rightSection={<Badge size="xs" variant="light" color={KIND_COLORS[bot.kind]}>{CHATBOT_KINDS[bot.kind].label}</Badge>}
           active={bot.id === selected.id}
           onClick={() => onSelect(bot)}
         />
@@ -95,14 +84,14 @@ function ChatbotList({ chatbots, selected, onSelect, onAdd }: { chatbots: Chatbo
   );
 }
 
-function Sidebar({ chatbot, onEdit }: { chatbot: Chatbot; onEdit: () => void }) {
+function Sidebar({ chatbot, onDetails }: { chatbot: Chatbot; onDetails: () => void }) {
   const conversations = useConversations(chatbot.id);
   const [openId, open] = useOpenConversation();
   return (
     <Stack gap="xs">
       <Group justify="space-between" wrap="nowrap">
         <Text fw={600}>{chatbot.name}</Text>
-        <Button size="xs" variant="default" onClick={onEdit}>✏️ Modifica</Button>
+        <Button size="xs" variant="default" onClick={onDetails}>ℹ️ Dettagli</Button>
       </Group>
       <Text size="xs" c="dimmed">
         <code>{chatbot.model}</code> · prompt v{chatbot.prompt_version} · {chatbot.tool_names.join(", ") || "nessun tool"}

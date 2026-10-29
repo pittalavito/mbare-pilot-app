@@ -22,7 +22,9 @@ just the elements chosen from it.
 
 At startup ``seed_global_agents()`` creates the agents of ``global-agent.yml``
 that do not exist yet (a new installation has them; changes made from the UI
-stay until the next sync)."""
+stay until the next sync), and ``seed_default_chatbots(projects)`` the
+default chatbots (domain/chat/chatbots_default.py) that a project misses, by
+name: also when a project is created."""
 from collections.abc import Callable, Collection
 from dataclasses import dataclass
 from typing import Any
@@ -33,6 +35,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from core.error import AppError, NotFoundError, ValidationError
 from core.observability import LogPrefix, log_warning, observed
+from domain.chat.chatbots_default import DEFAULT_CHATBOTS
 from domain.pipeline.graph import linear_edges
 from domain.project.data_paths import (
     AGENTS_FILE, AUTOMATIONS_FILE, CHATBOT_FILE, CHATBOTS_FILE, GLOBAL_AGENTS_FILE, GLOBAL_AUTOMATIONS_FILE, GLOBAL_CHATBOT_FILE, GLOBAL_CHATBOTS_FILE,
@@ -119,6 +122,25 @@ class DefinitionService:
         if self._store.get_agent_config(spec.name) is not None:
             return SyncOutcome.UNCHANGED
         return self._sync_agent(None, spec)
+
+    @observed(LogPrefix.DEFINITION_SERVICE)
+    def seed_default_chatbots(self, project_names: list[str]) -> int:
+        """The default chatbots the projects miss (by name, case-insensitive);
+        the existing ones are left as they are. Errors (e.g. the model not in
+        the catalog) are logged, never raised: they must not stop the app.
+        Returns how many were created."""
+        created = 0
+        for project_name in project_names:
+            names = {bot.name.lower() for bot in self._chatbots.list_chatbots(project_name)}
+            for spec in DEFAULT_CHATBOTS:
+                if spec.name.lower() in names:
+                    continue
+                try:
+                    self._sync_chatbot(project_name, spec, "")
+                    created += 1
+                except Exception as exc:  # also the API and the worker starting together: the name is unique in the DB
+                    log_warning(LogPrefix.DEFINITION_SERVICE, "chatbot di default %s · %s: %s", project_name, spec.name, exc)
+        return created
 
     # ---------------------------------------------------------------- files
     def _list(self, kind: DefinitionKind, path: str, key: str, schema: type[BaseModel], sync: Callable[[Any], SyncOutcome], skip: Callable[[dict], bool] = lambda raw: False) -> list["_Element"]:

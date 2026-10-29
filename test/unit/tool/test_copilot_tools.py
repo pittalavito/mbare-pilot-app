@@ -44,13 +44,14 @@ def context(store_service, tmp_path, monkeypatch) -> ToolContext:
 
 def test_the_chatbot_lists_the_tasks_and_delegates_one(context):
     tasks = as_dict(LIST_AGENT_TASKS.build(context).func())
-    assert tasks == {"tasks": [{"task": "agent-task-fix-porto.md", "title": "Fix porto", "status": "todo"}]}
+    assert tasks == {"tasks": [{"task": "agent-task-fix-porto.md", "title": "Fix porto", "status": "todo", "copilot_status": None}]}
 
     delegated = as_dict(DELEGATE_TASK.build(context).func(task="agent-task-fix-porto.md", repository="api"))
 
     assert delegated["copilot_answered"] and delegated["repository"] == "api"
     assert delegated["chat"] == f"/projects/acme/copilot?session={delegated['session_id']}"
     assert "Domanda" not in str(delegated)  # Copilot's answer stays in its chat
+    assert as_dict(LIST_AGENT_TASKS.build(context).func())["tasks"][0]["copilot_status"] == "planning"
     status = as_dict(COPILOT_STATUS.build(context).func(session_id=delegated["session_id"]))
     assert (status["status"], status["changed_files"], status["head_moved"]) == ("planning", 0, False)
 

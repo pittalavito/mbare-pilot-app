@@ -51,13 +51,12 @@ describe("ChatTab", () => {
     expect(screen.getByPlaceholderText(/Scrivi a Automazioni/)).toBeInTheDocument();
   });
 
-  it("invites to create the chatbot", async () => {
-    mockApi({ "GET /projects/acme/chatbots": [], "GET /tools": [], "GET /models/choices": { choices: [], usable: [] } });
+  it("without chatbots says where they come from: they are not created here", async () => {
+    mockApi({ "GET /projects/acme/chatbots": [] });
     renderChat();
 
-    fireEvent.click(await screen.findByRole("button", { name: /Crea un chatbot/ }));
-
-    expect(await screen.findByText("Nuovo chatbot")).toBeInTheDocument();
+    expect(await screen.findByText(/i chatbot di default si creano all'avvio/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Crea|Nuovo chatbot/ })).not.toBeInTheDocument();
   });
 
   it("shows the open conversation with the replies and the cache of a message", async () => {
@@ -76,13 +75,11 @@ describe("ChatTab", () => {
     expect(screen.getAllByRole("button", { name: /Metti in cache/ })).toHaveLength(1); // only the message not in cache
   });
 
-  it("a custom chatbot has no automation cache; the window shows the fixed tools of an automation one", async () => {
+  it("a custom chatbot has no automation cache; its details are read-only", async () => {
     mockApi({
       ...BASE,
-      "GET /projects/acme/chatbots": [{ ...CHATBOT, kind: "custom" }],
+      "GET /projects/acme/chatbots": [{ ...CHATBOT, kind: "custom", tool_names: ["git_status"] }],
       "GET /conversations/9/messages": [message(10, "user", "ciao"), message(12, "assistant", "Ciao!")],
-      "GET /tools": [{ name: "git_status", description: "Stato git", available: true, chatbot_only: false }],
-      "GET /models/choices": { choices: [], usable: [] },
     });
     renderChat("/projects/acme/chat?c=9");
 
@@ -90,9 +87,10 @@ describe("ChatTab", () => {
     expect(screen.queryByRole("button", { name: /Metti in cache/ })).not.toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Scrivi a Navi bot/)).not.toHaveAttribute("placeholder", expect.stringContaining("cache"));
 
-    fireEvent.click(screen.getByRole("button", { name: /Modifica/ }));
-    fireEvent.click(await screen.findByText("Automation"));
-    expect(await screen.findByText("list_automations, run_automation, automation_status")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Dettagli/ }));
+    expect(await screen.findByText("Rispondi breve.")).toBeInTheDocument();
+    expect(screen.getByText(/Sola lettura/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Salva|Elimina chatbot/ })).not.toBeInTheDocument();
   });
 
   it("creates the conversation on the first message and opens it", async () => {

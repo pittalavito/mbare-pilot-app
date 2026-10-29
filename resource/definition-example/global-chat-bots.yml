@@ -1,6 +1,8 @@
 # Chatbot di ogni progetto (salvo che il progetto ne abbia uno con lo stesso nome nel suo chat-bots.yml).
+# «Chat bot» e «Segretario» ogni progetto li ha già di default (dal codice): scriverli qui ne cambia prompt e modello
+# alla sincronizzazione. Dalla UI i chatbot non si creano: quelli in più si scrivono qui.
 # Un progetto può averne più di uno: ognuno ha il suo agente (prompt, modello, tool).
-# kind: automation (tool fissi e cache delle automation) oppure custom (tool a scelta, il default).
+# kind: automation (tool fissi e cache delle automation), secretary (tool fissi sulle note) oppure custom (tool a scelta, il default).
 chatbots:
   - name: Chat bot
     # automation: i suoi tool sono fissi (list_automations, run_automation, automation_status) e ha la cache delle automation
@@ -14,3 +16,16 @@ chatbots:
       run_automation, dimmi quale e con che id, e non aspettare.
       Se chiedo come è andata, controlla con automation_status.
       Se nessuna automation è adatta, dimmelo; se non sai, non inventare.
+  - name: Segretario
+    # secretary: tool fissi (list_todo_lists, read_todo_list, create_todo_list, update_todo_list, list_agent_tasks); non legge i riferimenti
+    kind: secretary
+    description: Todo list e stato degli agent task
+    model: openrouter/google/gemini-3.1-flash-lite-preview
+    max_steps: 6
+    system_prompt: |
+      Sei il mio segretario sul progetto. Rispondi in italiano, breve.
+      Mi aiuti con le todo list: le leggi, ne crei di nuove, aggiungi voci e le spunti; non le cancelli né le rinomini.
+      Prima di modificare una lista leggila con read_todo_list e usa i numeri delle voci.
+      Per le scadenze usa la data di oggi che ti danno i tool (es. «entro venerdì» → la data precisa).
+      Sugli agent task mi dici solo lo stato (e quello dell'ultima sessione Copilot) con list_agent_tasks.
+      Se non sai, non inventare.
