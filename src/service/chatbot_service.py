@@ -4,16 +4,16 @@ configurations of the Library; it keeps its conversations and their messages.
 Sending a message runs that agent with the conversation so far as memory, on
 the chatbot's project (so project tools such as git work on it), unless the
 message is close enough to one the user put in cache: then its automation is
-launched directly, without the agent (ChatRouteService)."""
+launched directly, without the agent (AutomationCacheService)."""
 from datetime import datetime, timezone
 
 from core.error import AppError, ConflictError, NotFoundError, ValidationError
 from core.observability import LogPrefix, observed
 from models.domain.agent import AgentDefinition, RunOrigin, ToolInfo
-from models.domain.chatbot import ChatMessage, ChatRoute, Chatbot, Conversation, MessageRole
+from models.domain.chatbot import AutomationCacheEntry, ChatMessage, Chatbot, ChatbotKind, Conversation, MessageRole
 from service.agent_config_service import AgentConfigService
 from service.agent_service import AgentService
-from service.chat_route_service import CACHE_BYPASS, ChatRouteService
+from service.automation_cache_service import CACHE_BYPASS, AutomationCacheService
 from service.model_service import require_usable_model
 from service.store_service import StoreService
 
@@ -26,12 +26,12 @@ _CACHE_MARK = "⚡"
 
 class ChatbotService:
 
-    def __init__(self, store_service: StoreService, agent_config_service: AgentConfigService, agent_service: AgentService, route_service: ChatRouteService | None = None):
-        """``route_service`` is the cache; None = every message goes to the agent."""
+    def __init__(self, store_service: StoreService, agent_config_service: AgentConfigService, agent_service: AgentService, automation_cache: AutomationCacheService | None = None):
+        """``automation_cache`` is the cache; None = every message goes to the agent."""
         self._store = store_service
         self._agent_configs = agent_config_service
         self._agents = agent_service
-        self._routes = route_service
+        self._cache = automation_cache
 
     # -------------------------------------------------------------- chatbots
     def list_chatbots(self, project_name: str) -> list[Chatbot]:
@@ -58,18 +58,21 @@ class ChatbotService:
         description: str = "",
         max_steps: int = 4,
         tool_names: list[str] | None = None,
+        kind: ChatbotKind = ChatbotKind.CUSTOM,
     ) -> Chatbot:
+        """``kind`` automation: its tools are the fixed ones, whatever ``tool_names`` says."""
         if self._store.get_project(project_name) is None:
             raise NotFoundError(f"Progetto non trovato: {project_name}")
         chatbot = Chatbot(
             project_name=project_name, 
-            name=name, 
-            description=description.strip(), 
+            name=name,
+            kind=kind,
+            description=description.strip(),
             system_prompt=system_prompt,
-            model=model, 
-            max_steps=max_steps, 
+            model=model,
+            max_steps=max_steps,
             tool_names=tool_names or [],
-        )
+        ).with_kind_tools()
         self._validate(chatbot)
         return self._store.save_chatbot(chatbot)
 
@@ -84,20 +87,23 @@ class ChatbotService:
         description: str = "",
         max_steps: int = 4,
         tool_names: list[str] | None = None,
+        kind: ChatbotKind | None = None,
     ) -> Chatbot:
-        """Everything but the project. A changed system prompt gets the next
-        ``prompt_version``, so runs say which prompt answered."""
+        """Everything but the project (``kind`` None = unchanged). A changed
+        system prompt gets the next ``prompt_version``, so runs say which
+        prompt answered."""
         current = self.get_chatbot(chatbot_id)
         chatbot = Chatbot.model_validate({
             **current.model_dump(),
-            "name": name, 
+            "name": name,
+            "kind": kind or current.kind,
             "description": description.strip(), 
             "system_prompt": system_prompt,
             "model": model, 
             "max_steps": max_steps, 
             "tool_names": tool_names or [],
             "updated_at": datetime.now(timezone.utc),
-        })
+        }).with_kind_tools()
         if chatbot.system_prompt != current.system_prompt:
             chatbot.prompt_version = current.prompt_version + 1
         self._validate(chatbot)
@@ -135,13 +141,13 @@ class ChatbotService:
         if not request:
             raise ValidationError("Il messaggio è vuoto.")
         conversation = self._require_conversation(conversation_id)
-        chatbot = self.get_chatbot(conversation.chatbot_id)
+        chatbot = self.get_chatbot(conversation.chatbot_id).with_kind_tools()  # its kind's tools, even if the DB says otherwise
         history = self._store.list_messages(conversation_id)
         self._store.save_message(ChatMessage(conversation_id=conversation_id, role=MessageRole.USER, content=text))
 
-        match = None if bypass or self._routes is None else self._routes.match(chatbot.id, request)
+        match = None if bypass or self._cache is None or not chatbot.has_automation_cache else self._cache.match(chatbot.id, request)
         if match is not None:
-            reply = self._from_cache(conversation_id, match.route)
+            reply = self._from_cache(conversation_id, match.entry)
         else:
             reply = self._from_agent(conversation_id, chatbot, request, history)
         reply = self._store.save_message(reply)
@@ -153,9 +159,9 @@ class ChatbotService:
         return reply
 
     # ------------------------------------------------------------- helpers
-    def _from_cache(self, conversation_id: int, route: ChatRoute) -> ChatMessage:
+    def _from_cache(self, conversation_id: int, entry: AutomationCacheEntry) -> ChatMessage:
         try:
-            pipeline, run = self._routes.launch(route)
+            pipeline, run = self._cache.launch(entry)
         except AppError as exc:
             return ChatMessage(
                 conversation_id=conversation_id, 

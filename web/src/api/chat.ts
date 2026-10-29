@@ -7,16 +7,28 @@ export type Chatbot = components["schemas"]["ChatbotResponse"];
 export type ChatbotRequest = components["schemas"]["ChatbotRequest"];
 export type Conversation = components["schemas"]["ConversationResponse"];
 export type Message = components["schemas"]["MessageResponse"];
-export type ChatRoute = components["schemas"]["ChatRouteResponse"];
+export type AutomationCacheEntry = components["schemas"]["AutomationCacheEntryResponse"];
 
 /** Starts the replies given from the cache (CACHE_MARK of the backend). */
 export const CACHE_MARK = "⚡";
+
+export type ChatbotKind = Chatbot["kind"];
+
+/** The kinds of chatbot: ``automation`` has fixed tools (as the backend's KIND_TOOLS) and the automation cache. */
+export const CHATBOT_KINDS: Record<ChatbotKind, { label: string; description: string; tools?: string[] }> = {
+  automation: {
+    label: "Automation",
+    description: "Lancia le automation del progetto e ne controlla lo stato: tool fissi e cache delle automation.",
+    tools: ["list_automations", "run_automation", "automation_status"],
+  },
+  custom: { label: "Custom", description: "I tool li scegli tu; niente cache." },
+};
 
 export const chatKeys = {
   chatbots: (project: string) => ["projects", project, "chatbots"] as const,
   conversations: (chatbotId: number) => ["chatbots", chatbotId, "conversations"] as const,
   messages: (conversationId: number) => ["conversations", conversationId, "messages"] as const,
-  routes: (chatbotId: number) => ["chatbots", chatbotId, "routes"] as const,
+  automationCache: (chatbotId: number) => ["chatbots", chatbotId, "automation-cache"] as const,
 };
 
 export function useChatbots(project: string) {
@@ -89,32 +101,32 @@ export function useSendMessage(chatbotId: number) {
       Promise.all([
         queryClient.invalidateQueries({ queryKey: chatKeys.conversations(chatbotId) }), // new one, title, order
         id !== undefined && queryClient.invalidateQueries({ queryKey: chatKeys.messages(id) }),
-        queryClient.invalidateQueries({ queryKey: chatKeys.routes(chatbotId) }), // hits
+        queryClient.invalidateQueries({ queryKey: chatKeys.automationCache(chatbotId) }), // hits
       ]),
   });
 }
 
-export function useRoutes(chatbotId: number) {
+export function useAutomationCache(chatbotId: number) {
   return useQuery({
-    queryKey: chatKeys.routes(chatbotId),
-    queryFn: () => unwrap(api.GET("/chatbots/{chatbot_id}/routes", { params: { path: { chatbot_id: chatbotId } } })),
+    queryKey: chatKeys.automationCache(chatbotId),
+    queryFn: () => unwrap(api.GET("/chatbots/{chatbot_id}/automation-cache", { params: { path: { chatbot_id: chatbotId } } })),
   });
 }
 
 /** Put a user message in the cache: similar messages will launch the automation. */
-export function useAddRoute(chatbotId: number) {
+export function useAddToAutomationCache(chatbotId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ messageId, pipelineId, input }: { messageId: number; pipelineId: number; input: string }) =>
-      unwrap(api.POST("/messages/{message_id}/route", { params: { path: { message_id: messageId } }, body: { pipeline_id: pipelineId, input } })),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: chatKeys.routes(chatbotId) }),
+      unwrap(api.POST("/messages/{message_id}/automation-cache", { params: { path: { message_id: messageId } }, body: { pipeline_id: pipelineId, input } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: chatKeys.automationCache(chatbotId) }),
   });
 }
 
-export function useDeleteRoute(chatbotId: number) {
+export function useRemoveFromAutomationCache(chatbotId: number) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (routeId: number) => unwrap(api.DELETE("/chat-routes/{route_id}", { params: { path: { route_id: routeId } } })),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: chatKeys.routes(chatbotId) }),
+    mutationFn: (entryId: number) => unwrap(api.DELETE("/automation-cache/{entry_id}", { params: { path: { entry_id: entryId } } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: chatKeys.automationCache(chatbotId) }),
   });
 }

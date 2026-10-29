@@ -1,14 +1,15 @@
 """Chat endpoints: a project's chatbots (/projects/{project}/chatbots,
-/chatbots/{id}), their conversations and messages, and their cache (entries
-made from a user message: /messages/{id}/route, /chatbots/{id}/routes).
+/chatbots/{id}), their conversations and messages, and the automation cache
+of an automation chatbot (entries made from a user message:
+/messages/{id}/automation-cache, /chatbots/{id}/automation-cache).
 Sending a message waits for the agent's answer (no streaming yet)."""
 from fastapi import APIRouter, Depends, Response, status
 
-from controller.dependencies import chat_route_service, chatbot_service
+from controller.dependencies import automation_cache_service, chatbot_service
 from core.error import NotFoundError
-from service.chat_route_service import ChatRouteService
+from service.automation_cache_service import AutomationCacheService
 from service.chatbot_service import ChatbotService
-from models.controller.chatbot import ChatbotRequest, ChatbotResponse, ChatRouteRequest, ChatRouteResponse, ConversationResponse, MessageRequest, MessageResponse
+from models.controller.chatbot import ChatbotRequest, ChatbotResponse, AutomationCacheEntryRequest, AutomationCacheEntryResponse, ConversationResponse, MessageRequest, MessageResponse
 
 
 router = APIRouter(tags=["chat"])
@@ -71,21 +72,21 @@ def send_message(conversation_id: int, request: MessageRequest, service: Chatbot
     return MessageResponse.from_message(service.send(conversation_id, request.text))
 
 
-@router.get("/chatbots/{chatbot_id}/routes")
-def list_routes(chatbot_id: int, service: ChatRouteService = Depends(chat_route_service)) -> list[ChatRouteResponse]:
+@router.get("/chatbots/{chatbot_id}/automation-cache")
+def list_automation_cache(chatbot_id: int, service: AutomationCacheService = Depends(automation_cache_service)) -> list[AutomationCacheEntryResponse]:
     """The chatbot's cache entries, oldest first."""
-    return [ChatRouteResponse.from_route(route) for route in service.routes(chatbot_id)]
+    return [AutomationCacheEntryResponse.from_entry(entry) for entry in service.entries(chatbot_id)]
 
 
-@router.post("/messages/{message_id}/route", status_code=status.HTTP_201_CREATED)
-def add_route(message_id: int, request: ChatRouteRequest, service: ChatRouteService = Depends(chat_route_service)) -> ChatRouteResponse:
+@router.post("/messages/{message_id}/automation-cache", status_code=status.HTTP_201_CREATED)
+def add_to_automation_cache(message_id: int, request: AutomationCacheEntryRequest, service: AutomationCacheService = Depends(automation_cache_service)) -> AutomationCacheEntryResponse:
     """Put a user message in its chatbot's cache: similar messages will launch
     the automation directly, without the agent."""
-    return ChatRouteResponse.from_route(service.add(message_id, request.pipeline_id, request.input))
+    return AutomationCacheEntryResponse.from_entry(service.add(message_id, request.pipeline_id, request.input))
 
 
-@router.delete("/chat-routes/{route_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_route(route_id: int, service: ChatRouteService = Depends(chat_route_service)) -> Response:
-    if not service.remove(route_id):
-        raise NotFoundError(f"Voce di cache non trovata: {route_id}")
+@router.delete("/automation-cache/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_from_automation_cache(entry_id: int, service: AutomationCacheService = Depends(automation_cache_service)) -> Response:
+    if not service.remove(entry_id):
+        raise NotFoundError(f"Voce di cache non trovata: {entry_id}")
     return Response(status_code=status.HTTP_204_NO_CONTENT)

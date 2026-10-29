@@ -1,10 +1,10 @@
 """Chatbots, conversations, messages and the chatbots' cache (tables chatbot,
-conversation, message, chat_route)."""
+conversation, message, automation_cache)."""
 from sqlalchemy.engine import Engine
 from sqlmodel import select
 
 from domain.store.db.repository import SqlRepository
-from models.store.db import ChatbotTable, ChatRouteTable, ConversationTable, MessageTable
+from models.store.db import ChatbotTable, AutomationCacheTable, ConversationTable, MessageTable
 
 
 class DbChatbotRepository(SqlRepository[ChatbotTable]):
@@ -47,13 +47,13 @@ class DbMessageRepository(SqlRepository[MessageTable]):
             return list(session.exec(statement).all())
 
 
-class DbChatRouteRepository(SqlRepository[ChatRouteTable]):
+class DbAutomationCacheRepository(SqlRepository[AutomationCacheTable]):
 
     def __init__(self, engine: Engine):
-        super().__init__(engine, ChatRouteTable)
+        super().__init__(engine, AutomationCacheTable)
 
-    def list_for_chatbot(self, chatbot_id: int) -> list[ChatRouteTable]:
+    def list_for_chatbot(self, chatbot_id: int) -> list[AutomationCacheTable]:
         """A chatbot's cache entries, oldest first."""
-        statement = select(ChatRouteTable).where(ChatRouteTable.chatbot_id == chatbot_id).order_by(ChatRouteTable.id)
+        statement = select(AutomationCacheTable).where(AutomationCacheTable.chatbot_id == chatbot_id).order_by(AutomationCacheTable.id)
         with self._session() as session:
             return list(session.exec(statement).all())

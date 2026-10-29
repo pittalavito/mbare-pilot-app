@@ -308,3 +308,19 @@ def test_a_sync_can_apply_only_the_chosen_elements(services, store_service):
     assert _outcomes(report) == [(f"{PROJECT_DIR}/agent.yml", "reviewer", "created"), (f"{PROJECT_DIR}/automation.yml", "Controllo", "created")]
     assert [p.name for p in pipelines.list_pipelines("acme")] == ["Controllo"] and chatbots.list_chatbots("acme") == []
     assert definitions.sync("acme", only=[]).items == []
+
+
+def test_an_automation_chatbot_from_the_files_gets_its_fixed_tools(services, store_service):
+    definitions, chatbots, _ = services
+    _write(store_service, f"{PROJECT_DIR}/chat-bots.yml", f"""chatbots:
+  - {{name: Automazioni, kind: automation, model: {MODEL}, system_prompt: Lancia automation.}}
+  - {{name: Sbagliato, kind: automation, model: {MODEL}, tools: [git_status], system_prompt: X.}}
+""")
+
+    assert _outcomes(definitions.sync("acme")) == [
+        (f"{PROJECT_DIR}/chat-bots.yml", "Automazioni", "created"), (f"{PROJECT_DIR}/chat-bots.yml", "Sbagliato", "error"),
+    ]
+    [bot] = chatbots.list_chatbots("acme")
+    assert (bot.kind.value, bot.tool_names) == ("automation", ["list_automations", "run_automation", "automation_status"])
+    assert _outcomes(definitions.sync("acme"))[0] == (f"{PROJECT_DIR}/chat-bots.yml", "Automazioni", "unchanged")
+    assert "togli tools" in definitions.preview("acme")[1].message

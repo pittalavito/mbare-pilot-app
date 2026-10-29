@@ -39,6 +39,7 @@ from domain.project.data_paths import (
     data_file_name, project_definitions,
 )
 from models.domain.agent import AgentConfig, AgentRole
+from models.domain.chatbot import KIND_TOOLS
 from models.domain.definitions import (
     AgentFile, AutomationFile, ChatbotFile, DefinitionEntry, DefinitionKey, DefinitionKind, DefinitionState, StepFile, SyncItem, SyncOutcome,
     SyncReport,
@@ -209,12 +210,13 @@ class DefinitionService:
             if prompt is None or not prompt.strip():
                 raise ValidationError(f"File del prompt non trovato o vuoto: {path}")
         values = dict(
-            name=spec.name, 
-            system_prompt=prompt.strip(), 
-            model=spec.model, 
+            name=spec.name,
+            kind=spec.kind,
+            system_prompt=prompt.strip(),
+            model=spec.model,
             description=spec.description.strip(),
-            max_steps=spec.max_steps, 
-            tool_names=spec.tools
+            max_steps=spec.max_steps,
+            tool_names=list(KIND_TOOLS.get(spec.kind, spec.tools)),  # a kind's fixed tools: compared as saved
         )
         current = next((bot for bot in self._chatbots.list_chatbots(project_name) if bot.name.lower() == spec.name.lower()), None)
         if current is None:

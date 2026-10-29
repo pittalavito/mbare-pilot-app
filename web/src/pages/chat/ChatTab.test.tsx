@@ -2,14 +2,14 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { Chatbot, ChatRoute, Message } from "../../api/chat";
+import type { Chatbot, AutomationCacheEntry, Message } from "../../api/chat";
 import { mockApi, renderPage } from "../../test/render";
 import { ChatTab } from "./ChatTab";
 
 afterEach(() => vi.unstubAllGlobals());
 
 const CHATBOT: Chatbot = {
-  id: 5, project_name: "acme", name: "Navi bot", description: "", system_prompt: "Rispondi breve.",
+  id: 5, project_name: "acme", name: "Navi bot", kind: "automation", description: "", system_prompt: "Rispondi breve.",
   prompt_version: 2, model: "mock/echo", max_steps: 4, tool_names: ["run_automation"],
 };
 const CONVERSATION = { id: 9, chatbot_id: 5, title: "Stato del repo", created_at: "2026-10-25T10:00:00Z", updated_at: "2026-10-25T10:00:00Z" };
@@ -17,14 +17,14 @@ const message = (id: number, role: string, content: string): Message => ({
   id, conversation_id: 9, role, content, run_id: null, created_at: "2026-10-25T10:00:00Z",
 });
 const PIPELINE = { id: 7, project_name: "acme", name: "Git status", description: "", active: true, steps: [{ name: "S", kind: "function", params: {} }], edges: [] };
-const ROUTE: ChatRoute = {
+const CACHE_ENTRY: AutomationCacheEntry = {
   id: 1, chatbot_id: 5, message_id: 11, text: "com'è il repo?", pipeline_id: 7, pipeline_input: "main", hits: 3, created_at: "2026-10-25T10:00:00Z",
 };
 
 const BASE = {
   "GET /projects/acme/chatbots": [CHATBOT],
   "GET /chatbots/5/conversations": [CONVERSATION],
-  "GET /chatbots/5/routes": [],
+  "GET /chatbots/5/automation-cache": [],
   "GET /projects/acme/pipelines": [PIPELINE],
 };
 
@@ -38,7 +38,7 @@ describe("ChatTab", () => {
       ...BASE,
       "GET /projects/acme/chatbots": [OTHER, CHATBOT],
       "GET /chatbots/6/conversations": [],
-      "GET /chatbots/6/routes": [],
+      "GET /chatbots/6/automation-cache": [],
     });
     renderChat("/projects/acme/chat?bot=5");
 
@@ -63,7 +63,7 @@ describe("ChatTab", () => {
   it("shows the open conversation with the replies and the cache of a message", async () => {
     mockApi({
       ...BASE,
-      "GET /chatbots/5/routes": [ROUTE],
+      "GET /chatbots/5/automation-cache": [CACHE_ENTRY],
       "GET /conversations/9/messages": [
         message(10, "user", "ciao"), message(12, "assistant", "**Ciao!**"),
         message(11, "user", "com'è il repo?"), message(13, "assistant", "⚡ Git status avviata"),
@@ -74,6 +74,25 @@ describe("ChatTab", () => {
     expect(await screen.findByText("Ciao!")).toHaveProperty("tagName", "STRONG"); // markdown
     expect(screen.getByText(/In cache →/)).toHaveTextContent("In cache → Git status · input «main» · usata 3 volte");
     expect(screen.getAllByRole("button", { name: /Metti in cache/ })).toHaveLength(1); // only the message not in cache
+  });
+
+  it("a custom chatbot has no automation cache; the window shows the fixed tools of an automation one", async () => {
+    mockApi({
+      ...BASE,
+      "GET /projects/acme/chatbots": [{ ...CHATBOT, kind: "custom" }],
+      "GET /conversations/9/messages": [message(10, "user", "ciao"), message(12, "assistant", "Ciao!")],
+      "GET /tools": [{ name: "git_status", description: "Stato git", available: true, chatbot_only: false }],
+      "GET /models/choices": { choices: [], usable: [] },
+    });
+    renderChat("/projects/acme/chat?c=9");
+
+    expect(await screen.findByText("Ciao!")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Metti in cache/ })).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Scrivi a Navi bot/)).not.toHaveAttribute("placeholder", expect.stringContaining("cache"));
+
+    fireEvent.click(screen.getByRole("button", { name: /Modifica/ }));
+    fireEvent.click(await screen.findByText("Automation"));
+    expect(await screen.findByText("list_automations, run_automation, automation_status")).toBeInTheDocument();
   });
 
   it("creates the conversation on the first message and opens it", async () => {
@@ -102,11 +121,11 @@ describe("ChatTab", () => {
   });
 
   it("puts a message in the cache with the automation and the fixed input", async () => {
-    const added = vi.fn(async (request: Request) => ({ ...ROUTE, ...(await request.json()) }));
+    const added = vi.fn(async (request: Request) => ({ ...CACHE_ENTRY, ...(await request.json()) }));
     mockApi({
       ...BASE,
       "GET /conversations/9/messages": [message(11, "user", "com'è il repo?"), message(12, "assistant", "Ho lanciato Git status")],
-      "POST /messages/11/route": added,
+      "POST /messages/11/automation-cache": added,
     });
     renderChat("/projects/acme/chat?c=9");
 

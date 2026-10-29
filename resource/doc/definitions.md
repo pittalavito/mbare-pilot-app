@@ -74,6 +74,7 @@ agents:
 ```yaml
 chatbots:
   - name: Assistente
+    kind: custom                   # default; automation = tool fissi (niente tools:) e cache delle automation
     description: Il mio assistente sul progetto
     model: openrouter/google/gemini-2.5-flash-lite
     max_steps: 4
@@ -86,6 +87,7 @@ chatbots:
 ```
 
 - Uno dei due tra `system_prompt` e `system_prompt_file`.
+- **Tipo**: `kind: automation` lancia solo le automation (tool fissi `list_automations`, `run_automation`, `automation_status`, e la cache delle automation): `tools` si omette, e se lo scrivi diverso è un errore. `kind: custom` (il default): i tool li scegli tu.
 - **Più chatbot per progetto**, ognuno con il suo agente: si trovano **per nome** (maiuscole e minuscole indifferenti); quelli che non sono nei file restano come sono.
 - **Globali**: quelli di `global-chat-bots.yml` valgono per ogni progetto, salvo che il progetto ne abbia uno con lo stesso nome nel suo file.
 - **Formato vecchio**: `chat-bot.yml` e `global-chat-bot.yml` (un solo chatbot, senza `chatbots:`) si leggono ancora, come un elenco di uno.

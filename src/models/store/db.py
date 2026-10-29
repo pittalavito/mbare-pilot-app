@@ -5,7 +5,7 @@ Schema overview (project-centric):
   project ─┬─ project_atlassian, atlassian_favorite         (Jira + Confluence site, favorites)
            ├─ agent_role / system_prompt / agent_config   (project_name NULL = global)
            ├─ chatbot (with its own agent) ── conversation ── message
-           │      └── chat_route (cache: message → automation, from a message)
+           │      └── automation_cache (cache: message → automation, from a message)
            ├─ pipeline ── pipeline_step, pipeline_edge (graph)
            │      └── pipeline_run (also the worker queue) ── pipeline_step_run
            ├─ document ── chunk (pgvector embedding)
@@ -145,6 +145,8 @@ class ChatbotTable(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     project_name: str = _project_fk(nullable=False)
     name: str
+    kind: str = "custom"
+    """``automation`` (fixed tools, automation cache) | ``custom``."""
     description: str = ""
     system_prompt: str = Field(sa_type=Text)
     prompt_version: int = 1
@@ -168,10 +170,10 @@ class ConversationTable(SQLModel, table=True):
     updated_at: datetime = _timestamp(index=True)
 
 
-class ChatRouteTable(SQLModel, table=True):
+class AutomationCacheTable(SQLModel, table=True):
     """A chatbot's cache entry: a message that launches an automation without
     the agent. The embedding is JSON, compared in Python: a chatbot has few."""
-    __tablename__ = "chat_route"
+    __tablename__ = "automation_cache"
 
     id: int | None = Field(default=None, primary_key=True)
     chatbot_id: int = Field(foreign_key="chatbot.id", index=True, ondelete="CASCADE")

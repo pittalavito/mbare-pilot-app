@@ -15,10 +15,25 @@ def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+class ChatbotKind(StrEnum):
+    AUTOMATION = "automation"
+    """Launches the project's automations and checks how they went: only
+    KIND_TOOLS' tools (whatever is saved), and the automation cache."""
+    CUSTOM = "custom"
+    """Its tools are chosen freely; no automation cache."""
+
+
+KIND_TOOLS: dict[ChatbotKind, list[str]] = {
+    ChatbotKind.AUTOMATION: ["list_automations", "run_automation", "automation_status"],
+}
+"""The tools a kind imposes on its chatbots; a kind not here lets them be chosen."""
+
+
 class Chatbot(BaseModel):
     id: int | None = None
     project_name: str
     name: Name
+    kind: ChatbotKind = ChatbotKind.CUSTOM
     description: str = ""
     system_prompt: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
     prompt_version: int = Field(default=1, ge=1)
@@ -30,6 +45,15 @@ class Chatbot(BaseModel):
     """NOTE: placeholder, how a chatbot uses the project data is still to be defined."""
     created_at: datetime = Field(default_factory=_utc_now)
     updated_at: datetime = Field(default_factory=_utc_now)
+
+    @property
+    def has_automation_cache(self) -> bool:
+        return self.kind is ChatbotKind.AUTOMATION
+
+    def with_kind_tools(self) -> "Chatbot":
+        """The chatbot with the tools its kind imposes (unchanged for a free kind)."""
+        tools = KIND_TOOLS.get(self.kind)
+        return self if tools is None or self.tool_names == tools else self.model_copy(update={"tool_names": list(tools)})
 
 
 class Conversation(BaseModel):
@@ -48,7 +72,7 @@ class MessageRole(StrEnum):
     """The agent could not answer: shown in the chat, never sent back to the agent."""
 
 
-class ChatRoute(BaseModel):
+class AutomationCacheEntry(BaseModel):
     """A chatbot's cache entry, made by the user from one of their messages: a
     message similar enough to ``text`` launches the automation directly, with
     its fixed input, without running the chatbot's agent."""
@@ -67,8 +91,8 @@ class ChatRoute(BaseModel):
     created_at: datetime = Field(default_factory=_utc_now)
 
 
-class ChatRouteMatch(BaseModel):
-    route: ChatRoute
+class AutomationCacheMatch(BaseModel):
+    entry: AutomationCacheEntry
     similarity: float
     """Cosine of the message and the entry's text, 0..1."""
 

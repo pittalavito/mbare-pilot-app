@@ -4,13 +4,15 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from models.domain.chatbot import ChatMessage, ChatRoute, Chatbot, Conversation
+from models.domain.chatbot import AutomationCacheEntry, ChatMessage, Chatbot, ChatbotKind, Conversation
 
 
 class ChatbotResponse(BaseModel):
     id: int
     project_name: str
     name: str
+    kind: ChatbotKind
+    """``automation``: fixed tools (``tool_names``) and the automation cache; ``custom``: tools chosen freely."""
     description: str
     system_prompt: str
     prompt_version: int
@@ -26,6 +28,8 @@ class ChatbotResponse(BaseModel):
 class ChatbotRequest(BaseModel):
     """Create and update: the project comes from the URL and never changes."""
     name: str
+    kind: ChatbotKind = ChatbotKind.CUSTOM
+    """``automation``: ``tool_names`` is ignored, its tools are the fixed ones."""
     description: str = ""
     system_prompt: str
     model: str
@@ -63,7 +67,7 @@ class MessageRequest(BaseModel):
     text: str
 
 
-class ChatRouteResponse(BaseModel):
+class AutomationCacheEntryResponse(BaseModel):
     """A cache entry of a chatbot (without its embedding)."""
     id: int
     chatbot_id: int
@@ -76,11 +80,11 @@ class ChatRouteResponse(BaseModel):
     created_at: datetime
 
     @classmethod
-    def from_route(cls, route: ChatRoute) -> "ChatRouteResponse":
-        return cls(**route.model_dump(exclude={"embedder", "embedding"}))
+    def from_entry(cls, entry: AutomationCacheEntry) -> "AutomationCacheEntryResponse":
+        return cls(**entry.model_dump(exclude={"embedder", "embedding"}))
 
 
-class ChatRouteRequest(BaseModel):
+class AutomationCacheEntryRequest(BaseModel):
     """Put a user message in cache: similar messages launch this automation, with this fixed input."""
     pipeline_id: int
     input: str = ""

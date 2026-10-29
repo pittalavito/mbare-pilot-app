@@ -6,7 +6,7 @@ with its own steps and tools, as always.
 
 Similarity is the cosine of the texts' embeddings (``Embedder``), compared in
 Python: a chatbot has few entries. Every comparison is logged (the best
-similarities, the threshold, the decision), to tune ``CHAT_ROUTE_THRESHOLD``.
+similarities, the threshold, the decision), to tune ``AUTOMATION_CACHE_THRESHOLD``.
 
 - Same values only: an entry is a candidate only if the message names the same
   sensitive values (the same aliases once masked: ``REPO_7``, ``PERSONA_2``...).
@@ -16,13 +16,13 @@ similarities, the threshold, the decision), to tune ``CHAT_ROUTE_THRESHOLD``.
 - An embedder that sends the text outside the PC (``local`` False) only gets it
   masked with the project's map, as an LLM would.
 - An entry made by another embedder is embedded again from its text when
-  first compared (and saved), so changing ``CHAT_ROUTE_EMBEDDER`` keeps the cache.
+  first compared (and saved), so changing ``AUTOMATION_CACHE_EMBEDDER`` keeps the cache.
 - If embedding fails (network, key), the cache is skipped: the agent answers."""
 from core.error import AppError, ConflictError, NotFoundError, ValidationError
 from core.observability import LogPrefix, log_info, log_warning, observed
 from domain.client.embedding.embedder import Embedder, cosine_similarity
 from domain.masking.masker import aliases_in
-from models.domain.chatbot import ChatRoute, ChatRouteMatch, MessageRole
+from models.domain.chatbot import AutomationCacheEntry, AutomationCacheMatch, MessageRole
 from models.domain.pipeline import Pipeline, PipelineRun
 from service.masking_service import MaskingService, MaskSession
 from service.pipeline_service import PipelineService
@@ -34,7 +34,7 @@ _LOGGED_SCORES = 3
 _LOGGED_TEXT = 80
 
 
-class ChatRouteService:
+class AutomationCacheService:
 
     def __init__(self, store_service: StoreService, pipeline_service: PipelineService, embedder: Embedder, threshold: float, masking_service: MaskingService | None = None):
         """``masking_service`` is required with an embedder that is not local;
@@ -47,12 +47,12 @@ class ChatRouteService:
         self._threshold = threshold
         self._masking = masking_service
 
-    def routes(self, chatbot_id: int) -> list[ChatRoute]:
+    def entries(self, chatbot_id: int) -> list[AutomationCacheEntry]:
         """A chatbot's entries, oldest first."""
-        return self._store.list_chat_routes(chatbot_id)
+        return self._store.list_automation_cache_entries(chatbot_id)
 
-    @observed(LogPrefix.CHAT_ROUTE_SERVICE)
-    def add(self, message_id: int, pipeline_id: int, pipeline_input: str = "") -> ChatRoute:
+    @observed(LogPrefix.AUTOMATION_CACHE_SERVICE)
+    def add(self, message_id: int, pipeline_id: int, pipeline_input: str = "") -> AutomationCacheEntry:
         """Put a user message in its chatbot's cache, launching ``pipeline_id``
         with ``pipeline_input`` (fixed: the same for every similar message)."""
         message = self._store.get_message(message_id)
@@ -60,14 +60,16 @@ class ChatRouteService:
             raise NotFoundError(f"Messaggio non trovato: {message_id}")
         if message.role is not MessageRole.USER:
             raise ValidationError("In cache vanno solo i tuoi messaggi, non le risposte.")
-        chatbot_id = self._store.get_conversation(message.conversation_id).chatbot_id
-        project_name = self._store.get_chatbot(chatbot_id).project_name
+        chatbot = self._store.get_chatbot(self._store.get_conversation(message.conversation_id).chatbot_id)
+        if not chatbot.has_automation_cache:
+            raise ValidationError(f"La cache delle automation è solo dei chatbot di tipo automation: {chatbot.name} non lo è.")
+        chatbot_id, project_name = chatbot.id, chatbot.project_name
         if self._pipelines.get_pipeline(pipeline_id).project_name != project_name:
             raise ValidationError(f"L'automation non è del progetto {project_name}.")
-        if any(route.message_id == message_id for route in self.routes(chatbot_id)):
+        if any(entry.message_id == message_id for entry in self.entries(chatbot_id)):
             raise ConflictError("Questo messaggio è già in cache.")
         text = message.content.removeprefix(CACHE_BYPASS).strip()
-        route = self._store.save_chat_route(ChatRoute(
+        entry = self._store.save_automation_cache_entry(AutomationCacheEntry(
             chatbot_id=chatbot_id,
             message_id=message_id,
             text=text,
@@ -76,53 +78,53 @@ class ChatRouteService:
             pipeline_id=pipeline_id,
             pipeline_input=pipeline_input
         ))
-        log_info(LogPrefix.CHAT_ROUTE_SERVICE, "Cache chatbot %s · voce %s aggiunta: «%s» → automation %s (%s)", chatbot_id, route.id, _short(text), pipeline_id, self._embedder.name)
-        return route
+        log_info(LogPrefix.AUTOMATION_CACHE_SERVICE, "Cache chatbot %s · voce %s aggiunta: «%s» → automation %s (%s)", chatbot_id, entry.id, _short(text), pipeline_id, self._embedder.name)
+        return entry
 
-    def remove(self, route_id: int) -> bool:
-        return self._store.delete_chat_route(route_id)
+    def remove(self, entry_id: int) -> bool:
+        return self._store.delete_automation_cache_entry(entry_id)
 
-    def match(self, chatbot_id: int, text: str) -> ChatRouteMatch | None:
+    def match(self, chatbot_id: int, text: str) -> AutomationCacheMatch | None:
         """The entry most similar to ``text`` among those naming the same
         sensitive values, if at least as similar as the threshold; None also
         when the cache cannot be consulted (logged)."""
-        routes = self.routes(chatbot_id)
-        if not routes:
+        entries = self.entries(chatbot_id)
+        if not entries:
             return None
         session = self._session(self._store.get_chatbot(chatbot_id).project_name)
         values = self._values(text, session)
         try:
             embedding = self._embed(text, session)
             scored = sorted(
-                (ChatRouteMatch(route=route, similarity=cosine_similarity(embedding, self._current(route, session).embedding))
-                 for route in routes),
+                (AutomationCacheMatch(entry=entry, similarity=cosine_similarity(embedding, self._current(entry, session).embedding))
+                 for entry in entries),
                 key=lambda match: match.similarity, reverse=True,
             )
         except AppError as exc:
-            log_warning(LogPrefix.CHAT_ROUTE_SERVICE, "Cache chatbot %s non consultata (%s): risponde l'agente.",
+            log_warning(LogPrefix.AUTOMATION_CACHE_SERVICE, "Cache chatbot %s non consultata (%s): risponde l'agente.",
                         chatbot_id, exc)
             return None
-        same_values = {match.route.id for match in scored if self._values(match.route.text, session) == values}
-        best = next((match for match in scored if match.route.id in same_values), None)
+        same_values = {match.entry.id for match in scored if self._values(match.entry.text, session) == values}
+        best = next((match for match in scored if match.entry.id in same_values), None)
         hit = best is not None and best.similarity >= self._threshold
         log_info(
-            LogPrefix.CHAT_ROUTE_SERVICE, "Cache chatbot %s · «%s» · %s · soglia %.2f → %s",
+            LogPrefix.AUTOMATION_CACHE_SERVICE, "Cache chatbot %s · «%s» · %s · soglia %.2f → %s",
             chatbot_id, _short(session.mask(text) if session else text),
             ", ".join(
-                f"voce {match.route.id}={match.similarity:.3f}" + ("" if match.route.id in same_values else " (altri valori)")
+                f"voce {match.entry.id}={match.similarity:.3f}" + ("" if match.entry.id in same_values else " (altri valori)")
                 for match in scored[:_LOGGED_SCORES]
             ),
-            self._threshold, f"voce {best.route.id}, lancio l'automation" if hit else "nessuna voce, risponde l'agente",
+            self._threshold, f"voce {best.entry.id}, lancio l'automation" if hit else "nessuna voce, risponde l'agente",
         )
         return best if hit else None
 
-    @observed(LogPrefix.CHAT_ROUTE_SERVICE)
-    def launch(self, route: ChatRoute) -> tuple[Pipeline, PipelineRun]:
+    @observed(LogPrefix.AUTOMATION_CACHE_SERVICE)
+    def launch(self, entry: AutomationCacheEntry) -> tuple[Pipeline, PipelineRun]:
         """Queue the entry's automation (checked as run_automation does: active,
         with steps) and count the hit."""
-        run = self._pipelines.enqueue(route.pipeline_id, route.pipeline_input)
-        self._store.save_chat_route(route.model_copy(update={"hits": route.hits + 1}))
-        return self._pipelines.get_pipeline(route.pipeline_id), run
+        run = self._pipelines.enqueue(entry.pipeline_id, entry.pipeline_input)
+        self._store.save_automation_cache_entry(entry.model_copy(update={"hits": entry.hits + 1}))
+        return self._pipelines.get_pipeline(entry.pipeline_id), run
 
     # --------------------------------------------------------------- helpers
     def _session(self, project_name: str) -> MaskSession | None:
@@ -141,17 +143,17 @@ class ChatRouteService:
         so an entry follows values added to the map after it was made)."""
         return aliases_in(session.mask(text)) if session is not None else frozenset()
 
-    def _current(self, route: ChatRoute, session: MaskSession | None) -> ChatRoute:
+    def _current(self, entry: AutomationCacheEntry, session: MaskSession | None) -> AutomationCacheEntry:
         """The entry with an embedding of the configured embedder: one made by
         another embedder is embedded again from its text, and saved."""
-        if route.embedder == self._embedder.name:
-            return route
-        updated = self._store.save_chat_route(route.model_copy(update={
+        if entry.embedder == self._embedder.name:
+            return entry
+        updated = self._store.save_automation_cache_entry(entry.model_copy(update={
             "embedder": self._embedder.name,
-            "embedding": self._embed(route.text, session),
+            "embedding": self._embed(entry.text, session),
         }))
-        log_info(LogPrefix.CHAT_ROUTE_SERVICE, "Cache chatbot %s · voce %s ricalcolata con %s (era %s)",
-                 route.chatbot_id, route.id, self._embedder.name, route.embedder)
+        log_info(LogPrefix.AUTOMATION_CACHE_SERVICE, "Cache chatbot %s · voce %s ricalcolata con %s (era %s)",
+                 entry.chatbot_id, entry.id, self._embedder.name, entry.embedder)
         return updated
 
 

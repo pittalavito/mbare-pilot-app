@@ -1,12 +1,12 @@
-import { Alert, Button, Group, Modal, MultiSelect, NumberInput, Stack, Text, TextInput, Textarea } from "@mantine/core";
+import { Alert, Button, Group, Modal, MultiSelect, NumberInput, SegmentedControl, Stack, Text, TextInput, Textarea } from "@mantine/core";
 import { useEffect, useState } from "react";
 
-import { type Chatbot, type ChatbotRequest, useDeleteChatbot, useSaveChatbot } from "../../api/chat";
+import { CHATBOT_KINDS, type Chatbot, type ChatbotKind, type ChatbotRequest, useDeleteChatbot, useSaveChatbot } from "../../api/chat";
 import { useTools } from "../../api/catalog";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { ModelSelect } from "../../components/ModelSelect";
 
-const EMPTY: ChatbotRequest = { name: "", description: "", system_prompt: "", model: "", max_steps: 4, tool_names: [] };
+const EMPTY: ChatbotRequest = { name: "", kind: "custom", description: "", system_prompt: "", model: "", max_steps: 4, tool_names: [] };
 
 /** Create (``chatbot`` undefined) or edit a chatbot and its agent; editing also deletes it. */
 export function ChatbotModal({ project, chatbot, opened, onClose, onSaved }: {
@@ -26,6 +26,7 @@ export function ChatbotModal({ project, chatbot, opened, onClose, onSaved }: {
   }, [opened]); // a fresh form each time it opens
 
   const set = (patch: Partial<ChatbotRequest>) => setForm((current) => ({ ...current, ...patch }));
+  const kind = CHATBOT_KINDS[form.kind ?? "custom"];
   const available = tools.data ?? [];
   const missing = tools.data ? (chatbot?.tool_names ?? []).filter((name) => !available.some((tool) => tool.name === name)) : [];
   const onSave = () =>
@@ -39,6 +40,15 @@ export function ChatbotModal({ project, chatbot, opened, onClose, onSaved }: {
       <Stack gap="sm">
         <TextInput label="Nome" required value={form.name} onChange={(event) => set({ name: event.currentTarget.value })} />
         <TextInput label="Descrizione" value={form.description} onChange={(event) => set({ description: event.currentTarget.value })} />
+        <div>
+          <Text size="sm" fw={500} mb={4}>Tipo</Text>
+          <SegmentedControl
+            data={Object.entries(CHATBOT_KINDS).map(([value, item]) => ({ value, label: item.label }))}
+            value={form.kind ?? "custom"}
+            onChange={(value) => set({ kind: value as ChatbotKind })}
+          />
+          <Text size="xs" c="dimmed" mt={4}>{kind.description}</Text>
+        </div>
         <Text fw={600} size="sm" mt="xs">Agente del chatbot</Text>
         <Textarea
           label="System prompt"
@@ -62,14 +72,18 @@ export function ChatbotModal({ project, chatbot, opened, onClose, onSaved }: {
             style={{ flex: 1 }}
           />
         </Group>
-        <MultiSelect
-          label="Tool"
-          searchable
-          data={available.map((tool) => ({ value: tool.name, label: tool.description ? `${tool.name} — ${tool.description}` : tool.name }))}
-          value={(form.tool_names ?? []).filter((name) => available.some((tool) => tool.name === name))}
-          onChange={(value) => set({ tool_names: value })}
-        />
-        {missing.length > 0 && (
+        {kind.tools ? (
+          <Text size="sm">Tool (fissi per questo tipo): <code>{kind.tools.join(", ")}</code></Text>
+        ) : (
+          <MultiSelect
+            label="Tool"
+            searchable
+            data={available.map((tool) => ({ value: tool.name, label: tool.description ? `${tool.name} — ${tool.description}` : tool.name }))}
+            value={(form.tool_names ?? []).filter((name) => available.some((tool) => tool.name === name))}
+            onChange={(value) => set({ tool_names: value })}
+          />
+        )}
+        {missing.length > 0 && !kind.tools && (
           <Alert color="orange">Tool non più disponibili, verranno rimossi al salvataggio: {missing.join(", ")}</Alert>
         )}
         {save.error && <Alert color="red">{save.error.message}</Alert>}

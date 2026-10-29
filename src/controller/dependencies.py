@@ -5,7 +5,7 @@ from fastapi import Request
 from service.agent_config_service import AgentConfigService
 from service.atlassian_service import AtlassianService
 from service.backup_service import BackupService
-from service.chat_route_service import ChatRouteService
+from service.automation_cache_service import AutomationCacheService
 from service.chatbot_service import ChatbotService
 from service.copilot_service import CopilotService
 from service.definition_service import DefinitionService
@@ -35,8 +35,8 @@ def chatbot_service(request: Request) -> ChatbotService:
     return request.app.state.container.chatbot_service
 
 
-def chat_route_service(request: Request) -> ChatRouteService:
-    return request.app.state.container.chat_route_service
+def automation_cache_service(request: Request) -> AutomationCacheService:
+    return request.app.state.container.automation_cache_service
 
 
 def definition_service(request: Request) -> DefinitionService:

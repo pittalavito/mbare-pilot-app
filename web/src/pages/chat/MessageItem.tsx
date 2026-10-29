@@ -2,7 +2,7 @@ import { ActionIcon, Alert, Avatar, Button, Group, Paper, Popover, Select, Stack
 import { useState } from "react";
 
 import type { Pipeline } from "../../api/automation";
-import { CACHE_MARK, type ChatRoute, type Message, useAddRoute, useDeleteRoute } from "../../api/chat";
+import { CACHE_MARK, type AutomationCacheEntry, type Message, useAddToAutomationCache, useRemoveFromAutomationCache } from "../../api/chat";
 import { Markdown } from "../../components/Markdown";
 
 type Props = {
@@ -10,20 +10,20 @@ type Props = {
   message: Message;
   /** The message after this one: for a user message, the reply (it proposes the automation to cache). */
   reply?: Message;
-  route?: ChatRoute;
+  entry?: AutomationCacheEntry;
   automations: Pipeline[];
 };
 
 /** A message of the conversation: the user's on the right with its cache
  * controls, the chatbot's on the left (⚡ when it came from the cache). */
-export function MessageItem({ chatbotId, message, reply, route, automations }: Props) {
+export function MessageItem({ chatbotId, message, reply, entry, automations }: Props) {
   if (message.role === "user") {
     return (
       <Stack gap={4} align="flex-end">
         <Paper bg="var(--mantine-primary-color-light)" px="md" py="xs" radius="md" maw="85%">
           <Text size="sm" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{message.content}</Text>
         </Paper>
-        {message.id > 0 && <CacheControls chatbotId={chatbotId} message={message} reply={reply} route={route} automations={automations} />}
+        {message.id > 0 && <CacheControls chatbotId={chatbotId} message={message} reply={reply} entry={entry} automations={automations} />}
       </Stack>
     );
   }
@@ -45,17 +45,17 @@ export function MessageItem({ chatbotId, message, reply, route, automations }: P
 }
 
 /** Under a user message: what it launches when in cache, else «Metti in cache». */
-function CacheControls({ chatbotId, message, reply, route, automations }: Omit<Props, "route"> & { route?: ChatRoute }) {
-  const remove = useDeleteRoute(chatbotId);
-  if (route) {
-    const name = automations.find((item) => item.id === route.pipeline_id)?.name ?? `automation ${route.pipeline_id}`;
+function CacheControls({ chatbotId, message, reply, entry, automations }: Omit<Props, "entry"> & { entry?: AutomationCacheEntry }) {
+  const remove = useRemoveFromAutomationCache(chatbotId);
+  if (entry) {
+    const name = automations.find((item) => item.id === entry.pipeline_id)?.name ?? `automation ${entry.pipeline_id}`;
     return (
       <Group gap={4}>
         <Text size="xs" c="dimmed">
           ⚡ In cache → <b>{name}</b>
-          {route.pipeline_input ? ` · input «${route.pipeline_input}»` : ""} · usata {route.hits} volte
+          {entry.pipeline_input ? ` · input «${entry.pipeline_input}»` : ""} · usata {entry.hits} volte
         </Text>
-        <ActionIcon size="xs" variant="subtle" color="red" title="Togli dalla cache" loading={remove.isPending} onClick={() => remove.mutate(route.id)}>
+        <ActionIcon size="xs" variant="subtle" color="red" title="Togli dalla cache" loading={remove.isPending} onClick={() => remove.mutate(entry.id)}>
           🗑
         </ActionIcon>
         {remove.error && <Text size="xs" c="red">{remove.error.message}</Text>}
@@ -63,16 +63,16 @@ function CacheControls({ chatbotId, message, reply, route, automations }: Omit<P
     );
   }
   if (!automations.length) return null;
-  return <AddRoute chatbotId={chatbotId} message={message} reply={reply} automations={automations} />;
+  return <AddToAutomationCache chatbotId={chatbotId} message={message} reply={reply} automations={automations} />;
 }
 
-function AddRoute({ chatbotId, message, reply, automations }: { chatbotId: number; message: Message; reply?: Message; automations: Pipeline[] }) {
+function AddToAutomationCache({ chatbotId, message, reply, automations }: { chatbotId: number; message: Message; reply?: Message; automations: Pipeline[] }) {
   // Proposed: the automation the reply names (e.g. the one the agent launched).
   const mentioned = automations.find((item) => reply?.content.includes(item.name)) ?? automations[0];
   const [opened, setOpened] = useState(false);
   const [pipelineId, setPipelineId] = useState(String(mentioned.id));
   const [input, setInput] = useState("");
-  const add = useAddRoute(chatbotId);
+  const add = useAddToAutomationCache(chatbotId);
   return (
     <Popover opened={opened} onChange={setOpened} withArrow position="bottom-end">
       <Popover.Target>

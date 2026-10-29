@@ -16,7 +16,7 @@ from service.agent_config_service import AgentConfigService
 from service.agent_service import AgentService
 from service.atlassian_service import AtlassianService
 from service.backup_service import BackupService
-from service.chat_route_service import ChatRouteService
+from service.automation_cache_service import AutomationCacheService
 from service.chat_service import ChatService
 from service.chatbot_service import ChatbotService
 from service.copilot_service import CopilotService
@@ -71,18 +71,18 @@ class Container:
             project_data_service=self.project_data_service,
             copilot_service=self.copilot_service,
         )
-        self.chat_route_service = ChatRouteService(
+        self.automation_cache_service = AutomationCacheService(
             store_service=self.store_service,
             pipeline_service=self.pipeline_service,
-            embedder=EmbedderFactory.create(config.chat_route_embedder),
-            threshold=config.chat_route_threshold,
+            embedder=EmbedderFactory.create(config.automation_cache_embedder),
+            threshold=config.automation_cache_threshold,
             masking_service=self.masking_service,
         )
         self.chatbot_service = ChatbotService(
             store_service=self.store_service,
             agent_config_service=self.agent_config_service,
             agent_service=self.agent_service,
-            route_service=self.chat_route_service,
+            automation_cache=self.automation_cache_service,
         )
         self.definition_service = DefinitionService(
             store_service=self.store_service,

@@ -1,11 +1,13 @@
 # Chatbot di ogni progetto (salvo che il progetto ne abbia uno con lo stesso nome nel suo chat-bots.yml).
 # Un progetto può averne più di uno: ognuno ha il suo agente (prompt, modello, tool).
+# kind: automation (tool fissi e cache delle automation) oppure custom (tool a scelta, il default).
 chatbots:
   - name: Chat bot
+    # automation: i suoi tool sono fissi (list_automations, run_automation, automation_status) e ha la cache delle automation
+    kind: automation
     description: Lancia le automation del progetto e ne controlla lo stato
     model: openrouter/google/gemini-3.1-flash-lite-preview
     max_steps: 4
-    tools: [automation_status, list_automations, run_automation]
     system_prompt: |
       Sei il mio assistente sulle automation del progetto. Rispondi in italiano, breve.
       Per ogni richiesta guarda quali automation ci sono con list_automations, lancia quella adatta con

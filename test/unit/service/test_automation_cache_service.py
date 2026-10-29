@@ -8,13 +8,13 @@ import pytest
 from core.error import ConflictError, UpstreamError, ValidationError
 from domain.client.embedding.embedder import HashingEmbedder
 from fakes import FakeAgent
-from models.domain.chatbot import MessageRole
+from models.domain.chatbot import ChatbotKind, MessageRole
 from models.domain.masking import MaskCategory
 from models.domain.pipeline import PipelineStep, RunStatus, StepAgent, StepKind
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
 from service.agent_service import AgentService
-from service.chat_route_service import ChatRouteService
+from service.automation_cache_service import AutomationCacheService
 from service.chat_service import ChatService
 from service.chatbot_service import ChatbotService
 from service.git_service import GitService
@@ -80,21 +80,21 @@ def pipelines(store_service, agent_config_service):
 
 
 @pytest.fixture
-def routes(store_service, pipelines):
-    return ChatRouteService(store_service, pipelines, HashingEmbedder(), threshold=0.9)
+def cache(store_service, pipelines):
+    return AutomationCacheService(store_service, pipelines, HashingEmbedder(), threshold=0.9)
 
 
 @pytest.fixture
-def chat(store_service, agent_config_service, routes, agent_runs, monkeypatch):
+def chat(store_service, agent_config_service, cache, agent_runs, monkeypatch):
     llm = ChatService()
     monkeypatch.setattr(llm, "get_client", lambda model: object())
     agents = AgentService(llm, agent_config_service, store_service, GitService(store_service))
-    return ChatbotService(store_service, agent_config_service, agents, routes)
+    return ChatbotService(store_service, agent_config_service, agents, cache)
 
 
 @pytest.fixture
 def conversation(chat):
-    chatbot = chat.create_chatbot("acme", "Bot", system_prompt="Sei l'assistente.", model=MODEL)
+    chatbot = chat.create_chatbot("acme", "Bot", system_prompt="Sei l'assistente.", model=MODEL, kind=ChatbotKind.AUTOMATION)
     return chat.new_conversation(chatbot.id)
 
 
@@ -108,10 +108,10 @@ def _user_message(chat, conversation, text):
     return next(m for m in reversed(chat.messages(conversation.id)) if m.role is MessageRole.USER)
 
 
-def test_a_similar_message_launches_the_automation_without_the_agent(chat, routes, pipelines, conversation, agent_runs):
+def test_a_similar_message_launches_the_automation_without_the_agent(chat, cache, pipelines, conversation, agent_runs):
     report = _automation(pipelines)
     first = _user_message(chat, conversation, "lancia il report del giorno")
-    route = routes.add(first.id, report.id, "oggi")
+    entry = cache.add(first.id, report.id, "oggi")
     assert len(agent_runs) == 1
 
     reply = chat.send(conversation.id, "Lancia il report del giorno!")
@@ -121,12 +121,12 @@ def test_a_similar_message_launches_the_automation_without_the_agent(chat, route
     assert reply.role is MessageRole.ASSISTANT and reply.run_id is None
     assert reply.content == f"⚡ Ho lanciato l'automation Report (id {run.id})."
     assert (run.status, run.input) == (RunStatus.QUEUED, "oggi")
-    assert routes.routes(conversation.chatbot_id)[0].hits == 1 and route.text == "lancia il report del giorno"
+    assert cache.entries(conversation.chatbot_id)[0].hits == 1 and entry.text == "lancia il report del giorno"
 
 
-def test_different_messages_and_bang_go_to_the_agent(chat, routes, pipelines, conversation, agent_runs):
+def test_different_messages_and_bang_go_to_the_agent(chat, cache, pipelines, conversation, agent_runs):
     report = _automation(pipelines)
-    routes.add(_user_message(chat, conversation, "lancia il report del giorno").id, report.id)
+    cache.add(_user_message(chat, conversation, "lancia il report del giorno").id, report.id)
 
     chat.send(conversation.id, "come stanno i repository?")
     chat.send(conversation.id, "! lancia il report del giorno")
@@ -135,18 +135,18 @@ def test_different_messages_and_bang_go_to_the_agent(chat, routes, pipelines, co
     assert not chat.messages(conversation.id)[-1].content.startswith("⚡")
 
 
-def test_entries_of_another_embedder_are_embedded_again_and_kept(store_service, pipelines, chat, routes, conversation):
+def test_entries_of_another_embedder_are_embedded_again_and_kept(store_service, pipelines, chat, cache, conversation):
     report = _automation(pipelines)
-    routes.add(_user_message(chat, conversation, "lancia il report").id, report.id)
-    other = ChatRouteService(store_service, pipelines, _OtherEmbedder(), threshold=0.9)
+    cache.add(_user_message(chat, conversation, "lancia il report").id, report.id)
+    other = AutomationCacheService(store_service, pipelines, _OtherEmbedder(), threshold=0.9)
 
     assert other.match(conversation.chatbot_id, "lancia il report").similarity == pytest.approx(1.0)
-    assert [route.embedder for route in other.routes(conversation.chatbot_id)] == ["other"]  # saved with the new one
+    assert [entry.embedder for entry in other.entries(conversation.chatbot_id)] == ["other"]  # saved with the new one
 
 
-def test_an_automation_that_cannot_start_answers_with_an_error(chat, routes, pipelines, conversation):
+def test_an_automation_that_cannot_start_answers_with_an_error(chat, cache, pipelines, conversation):
     report = _automation(pipelines)
-    routes.add(_user_message(chat, conversation, "lancia il report").id, report.id)
+    cache.add(_user_message(chat, conversation, "lancia il report").id, report.id)
     pipelines.update_pipeline(report.id, name="Report", active=False, steps=report.steps)
 
     reply = chat.send(conversation.id, "lancia il report")
@@ -154,27 +154,27 @@ def test_an_automation_that_cannot_start_answers_with_an_error(chat, routes, pip
     assert reply.role is MessageRole.ERROR and "disattivata" in reply.content
 
 
-def test_what_can_be_put_in_cache(chat, routes, pipelines, conversation):
+def test_what_can_be_put_in_cache(chat, cache, pipelines, conversation):
     report, foreign = _automation(pipelines), _automation(pipelines, "Altro", project="other")
     message = _user_message(chat, conversation, "! lancia il report")
     answer = chat.messages(conversation.id)[-1]
 
     with pytest.raises(ValidationError, match="solo i tuoi messaggi"):
-        routes.add(answer.id, report.id)
+        cache.add(answer.id, report.id)
     with pytest.raises(ValidationError, match="non è del progetto"):
-        routes.add(message.id, foreign.id)
-    assert routes.add(message.id, report.id).text == "lancia il report"  # without the bypass
+        cache.add(message.id, foreign.id)
+    assert cache.add(message.id, report.id).text == "lancia il report"  # without the bypass
     with pytest.raises(ConflictError):
-        routes.add(message.id, report.id)
+        cache.add(message.id, report.id)
 
 
-def test_entries_survive_their_conversation(chat, routes, pipelines, conversation):
-    route = routes.add(_user_message(chat, conversation, "lancia il report").id, _automation(pipelines).id)
+def test_entries_survive_their_conversation(chat, cache, pipelines, conversation):
+    entry = cache.add(_user_message(chat, conversation, "lancia il report").id, _automation(pipelines).id)
 
     chat.delete_conversation(conversation.id)
 
-    assert [entry.id for entry in routes.routes(conversation.chatbot_id)] == [route.id]
-    assert routes.remove(route.id) and routes.routes(conversation.chatbot_id) == []
+    assert [entry.id for entry in cache.entries(conversation.chatbot_id)] == [entry.id]
+    assert cache.remove(entry.id) and cache.entries(conversation.chatbot_id) == []
 
 
 # ------------------------------------------------- real embedders, logs
@@ -183,34 +183,49 @@ def test_a_remote_embedder_only_gets_masked_text(store_service, pipelines, chat,
     masking = MaskingService(store_service)
     masking.add_term("acme", MaskCategory.PERSON, "Mario Rossi")
     remote = _RemoteEmbedder()
-    routes = ChatRouteService(store_service, pipelines, remote, threshold=0.9, masking_service=masking)
+    cache = AutomationCacheService(store_service, pipelines, remote, threshold=0.9, masking_service=masking)
 
-    routes.add(_user_message(chat, conversation, "report di Mario Rossi").id, _automation(pipelines).id)
-    routes.match(conversation.chatbot_id, "report di Mario Rossi")
+    cache.add(_user_message(chat, conversation, "report di Mario Rossi").id, _automation(pipelines).id)
+    cache.match(conversation.chatbot_id, "report di Mario Rossi")
 
     assert remote.received == ["report di PERSONA_1", "report di PERSONA_1"]
 
 
 def test_a_remote_embedder_without_masking_is_refused(store_service, pipelines):
     with pytest.raises(ValidationError, match="mascheramento"):
-        ChatRouteService(store_service, pipelines, _RemoteEmbedder(), threshold=0.9)
+        AutomationCacheService(store_service, pipelines, _RemoteEmbedder(), threshold=0.9)
 
 
-def test_if_embedding_fails_the_agent_answers(store_service, pipelines, chat, routes, conversation, agent_runs, caplog):
-    routes.add(_user_message(chat, conversation, "lancia il report").id, _automation(pipelines).id)
-    down = ChatRouteService(store_service, pipelines, _DownEmbedder(), threshold=0.9)
+def test_if_embedding_fails_the_agent_answers(store_service, pipelines, chat, cache, conversation, agent_runs, caplog):
+    cache.add(_user_message(chat, conversation, "lancia il report").id, _automation(pipelines).id)
+    down = AutomationCacheService(store_service, pipelines, _DownEmbedder(), threshold=0.9)
 
     with caplog.at_level(logging.WARNING):
         assert down.match(conversation.chatbot_id, "lancia il report") is None
     assert "non consultata" in caplog.text and "OpenRouter non risponde" in caplog.text
 
 
-def test_every_comparison_is_logged_with_its_similarities(chat, routes, pipelines, conversation, caplog):
-    route = routes.add(_user_message(chat, conversation, "lancia il report").id, _automation(pipelines).id)
+def test_every_comparison_is_logged_with_its_similarities(chat, cache, pipelines, conversation, caplog):
+    entry = cache.add(_user_message(chat, conversation, "lancia il report").id, _automation(pipelines).id)
 
     with caplog.at_level(logging.INFO):
-        routes.match(conversation.chatbot_id, "lancia il report")
-        routes.match(conversation.chatbot_id, "stato dei repository")
+        cache.match(conversation.chatbot_id, "lancia il report")
+        cache.match(conversation.chatbot_id, "stato dei repository")
 
-    assert f"voce {route.id}=1.000 · soglia 0.90 → voce {route.id}, lancio l'automation" in caplog.text
-    assert f"voce {route.id}=0.000 · soglia 0.90 → nessuna voce, risponde l'agente" in caplog.text
+    assert f"voce {entry.id}=1.000 · soglia 0.90 → voce {entry.id}, lancio l'automation" in caplog.text
+    assert f"voce {entry.id}=0.000 · soglia 0.90 → nessuna voce, risponde l'agente" in caplog.text
+
+
+def test_only_an_automation_chatbot_has_the_cache_and_its_fixed_tools(chat, cache, pipelines, conversation, agent_runs):
+    report = _automation(pipelines)
+    custom = chat.create_chatbot("acme", "Libero", system_prompt="Fai tu.", model=MODEL, tool_names=["git_status"])
+    talk = chat.new_conversation(custom.id)
+    with pytest.raises(ValidationError, match="solo dei chatbot di tipo automation"):
+        cache.add(_user_message(chat, talk, "lancia il report").id, report.id)
+
+    automation = chat.get_chatbot(conversation.chatbot_id)
+    assert automation.tool_names == ["list_automations", "run_automation", "automation_status"]
+    edited = chat.update_chatbot(automation.id, name="Bot", system_prompt="Sei l'assistente.", model=MODEL, tool_names=["git_status"])
+    assert edited.kind is ChatbotKind.AUTOMATION and edited.tool_names == automation.tool_names  # imposed, whatever is asked
+    assert chat.update_chatbot(custom.id, name="Libero", system_prompt="Fai tu.", model=MODEL, tool_names=["git_status"]).tool_names == ["git_status"]
+

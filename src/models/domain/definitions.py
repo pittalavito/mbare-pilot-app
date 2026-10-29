@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_vali
 
 from models.domain.agent import Name
 from models.domain.chat import ModelKey
+from models.domain.chatbot import KIND_TOOLS, ChatbotKind
 from models.domain.pipeline import INPUT, EdgeConditionKind
 
 Prompt = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
@@ -45,6 +46,8 @@ class ChatbotFile(_File):
     the project, matched by name. The prompt is written here or in a file next
     to this one (``system_prompt_file``), used as it is."""
     name: Name
+    kind: ChatbotKind = ChatbotKind.CUSTOM
+    """``automation``: its tools are fixed (leave ``tools`` out) and it has the automation cache."""
     description: str = ""
     model: ModelKey
     max_steps: int = Field(default=4, ge=1, le=50)
@@ -56,6 +59,9 @@ class ChatbotFile(_File):
     def _one_prompt(self) -> "ChatbotFile":
         if (self.system_prompt is None) == (self.system_prompt_file is None):
             raise ValueError("scrivi system_prompt oppure system_prompt_file (uno dei due)")
+        fixed = KIND_TOOLS.get(self.kind)
+        if fixed is not None and self.tools and sorted(self.tools) != sorted(fixed):
+            raise ValueError(f"un chatbot {self.kind} ha i suoi tool ({', '.join(fixed)}): togli tools")
         return self
 
 

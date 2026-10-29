@@ -24,7 +24,7 @@ from domain.store.db.store import (
     DbChatbotRepository,
     DbConversationRepository,
     DbMessageRepository,
-    DbChatRouteRepository,
+    DbAutomationCacheRepository,
     DbPipelineEdgeRepository,
     DbPipelineRepository,
     DbPipelineRunRepository,
@@ -47,7 +47,7 @@ from domain.store.redis.store import Adapter as RedisAdapter, Client as RedisCli
 from models.domain.agent import AgentConfig, AgentRole, AgentRunRecord, AgentRunSummary, SystemPrompt, ToolCallSummary, ToolInfo
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
 from models.domain.chat import ChatModel
-from models.domain.chatbot import ChatMessage, ChatRoute, Chatbot, Conversation
+from models.domain.chatbot import ChatMessage, AutomationCacheEntry, Chatbot, Conversation
 from models.domain.copilot import CopilotMessage, CopilotModelUsage, CopilotSession, CopilotSessionStatus, CopilotTurnRecord
 from models.domain.pipeline import Pipeline, PipelineRun, PipelineStepRun, RunStatus
 from models.domain.project import Project, ProjectSource
@@ -79,7 +79,7 @@ class StoreService:
         self._chatbot_repository = DbChatbotRepository(engine)
         self._conversation_repository = DbConversationRepository(engine)
         self._message_repository = DbMessageRepository(engine)
-        self._chat_route_repository = DbChatRouteRepository(engine)
+        self._automation_cache_repository = DbAutomationCacheRepository(engine)
         self._pipeline_repository = DbPipelineRepository(engine)
         self._pipeline_step_repository = DbPipelineStepRepository(engine)
         self._pipeline_edge_repository = DbPipelineEdgeRepository(engine)
@@ -264,19 +264,19 @@ class StoreService:
     def save_message(self, message: ChatMessage) -> ChatMessage:
         return DbAdapter.to_message(self._message_repository.save(DbFactory.to_message_row(message)))
 
-    def list_chat_routes(self, chatbot_id: int) -> list[ChatRoute]:
+    def list_automation_cache_entries(self, chatbot_id: int) -> list[AutomationCacheEntry]:
         """A chatbot's cache entries, oldest first."""
-        return [DbAdapter.to_chat_route(row) for row in self._chat_route_repository.list_for_chatbot(chatbot_id)]
+        return [DbAdapter.to_automation_cache_entry(row) for row in self._automation_cache_repository.list_for_chatbot(chatbot_id)]
 
-    def get_chat_route(self, route_id: int) -> ChatRoute | None:
-        row = self._chat_route_repository.get(route_id)
-        return DbAdapter.to_chat_route(row) if row else None
+    def get_automation_cache_entry(self, entry_id: int) -> AutomationCacheEntry | None:
+        row = self._automation_cache_repository.get(entry_id)
+        return DbAdapter.to_automation_cache_entry(row) if row else None
 
-    def save_chat_route(self, route: ChatRoute) -> ChatRoute:
-        return DbAdapter.to_chat_route(self._chat_route_repository.save(DbFactory.to_chat_route_row(route)))
+    def save_automation_cache_entry(self, entry: AutomationCacheEntry) -> AutomationCacheEntry:
+        return DbAdapter.to_automation_cache_entry(self._automation_cache_repository.save(DbFactory.to_automation_cache_row(entry)))
 
-    def delete_chat_route(self, route_id: int) -> bool:
-        return self._chat_route_repository.delete(route_id)
+    def delete_automation_cache_entry(self, entry_id: int) -> bool:
+        return self._automation_cache_repository.delete(entry_id)
 
     # ------------------------------------------------------------- pipelines
     def list_pipelines(self, project_name: str) -> list[Pipeline]:

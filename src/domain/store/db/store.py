@@ -11,7 +11,7 @@ from domain.store.db.atlassian_favorite_repository import DbAtlassianFavoriteRep
 from domain.store.db.atlassian_repository import DbAtlassianRepository
 from domain.store.db.chatbot_repository import (
     DbChatbotRepository,
-    DbChatRouteRepository,
+    DbAutomationCacheRepository,
     DbConversationRepository,
     DbMessageRepository,
 )
@@ -42,7 +42,7 @@ from models.domain.agent import (
 )
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
 from models.domain.chat import ChatModel, EmbeddingModelName
-from models.domain.chatbot import ChatMessage, ChatRoute, Chatbot, Conversation, MessageRole
+from models.domain.chatbot import ChatMessage, AutomationCacheEntry, Chatbot, Conversation, MessageRole
 from models.domain.copilot import (
     CopilotMessage, CopilotMessageRole, CopilotModelUsage, CopilotPhase, CopilotSession, CopilotSessionStatus, CopilotTurnRecord, CopilotUsage,
 )
@@ -66,7 +66,7 @@ from models.store.db import (
     AgentRunTable,
     AtlassianFavoriteTable,
     ChatbotTable,
-    ChatRouteTable,
+    AutomationCacheTable,
     ConversationTable,
     CopilotMessageTable,
     CopilotSessionTable,
@@ -91,7 +91,7 @@ __all__ = [
     "DbAtlassianFavoriteRepository",
     "DbAtlassianRepository",
     "DbChatbotRepository",
-    "DbChatRouteRepository",
+    "DbAutomationCacheRepository",
     "DbConversationRepository",
     "DbMessageRepository",
     "DbPipelineEdgeRepository",
@@ -268,10 +268,10 @@ class Adapter:
         )
 
     @staticmethod
-    def to_chat_route(row: ChatRouteTable) -> ChatRoute:
-        route = ChatRoute.model_validate(row.model_dump())
-        route.created_at = _as_utc(route.created_at)
-        return route
+    def to_automation_cache_entry(row: AutomationCacheTable) -> AutomationCacheEntry:
+        entry = AutomationCacheEntry.model_validate(row.model_dump())
+        entry.created_at = _as_utc(entry.created_at)
+        return entry
 
     @staticmethod
     def to_pipeline(row: PipelineTable, step_rows: list[PipelineStepTable],
@@ -432,8 +432,8 @@ class Factory:
         return MessageTable(**{**message.model_dump(), "role": message.role.value})
 
     @staticmethod
-    def to_chat_route_row(route: ChatRoute) -> ChatRouteTable:
-        return ChatRouteTable(**{**route.model_dump(), "embedding": list(route.embedding)})
+    def to_automation_cache_row(entry: AutomationCacheEntry) -> AutomationCacheTable:
+        return AutomationCacheTable(**{**entry.model_dump(), "embedding": list(entry.embedding)})
 
     @staticmethod
     def to_atlassian_row(settings: AtlassianSettings, encrypted_token: str) -> ProjectAtlassianTable:

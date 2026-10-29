@@ -74,3 +74,20 @@ def test_up_to_date_schema_is_left_alone(outdated):
 
     with outdated.connect() as connection:
         assert connection.execute(text("SELECT count(*) FROM conversation")).scalar() == 1
+
+
+def test_a_table_renamed_in_code_is_renamed_in_place_with_its_rows():
+    """``automation_cache`` as it was called before: ``chat_route``, with an entry."""
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    SQLModel.metadata.create_all(engine)
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE automation_cache RENAME TO chat_route"))
+        connection.execute(text("INSERT INTO chat_route (chatbot_id, text, embedding, embedder, pipeline_id, pipeline_input, hits, created_at) "
+                                "VALUES (1, 'lancia il report', '[]', 'hashing', 7, '', 3, CURRENT_TIMESTAMP)"))
+
+    Engine._rename_tables(engine)
+    Engine._rename_tables(engine)  # a second start: nothing left to do
+
+    assert "chat_route" not in inspect(engine).get_table_names()
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT text, hits FROM automation_cache")).one() == ("lancia il report", 3)

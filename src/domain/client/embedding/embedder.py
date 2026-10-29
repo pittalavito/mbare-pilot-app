@@ -1,7 +1,7 @@
 """Text embeddings for the chatbots' cache (and, later, the RAG index).
 
 ``Embedder`` is the interface, built by ``Factory`` from the configured name
-(Config ``CHAT_ROUTE_EMBEDDER``):
+(Config ``AUTOMATION_CACHE_EMBEDDER``):
 
 - ``hashing``: a mock, no model and no network. Each word (lowercase, no
   accents, no stopwords) is hashed to a fixed position of the vector, so texts

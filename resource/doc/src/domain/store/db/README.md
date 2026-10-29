@@ -13,7 +13,7 @@ src/domain/store/db/
   agent_config_repository.py  agenti (Libreria e di progetto)
   tool_repository.py          catalogo dei tool
   chat_model_repository.py    catalogo dei modelli LLM
-  chatbot_repository.py       chatbot, conversazioni, messaggi, cache (chat_route)
+  chatbot_repository.py       chatbot, conversazioni, messaggi, cache (automation_cache)
   pipeline_repository.py      automation, step, collegamenti del grafo, run (anche coda del worker), step delle run
   run_repository.py           run degli agenti e loro tool call
   store.py                    punto unico di import + Adapter (lettura) e Factory (scrittura)
@@ -26,6 +26,7 @@ Le tabelle stanno in [`models/store/db.py`](../../../models/README.md), con la m
 `Engine.create_db_engine(DATABASE_URL)` si connette e prepara lo schema all'avvio:
 
 1. su Postgres attiva l'estensione **pgvector** (`CREATE EXTENSION IF NOT EXISTS vector`);
+1. rinomina le **tabelle rinominate nel codice** (`RENAMED_TABLES` in `repository.py`, es. `chat_route` → `automation_cache`) con `ALTER TABLE … RENAME TO`, se c'è ancora solo quella vecchia: le righe restano; indici e sequenze tengono il vecchio nome, senza conseguenze;
 2. aggiunge alle tabelle esistenti le **colonne nuove** che si possono aggiungere senza toccare le righe: nullable, o con un default scalare (es. `model: str = ""`), che diventa il `DEFAULT` della colonna (`ALTER TABLE … ADD COLUMN`, nel log);
 3. controlla le tabelle esistenti: se le colonne nel codice sono ancora diverse (una tolta, rinominata, nuova obbligatoria senza default), la tabella va ricreata;
 4. `create_all` crea le tabelle che mancano.

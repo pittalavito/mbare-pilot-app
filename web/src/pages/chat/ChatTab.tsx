@@ -1,8 +1,8 @@
-import { Alert, Box, Button, Card, Grid, Group, Loader, NavLink, ScrollArea, Stack, Text, Textarea } from "@mantine/core";
+import { Alert, Badge, Box, Button, Card, Grid, Group, Loader, NavLink, ScrollArea, Stack, Text, Textarea } from "@mantine/core";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 
-import { type Chatbot, useChatbots, useConversations, useDeleteConversation, useMessages, useRoutes, useSendMessage } from "../../api/chat";
+import { CHATBOT_KINDS, type Chatbot, useAutomationCache, useChatbots, useConversations, useDeleteConversation, useMessages, useSendMessage } from "../../api/chat";
 import { usePipelines } from "../../api/automation";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { ChatbotModal } from "./ChatbotModal";
@@ -10,8 +10,9 @@ import { MessageItem } from "./MessageItem";
 
 /** The Chat tab of a project: its chatbots (each with its own agent) on the
  * left, ``?bot=`` the open one with its conversations, ``?c=`` the open
- * conversation on the right. A reply arrives whole (no streaming yet). A
- * message starting with ``!`` skips the cache. */
+ * conversation on the right. A reply arrives whole (no streaming yet). An
+ * automation chatbot has the automation cache: «Metti in cache» on a message,
+ * and a message starting with ``!`` skips it. */
 export function ChatTab() {
   const { project = "" } = useParams();
   const chatbots = useChatbots(project);
@@ -81,7 +82,14 @@ function ChatbotList({ chatbots, selected, onSelect, onAdd }: { chatbots: Chatbo
         <Button size="compact-xs" variant="subtle" onClick={onAdd}>➕ Nuovo chatbot</Button>
       </Group>
       {chatbots.map((bot) => (
-        <NavLink key={bot.id} label={bot.name} description={bot.description || undefined} active={bot.id === selected.id} onClick={() => onSelect(bot)} />
+        <NavLink
+          key={bot.id}
+          label={bot.name}
+          description={bot.description || undefined}
+          rightSection={<Badge size="xs" variant="light" color={bot.kind === "automation" ? "grape" : "gray"}>{CHATBOT_KINDS[bot.kind].label}</Badge>}
+          active={bot.id === selected.id}
+          onClick={() => onSelect(bot)}
+        />
       ))}
     </Stack>
   );
@@ -122,7 +130,7 @@ function ConversationView({ chatbot }: { chatbot: Chatbot }) {
   const known = conversations.data?.some((conversation) => conversation.id === conversationId);
   const current = known ? conversationId : undefined; // a deleted or foreign id: a new conversation
   const messages = useMessages(current);
-  const routes = useRoutes(chatbot.id);
+  const cache = useAutomationCache(chatbot.id);
   const pipelines = usePipelines(chatbot.project_name);
   const send = useSendMessage(chatbot.id);
   const [text, setText] = useState("");
@@ -130,8 +138,9 @@ function ConversationView({ chatbot }: { chatbot: Chatbot }) {
   const bottom = useRef<HTMLDivElement>(null);
 
   const list = current === undefined ? [] : (messages.data ?? []);
-  const automations = (pipelines.data ?? []).filter((pipeline) => pipeline.active && pipeline.steps.length);
-  const routeByMessage = new Map((routes.data ?? []).flatMap((route) => (route.message_id === null ? [] : [[route.message_id, route]])));
+  const hasCache = chatbot.kind === "automation"; // only an automation chatbot has the automation cache
+  const automations = hasCache ? (pipelines.data ?? []).filter((pipeline) => pipeline.active && pipeline.steps.length) : [];
+  const cacheByMessage = new Map(hasCache ? (cache.data ?? []).flatMap((entry) => (entry.message_id === null ? [] : [[entry.message_id, entry]])) : []);
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: "end" }); // braces: browsers may return a promise, not a cleanup
@@ -166,7 +175,7 @@ function ConversationView({ chatbot }: { chatbot: Chatbot }) {
                 chatbotId={chatbot.id}
                 message={message}
                 reply={list[index + 1]}
-                route={routeByMessage.get(message.id)}
+                entry={cacheByMessage.get(message.id)}
                 automations={automations}
               />
             ))}
@@ -190,7 +199,7 @@ function ConversationView({ chatbot }: { chatbot: Chatbot }) {
           autosize
           minRows={1}
           maxRows={8}
-          placeholder={`Scrivi a ${chatbot.name}… (Invio per mandare, Maiusc+Invio per andare a capo; inizia con ! per saltare la cache)`}
+          placeholder={`Scrivi a ${chatbot.name}… (Invio per mandare, Maiusc+Invio per andare a capo${hasCache ? "; inizia con ! per saltare la cache" : ""})`}
           value={text}
           onChange={(event) => setText(event.currentTarget.value)}
           onKeyDown={(event) => {

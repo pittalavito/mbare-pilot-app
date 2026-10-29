@@ -447,7 +447,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/chatbots/{chatbot_id}/routes": {
+    "/chatbots/{chatbot_id}/automation-cache": {
         parameters: {
             query?: never;
             header?: never;
@@ -455,10 +455,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List Routes
+         * List Automation Cache
          * @description The chatbot's cache entries, oldest first.
          */
-        get: operations["list_routes_chatbots__chatbot_id__routes_get"];
+        get: operations["list_automation_cache_chatbots__chatbot_id__automation_cache_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -467,7 +467,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/messages/{message_id}/route": {
+    "/messages/{message_id}/automation-cache": {
         parameters: {
             query?: never;
             header?: never;
@@ -477,18 +477,18 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Add Route
+         * Add To Automation Cache
          * @description Put a user message in its chatbot's cache: similar messages will launch
          *     the automation directly, without the agent.
          */
-        post: operations["add_route_messages__message_id__route_post"];
+        post: operations["add_to_automation_cache_messages__message_id__automation_cache_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/chat-routes/{route_id}": {
+    "/automation-cache/{entry_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -498,8 +498,8 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete Route */
-        delete: operations["delete_route_chat_routes__route_id__delete"];
+        /** Remove From Automation Cache */
+        delete: operations["remove_from_automation_cache_automation_cache__entry_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1768,6 +1768,44 @@ export interface components {
             /** Email */
             email: string | null;
         };
+        /**
+         * AutomationCacheEntryRequest
+         * @description Put a user message in cache: similar messages launch this automation, with this fixed input.
+         */
+        AutomationCacheEntryRequest: {
+            /** Pipeline Id */
+            pipeline_id: number;
+            /**
+             * Input
+             * @default
+             */
+            input: string;
+        };
+        /**
+         * AutomationCacheEntryResponse
+         * @description A cache entry of a chatbot (without its embedding).
+         */
+        AutomationCacheEntryResponse: {
+            /** Id */
+            id: number;
+            /** Chatbot Id */
+            chatbot_id: number;
+            /** Message Id */
+            message_id: number | null;
+            /** Text */
+            text: string;
+            /** Pipeline Id */
+            pipeline_id: number;
+            /** Pipeline Input */
+            pipeline_input: string;
+            /** Hits */
+            hits: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** BackupResponse */
         BackupResponse: {
             /** Name */
@@ -1831,43 +1869,10 @@ export interface components {
             original_path: string | null;
         };
         /**
-         * ChatRouteRequest
-         * @description Put a user message in cache: similar messages launch this automation, with this fixed input.
+         * ChatbotKind
+         * @enum {string}
          */
-        ChatRouteRequest: {
-            /** Pipeline Id */
-            pipeline_id: number;
-            /**
-             * Input
-             * @default
-             */
-            input: string;
-        };
-        /**
-         * ChatRouteResponse
-         * @description A cache entry of a chatbot (without its embedding).
-         */
-        ChatRouteResponse: {
-            /** Id */
-            id: number;
-            /** Chatbot Id */
-            chatbot_id: number;
-            /** Message Id */
-            message_id: number | null;
-            /** Text */
-            text: string;
-            /** Pipeline Id */
-            pipeline_id: number;
-            /** Pipeline Input */
-            pipeline_input: string;
-            /** Hits */
-            hits: number;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-        };
+        ChatbotKind: "automation" | "custom";
         /**
          * ChatbotRequest
          * @description Create and update: the project comes from the URL and never changes.
@@ -1875,6 +1880,8 @@ export interface components {
         ChatbotRequest: {
             /** Name */
             name: string;
+            /** @default custom */
+            kind: components["schemas"]["ChatbotKind"];
             /**
              * Description
              * @default
@@ -1900,6 +1907,7 @@ export interface components {
             project_name: string;
             /** Name */
             name: string;
+            kind: components["schemas"]["ChatbotKind"];
             /** Description */
             description: string;
             /** System Prompt */
@@ -4152,7 +4160,7 @@ export interface operations {
             };
         };
     };
-    list_routes_chatbots__chatbot_id__routes_get: {
+    list_automation_cache_chatbots__chatbot_id__automation_cache_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -4169,7 +4177,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ChatRouteResponse"][];
+                    "application/json": components["schemas"]["AutomationCacheEntryResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -4183,7 +4191,7 @@ export interface operations {
             };
         };
     };
-    add_route_messages__message_id__route_post: {
+    add_to_automation_cache_messages__message_id__automation_cache_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -4194,7 +4202,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ChatRouteRequest"];
+                "application/json": components["schemas"]["AutomationCacheEntryRequest"];
             };
         };
         responses: {
@@ -4204,7 +4212,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ChatRouteResponse"];
+                    "application/json": components["schemas"]["AutomationCacheEntryResponse"];
                 };
             };
             /** @description Validation Error */
@@ -4218,12 +4226,12 @@ export interface operations {
             };
         };
     };
-    delete_route_chat_routes__route_id__delete: {
+    remove_from_automation_cache_automation_cache__entry_id__delete: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                route_id: number;
+                entry_id: number;
             };
             cookie?: never;
         };

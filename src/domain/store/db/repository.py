@@ -3,7 +3,8 @@
 live in their own files under domain/store/db/.
 
 Schema migrations are out of scope (no Alembic): ``create_all`` creates the
-missing tables at startup. A column added in code that is nullable or has a
+missing tables at startup. A table renamed in code is renamed in place first
+(``RENAMED_TABLES``, rows kept). A column added in code that is nullable or has a
 scalar default is added in place (``ALTER TABLE ADD COLUMN``), rows kept. Any
 other change recreates the table only while it is empty (with the tables
 referencing it); with rows the app stops and says which table to migrate by hand.
@@ -22,6 +23,9 @@ import models.store.db  # noqa: F401
 
 TableT = TypeVar("TableT", bound=SQLModel)
 
+RENAMED_TABLES = {"chat_route": "automation_cache"}
+"""Old name → new name: renamed at startup when only the old one exists."""
+
 
 class Engine:
 
@@ -38,10 +42,25 @@ class Engine:
             # chunk.embedding is a pgvector column (image pgvector/pgvector).
             with engine.begin() as connection:
                 connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        Engine._rename_tables(engine)
         Engine._add_missing_columns(engine)
         Engine._drop_outdated_empty_tables(engine)
         SQLModel.metadata.create_all(engine)
         return engine
+
+    @staticmethod
+    def _rename_tables(engine: SqlAlchemyEngine) -> None:
+        """``ALTER TABLE old RENAME TO new`` for each table of RENAMED_TABLES
+        that still has its old name (and no table has the new one yet): the
+        rows stay. Its indexes and sequences keep their old names, which is harmless."""
+        existing = set(inspect(engine).get_table_names())
+        renamed = [(old, new) for old, new in RENAMED_TABLES.items() if old in existing and new not in existing]
+        if not renamed:
+            return
+        with engine.begin() as connection:
+            for old, new in renamed:
+                connection.execute(text(f"ALTER TABLE {old} RENAME TO {new}"))
+        log_warning(LogPrefix.DB_ENGINE, "Tabelle rinominate: %s", ", ".join(f"{old} → {new}" for old, new in renamed))
 
     @staticmethod
     def _add_missing_columns(engine: SqlAlchemyEngine) -> None:
