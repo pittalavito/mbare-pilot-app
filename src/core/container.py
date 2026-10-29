@@ -46,7 +46,7 @@ class Container:
         self.model_service = ModelService(store_service=self.store_service)
         self.agent_config_service = AgentConfigService(store_service=self.store_service)
         self.project_data_service = ProjectDataService(store_service=self.store_service)
-        self.atlassian_service = AtlassianService(store_service=self.store_service)
+        self.atlassian_service = AtlassianService(store_service=self.store_service, project_data_service=self.project_data_service)
         self.git_service = GitService(store_service=self.store_service)
         self.masking_service = MaskingService(store_service=self.store_service)
         self.pipeline_service = PipelineService(store_service=self.store_service, agent_config_service=self.agent_config_service)

@@ -101,3 +101,15 @@ class FavoriteRequest(BaseModel):
     ref: str
     title: str
     url: str = ""
+
+
+class ReferenceImportRequest(BaseModel):
+    link_to: list[str] = []
+    """Agent tasks and todo lists (note names) that will link the reference."""
+
+
+class ReferenceImportResponse(BaseModel):
+    name: str
+    """The reference note (``context-reference-<title>.md``)."""
+    created: bool
+    """False: it was there already (copied from the same link) and was refreshed."""

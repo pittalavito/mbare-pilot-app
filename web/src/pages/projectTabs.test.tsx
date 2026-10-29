@@ -89,6 +89,36 @@ describe("AtlassianTab", () => {
     await waitFor(() => expect(added).toHaveBeenCalled());
     expect(await added.mock.results[0].value).toEqual({ kind: "jira_issue", ref: "NAV-7", title: "Porto bloccato", url: "https://acme.atlassian.net/browse/NAV-7" });
   });
+
+  it("copies an issue into a context reference linked to the chosen agent task", async () => {
+    const copied = vi.fn(async (request: Request) => {
+      expect(await request.json()).toEqual({ link_to: ["agent-task-fix.md"] });
+      return { name: "context-reference-nav-7-porto-bloccato.md", created: true };
+    });
+    mockApi({
+      "GET /projects/acme/atlassian": { base_url: "https://acme.atlassian.net", email: "a@b.it", has_token: true, jira_project_key: "NAV", confluence_space_key: "" },
+      "GET /projects/acme/atlassian/favorites": [],
+      "GET /projects/acme/atlassian/jira/issues/NAV-7": {
+        key: "NAV-7", summary: "Porto bloccato", status: "In corso", issue_type: "Bug", priority: null, assignee: null, updated: null,
+        description: "Dettagli", url: "https://acme.atlassian.net/browse/NAV-7",
+      },
+      "GET /projects/acme/agent-tasks": [{ name: "agent-task-fix.md", title: "Fix", status: "todo", objective: "", context: "", criteria: [], constraints: "", references: [] }],
+      "GET /projects/acme/todo-lists": [],
+      "POST /projects/acme/atlassian/jira/issues/NAV-7/reference": copied,
+    });
+    inProject("atlassian", <AtlassianTab />);
+
+    fireEvent.change(await screen.findByPlaceholderText("NAV-123"), { target: { value: "NAV-7" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cerca" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Crea riferimento/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByPlaceholderText("Scegli agent task o todo list"));
+    fireEvent.click(await screen.findByRole("option", { name: "Fix" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Crea" }));
+
+    await waitFor(() => expect(copied).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument()); // done: the window closes
+  });
 });
 
 describe("SettingsTab", () => {

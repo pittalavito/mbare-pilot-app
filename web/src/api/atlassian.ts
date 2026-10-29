@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api, unwrap } from "./client";
+import { dataKeys } from "./projectData";
 import { projectKeys } from "./projects";
 import type { components } from "./schema";
 
@@ -96,5 +97,20 @@ export function useRemoveFavorite(project: string) {
     mutationFn: (id: number) =>
       unwrap(api.DELETE("/projects/{project}/atlassian/favorites/{favorite_id}", { params: { path: { project, favorite_id: id } } })),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: favoritesKey(project) }),
+  });
+}
+
+/** Copy a Jira issue or a Confluence page into the project as a context
+ * reference (a second time it is refreshed), linked from ``link_to``. */
+export function useCopyToReference(project: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ from, id, link_to }: { from: "issue" | "page"; id: string; link_to: string[] }) =>
+      unwrap(
+        from === "issue"
+          ? api.POST("/projects/{project}/atlassian/jira/issues/{issue_key}/reference", { params: { path: { project, issue_key: id } }, body: { link_to } })
+          : api.POST("/projects/{project}/atlassian/confluence/pages/{page_id}/reference", { params: { path: { project, page_id: id } }, body: { link_to } }),
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: dataKeys.typed(project) }),
   });
 }

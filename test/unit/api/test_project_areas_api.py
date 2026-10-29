@@ -289,6 +289,31 @@ def test_jira_and_confluence_reads(client, monkeypatch):
     assert client.get("/projects/acme/atlassian/confluence/search", params={"q": " "}).status_code == 400
 
 
+def test_an_issue_or_a_page_becomes_a_context_reference_linked_where_chosen(client, monkeypatch):
+    site = AtlassianSite(_FakeJira(), _FakeConfluence())
+    monkeypatch.setattr(client.app.state.container.atlassian_service, "site", lambda project: site)
+    task = client.post("/projects/acme/agent-tasks", json={"title": "Fix"}).json()["name"]
+    todo = client.post("/projects/acme/todo-lists", json={"title": "Giro"}).json()["name"]
+
+    created = client.post("/projects/acme/atlassian/jira/issues/proj-12/reference", json={"link_to": [task, todo]})
+    assert created.status_code == 201
+    name = created.json()["name"]
+    [reference] = client.get("/projects/acme/references").json()
+    assert (reference["name"], reference["source"], reference["source_url"]) == (name, "jira", "https://acme.atlassian.net/browse/PROJ-12")
+    assert reference["title"].startswith("PROJ-12") and "Stato: To Do" in reference["content"] and reference["content"].endswith("Non entra.")
+    assert reference["linked_from"] == [task, todo]
+
+    again = client.post("/projects/acme/atlassian/jira/issues/PROJ-12/reference", json={"link_to": [task]})
+    assert again.status_code == 200 and again.json() == {"name": name, "created": False}  # refreshed, not duplicated
+    assert client.get("/projects/acme/agent-tasks").json()[0]["references"] == [name]  # linked once
+
+    page = client.post("/projects/acme/atlassian/confluence/pages/1/reference", json={}).json()
+    assert page == {"name": "context-reference-setup.md", "created": True}
+    client.put("/projects/acme/references/context-reference-setup.md", json={"title": "Setup", "source_url": "https://altrove"})
+    assert client.post("/projects/acme/atlassian/confluence/pages/1/reference", json={}).status_code == 409  # another note took the name
+    assert client.post("/projects/acme/atlassian/jira/issues/PROJ-12/reference", json={"link_to": ["appunti.md"]}).status_code == 400
+
+
 def test_favorites(client):
     site = {"base_url": "https://acme.atlassian.net", "email": "a@b.it", "api_token": "t"}
     client.put("/projects/acme/atlassian", json=site)

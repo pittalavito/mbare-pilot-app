@@ -1,13 +1,14 @@
 """A project's Atlassian site, under /projects/{project}/atlassian: its
 settings (the API token is write-only: GET says whether one is saved, never
-returns it), read-only access to its Jira issues and Confluence pages, and the
-project's favorite issues and pages."""
+returns it), read-only access to its Jira issues and Confluence pages, the
+project's favorite issues and pages, and the copy of an issue or a page into the
+project as a context reference (.../reference)."""
 from fastapi import APIRouter, Depends, Response, status
 
 from controller.dependencies import atlassian_service
 from core.error import NotFoundError
 from service.atlassian_service import AtlassianService
-from models.controller.atlassian import AtlassianSettingsRequest, AtlassianSettingsResponse, AtlassianUserResponse, ConfluencePageResponse, ConfluenceSearchHitResponse, FavoriteRequest, FavoriteResponse, JiraIssueResponse
+from models.controller.atlassian import AtlassianSettingsRequest, AtlassianSettingsResponse, AtlassianUserResponse, ConfluencePageResponse, ConfluenceSearchHitResponse, FavoriteRequest, FavoriteResponse, JiraIssueResponse, ReferenceImportRequest, ReferenceImportResponse
 
 router = APIRouter(prefix="/projects/{project}/atlassian", tags=["atlassian"])
 
@@ -49,6 +50,16 @@ def get_issue(project: str, issue_key: str,
     return JiraIssueResponse.from_issue(service.site(project).get_issue(issue_key))
 
 
+@router.post("/jira/issues/{issue_key}/reference")
+def issue_reference(project: str, issue_key: str, request: ReferenceImportRequest,
+                    response: Response, service: AtlassianService = Depends(atlassian_service)) -> ReferenceImportResponse:
+    """Copy the issue into the project as a context reference (201), or refresh
+    the copy made before (200); linked from ``link_to`` (agent tasks, todo lists)."""
+    name, created = service.reference_from_issue(project, issue_key, request.link_to)
+    response.status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+    return ReferenceImportResponse(name=name, created=created)
+
+
 # --------------------------------------------------------------- Confluence
 
 @router.get("/confluence/pages")
@@ -63,6 +74,15 @@ def get_page(project: str, page_id: str,
              service: AtlassianService = Depends(atlassian_service)) -> ConfluencePageResponse:
     """One page with its body as plain text."""
     return ConfluencePageResponse.from_page(service.site(project).get_page(page_id))
+
+
+@router.post("/confluence/pages/{page_id}/reference")
+def page_reference(project: str, page_id: str, request: ReferenceImportRequest,
+                   response: Response, service: AtlassianService = Depends(atlassian_service)) -> ReferenceImportResponse:
+    """Copy the page into the project as a context reference, as for an issue."""
+    name, created = service.reference_from_page(project, page_id, request.link_to)
+    response.status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+    return ReferenceImportResponse(name=name, created=created)
 
 
 @router.get("/confluence/search")

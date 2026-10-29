@@ -119,6 +119,39 @@ class ProjectDataService:
                 self.save_todo_list(project_name, todo_name, todo.model_copy(update={"references": [r for r in todo.references if r != name]}))
         return self.delete_note(project_name, name)
 
+    def import_reference(self, project_name: str, kind: NoteType, reference: Reference, link_to: list[str] = ()) -> tuple[str, bool]:
+        """A reference copied from elsewhere (Jira, Confluence...): created, or
+        refreshed when the note with that name was copied from the same
+        ``source_url``; then linked from the agent tasks and todo lists in
+        ``link_to``. Returns (name, created). ConflictError when the name is
+        taken by another reference."""
+        name = typed_note_file_name(kind, reference.title)
+        created = self._store.get_file(self._id(project_name, NOTES_DIR, name)) is None
+        if created:
+            self.create_reference(project_name, kind, reference)
+        else:
+            if self.reference(project_name, name)[1].source_url != reference.source_url:
+                raise ConflictError(f"Esiste già un riferimento {name} che non viene da {reference.source_url}.")
+            self.save_reference(project_name, name, reference)
+        self.link_reference(project_name, name, list(link_to))
+        return name, created
+
+    def link_reference(self, project_name: str, reference_name: str, parents: list[str]) -> None:
+        """Link the reference from each agent task / todo list (by name) that does not link it yet."""
+        for parent in parents:
+            kind = note_type(note_file_name(parent))
+            if kind == NoteType.AGENT_TASK:
+                task = self.agent_task(project_name, parent)
+                if reference_name not in task.references:
+                    self.save_agent_task(project_name, parent, task.model_copy(update={"references": [*task.references, reference_name]}))
+            elif kind == NoteType.TODO_LIST:
+                name = note_file_name(parent)
+                todo = parse_todo_list(self.read_note(project_name, name), _title(name))
+                if reference_name not in todo.references:
+                    self.save_todo_list(project_name, name, todo.model_copy(update={"references": [*todo.references, reference_name]}))
+            else:
+                raise ValidationError(f"{parent} non è un agent task né una todo list: non può collegare riferimenti.")
+
     def linked_from(self, project_name: str) -> dict[str, list[str]]:
         """Reference name → the agent tasks and todo lists that link it."""
         links: dict[str, list[str]] = {}

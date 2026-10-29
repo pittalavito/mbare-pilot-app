@@ -984,6 +984,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/atlassian/jira/issues/{issue_key}/reference": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issue Reference
+         * @description Copy the issue into the project as a context reference (201), or refresh
+         *     the copy made before (200); linked from ``link_to`` (agent tasks, todo lists).
+         */
+        post: operations["issue_reference_projects__project__atlassian_jira_issues__issue_key__reference_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project}/atlassian/confluence/pages": {
         parameters: {
             query?: never;
@@ -1018,6 +1039,26 @@ export interface paths {
         get: operations["get_page_projects__project__atlassian_confluence_pages__page_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/atlassian/confluence/pages/{page_id}/reference": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Page Reference
+         * @description Copy the page into the project as a context reference, as for an issue.
+         */
+        post: operations["page_reference_projects__project__atlassian_confluence_pages__page_id__reference_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2648,6 +2689,21 @@ export interface components {
              * @enum {string}
              */
             kind: "code_reference" | "context_reference";
+        };
+        /** ReferenceImportRequest */
+        ReferenceImportRequest: {
+            /**
+             * Link To
+             * @default []
+             */
+            link_to: string[];
+        };
+        /** ReferenceImportResponse */
+        ReferenceImportResponse: {
+            /** Name */
+            name: string;
+            /** Created */
+            created: boolean;
         };
         /** ReferenceResponse */
         ReferenceResponse: {
@@ -5393,6 +5449,42 @@ export interface operations {
             };
         };
     };
+    issue_reference_projects__project__atlassian_jira_issues__issue_key__reference_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                issue_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReferenceImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceImportResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_pages_projects__project__atlassian_confluence_pages_get: {
         parameters: {
             query?: {
@@ -5446,6 +5538,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConfluencePageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    page_reference_projects__project__atlassian_confluence_pages__page_id__reference_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReferenceImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceImportResponse"];
                 };
             };
             /** @description Validation Error */

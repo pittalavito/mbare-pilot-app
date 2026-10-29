@@ -6,9 +6,11 @@ import {
   type AtlassianSettings, type ConfluencePage, type Favorite, type FavoriteKind, type JiraIssue, isConfigured,
   useAddFavorite, useAtlassianSettings, useConfluencePage, useConfluencePages, useFavorites, useJiraIssue, useRemoveFavorite,
 } from "../../api/atlassian";
+import { CopyToReference } from "./CopyToReference";
 
 /** The Atlassian tab of a project (shown only when the site is configured): a
- * Jira issue by key, the Confluence pages, and the favorites saved in the app.
+ * Jira issue by key, the Confluence pages, and the favorites saved in the app;
+ * an issue or a page can be copied into the project as a context reference.
  * Atlassian is called only on demand; the last results stay on screen. */
 export function AtlassianTab() {
   const { project = "" } = useParams();
@@ -87,7 +89,10 @@ function IssueCard({ project, issue }: { project: string; issue: JiraIssue }) {
           <Title order={4}>
             <Anchor href={issue.url} target="_blank" rel="noreferrer">{issue.key}</Anchor> · {issue.summary}
           </Title>
-          <Star project={project} kind="jira_issue" refId={issue.key} title={issue.summary} url={issue.url} />
+          <Group gap="xs" wrap="nowrap">
+            <CopyToReference project={project} from="issue" id={issue.key} />
+            <Star project={project} kind="jira_issue" refId={issue.key} title={issue.summary} url={issue.url} />
+          </Group>
         </Group>
         <Text size="xs" c="dimmed">
           {facts.filter(([, value]) => value).map(([label, value]) => <span key={label}>{label}: <b>{value}</b> · </span>)}
@@ -149,7 +154,10 @@ function PageView({ project, page }: { project: string; page: ConfluencePage }) 
       <Stack gap="xs">
         <Group justify="space-between" wrap="nowrap" align="flex-start">
           <Title order={4}><Anchor href={page.url} target="_blank" rel="noreferrer">{page.title}</Anchor></Title>
-          <Star project={project} kind="confluence_page" refId={page.id} title={page.title} url={page.url} />
+          <Group gap="xs" wrap="nowrap">
+            <CopyToReference project={project} from="page" id={page.id} />
+            <Star project={project} kind="confluence_page" refId={page.id} title={page.title} url={page.url} />
+          </Group>
         </Group>
         {page.body ? <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>{page.body}</Text> : <Text size="sm" c="dimmed">Pagina vuota.</Text>}
       </Stack>

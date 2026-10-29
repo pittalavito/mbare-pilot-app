@@ -4,7 +4,8 @@ configured per project.
 ``AtlassianService`` keeps each project's site settings (table
 project_atlassian) and hands out an ``AtlassianSite`` for a project: the one
 entry point for the rest of the app (UI, agent tools), which validates inputs
-before they reach JQL/CQL."""
+before they reach JQL/CQL. It also copies an issue or a page into the project
+as a context reference (``reference_from_issue`` / ``reference_from_page``)."""
 import re
 
 from pydantic import SecretStr
@@ -13,6 +14,8 @@ from core.error import NotFoundError, ValidationError
 from core.observability import LogPrefix, observed
 from domain.client.atlassian.client import AtlassianHttp, ConfluenceClient, JiraClient
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, AtlassianUser, ConfluencePage, ConfluenceSearchHit, ConfluenceSpace, FavoriteKind, JiraIssue, JiraProject
+from models.domain.note import NoteType, Reference
+from service.project_data_service import ProjectDataService
 from service.store_service import StoreService
 
 _PROJECT_KEY = re.compile(r"^[A-Z][A-Z0-9_]{1,9}$")
@@ -22,8 +25,10 @@ _SPACE_KEY = re.compile(r"^~?[A-Za-z0-9_]{1,255}$")
 
 class AtlassianService:
 
-    def __init__(self, store_service: StoreService):
+    def __init__(self, store_service: StoreService, project_data_service: ProjectDataService | None = None):
+        """``project_data_service``: to copy issues and pages into the project as references."""
         self._store = store_service
+        self._data = project_data_service
         self._sites: dict[str, tuple[AtlassianSettings, AtlassianSite]] = {}
         """Built sites per project, rebuilt when the project's settings change."""
 
@@ -110,6 +115,25 @@ class AtlassianService:
             raise NotFoundError(f"Preferito non trovato: {favorite_id}")
         self._store.delete_atlassian_favorite(favorite_id)
 
+    # ----------------------------------------------------------- references
+    @observed(LogPrefix.ATLASSIAN_SERVICE)
+    def reference_from_issue(self, project_name: str, issue_key: str, link_to: list[str] = ()) -> tuple[str, bool]:
+        """The issue as a context reference (``source`` jira), linked from
+        ``link_to``; a second time it is refreshed. Returns (name, created)."""
+        issue = self.site(project_name).get_issue(issue_key)
+        return self._import(project_name, issue_reference(issue), link_to)
+
+    @observed(LogPrefix.ATLASSIAN_SERVICE)
+    def reference_from_page(self, project_name: str, page_id: str, link_to: list[str] = ()) -> tuple[str, bool]:
+        """The page as a context reference (``source`` confluence), as above."""
+        page = self.site(project_name).get_page(page_id)
+        return self._import(project_name, page_reference(page), link_to)
+
+    def _import(self, project_name: str, reference: Reference, link_to: list[str]) -> tuple[str, bool]:
+        if self._data is None:
+            raise ValidationError("Copia nei riferimenti non disponibile.")
+        return self._data.import_reference(project_name, NoteType.CONTEXT_REFERENCE, reference, list(link_to))
+
     def site(self, project_name: str) -> "AtlassianSite":
         """The project's Atlassian site; ValidationError when not configured."""
         settings = self._require_settings(project_name)
@@ -125,6 +149,19 @@ class AtlassianService:
         if settings is None or not settings.is_complete:
             raise ValidationError(f"Atlassian non configurato per il progetto {project_name}: impostalo in Impostazioni → Atlassian.")
         return settings
+
+
+def issue_reference(issue: JiraIssue) -> Reference:
+    """``NAV-7 · summary``, its facts, then the description."""
+    facts = [f"{label}: {value}" for label, value in (
+        ("Tipo", issue.issue_type), ("Stato", issue.status), ("Priorità", issue.priority), ("Assegnata a", issue.assignee),
+    ) if value]
+    content = "\n\n".join(part for part in (" · ".join(facts), issue.description.strip()) if part)
+    return Reference(title=f"{issue.key} · {issue.summary}", source="jira", source_url=issue.url, content=content)
+
+
+def page_reference(page: ConfluencePage) -> Reference:
+    return Reference(title=page.title, source="confluence", source_url=page.url, content=page.body.strip())
 
 
 def build_site(settings: AtlassianSettings) -> "AtlassianSite":

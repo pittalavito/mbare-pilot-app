@@ -77,7 +77,7 @@ src/
     project/          pagina del progetto: intestazione e tab (una rotta per tab)
     data/             tab Dati: note markdown (modifica/anteprima, Ctrl+S), agent task e todo list (form dei template, con i riferimenti collegati: ReferencesSection), riferimenti, file; ⚙️ Impostazioni sceglie i tipi mostrati (DataSettings)
     git/              tab Git: commit con filtri e file modificati
-    atlassian/        tab Atlassian: Jira, Confluence, preferiti
+    atlassian/        tab Atlassian: Jira, Confluence, preferiti; «📎 Crea riferimento» copia issue e pagine nei riferimenti (CopyToReference)
     library/          pagina Libreria: agenti globali (la stessa sezione Agenti) e catalogo dei tool
     admin/            pagina Admin: servizi, observability (agent run, tool call, Copilot), modelli, backup (tab in ?tab=)
     settings/         tab Impostazioni: generale, Atlassian, mascheramento, definizioni, agenti, rimozione
