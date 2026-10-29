@@ -32,11 +32,30 @@ const renderChat = (route = "/projects/acme/chat") =>
   renderPage(<Routes><Route path="/projects/:project/chat" element={<ChatTab />} /></Routes>, { route });
 
 describe("ChatTab", () => {
+  it("lists the project's chatbots and opens the chosen one with its conversations", async () => {
+    const OTHER: Chatbot = { ...CHATBOT, id: 6, name: "Automazioni", description: "Lancia le automation" };
+    mockApi({
+      ...BASE,
+      "GET /projects/acme/chatbots": [OTHER, CHATBOT],
+      "GET /chatbots/6/conversations": [],
+      "GET /chatbots/6/routes": [],
+    });
+    renderChat("/projects/acme/chat?bot=5");
+
+    expect(await screen.findByText("Stato del repo")).toBeInTheDocument(); // ?bot=5 is open, not the first
+    expect(screen.getByText("Lancia le automation")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Automazioni"));
+
+    expect(await screen.findByText("Nessuna conversazione.")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Scrivi a Automazioni/)).toBeInTheDocument();
+  });
+
   it("invites to create the chatbot", async () => {
     mockApi({ "GET /projects/acme/chatbots": [], "GET /tools": [], "GET /models/choices": { choices: [], usable: [] } });
     renderChat();
 
-    fireEvent.click(await screen.findByRole("button", { name: /Crea il chatbot/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Crea un chatbot/ }));
 
     expect(await screen.findByText("Nuovo chatbot")).toBeInTheDocument();
   });

@@ -16,7 +16,8 @@ def _yaml(name: str) -> dict:
 def test_the_examples_are_valid_definitions(config, engine, redis_client):
     for agent in _yaml("global-agent.yml")["agents"]:
         AgentFile.model_validate(agent)
-    ChatbotFile.model_validate(_yaml("global-chat-bot.yml"))
+    for chatbot in _yaml("global-chat-bots.yml")["chatbots"]:
+        ChatbotFile.model_validate(chatbot)
     for automation in _yaml("global-automation.yml")["automations"]:
         for step in AutomationFile.model_validate(automation).steps:
             if step.function:
@@ -38,6 +39,6 @@ def test_copying_the_examples_never_overwrites(tmp_path):
     copied = copy_missing(target)
 
     assert "global-coding-agent.yml" not in copied and (target / "global-coding-agent.yml").read_text(encoding="utf-8") == "il mio"
-    assert copied == ["coding-agent/bugfix.md", "global-agent.yml", "global-automation.yml", "global-chat-bot.yml"]
+    assert copied == ["coding-agent/bugfix.md", "global-agent.yml", "global-automation.yml", "global-chat-bots.yml"]
     assert not (target / "README.md").exists()
     assert copy_missing(target) == []

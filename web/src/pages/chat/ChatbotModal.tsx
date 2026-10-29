@@ -8,8 +8,12 @@ import { ModelSelect } from "../../components/ModelSelect";
 
 const EMPTY: ChatbotRequest = { name: "", description: "", system_prompt: "", model: "", max_steps: 4, tool_names: [] };
 
-/** Create (``chatbot`` undefined) or edit the chatbot and its agent; editing also deletes it. */
-export function ChatbotModal({ project, chatbot, opened, onClose }: { project: string; chatbot?: Chatbot; opened: boolean; onClose: () => void }) {
+/** Create (``chatbot`` undefined) or edit a chatbot and its agent; editing also deletes it. */
+export function ChatbotModal({ project, chatbot, opened, onClose, onSaved }: {
+  project: string; chatbot?: Chatbot; opened: boolean; onClose: () => void;
+  /** After a save: e.g. open the chatbot just created. */
+  onSaved?: (saved: Chatbot) => void;
+}) {
   const [form, setForm] = useState<ChatbotRequest>(EMPTY);
   const save = useSaveChatbot(project);
   const remove = useDeleteChatbot(project);
@@ -27,7 +31,7 @@ export function ChatbotModal({ project, chatbot, opened, onClose }: { project: s
   const onSave = () =>
     save.mutate(
       { id: chatbot?.id, body: { ...form, tool_names: (form.tool_names ?? []).filter((name) => available.some((tool) => tool.name === name)) } },
-      { onSuccess: onClose },
+      { onSuccess: (saved) => { onSaved?.(saved); onClose(); } },
     );
 
   return (

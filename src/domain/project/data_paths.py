@@ -3,11 +3,11 @@ naming rules for notes and uploaded files. Pure functions: no filesystem here.
 
     definition/                      agents, chatbots, automations as YAML
       global-agent.yml               agents of the Library (global)
-      global-chat-bot.yml            chatbot of every project that has none of its own
+      global-chat-bots.yml           chatbots of every project (unless it has one with that name); global-chat-bot.yml: one
       global-automation.yml          automations of every project (unless it defines one with that name)
       global-coding-agent.yml        Copilot's prompts, denied tools and models
       coding-agent/<name>.md         planning prompts to choose from when delegating
-      project/<slug>/chat-bot.yml, agent.yml, automation.yml, coding-agent.yml, coding-agent/
+      project/<slug>/chat-bots.yml (or chat-bot.yml), agent.yml, automation.yml, coding-agent.yml, coding-agent/
     project/<slug>/
       notes/                         notes written in the app; the type is in the name:
                                      agent-task-<title>.md, todo-list-<title>.md,
@@ -39,11 +39,15 @@ NOTE_PREFIXES = {
 """The name of a typed note starts with the prefix of its type."""
 
 GLOBAL_AGENTS_FILE = "global-agent.yml"
+GLOBAL_CHATBOTS_FILE = "global-chat-bots.yml"
 GLOBAL_CHATBOT_FILE = "global-chat-bot.yml"
+"""One chatbot: the older form of global-chat-bots.yml, still read."""
 GLOBAL_AUTOMATIONS_FILE = "global-automation.yml"
 GLOBAL_CODING_AGENT_FILE = "global-coding-agent.yml"
 """Copilot's prompts and denied tools; required to use Copilot."""
+CHATBOTS_FILE = "chat-bots.yml"
 CHATBOT_FILE = "chat-bot.yml"
+"""One chatbot: the older form of chat-bots.yml, still read."""
 AGENTS_FILE = "agent.yml"
 AUTOMATIONS_FILE = "automation.yml"
 CODING_AGENT_FILE = "coding-agent.yml"

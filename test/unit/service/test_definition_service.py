@@ -130,7 +130,8 @@ def test_at_startup_a_broken_file_is_logged_not_raised(services, store_service, 
 
 def test_the_project_chatbot_takes_its_prompt_from_a_file_next_to_it(services, store_service):
     definitions, chatbots, _ = services
-    existing = chatbots.create_chatbot("acme", "Vecchio", "Prompt da UI.", MODEL)
+    existing = chatbots.create_chatbot("acme", "assistente", "Prompt da UI.", MODEL)
+    other = chatbots.create_chatbot("acme", "Vecchio", "Resta com'è.", MODEL)
     _write(store_service, f"{PROJECT_DIR}/prompt.md", "Sei il mio assistente.\n")
     _write(store_service, f"{PROJECT_DIR}/chat-bot.yml", f"""
 name: Assistente
@@ -138,15 +139,36 @@ model: {MODEL}
 tools: [list_automations, run_automation]
 system_prompt_file: prompt.md
 """)
-    _write(store_service, "global-chat-bot.yml", f"name: Globale\nmodel: {MODEL}\nsystem_prompt: Ignorato.\n")
 
     assert _outcomes(definitions.sync("acme")) == [(f"{PROJECT_DIR}/chat-bot.yml", "Assistente", "updated")]
 
-    [chatbot] = chatbots.list_chatbots("acme")
-    assert chatbot.id == existing.id  # one per project: renamed, not duplicated
-    assert (chatbot.name, chatbot.system_prompt, chatbot.tool_names) == (
+    by_id = {bot.id: bot for bot in chatbots.list_chatbots("acme")}
+    assert (by_id[existing.id].name, by_id[existing.id].system_prompt, by_id[existing.id].tool_names) == (
         "Assistente", "Sei il mio assistente.", ["list_automations", "run_automation"],
-    )
+    )  # matched by name (case aside), not by being the only one
+    assert by_id[other.id].system_prompt == "Resta com'è."  # not in the files: left alone
+
+
+def test_a_project_has_many_chatbots_and_gets_the_global_ones_it_does_not_redefine(services, store_service):
+    definitions, chatbots, _ = services
+    _write(store_service, f"{PROJECT_DIR}/chat-bots.yml", f"""chatbots:
+  - {{name: Automazioni, model: {MODEL}, system_prompt: Lancia automation.}}
+  - {{name: Codice, model: {MODEL}, system_prompt: Delega a Copilot.}}
+""")
+    _write(store_service, "global-chat-bots.yml", f"""chatbots:
+  - {{name: automazioni, model: {MODEL}, system_prompt: Sostituito dal progetto.}}
+  - {{name: Generico, model: {MODEL}, system_prompt: Per tutti.}}
+""")
+    _write(store_service, "global-chat-bot.yml", f"name: Vecchio formato\nmodel: {MODEL}\nsystem_prompt: Ancora letto.\n")
+
+    assert _outcomes(definitions.sync("acme")) == [
+        (f"{PROJECT_DIR}/chat-bots.yml", "Automazioni", "created"), (f"{PROJECT_DIR}/chat-bots.yml", "Codice", "created"),
+        ("global-chat-bots.yml", "Generico", "created"), ("global-chat-bot.yml", "Vecchio formato", "created"),
+    ]
+    assert sorted((bot.name, bot.system_prompt) for bot in chatbots.list_chatbots("acme")) == [
+        ("Automazioni", "Lancia automation."), ("Codice", "Delega a Copilot."), ("Generico", "Per tutti."), ("Vecchio formato", "Ancora letto."),
+    ]
+    assert [entry.state.value for entry in definitions.preview("acme")] == ["exists"] * 4
 
 
 def test_without_its_own_the_project_gets_the_global_chatbot(services, store_service):

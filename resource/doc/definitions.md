@@ -6,13 +6,13 @@ Agenti, chatbot e automation si possono scrivere come **file YAML** nella cartel
 mbare-pilot-data/
   definition/
     global-agent.yml          agenti della Libreria (globali)                       agents: [...]
-    global-chat-bot.yml       chatbot di ogni progetto che non ha il suo            un chatbot
+    global-chat-bots.yml      chatbot di ogni progetto (salvo stesso nome)          chatbots: [...]
     global-automation.yml     automation di ogni progetto (salvo stesso nome)       automations: [...]
     global-coding-agent.yml   prompt e divieti di Copilot (obbligatorio per usarlo) un coding agent
     coding-agent/<nome>.md    prompt di preparazione da scegliere quando deleghi    testo con {task}
     project/
       <slug>/                 es. gestionali-navi
-        chat-bot.yml          il chatbot del progetto                               un chatbot
+        chat-bots.yml         i chatbot del progetto                                chatbots: [...]
         agent.yml             gli agenti del progetto                               agents: [...]
         automation.yml        le automation del progetto                            automations: [...]
         coding-agent.yml      campi che sostituiscono quelli globali di Copilot     un coding agent
@@ -38,7 +38,7 @@ La **sincronizzazione** di un progetto applica, in quest'ordine, e il file vince
 
 1. **`global-agent.yml`**: gli agenti della Libreria (con ruoli globali);
 2. **`project/<slug>/agent.yml`**: gli agenti del progetto;
-3. **il chatbot**: `project/<slug>/chat-bot.yml`, oppure, se il progetto non ce l'ha, `global-chat-bot.yml`;
+3. **i chatbot**: quelli di `project/<slug>/chat-bots.yml`, più quelli di `global-chat-bots.yml` con un nome che il progetto non usa;
 4. **le automation**: quelle di `project/<slug>/automation.yml`, più quelle di `global-automation.yml` con un nome che il progetto non usa (il progetto sostituisce la globale con lo stesso nome).
 
 Regole:
@@ -69,21 +69,26 @@ agents:
 - **Ruolo**: deve essere dello stesso ambito dell'agente. Un ruolo con lo stesso nome ma di un altro progetto (o globale, per un agente di progetto) è un errore: scegli un altro nome.
 - **Prompt**: se il testo cambia diventa la **versione successiva** del prompt del ruolo, e l'agente la usa. Le versioni vecchie restano. Testo uguale = nessuna nuova versione.
 
-## Chatbot (`chat-bot.yml`, `global-chat-bot.yml`)
+## Chatbot (`chat-bots.yml`, `global-chat-bots.yml`)
 
 ```yaml
-name: Assistente
-description: Il mio assistente sul progetto
-model: openrouter/google/gemini-2.5-flash-lite
-max_steps: 4
-tools: [list_automations, run_automation, automation_status, read_context]
-system_prompt: |
-  Sei il mio assistente...
-# oppure: system_prompt_file: prompt.md    (un file accanto a questo, usato così com'è)
+chatbots:
+  - name: Assistente
+    description: Il mio assistente sul progetto
+    model: openrouter/google/gemini-2.5-flash-lite
+    max_steps: 4
+    tools: [list_automations, run_automation, automation_status, read_context]
+    system_prompt: |
+      Sei il mio assistente...
+    # oppure: system_prompt_file: prompt.md    (un file accanto a questo, usato così com'è)
+  - name: Un altro
+    ...
 ```
 
 - Uno dei due tra `system_prompt` e `system_prompt_file`.
-- **Uno per progetto**: se il progetto ha già un chatbot con un altro nome, viene aggiornato e rinominato, non duplicato.
+- **Più chatbot per progetto**, ognuno con il suo agente: si trovano **per nome** (maiuscole e minuscole indifferenti); quelli che non sono nei file restano come sono.
+- **Globali**: quelli di `global-chat-bots.yml` valgono per ogni progetto, salvo che il progetto ne abbia uno con lo stesso nome nel suo file.
+- **Formato vecchio**: `chat-bot.yml` e `global-chat-bot.yml` (un solo chatbot, senza `chatbots:`) si leggono ancora, come un elenco di uno.
 
 ## Automation (`automation.yml`, `global-automation.yml`)
 
@@ -161,4 +166,4 @@ models:                            # facoltativo: i modelli tra cui scegliere qu
 | `service/store_service.py` | `read_definition`, `save_definition`: i file di `definition/` |
 | `controller/definition_controller.py` | `GET /projects/{p}/definitions` (anteprima), `POST /projects/{p}/definitions/sync` (tutto o `only`) |
 | `web/src/pages/settings/DefinitionsSection.tsx` | la sezione nelle Impostazioni del progetto: anteprima e scelta (frontend) |
-| `test/unit/service/test_definition_service.py` | agenti di progetto e globali, chatbot del progetto o globale, automation con grafo, posizioni e globali sostituite, file ed elementi rotti, anteprima senza effetti e sincronizzazione dei soli elementi scelti (API: `test/unit/api/test_definitions_api.py`) |
+| `test/unit/service/test_definition_service.py` | agenti di progetto e globali, più chatbot per progetto trovati per nome, globali non ridefiniti e formato vecchio, automation con grafo, posizioni e globali sostituite, file ed elementi rotti, anteprima senza effetti e sincronizzazione dei soli elementi scelti (API: `test/unit/api/test_definitions_api.py`) |

@@ -4,7 +4,9 @@ to a project on request:
 
 - ``global-agent.yml``: agents of the Library (global);
 - ``project/<slug>/agent.yml``: the project's agents;
-- ``project/<slug>/chat-bot.yml``: the project's chatbot, else ``global-chat-bot.yml``;
+- ``project/<slug>/chat-bots.yml``: the project's chatbots, plus those of
+  ``global-chat-bots.yml`` with a name the project does not use (the older
+  single-chatbot files ``chat-bot.yml`` / ``global-chat-bot.yml`` are still read);
 - ``project/<slug>/automation.yml``: the project's automations, plus those of
   ``global-automation.yml`` with a name the project does not use.
 
@@ -32,7 +34,10 @@ from pydantic import ValidationError as PydanticValidationError
 from core.error import AppError, NotFoundError, ValidationError
 from core.observability import LogPrefix, log_warning, observed
 from domain.pipeline.graph import linear_edges
-from domain.project.data_paths import AGENTS_FILE, AUTOMATIONS_FILE, CHATBOT_FILE, GLOBAL_AGENTS_FILE, GLOBAL_AUTOMATIONS_FILE, GLOBAL_CHATBOT_FILE, data_file_name, project_definitions
+from domain.project.data_paths import (
+    AGENTS_FILE, AUTOMATIONS_FILE, CHATBOT_FILE, CHATBOTS_FILE, GLOBAL_AGENTS_FILE, GLOBAL_AUTOMATIONS_FILE, GLOBAL_CHATBOT_FILE, GLOBAL_CHATBOTS_FILE,
+    data_file_name, project_definitions,
+)
 from models.domain.agent import AgentConfig, AgentRole
 from models.domain.definitions import (
     AgentFile, AutomationFile, ChatbotFile, DefinitionEntry, DefinitionKey, DefinitionKind, DefinitionState, StepFile, SyncItem, SyncOutcome,
@@ -46,6 +51,7 @@ from service.store_service import StoreService
 
 _AGENTS_KEY = "agents"
 _AUTOMATIONS_KEY = "automations"
+_CHATBOTS_KEY = "chatbots"
 
 
 class DefinitionService:
@@ -76,7 +82,7 @@ class DefinitionService:
         folder = project_definitions(project_name)
         elements = self._list(DefinitionKind.AGENT, GLOBAL_AGENTS_FILE, _AGENTS_KEY, AgentFile, lambda spec: self._sync_agent(None, spec))
         elements += self._list(DefinitionKind.AGENT, f"{folder}/{AGENTS_FILE}", _AGENTS_KEY, AgentFile, lambda spec: self._sync_agent(project_name, spec))
-        elements += self._chatbot(project_name, folder)
+        elements += self._chatbots_of(project_name, folder)
         elements += self._automations(project_name, folder)
         return elements
 
@@ -91,7 +97,7 @@ class DefinitionService:
         if element.kind is DefinitionKind.AGENT:
             exists = self._store.get_agent_config(element.name) is not None
         elif element.kind is DefinitionKind.CHATBOT:
-            exists = bool(self._chatbots.list_chatbots(project_name))  # one per project: it would be updated
+            exists = any(bot.name.lower() == element.name.lower() for bot in self._chatbots.list_chatbots(project_name))
         else:
             exists = any(pipeline.name.lower() == element.name.lower() for pipeline in self._pipelines.list_pipelines(project_name))
         return DefinitionEntry(**common, state=DefinitionState.EXISTS if exists else DefinitionState.NEW)
@@ -171,21 +177,31 @@ class DefinitionService:
         return SyncOutcome.CREATED if existing is None else SyncOutcome.UPDATED
 
     # -------------------------------------------------------------- chatbot
-    def _chatbot(self, project_name: str, folder: str) -> list["_Element"]:
-        """The project's chat-bot.yml, else the global one (a base for every project)."""
-        for path, prompt_folder in ((f"{folder}/{CHATBOT_FILE}", folder), (GLOBAL_CHATBOT_FILE, "")):
-            try:
-                raw = self._read(path)
-            except AppError as exc:
-                return [_Element(DefinitionKind.CHATBOT, path, None, None, ChatbotFile, None, error=str(exc))]
-            if raw is not None:
-                sync = lambda spec, prompt_folder=prompt_folder: self._sync_chatbot(project_name, spec, prompt_folder)  # noqa: E731
-                return [_Element(DefinitionKind.CHATBOT, path, raw, None, ChatbotFile, sync)]
-        return []
+    def _chatbots_of(self, project_name: str, folder: str) -> list["_Element"]:
+        """The project's chatbots (chat-bots.yml, then the single chat-bot.yml),
+        then the global ones (global-chat-bots.yml, global-chat-bot.yml) with a
+        name the project does not use: a base for every project."""
+        def sync(prompt_folder: str) -> Callable[[ChatbotFile], SyncOutcome]:
+            return lambda spec: self._sync_chatbot(project_name, spec, prompt_folder)
+
+        own = self._list(DefinitionKind.CHATBOT, f"{folder}/{CHATBOTS_FILE}", _CHATBOTS_KEY, ChatbotFile, sync(folder))
+        own += self._single(DefinitionKind.CHATBOT, f"{folder}/{CHATBOT_FILE}", ChatbotFile, sync(folder))
+        names = {element.name.lower() for element in own if element.name}
+        not_own = lambda raw: str(raw.get("name", "")).strip().lower() in names  # noqa: E731
+        shared = self._list(DefinitionKind.CHATBOT, GLOBAL_CHATBOTS_FILE, _CHATBOTS_KEY, ChatbotFile, sync(""), skip=not_own)
+        shared += self._single(DefinitionKind.CHATBOT, GLOBAL_CHATBOT_FILE, ChatbotFile, sync(""), skip=not_own)
+        return own + shared
+
+    def _single(self, kind: DefinitionKind, path: str, schema: type[BaseModel], sync: Callable[[Any], SyncOutcome], skip: Callable[[dict], bool] = lambda raw: False) -> list["_Element"]:
+        """A file that is one element (no list); none when missing, empty or skipped."""
+        try:
+            raw = self._read(path)
+        except AppError as exc:
+            return [_Element(kind, path, None, None, schema, sync, error=str(exc))]
+        return [] if raw is None or skip(raw) else [_Element(kind, path, raw, None, schema, sync)]
 
     def _sync_chatbot(self, project_name: str, spec: ChatbotFile, prompt_folder: str) -> SyncOutcome:
-        """The project's chatbot: the one with this name, else the existing one
-        (one per project: it gets this name), else a new one."""
+        """The project's chatbot with this name (case-insensitive), else a new one."""
         prompt = spec.system_prompt
         if prompt is None:
             path = f"{prompt_folder}/{data_file_name(spec.system_prompt_file)}".lstrip("/")
@@ -200,8 +216,7 @@ class DefinitionService:
             max_steps=spec.max_steps, 
             tool_names=spec.tools
         )
-        chatbots = self._chatbots.list_chatbots(project_name)
-        current = next((bot for bot in chatbots if bot.name.lower() == spec.name.lower()), chatbots[0] if chatbots else None)
+        current = next((bot for bot in self._chatbots.list_chatbots(project_name) if bot.name.lower() == spec.name.lower()), None)
         if current is None:
             self._chatbots.create_chatbot(project_name, **values)
             return SyncOutcome.CREATED

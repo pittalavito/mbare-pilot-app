@@ -8,23 +8,33 @@ import { ConfirmButton } from "../../components/ConfirmButton";
 import { ChatbotModal } from "./ChatbotModal";
 import { MessageItem } from "./MessageItem";
 
-/** The Chat tab of a project: its chatbot (one per project), its conversations
- * on the left and the open one (``?c=``) on the right. A reply arrives whole
- * (no streaming yet). A message starting with ``!`` skips the cache. */
+/** The Chat tab of a project: its chatbots (each with its own agent) on the
+ * left, ``?bot=`` the open one with its conversations, ``?c=`` the open
+ * conversation on the right. A reply arrives whole (no streaming yet). A
+ * message starting with ``!`` skips the cache. */
 export function ChatTab() {
   const { project = "" } = useParams();
   const chatbots = useChatbots(project);
-  const [editing, setEditing] = useState(false);
+  const [botId, , openBot] = useChatParams();
+  const [editing, setEditing] = useState<Chatbot | "new">();
 
   if (chatbots.isPending) return <Loader size="sm" />;
   if (chatbots.error) return <Alert color="red">{chatbots.error.message}</Alert>;
-  const chatbot = chatbots.data[0]; // one per project (the first by name, if more were created before)
-  const modal = <ChatbotModal project={project} chatbot={chatbot} opened={editing} onClose={() => setEditing(false)} />;
+  const chatbot = chatbots.data.find((bot) => bot.id === botId) ?? chatbots.data[0]; // unknown or none: the first by name
+  const modal = (
+    <ChatbotModal
+      project={project}
+      chatbot={editing === "new" ? undefined : editing}
+      opened={editing !== undefined}
+      onClose={() => setEditing(undefined)}
+      onSaved={(saved) => editing === "new" && openBot(saved.id)}
+    />
+  );
   if (!chatbot) {
     return (
       <Stack align="flex-start">
-        <Text c="dimmed">Nessun chatbot: crea quello del progetto e configura il suo agente (prompt, modello, tool).</Text>
-        <Button onClick={() => setEditing(true)}>➕ Crea il chatbot</Button>
+        <Text c="dimmed">Nessun chatbot: crea il primo del progetto e configura il suo agente (prompt, modello, tool). Puoi averne più di uno.</Text>
+        <Button onClick={() => setEditing("new")}>➕ Crea un chatbot</Button>
         {modal}
       </Stack>
     );
@@ -32,7 +42,10 @@ export function ChatTab() {
   return (
     <Grid gutter="md">
       <Grid.Col span={{ base: 12, md: 3 }}>
-        <Sidebar chatbot={chatbot} onEdit={() => setEditing(true)} />
+        <Stack gap="md">
+          <ChatbotList chatbots={chatbots.data} selected={chatbot} onSelect={(bot) => openBot(bot.id)} onAdd={() => setEditing("new")} />
+          <Sidebar key={chatbot.id} chatbot={chatbot} onEdit={() => setEditing(chatbot)} />
+        </Stack>
       </Grid.Col>
       <Grid.Col span={{ base: 12, md: 9 }}>
         <ConversationView key={chatbot.id} chatbot={chatbot} />
@@ -42,12 +55,36 @@ export function ChatTab() {
   );
 }
 
-/** ``?c=`` is the open conversation; none = a new one, created on the first message. */
-function useOpenConversation(): [number | undefined, (id: number | undefined) => void] {
+/** ``?bot=`` is the open chatbot, ``?c=`` its open conversation (none = a new
+ * one, created on the first message). Opening a chatbot starts from a new conversation. */
+function useChatParams(): [number | undefined, number | undefined, (bot: number) => void, (conversation: number | undefined) => void] {
   const [search, setSearch] = useSearchParams();
-  const value = search.get("c");
-  const open = (id: number | undefined) => setSearch(id === undefined ? {} : { c: String(id) }, { replace: true });
-  return [value ? Number(value) : undefined, open];
+  const number = (key: string) => (search.get(key) ? Number(search.get(key)) : undefined);
+  const bot = number("bot");
+  const openBot = (id: number) => setSearch({ bot: String(id) }, { replace: true });
+  const openConversation = (id: number | undefined) =>
+    setSearch({ ...(bot === undefined ? {} : { bot: String(bot) }), ...(id === undefined ? {} : { c: String(id) }) }, { replace: true });
+  return [bot, number("c"), openBot, openConversation];
+}
+
+function useOpenConversation(): [number | undefined, (id: number | undefined) => void] {
+  const [, conversation, , open] = useChatParams();
+  return [conversation, open];
+}
+
+/** The project's chatbots: one click opens it. */
+function ChatbotList({ chatbots, selected, onSelect, onAdd }: { chatbots: Chatbot[]; selected: Chatbot; onSelect: (bot: Chatbot) => void; onAdd: () => void }) {
+  return (
+    <Stack gap={4}>
+      <Group justify="space-between" wrap="nowrap">
+        <Text size="xs" fw={600} c="dimmed" tt="uppercase">Chatbot</Text>
+        <Button size="compact-xs" variant="subtle" onClick={onAdd}>➕ Nuovo chatbot</Button>
+      </Group>
+      {chatbots.map((bot) => (
+        <NavLink key={bot.id} label={bot.name} description={bot.description || undefined} active={bot.id === selected.id} onClick={() => onSelect(bot)} />
+      ))}
+    </Stack>
+  );
 }
 
 function Sidebar({ chatbot, onEdit }: { chatbot: Chatbot; onEdit: () => void }) {

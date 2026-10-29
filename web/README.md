@@ -82,7 +82,7 @@ src/
     admin/            pagina Admin: servizi, observability (agent run, tool call, Copilot), modelli, backup (tab in ?tab=)
     settings/         tab Impostazioni: generale, Atlassian, mascheramento, definizioni, agenti, rimozione
     copilot/          tab Copilot: task delegati, chat con Copilot, «Ok, parti», file cambiati; modale «Delega a Copilot» (anche dal form del task)
-    chat/             tab Chat: conversazioni, messaggi in markdown, «Metti in cache», modale del chatbot
+    chat/             tab Chat: i chatbot del progetto (?bot=), le loro conversazioni (?c=), messaggi in markdown, «Metti in cache», modale del chatbot
     automation/       tab Automation (esecuzione e storico), editor del grafo (React Flow) e graphDraft (la bozza, funzioni pure)
   format.ts           dimensioni dei file e date nel formato italiano
   components/

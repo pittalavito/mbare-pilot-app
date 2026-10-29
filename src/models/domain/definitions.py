@@ -2,7 +2,8 @@
 under ``<MBARE_PILOT_HOME>/definition/`` (layout in domain/project/data_paths.py):
 ``agent.yml`` / ``global-agent.yml`` hold a list ``agents:`` of ``AgentFile``,
 ``automation.yml`` / ``global-automation.yml`` a list ``automations:`` of
-``AutomationFile``, ``chat-bot.yml`` / ``global-chat-bot.yml`` one ``ChatbotFile``,
+``AutomationFile``, ``chat-bots.yml`` / ``global-chat-bots.yml`` a list
+``chatbots:`` of ``ChatbotFile`` (``chat-bot.yml`` / ``global-chat-bot.yml``: one),
 ``coding-agent.yml`` / ``global-coding-agent.yml`` one ``CodingAgentFile``
 (read by CopilotService at every use, never synced).
 
@@ -40,9 +41,9 @@ class AgentFile(_File):
 
 
 class ChatbotFile(_File):
-    """``chat-bot.yml`` (or ``global-chat-bot.yml``): the project's chatbot, one
-    per project. The prompt is written here or in a file next to this one
-    (``system_prompt_file``), used as it is."""
+    """An element of ``chatbots:`` (or the whole ``chat-bot.yml``): a chatbot of
+    the project, matched by name. The prompt is written here or in a file next
+    to this one (``system_prompt_file``), used as it is."""
     name: Name
     description: str = ""
     model: ModelKey
