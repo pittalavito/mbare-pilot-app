@@ -21,8 +21,8 @@ Due processi separati: l'API la avviano `run-app.py` e `run-web.py` (`resource/s
 
 | Processo | Entry | Comando |
 |---|---|---|
-| API | `src/api.py` | `uvicorn api:app --app-dir src` (`API_APP`, `API_APP_DIR` nel `.env`). Con `API_RELOAD=true` gli script la avviano con `resource/scripts/api_reloader.py`, che la riavvia quando cambia un file Python in `src/`. `api:app` è il server di `core/server.py`: l'API (`core/app.py`) sotto `/api` e il frontend compilato (`web/dist`) nelle altre pagine |
-| Worker | `src/worker.py` | `python src/worker.py` (`WORKER_SCRIPT`) |
+| API | `src/api.py` | `uvicorn api:app --app-dir src` (default, cambiabili con `API_APP`, `API_APP_DIR`, che non stanno nel `.env.example`). Con `API_RELOAD=true` gli script la avviano con `resource/scripts/api_reloader.py`, che la riavvia quando cambia un file Python in `src/`. `api:app` è il server di `core/server.py`: l'API (`core/app.py`) sotto `/api` e il frontend compilato (`web/dist`) nelle altre pagine |
+| Worker | `src/worker.py` | `python src/worker.py` (default, cambiabile con `WORKER_SCRIPT`) |
 
 Ognuno costruisce il suo `Container`.
 

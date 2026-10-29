@@ -29,7 +29,9 @@ Valori derivati:
 | `project_root_paths` | `PROJECT_ROOTS`, separati da `;` | la home dell'utente: i progetti stanno solo qui dentro |
 | `secret_key` | `MBARE_PILOT_SECRET_KEY` in chiaro | `None` |
 
-**Aggiungere un'impostazione**: un campo in `Config` (con tipo, default e docstring) + la riga in `.env.example`. Se è un segreto, `SecretStr | None` e un nome con uno dei marker sopra, così `masked()` lo nasconde.
+**`.env.example`**: diviso in sezioni (server, segreti, fornitori LLM, cartelle, Postgres, Redis, cache delle automation, Copilot, debug), senza commenti: il significato di ogni variabile è nei docstring di `Config`, in questa doc e nei README. Ci stanno solo le impostazioni che ha senso cambiare: `WORKER_SCRIPT`, `POSTGRES_CONTAINER`, `OPENROUTER_URL` (e `API_APP`, `API_APP_DIR` degli script) si possono ancora impostare, ma di solito basta il default.
+
+**Aggiungere un'impostazione**: un campo in `Config` (con tipo, default e docstring) + la riga nella sezione giusta di `.env.example`. Se è un segreto, `SecretStr | None` e un nome con uno dei marker sopra, così `masked()` lo nasconde.
 
 ## Test
 
