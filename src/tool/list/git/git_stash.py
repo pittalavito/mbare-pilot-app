@@ -29,10 +29,10 @@ def build(context: ToolContext) -> Tool:
             return git_error(context, exc)
 
         return GitStashResponse(
-            repository=repository, 
-            stashed=result.stashed, 
-            ref=result.ref, 
-            message=result.message, 
+            repository=repository,
+            stashed=result.stashed,
+            ref=result.ref,
+            message=result.message,
             files=result.files,
         )
 

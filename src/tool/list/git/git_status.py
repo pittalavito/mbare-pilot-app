@@ -23,8 +23,8 @@ def build(context: ToolContext) -> Tool:
             return git_error(context, exc)
 
         return GitStatusResponse(
-            repository=repository, 
-            clean=status.is_clean, 
+            repository=repository,
+            clean=status.is_clean,
             status=status
         )
 

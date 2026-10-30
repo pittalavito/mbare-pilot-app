@@ -4,7 +4,7 @@ from sqlalchemy.engine import Engine
 from sqlmodel import select
 
 from domain.store.db.repository import SqlRepository
-from models.store.db import ChatbotTable, AutomationCacheTable, ConversationTable, MessageTable
+from models.store.db import AutomationCacheTable, ChatbotTable, ConversationTable, MessageTable
 
 
 class DbChatbotRepository(SqlRepository[ChatbotTable]):

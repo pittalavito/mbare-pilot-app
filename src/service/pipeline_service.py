@@ -47,13 +47,13 @@ class PipelineService:
 
     @observed(LogPrefix.PIPELINE_SERVICE)
     def create_pipeline(
-        self, 
-        project_name: str, 
-        name: str, 
-        *, 
-        description: str = "", 
+        self,
+        project_name: str,
+        name: str,
+        *,
+        description: str = "",
         active: bool = True,
-        steps: list[PipelineStep] | None = None, 
+        steps: list[PipelineStep] | None = None,
         edges: list[PipelineEdge] | None = None
     ) -> Pipeline:
         """``edges`` empty = the chain of ``steps`` in their order."""
@@ -61,11 +61,11 @@ class PipelineService:
             raise NotFoundError(f"Progetto non trovato: {project_name}")
         steps = [step.model_copy(update={"id": None}) for step in steps or []]
         pipeline = Pipeline(
-            project_name=project_name, 
-            name=name, 
-            description=description.strip(), 
+            project_name=project_name,
+            name=name,
+            description=description.strip(),
             active=active,
-            steps=[step.model_dump() for step in steps], 
+            steps=[step.model_dump() for step in steps],
             edges=[edge.model_dump() for edge in edges or linear_edges(steps)]
         )
         self._validate(pipeline)
@@ -73,13 +73,13 @@ class PipelineService:
 
     @observed(LogPrefix.PIPELINE_SERVICE)
     def update_pipeline(
-        self, 
-        pipeline_id: int, 
-        *, 
-        name: str, 
+        self,
+        pipeline_id: int,
+        *,
+        name: str,
         description: str = "",
         active: bool = True,
-        steps: list[PipelineStep] | None = None, 
+        steps: list[PipelineStep] | None = None,
         edges: list[PipelineEdge] | None = None
     ) -> Pipeline:
         """Everything but the project. Steps keep their id to be updated, the
@@ -90,8 +90,8 @@ class PipelineService:
         steps = steps or []
         pipeline = Pipeline.model_validate({
             **current.model_dump(exclude={"steps", "edges"}),
-            "name": name, 
-            "description": description.strip(), 
+            "name": name,
+            "description": description.strip(),
             "active": active,
             "steps": [step.model_dump() for step in _versioned(current.steps, steps)],
             "edges": [edge.model_dump() for edge in edges or linear_edges(steps)],

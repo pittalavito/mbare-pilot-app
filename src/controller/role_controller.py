@@ -4,9 +4,17 @@ immutable: saving a new text creates the next version."""
 from fastapi import APIRouter, Depends, status
 
 from controller.dependencies import agent_config_service
-from service.agent_config_service import AgentConfigService
-from models.controller.agent import PromptCreateRequest, PromptResponse, PromptUpdateRequest, PromptVersionResponse, RoleCreateRequest, RoleResponse, RoleUpdateRequest
+from models.controller.agent import (
+    PromptCreateRequest,
+    PromptResponse,
+    PromptUpdateRequest,
+    PromptVersionResponse,
+    RoleCreateRequest,
+    RoleResponse,
+    RoleUpdateRequest,
+)
 from models.domain.agent import AgentRole
+from service.agent_config_service import AgentConfigService
 
 router = APIRouter(tags=["roles"])
 

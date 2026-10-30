@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from fakes import as_dict
 from domain.client.copilot.client import CopilotClient
+from fakes import as_dict
 from models.domain.agent import RunOrigin
 from models.domain.note import AgentTask
 from models.domain.project import Project, ProjectSource

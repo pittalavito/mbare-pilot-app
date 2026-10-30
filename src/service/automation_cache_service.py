@@ -36,7 +36,8 @@ _LOGGED_TEXT = 80
 
 class AutomationCacheService:
 
-    def __init__(self, store_service: StoreService, pipeline_service: PipelineService, embedder: Embedder, threshold: float, masking_service: MaskingService | None = None):
+    def __init__(self, store_service: StoreService, pipeline_service: PipelineService, embedder: Embedder, threshold: float,
+                 masking_service: MaskingService | None = None):
         """``masking_service`` is required with an embedder that is not local;
         without it the "same values" rule cannot apply (no aliases)."""
         if not embedder.local and masking_service is None:
@@ -78,7 +79,8 @@ class AutomationCacheService:
             pipeline_id=pipeline_id,
             pipeline_input=pipeline_input
         ))
-        log_info(LogPrefix.AUTOMATION_CACHE_SERVICE, "Cache chatbot %s · voce %s aggiunta: «%s» → automation %s (%s)", chatbot_id, entry.id, _short(text), pipeline_id, self._embedder.name)
+        log_info(LogPrefix.AUTOMATION_CACHE_SERVICE, "Cache chatbot %s · voce %s aggiunta: «%s» → automation %s (%s)",
+                 chatbot_id, entry.id, _short(text), pipeline_id, self._embedder.name)
         return entry
 
     def remove(self, entry_id: int) -> bool:

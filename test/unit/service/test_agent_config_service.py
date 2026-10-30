@@ -1,8 +1,8 @@
 import pytest
 
 from core.error import ValidationError
-from tool.registry import TOOL_REGISTRY
 from models.domain.agent import AgentConfig, AgentRole, ToolInfo
+from tool.registry import TOOL_REGISTRY
 
 
 def _config(service, **overrides) -> AgentConfig:

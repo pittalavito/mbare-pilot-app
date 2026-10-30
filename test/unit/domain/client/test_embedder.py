@@ -1,12 +1,10 @@
 """The mock embedder of the chatbots' cache: same words = similar, whatever
 the case, the accents and the stopwords; deterministic; normalised."""
 import math
-
-import pytest
-
 from types import SimpleNamespace
 
 import openai
+import pytest
 
 from core.error import UpstreamError, ValidationError
 from domain.client.embedding.embedder import Factory, HashingEmbedder, OpenRouterEmbedder, cosine_similarity

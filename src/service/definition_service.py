@@ -30,21 +30,37 @@ from dataclasses import dataclass
 from typing import Any
 
 import yaml
-from pydantic import BaseModel
-from pydantic import ValidationError as PydanticValidationError
+from pydantic import BaseModel, ValidationError as PydanticValidationError
 
 from core.error import AppError, NotFoundError, ValidationError
 from core.observability import LogPrefix, log_warning, observed
 from domain.chat.chatbots_default import DEFAULT_CHATBOTS
 from domain.pipeline.graph import linear_edges
 from domain.project.data_paths import (
-    AGENTS_FILE, AUTOMATIONS_FILE, CHATBOT_FILE, CHATBOTS_FILE, GLOBAL_AGENTS_FILE, GLOBAL_AUTOMATIONS_FILE, GLOBAL_CHATBOT_FILE, GLOBAL_CHATBOTS_FILE,
-    data_file_name, project_definitions,
+    AGENTS_FILE,
+    AUTOMATIONS_FILE,
+    CHATBOT_FILE,
+    CHATBOTS_FILE,
+    GLOBAL_AGENTS_FILE,
+    GLOBAL_AUTOMATIONS_FILE,
+    GLOBAL_CHATBOT_FILE,
+    GLOBAL_CHATBOTS_FILE,
+    data_file_name,
+    project_definitions,
 )
 from models.domain.agent import AgentConfig, AgentRole
 from models.domain.chatbot import KIND_TOOLS
 from models.domain.definitions import (
-    AgentFile, AutomationFile, ChatbotFile, DefinitionEntry, DefinitionKey, DefinitionKind, DefinitionState, StepFile, SyncItem, SyncOutcome,
+    AgentFile,
+    AutomationFile,
+    ChatbotFile,
+    DefinitionEntry,
+    DefinitionKey,
+    DefinitionKind,
+    DefinitionState,
+    StepFile,
+    SyncItem,
+    SyncOutcome,
     SyncReport,
 )
 from models.domain.pipeline import Pipeline, PipelineEdge, PipelineStep, StepAgent, StepKind
@@ -60,7 +76,8 @@ _CHATBOTS_KEY = "chatbots"
 
 class DefinitionService:
 
-    def __init__(self, store_service: StoreService, agent_config_service: AgentConfigService, chatbot_service: ChatbotService, pipeline_service: PipelineService):
+    def __init__(self, store_service: StoreService, agent_config_service: AgentConfigService, chatbot_service: ChatbotService,
+                 pipeline_service: PipelineService):
         self._store = store_service
         self._agents = agent_config_service
         self._chatbots = chatbot_service
@@ -143,7 +160,8 @@ class DefinitionService:
         return created
 
     # ---------------------------------------------------------------- files
-    def _list(self, kind: DefinitionKind, path: str, key: str, schema: type[BaseModel], sync: Callable[[Any], SyncOutcome], skip: Callable[[dict], bool] = lambda raw: False) -> list["_Element"]:
+    def _list(self, kind: DefinitionKind, path: str, key: str, schema: type[BaseModel], sync: Callable[[Any], SyncOutcome],
+              skip: Callable[[dict], bool] = lambda raw: False) -> list["_Element"]:
         """One element per item of the file's ``key`` list (``skip`` leaves some out)."""
         try:
             raw = self._read(path)
@@ -215,7 +233,8 @@ class DefinitionService:
         shared += self._single(DefinitionKind.CHATBOT, GLOBAL_CHATBOT_FILE, ChatbotFile, sync(""), skip=not_own)
         return own + shared
 
-    def _single(self, kind: DefinitionKind, path: str, schema: type[BaseModel], sync: Callable[[Any], SyncOutcome], skip: Callable[[dict], bool] = lambda raw: False) -> list["_Element"]:
+    def _single(self, kind: DefinitionKind, path: str, schema: type[BaseModel], sync: Callable[[Any], SyncOutcome],
+                skip: Callable[[dict], bool] = lambda raw: False) -> list["_Element"]:
         """A file that is one element (no list); none when missing, empty or skipped."""
         try:
             raw = self._read(path)
@@ -260,7 +279,8 @@ class DefinitionService:
                    for element in (self._read(path) or {}).get(_AUTOMATIONS_KEY) or [] if isinstance(element, dict)}
         except AppError:
             own = set()
-        return items + self._list(DefinitionKind.AUTOMATION, GLOBAL_AUTOMATIONS_FILE, _AUTOMATIONS_KEY, AutomationFile, sync, skip=lambda raw: str(raw.get("name", "")).strip().lower() in own)
+        return items + self._list(DefinitionKind.AUTOMATION, GLOBAL_AUTOMATIONS_FILE, _AUTOMATIONS_KEY, AutomationFile, sync,
+                                  skip=lambda raw: str(raw.get("name", "")).strip().lower() in own)
 
     def _sync_automation(self, project_name: str, spec: AutomationFile) -> SyncOutcome:
         """Steps are matched by name with the saved ones: they keep their id
@@ -324,10 +344,10 @@ class _Element:
 
 def _step(spec: StepFile, previous: PipelineStep | None) -> PipelineStep:
     common = dict(
-        id=previous.id if previous else None, 
-        name=spec.name, 
+        id=previous.id if previous else None,
+        name=spec.name,
         input_template=spec.input,
-        position_x=previous.position_x if previous else 0.0, 
+        position_x=previous.position_x if previous else 0.0,
         position_y=previous.position_y if previous else 0.0
     )
     if spec.function is not None:
@@ -342,16 +362,16 @@ def _shape(pipeline: Pipeline) -> tuple:
     """What a file defines of an automation: no ids, positions or prompt versions."""
     steps = [
         (
-         step.name, 
-         step.kind, 
-         step.input_template, 
-         step.agent_config_name, 
-         step.function_name, 
+         step.name,
+         step.kind,
+         step.input_template,
+         step.agent_config_name,
+         step.function_name,
          step.params,
          (
-            step.agent.system_prompt, 
-            step.agent.model, 
-            step.agent.max_steps, 
+            step.agent.system_prompt,
+            step.agent.model,
+            step.agent.max_steps,
             list(step.agent.tool_names)
          ) if step.agent else None
         )

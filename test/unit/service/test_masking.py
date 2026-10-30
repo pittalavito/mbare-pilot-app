@@ -8,6 +8,7 @@ import pytest
 
 from core.error import NotFoundError, ValidationError
 from domain.masking.masker import Masker
+from domain.project.folder_browser import FolderBrowser
 from fakes import FakeAgent
 from models.domain.agent import AgentConfig
 from models.domain.chatbot import ChatMessage, MessageRole
@@ -19,8 +20,6 @@ from service.chat_service import ChatService
 from service.git_service import GitService
 from service.masking_service import MaskingService
 from service.project_service import ProjectService
-from domain.project.folder_browser import FolderBrowser
-
 
 # ------------------------------------------------------------------ Masker
 

@@ -2,8 +2,8 @@
 copilot_message, copilot_turn). ``copilot_session`` is also the worker queue of the executions."""
 from datetime import datetime, timezone
 
-from sqlalchemy.engine import Engine
 from sqlalchemy import func, update
+from sqlalchemy.engine import Engine
 from sqlmodel import and_, col, exists, select
 
 from domain.store.db.repository import SqlRepository

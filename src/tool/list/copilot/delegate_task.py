@@ -68,7 +68,10 @@ def chat_link(project_name: str, session_id: int) -> str:
 
 DELEGATE_TASK = ToolSpec(
     name="delegate_task",
-    description="Delega un agent task a GitHub Copilot su un repository: apre la chat in cui Copilot fa le sue domande; parte solo con l'ok dell'utente e non fa commit.",
+    description=(
+        "Delega un agent task a GitHub Copilot su un repository: apre la chat in cui Copilot fa le sue domande; "
+        "parte solo con l'ok dell'utente e non fa commit."
+    ),
     build=build,
     chatbot_only=True,
 )

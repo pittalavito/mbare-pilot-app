@@ -3,11 +3,11 @@
 from fastapi import APIRouter, Depends
 
 from controller.dependencies import agent_config_service, model_service, store_service
+from models.controller.admin import CatalogModelBody
+from models.controller.agent import ModelChoicesResponse, ToolResponse
 from service.agent_config_service import AgentConfigService
 from service.model_service import ModelService
 from service.store_service import StoreService
-from models.controller.admin import CatalogModelBody
-from models.controller.agent import ModelChoicesResponse, ToolResponse
 
 router = APIRouter(tags=["catalogs"])
 
@@ -32,7 +32,8 @@ def list_models(service: ModelService = Depends(model_service), store: StoreServ
 
 
 @router.put("/models")
-def save_models(request: list[CatalogModelBody], service: ModelService = Depends(model_service), store: StoreService = Depends(store_service)) -> list[CatalogModelBody]:
+def save_models(request: list[CatalogModelBody], service: ModelService = Depends(model_service),
+                store: StoreService = Depends(store_service)) -> list[CatalogModelBody]:
     """Make the body the whole catalog. A model in use cannot be removed (409)."""
     service.save_catalog([model.to_model() for model in request])
     return list_models(service, store)

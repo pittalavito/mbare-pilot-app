@@ -2,10 +2,10 @@
 from fastapi import APIRouter, Depends, Response, status
 
 from controller.dependencies import project_service
-from service.project_service import ProjectService
 from models.controller.project import CreateFromScratchRequest, OpenFolderRequest, ProjectOptionsResponse, ProjectResponse, UpdateProjectRequest
 from models.domain.chat import EmbeddingModelName
 from models.domain.project import Project
+from service.project_service import ProjectService
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 

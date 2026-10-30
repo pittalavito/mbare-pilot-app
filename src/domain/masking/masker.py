@@ -9,7 +9,7 @@ import re
 
 from models.domain.masking import MaskCategory, MaskEntry
 
-_ALIAS = re.compile(r"\b(?:%s)_\d+\b" % "|".join(category.alias_prefix for category in MaskCategory))
+_ALIAS = re.compile(r"\b(?:{})_\d+\b".format("|".join(category.alias_prefix for category in MaskCategory)))
 
 
 class Masker:

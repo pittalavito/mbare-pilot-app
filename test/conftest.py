@@ -14,7 +14,6 @@ from models.domain.agent import AgentConfig, AgentRole
 from service.agent_config_service import AgentConfigService
 from service.store_service import StoreService
 
-
 HELLO_AGENT = """agents:
   - name: hello
     description: Agente di esempio con i tool hello_world

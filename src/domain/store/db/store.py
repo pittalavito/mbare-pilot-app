@@ -9,12 +9,14 @@ from datetime import datetime, timezone
 from domain.store.db.agent_config_repository import DbAgentConfigRepository
 from domain.store.db.atlassian_favorite_repository import DbAtlassianFavoriteRepository
 from domain.store.db.atlassian_repository import DbAtlassianRepository
+from domain.store.db.chat_model_repository import DbChatModelRepository
 from domain.store.db.chatbot_repository import (
-    DbChatbotRepository,
     DbAutomationCacheRepository,
+    DbChatbotRepository,
     DbConversationRepository,
     DbMessageRepository,
 )
+from domain.store.db.copilot_repository import USAGE_COLUMNS, DbCopilotMessageRepository, DbCopilotSessionRepository, DbCopilotTurnRepository
 from domain.store.db.pipeline_repository import (
     DbPipelineEdgeRepository,
     DbPipelineRepository,
@@ -22,8 +24,6 @@ from domain.store.db.pipeline_repository import (
     DbPipelineStepRepository,
     DbPipelineStepRunRepository,
 )
-from domain.store.db.chat_model_repository import DbChatModelRepository
-from domain.store.db.copilot_repository import USAGE_COLUMNS, DbCopilotMessageRepository, DbCopilotSessionRepository, DbCopilotTurnRepository
 from domain.store.db.project_repository import DbProjectRepository
 from domain.store.db.prompt_repository import DbPromptRepository
 from domain.store.db.repository import Engine
@@ -42,10 +42,18 @@ from models.domain.agent import (
 )
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
 from models.domain.chat import ChatModel, EmbeddingModelName
-from models.domain.chatbot import ChatMessage, AutomationCacheEntry, Chatbot, Conversation, MessageRole
+from models.domain.chatbot import AutomationCacheEntry, Chatbot, ChatMessage, Conversation, MessageRole
 from models.domain.copilot import (
-    CopilotMessage, CopilotMessageRole, CopilotModelUsage, CopilotPhase, CopilotSession, CopilotSessionStatus, CopilotTurnRecord, CopilotUsage,
+    CopilotMessage,
+    CopilotMessageRole,
+    CopilotModelUsage,
+    CopilotPhase,
+    CopilotSession,
+    CopilotSessionStatus,
+    CopilotTurnRecord,
+    CopilotUsage,
 )
+from models.domain.note import NoteType
 from models.domain.pipeline import (
     INPUT_NODE,
     EdgeConditionKind,
@@ -58,21 +66,20 @@ from models.domain.pipeline import (
     StepAgent,
     StepKind,
 )
-from models.domain.note import NoteType
 from models.domain.project import Project, ProjectSource
 from models.store.db import (
     AgentConfigTable,
     AgentRoleTable,
     AgentRunTable,
     AtlassianFavoriteTable,
-    ChatbotTable,
     AutomationCacheTable,
+    ChatbotTable,
+    ChatModelTable,
     ConversationTable,
     CopilotMessageTable,
     CopilotSessionTable,
     CopilotTurnTable,
     MessageTable,
-    ChatModelTable,
     PipelineEdgeTable,
     PipelineRunTable,
     PipelineStepRunTable,
@@ -141,7 +148,7 @@ class Adapter:
     @staticmethod
     def to_copilot_model_usage(row: tuple) -> CopilotModelUsage:
         """A row of ``totals_by_model``: ``(model, turns, *usage sums)``."""
-        return CopilotModelUsage(model=row[0], turns=row[1], usage=CopilotUsage(**dict(zip(USAGE_COLUMNS, row[2:]))))
+        return CopilotModelUsage(model=row[0], turns=row[1], usage=CopilotUsage(**dict(zip(USAGE_COLUMNS, row[2:], strict=False))))
 
     @staticmethod
     def to_copilot_message(row: CopilotMessageTable) -> CopilotMessage:

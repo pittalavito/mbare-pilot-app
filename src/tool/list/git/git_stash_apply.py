@@ -29,11 +29,11 @@ def build(context: ToolContext) -> Tool:
             return git_error(context, exc)
 
         return GitStashApplyResponse(
-            repository=repository, 
-            ref=result.ref, 
-            message=result.message, 
+            repository=repository,
+            ref=result.ref,
+            message=result.message,
             applied=not result.conflicts,
-            files=result.files, 
+            files=result.files,
             conflicts=result.conflicts,
         )
 

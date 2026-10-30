@@ -3,8 +3,8 @@ values the LLM sees as aliases (registered by the tools or added by hand)."""
 from fastapi import APIRouter, Depends, Response, status
 
 from controller.dependencies import masking_service
-from service.masking_service import MaskingService
 from models.controller.masking import MaskEntryResponse, MaskRequest
+from service.masking_service import MaskingService
 
 router = APIRouter(prefix="/projects/{project}/masking", tags=["masking"])
 

@@ -12,8 +12,8 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 
 from core.error import AppError, ValidationError
-from domain.pipeline.graph import join_outputs, passing_targets, topological_order
 from core.observability import LogPrefix, log_exception, log_warning, observed
+from domain.pipeline.graph import join_outputs, passing_targets, topological_order
 from function.context import FunctionContext
 from function.registry import get_function
 from models.domain.agent import AgentDefinition, AgentRunRecord, RunOrigin
@@ -41,7 +41,8 @@ class StepFailed(Exception):
 
 class PipelineRunner:
 
-    def __init__(self, store_service: StoreService, agent_service: AgentService, git_service: GitService, project_data_service: ProjectDataService, masking_service: MaskingService | None = None):
+    def __init__(self, store_service: StoreService, agent_service: AgentService, git_service: GitService,
+                 project_data_service: ProjectDataService, masking_service: MaskingService | None = None):
         """``masking_service`` registers the sensitive values the function steps
         declare (FunctionResult), so the agent steps after them see aliases."""
         self._store = store_service
@@ -94,12 +95,12 @@ class PipelineRunner:
                 continue
             previous = join_outputs([(source, outputs[source]) for source in sources])
             step_run = self._store.save_pipeline_step_run(PipelineStepRun(
-                pipeline_run_id=run.id, 
-                step_id=step.id, 
-                position=position, 
-                name=step.name, 
+                pipeline_run_id=run.id,
+                step_id=step.id,
+                position=position,
+                name=step.name,
                 kind=step.kind,
-                input=step.render_input(previous, run.input, outputs), 
+                input=step.render_input(previous, run.input, outputs),
                 started_at=_now()
             ))
             try:
@@ -145,7 +146,9 @@ class PipelineRunner:
 
     def _finish_step(self, step_run: PipelineStepRun, status: RunStatus, *, output: str | None = None,
                      error: str | None = None, agent_run_id: str | None = None) -> None:
-        self._store.save_pipeline_step_run(step_run.model_copy(update={"status": status, "output": output, "error": error, "agent_run_id": agent_run_id, "finished_at": _now()}))
+        self._store.save_pipeline_step_run(step_run.model_copy(update={
+            "status": status, "output": output, "error": error, "agent_run_id": agent_run_id, "finished_at": _now(),
+        }))
 
     def _finish(self, run: PipelineRun, status: RunStatus, *, output: str | None = None,
                 error: str | None = None) -> PipelineRun:

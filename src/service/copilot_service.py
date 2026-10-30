@@ -29,8 +29,17 @@ from domain.client.copilot.client import NOT_FOUND, CopilotClient, CopilotMode
 from domain.project import coding_agent
 from domain.project.data_paths import note_file_name
 from models.domain.copilot import (
-    CodingAgentSettings, CopilotMessage, CopilotMessageRole, CopilotModel, CopilotModelUsage, CopilotPhase, CopilotSession, CopilotSessionStatus,
-    CopilotTurn, CopilotTurnRecord, CopilotUsage,
+    CodingAgentSettings,
+    CopilotMessage,
+    CopilotMessageRole,
+    CopilotModel,
+    CopilotModelUsage,
+    CopilotPhase,
+    CopilotSession,
+    CopilotSessionStatus,
+    CopilotTurn,
+    CopilotTurnRecord,
+    CopilotUsage,
 )
 from models.domain.note import TaskStatus
 from service.git_service import GitService

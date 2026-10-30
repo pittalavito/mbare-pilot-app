@@ -3,8 +3,8 @@ the configured PROJECT_ROOTS (paths outside them are a 400)."""
 from fastapi import APIRouter, Depends
 
 from controller.dependencies import project_service
-from service.project_service import ProjectService
 from models.controller.project import FolderEntry, FolderListingResponse, FolderRootsResponse
+from service.project_service import ProjectService
 
 router = APIRouter(prefix="/folders", tags=["folders"])
 

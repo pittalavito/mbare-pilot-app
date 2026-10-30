@@ -9,8 +9,8 @@ from datapizza.clients.openai_like import OpenAILikeClient
 from datapizza.core.clients import Client
 
 from config import Config
-from domain.chat.mock_client import MockClient
 from core.error import ValidationError
+from domain.chat.mock_client import MockClient
 from models.domain.chat import ModelProvider, split_model_key
 
 

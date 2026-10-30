@@ -2,11 +2,11 @@
 project's agents; without it, the global ones (Library)."""
 from fastapi import APIRouter, Depends, Response, status
 
-from core.error import NotFoundError
 from controller.dependencies import agent_config_service
-from service.agent_config_service import AgentConfigService
+from core.error import NotFoundError
 from models.controller.agent import AgentCreateRequest, AgentResponse, AgentUpdateRequest
 from models.domain.agent import AgentConfig
+from service.agent_config_service import AgentConfigService
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 

@@ -10,16 +10,16 @@ other change recreates the table only while it is empty (with the tables
 referencing it); with rows the app stops and says which table to migrate by hand.
 """
 import json
-from typing import Any, Generic, Sequence, TypeVar
+from collections.abc import Sequence
+from typing import Any, Generic, TypeVar
 
 from sqlalchemy import func, inspect, literal, text
 from sqlalchemy.engine import Engine as SqlAlchemyEngine
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from core.observability import LogPrefix, log_warning
-
 # Imported for its side effect: registers every table on SQLModel.metadata.
 import models.store.db  # noqa: F401
+from core.observability import LogPrefix, log_warning
 
 TableT = TypeVar("TableT", bound=SQLModel)
 

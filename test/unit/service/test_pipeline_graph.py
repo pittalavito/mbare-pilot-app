@@ -7,7 +7,13 @@ import pytest
 from core.error import ValidationError
 from fakes import FakeAgent
 from models.domain.pipeline import (
-    INPUT_NODE, EdgeConditionKind, PipelineEdge, PipelineStep, RunStatus, StepAgent, StepKind,
+    INPUT_NODE,
+    EdgeConditionKind,
+    PipelineEdge,
+    PipelineStep,
+    RunStatus,
+    StepAgent,
+    StepKind,
 )
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module

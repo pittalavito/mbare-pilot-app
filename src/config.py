@@ -15,11 +15,11 @@ _URL_CREDENTIALS = re.compile(r"://([^:/@]+):([^@]+)@")
 
 
 class Config(BaseSettings):
-    
+
     # The name model_config is required by pydantic-settings: renamed, .env is not read.
     model_config = SettingsConfigDict(env_file=_PROJECT_ROOT / ".env", env_file_encoding="utf-8", extra="ignore")
     _instance: ClassVar["Config | None"] = None
-    
+
     # --- App ---
     app_log_level: str = "INFO"
 

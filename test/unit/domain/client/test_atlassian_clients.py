@@ -36,7 +36,8 @@ def test_requests_use_basic_auth():
     (400, ValidationError), (429, UpstreamError), (500, UpstreamError),
 ])
 def test_http_errors_are_mapped(status, error):
-    handler = lambda request: httpx.Response(status, json={"errorMessages": ["boom"]}, headers={"Retry-After": "3"})
+    def handler(request):
+        return httpx.Response(status, json={"errorMessages": ["boom"]}, headers={"Retry-After": "3"})
     with pytest.raises(error):
         JiraClient(_http(handler)).myself()
 
@@ -56,7 +57,8 @@ def test_list_projects_follows_offset_pagination():
         0: {"values": [{"id": "1", "key": "ALPHA", "name": "Alpha"}], "isLast": False},
         1: {"values": [{"id": "2", "key": "BETA", "name": "Beta", "projectTypeKey": "software"}], "isLast": True},
     }
-    handler = lambda request: httpx.Response(200, json=pages[int(request.url.params["startAt"])])
+    def handler(request):
+        return httpx.Response(200, json=pages[int(request.url.params["startAt"])])
 
     projects = JiraClient(_http(handler)).list_projects()
 
@@ -99,10 +101,11 @@ def test_search_issues_follows_next_page_token_and_maps_fields():
 
 
 def test_search_issues_respects_limit():
-    handler = lambda request: httpx.Response(200, json={
-        "issues": [{"key": f"A-{n}", "fields": {}} for n in range(int(request.url.params["maxResults"]))],
-        "nextPageToken": "more", "isLast": False,
-    })
+    def handler(request):
+        return httpx.Response(200, json={
+            "issues": [{"key": f"A-{n}", "fields": {}} for n in range(int(request.url.params["maxResults"]))],
+            "nextPageToken": "more", "isLast": False,
+        })
 
     assert len(JiraClient(_http(handler)).search_issues("x", limit=3)) == 3
 

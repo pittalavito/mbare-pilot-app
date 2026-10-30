@@ -46,7 +46,7 @@ def linear_edges(steps: list[PipelineStep]) -> list[PipelineEdge]:
     """The chain ``input → first step → … → last step``: the graph of an
     automation saved without edges."""
     names = [INPUT_NODE, *(step.name for step in steps)]
-    return [PipelineEdge(source=source, target=target) for source, target in zip(names, names[1:])]
+    return [PipelineEdge(source=source, target=target) for source, target in zip(names, names[1:], strict=False)]
 
 
 def validate_graph(steps: list[PipelineStep], edges: list[PipelineEdge]) -> None:

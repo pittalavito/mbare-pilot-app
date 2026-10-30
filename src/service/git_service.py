@@ -77,11 +77,11 @@ class GitService:
         if commit and not self._git.commit_exists(folder, commit):
             raise NotFoundError(f"Commit non trovato: {commit}")
         return self._git.log(
-            folder, 
-            limit, 
+            folder,
+            limit,
             only_here=toplevel != folder and not commit,
-            author=author.strip() or None, 
-            message=message.strip() or None, 
+            author=author.strip() or None,
+            message=message.strip() or None,
             revision=commit or None
         )
 
@@ -121,7 +121,10 @@ class GitService:
             self._git.pull_fast_forward(toplevel)
         except UpstreamError as exc:
             if "fast-forward" in str(exc).lower():
-                raise ValidationError(f"Il branch {status.branch} ha commit locali che {status.upstream} non ha: il fast-forward non è possibile, serve un merge o un rebase fatto a mano.") from exc
+                raise ValidationError(
+                    f"Il branch {status.branch} ha commit locali che {status.upstream} non ha: "
+                    "il fast-forward non è possibile, serve un merge o un rebase fatto a mano."
+                ) from exc
             raise
         after = self._git.head(toplevel)
         commits = [] if after == before else self._git.commits_between(toplevel, before, after)

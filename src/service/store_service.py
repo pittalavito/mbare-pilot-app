@@ -21,19 +21,19 @@ from domain.store.db.store import (
     DbAgentConfigRepository,
     DbAtlassianFavoriteRepository,
     DbAtlassianRepository,
-    DbChatbotRepository,
-    DbConversationRepository,
-    DbMessageRepository,
     DbAutomationCacheRepository,
+    DbChatbotRepository,
+    DbChatModelRepository,
+    DbConversationRepository,
+    DbCopilotMessageRepository,
+    DbCopilotSessionRepository,
+    DbCopilotTurnRepository,
+    DbMessageRepository,
     DbPipelineEdgeRepository,
     DbPipelineRepository,
     DbPipelineRunRepository,
     DbPipelineStepRepository,
     DbPipelineStepRunRepository,
-    DbChatModelRepository,
-    DbCopilotMessageRepository,
-    DbCopilotSessionRepository,
-    DbCopilotTurnRepository,
     DbProjectRepository,
     DbPromptRepository,
     DbRoleRepository,
@@ -43,15 +43,22 @@ from domain.store.db.store import (
     Factory as DbFactory,
 )
 from domain.store.files.store import LocalFileRepository, StoredFile
-from domain.store.redis.store import Adapter as RedisAdapter, Client as RedisClient, Factory as RedisFactory, RedisMaskRepository, RedisTraceRepository, RedisWorkerRepository
+from domain.store.redis.store import (
+    Adapter as RedisAdapter,
+    Client as RedisClient,
+    Factory as RedisFactory,
+    RedisMaskRepository,
+    RedisTraceRepository,
+    RedisWorkerRepository,
+)
 from models.domain.agent import AgentConfig, AgentRole, AgentRunRecord, AgentRunSummary, SystemPrompt, ToolCallSummary, ToolInfo
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
 from models.domain.chat import ChatModel
-from models.domain.chatbot import ChatMessage, AutomationCacheEntry, Chatbot, Conversation
+from models.domain.chatbot import AutomationCacheEntry, Chatbot, ChatMessage, Conversation
 from models.domain.copilot import CopilotMessage, CopilotModelUsage, CopilotSession, CopilotSessionStatus, CopilotTurnRecord
+from models.domain.masking import MaskCategory, MaskEntry
 from models.domain.pipeline import Pipeline, PipelineRun, PipelineStepRun, RunStatus
 from models.domain.project import Project, ProjectSource
-from models.domain.masking import MaskCategory, MaskEntry
 from models.domain.worker import WorkerStatus
 from models.store.redis import AgentTraceRecord
 

@@ -6,7 +6,6 @@ from time import perf_counter
 
 from core.error import AppError
 
-
 _logger = logging.getLogger("observability")
 
 

@@ -5,20 +5,33 @@ and the code and context references they link by name),
 ``files/*`` (uploaded documents), ``context/*.md`` (the project's context,
 written by hand: what read_context gives the chatbot, and the RAG will index)
 and ``copilot/<session>/`` (an agent task and its references, for Copilot)."""
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
-
-from collections.abc import Callable
 
 from pydantic import BaseModel
 
 from core.error import ConflictError, NotFoundError, ValidationError
 from domain.project.data_paths import (
-    CONTEXT_DIR, COPILOT_DIR, FILES_DIR, NOTE_SUFFIX, NOTES_DIR, TASK_FILE, data_file_name, note_file_name, note_type, project_slug,
+    CONTEXT_DIR,
+    COPILOT_DIR,
+    FILES_DIR,
+    NOTE_SUFFIX,
+    NOTES_DIR,
+    TASK_FILE,
+    data_file_name,
+    note_file_name,
+    note_type,
+    project_slug,
     typed_note_file_name,
 )
 from domain.project.note_templates import (
-    parse_agent_task, parse_reference, parse_todo_list, render_agent_task, render_reference, render_todo_list,
+    parse_agent_task,
+    parse_reference,
+    parse_todo_list,
+    render_agent_task,
+    render_reference,
+    render_todo_list,
 )
 from models.domain.note import AgentTask, NoteType, Reference, TodoList
 from models.domain.project import DEFAULT_VISIBLE_NOTE_TYPES, ProjectDataFile, ProjectDataKind

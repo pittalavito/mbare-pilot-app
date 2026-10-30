@@ -4,9 +4,8 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
-from pydantic import BaseModel
-
 from datapizza.tracing.tracing import agent_span, generation_span, tool_span
+from pydantic import BaseModel
 
 from models.domain.agent import AgentRunRecord, GenerationRecord, RunTelemetry, TokenSummary, ToolCallRecord
 

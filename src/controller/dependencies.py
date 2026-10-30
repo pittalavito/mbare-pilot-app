@@ -4,16 +4,16 @@ from fastapi import Request
 
 from service.agent_config_service import AgentConfigService
 from service.atlassian_service import AtlassianService
-from service.backup_service import BackupService
 from service.automation_cache_service import AutomationCacheService
+from service.backup_service import BackupService
 from service.chatbot_service import ChatbotService
 from service.copilot_service import CopilotService
 from service.definition_service import DefinitionService
-from service.process_service import ProcessService
 from service.git_service import GitService
 from service.masking_service import MaskingService
 from service.model_service import ModelService
 from service.pipeline_service import PipelineService
+from service.process_service import ProcessService
 from service.project_data_service import ProjectDataService
 from service.project_service import ProjectService
 from service.store_service import StoreService

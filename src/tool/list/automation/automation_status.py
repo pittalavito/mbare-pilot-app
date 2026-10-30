@@ -37,8 +37,8 @@ def build(context: ToolContext) -> Tool:
             return _not_found(run_id)
 
         return AutomationStatusResponse(
-            automation=pipeline.name, 
-            run_id=run_id, 
+            automation=pipeline.name,
+            run_id=run_id,
             status=run.status.value,
             steps=[AutomationStepStatus(name=step.name, status=step.status.value) for step in run.steps],
         )

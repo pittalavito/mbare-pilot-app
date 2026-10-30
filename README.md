@@ -43,6 +43,12 @@ Test con coverage (il frontend ha i suoi: `npm test` in `web/`):
 python resource/scripts/run-test.py
 ```
 
+Lint (lo stesso controllo della CI, `.github/workflows/ci.yml`; `--fix` corregge da solo import e spazi):
+
+```bash
+uv run ruff check .
+```
+
 La cartella dei dati sta **fuori dal repo**: le note e i file dei progetti non vanno nella storia del codice. Le definizioni (`definition/`) conviene versionarle in un loro repo git privato.
 
 Export del DB in `../mbare-pilot-back-up/db/` (anche da **Admin → Backup**):

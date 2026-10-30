@@ -50,13 +50,15 @@ class AgentService:
         self._project_data_service = project_data_service
         self._copilot_service = copilot_service
 
-    def run(self, config_name: str, task_input: str, *, project_name: str | None = None, origin: RunOrigin = RunOrigin.MANUAL, history: list[ChatMessage] | None = None) -> AgentRunRecord:
+    def run(self, config_name: str, task_input: str, *, project_name: str | None = None, origin: RunOrigin = RunOrigin.MANUAL,
+            history: list[ChatMessage] | None = None) -> AgentRunRecord:
         """Run the agent configured as ``config_name`` (see ``run_definition``)."""
         definition = AgentDefinition.from_spec(self._agent_config_service.resolve(config_name))
         return self.run_definition(definition, task_input, project_name=project_name, origin=origin, history=history)
 
     @observed(LogPrefix.AGENT_SERVICE)
-    def run_definition(self, definition: AgentDefinition, task_input: str, *, project_name: str | None = None, origin: RunOrigin = RunOrigin.MANUAL, history: list[ChatMessage] | None = None) -> AgentRunRecord:
+    def run_definition(self, definition: AgentDefinition, task_input: str, *, project_name: str | None = None,
+                       origin: RunOrigin = RunOrigin.MANUAL, history: list[ChatMessage] | None = None) -> AgentRunRecord:
         """Run ``definition`` on ``task_input`` inside a datapizza trace and
         persist the run (facts + trace). A failed run is persisted too, with
         ``ok=False``. The run's project (``project_name``, else the
@@ -70,10 +72,10 @@ class AgentService:
         session = self._masking_service.session(project_name) if self._masking_service and project_name else None
         mask = AgentMask(session, self._repository_paths(project_name) if session else [])
         context = ToolContext(
-            project_name=project_name, 
+            project_name=project_name,
             git=self._git_service,
-            pipelines=self._pipeline_service, 
-            origin=origin, 
+            pipelines=self._pipeline_service,
+            origin=origin,
             project_data=self._project_data_service,
             copilot=self._copilot_service,
         )

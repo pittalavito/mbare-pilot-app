@@ -7,10 +7,17 @@ from fastapi import APIRouter, Depends, Response, status
 
 from controller.dependencies import automation_cache_service, chatbot_service
 from core.error import NotFoundError
+from models.controller.chatbot import (
+    AutomationCacheEntryRequest,
+    AutomationCacheEntryResponse,
+    ChatbotRequest,
+    ChatbotResponse,
+    ConversationResponse,
+    MessageRequest,
+    MessageResponse,
+)
 from service.automation_cache_service import AutomationCacheService
 from service.chatbot_service import ChatbotService
-from models.controller.chatbot import ChatbotRequest, ChatbotResponse, AutomationCacheEntryRequest, AutomationCacheEntryResponse, ConversationResponse, MessageRequest, MessageResponse
-
 
 router = APIRouter(tags=["chat"])
 
@@ -79,7 +86,8 @@ def list_automation_cache(chatbot_id: int, service: AutomationCacheService = Dep
 
 
 @router.post("/messages/{message_id}/automation-cache", status_code=status.HTTP_201_CREATED)
-def add_to_automation_cache(message_id: int, request: AutomationCacheEntryRequest, service: AutomationCacheService = Depends(automation_cache_service)) -> AutomationCacheEntryResponse:
+def add_to_automation_cache(message_id: int, request: AutomationCacheEntryRequest,
+                            service: AutomationCacheService = Depends(automation_cache_service)) -> AutomationCacheEntryResponse:
     """Put a user message in its chatbot's cache: similar messages will launch
     the automation directly, without the agent."""
     return AutomationCacheEntryResponse.from_entry(service.add(message_id, request.pipeline_id, request.input))

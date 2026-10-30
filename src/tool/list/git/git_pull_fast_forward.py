@@ -26,10 +26,10 @@ def build(context: ToolContext) -> Tool:
             return git_error(context, exc)
 
         return GitPullResponse(
-            repository=repository, 
-            branch=result.branch, 
+            repository=repository,
+            branch=result.branch,
             upstream=result.upstream,
-            updated=not result.up_to_date, 
+            updated=not result.up_to_date,
             commits=result.commits,
         )
 

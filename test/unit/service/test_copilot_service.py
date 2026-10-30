@@ -413,7 +413,8 @@ def test_the_usage_file_is_read_as_copilot_writes_it(tmp_path):
     usage, model = read_usage(path)
 
     assert model == "claude-haiku-5.5" and round(usage.ai_credits, 4) == 0.339
-    assert (usage.premium_requests, usage.input_tokens, usage.output_tokens, usage.cache_write_tokens, usage.reasoning_tokens, usage.api_duration_ms) == (1, 26736, 97, 26732, 92, 2842)
+    assert (usage.premium_requests, usage.input_tokens, usage.output_tokens,
+            usage.cache_write_tokens, usage.reasoning_tokens, usage.api_duration_ms) == (1, 26736, 97, 26732, 92, 2842)
     assert read_usage(tmp_path / "manca.json") == (None, "")
     (tmp_path / "rotto.json").write_text("{non json", encoding="utf-8")
     assert read_usage(tmp_path / "rotto.json") == (None, "")

@@ -5,18 +5,16 @@ import sys
 import datapizza.tracing
 
 from config import Config
-from core.observability import LogPrefix, configure_logging, observed
-
+from core.observability import LogPrefix, observed
 from domain.chat.models_default import DEFAULT_CHAT_MODELS
 from domain.client.embedding.embedder import Factory as EmbedderFactory
 from domain.process.manager import ProcessManager
 from domain.project.folder_browser import FolderBrowser
-
 from service.agent_config_service import AgentConfigService
 from service.agent_service import AgentService
 from service.atlassian_service import AtlassianService
-from service.backup_service import BackupService
 from service.automation_cache_service import AutomationCacheService
+from service.backup_service import BackupService
 from service.chat_service import ChatService
 from service.chatbot_service import ChatbotService
 from service.copilot_service import CopilotService

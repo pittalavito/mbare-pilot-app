@@ -5,7 +5,18 @@ and for Observability (/observability/copilot/...)."""
 from fastapi import APIRouter, Depends, Response, status
 
 from controller.dependencies import copilot_service
-from models.controller.copilot import CopilotDeletedResponse, CopilotMessageRequest, CopilotMessageResponse, CopilotModelOptionResponse, CopilotModelUsageResponse, CopilotSessionRequest, CopilotSessionResponse, CopilotSessionUsageResponse, CopilotStatusResponse, CopilotTurnResponse
+from models.controller.copilot import (
+    CopilotDeletedResponse,
+    CopilotMessageRequest,
+    CopilotMessageResponse,
+    CopilotModelOptionResponse,
+    CopilotModelUsageResponse,
+    CopilotSessionRequest,
+    CopilotSessionResponse,
+    CopilotSessionUsageResponse,
+    CopilotStatusResponse,
+    CopilotTurnResponse,
+)
 from service.copilot_service import CopilotService
 
 router = APIRouter(tags=["copilot"])

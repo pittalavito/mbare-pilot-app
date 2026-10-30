@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from models.domain.chatbot import AutomationCacheEntry, ChatMessage, Chatbot, ChatbotKind, Conversation
+from models.domain.chatbot import AutomationCacheEntry, Chatbot, ChatbotKind, ChatMessage, Conversation
 
 
 class ChatbotResponse(BaseModel):

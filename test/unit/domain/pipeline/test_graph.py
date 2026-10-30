@@ -3,7 +3,12 @@ import pytest
 
 from core.error import ValidationError
 from domain.pipeline.graph import (
-    ancestors, join_outputs, linear_edges, passing_targets, topological_order, validate_graph,
+    ancestors,
+    join_outputs,
+    linear_edges,
+    passing_targets,
+    topological_order,
+    validate_graph,
 )
 from models.domain.pipeline import INPUT_NODE, EdgeConditionKind, PipelineEdge, PipelineStep, StepAgent, StepKind
 

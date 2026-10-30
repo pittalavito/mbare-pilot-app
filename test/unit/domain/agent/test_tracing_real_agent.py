@@ -45,7 +45,8 @@ def test_real_agent_run_splits_agent_and_tool_tokens():
 
     with ContextTracing().trace("test") as current:
         step = agent.run("ciao")
-        telemetry = Adapter.to_run_telemetry(current.get_spans(), {"gpt-4o": ChatModel(provider="openai", model="gpt-4o", input_per_1m=3.5, output_per_1m=10.0)})
+        prices = {"gpt-4o": ChatModel(provider="openai", model="gpt-4o", input_per_1m=3.5, output_per_1m=10.0)}
+        telemetry = Adapter.to_run_telemetry(current.get_spans(), prices)
 
     assert step.text == "Hello, Mario!"
     # two agent turns (tool call + final answer), one LLM call inside the tool

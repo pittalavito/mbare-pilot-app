@@ -1,7 +1,8 @@
 """HTTP plumbing shared by the Jira and Confluence clients: one httpx client
 per Atlassian Cloud site (``https://<site>.atlassian.net``), basic auth with
 email + API token, HTTP errors mapped to AppErrors, pagination helpers."""
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 import httpx
 

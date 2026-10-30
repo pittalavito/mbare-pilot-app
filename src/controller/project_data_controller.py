@@ -7,14 +7,23 @@ as their template's fields under /agent-tasks and /todo-lists. Code and context
 references, linked to them by name, under /references (deleting one unlinks it)."""
 from fastapi import APIRouter, Depends, Request, Response, status
 
-from core.error import NotFoundError
-from models.domain.note import NoteType
 from controller.dependencies import project_data_service
-from service.project_data_service import ProjectDataService
+from core.error import NotFoundError
 from models.controller.project_data import (
-    AgentTaskBody, AgentTaskResponse, DataFileResponse, DataSettingsBody, NoteRequest, NoteResponse, ReferenceBody, ReferenceCreateBody, ReferenceResponse,
-    TodoListBody, TodoListResponse,
+    AgentTaskBody,
+    AgentTaskResponse,
+    DataFileResponse,
+    DataSettingsBody,
+    NoteRequest,
+    NoteResponse,
+    ReferenceBody,
+    ReferenceCreateBody,
+    ReferenceResponse,
+    TodoListBody,
+    TodoListResponse,
 )
+from models.domain.note import NoteType
+from service.project_data_service import ProjectDataService
 
 router = APIRouter(prefix="/projects/{project}", tags=["project data"])
 

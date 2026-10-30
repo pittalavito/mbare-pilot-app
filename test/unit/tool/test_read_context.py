@@ -21,7 +21,7 @@ def _read(project_data, project="My App"):
 
 
 def test_reads_the_markdown_files_of_the_context_folder(store_service, project_data):
-    store_service.save_file("my-app/context/context.md", "Gestionale navi".encode())
+    store_service.save_file("my-app/context/context.md", b"Gestionale navi")
     store_service.save_file("my-app/context/linee-guida.md", b"Breve.")
     store_service.save_file("my-app/context/schema.png", b"\x89PNG")
     store_service.save_file("my-app/notes/altro.md", b"nota")

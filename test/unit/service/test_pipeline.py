@@ -8,9 +8,9 @@ from pydantic import ValidationError as PydanticValidationError
 
 from core.error import ConflictError, NotFoundError, ValidationError
 from fakes import FakeAgent
-from models.domain.agent import AgentConfig, AgentRole
 from models.domain import pipeline as pipeline_module
-from models.domain.pipeline import PipelineRun, PipelineStep, RunStatus, StepAgent, StepKind
+from models.domain.agent import AgentConfig, AgentRole
+from models.domain.pipeline import PipelineStep, RunStatus, StepAgent, StepKind
 from models.domain.project import Project, ProjectSource
 from models.domain.worker import WorkerStatus
 from service import agent_service as agent_service_module

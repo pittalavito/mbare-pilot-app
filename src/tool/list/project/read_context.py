@@ -11,7 +11,10 @@ from tool.spec import ToolSpec
 
 def build(context: ToolContext) -> Tool:
 
-    @tool(name="read_context", description= "Last resort: the project's context (domain, stack, sources). Use it only when the request is ambiguous or no automation seems to fit.")
+    @tool(name="read_context", description=(
+        "Last resort: the project's context (domain, stack, sources). "
+        "Use it only when the request is ambiguous or no automation seems to fit."
+    ))
     def read_context() -> ReadContextResponse | ToolErrorResponse:
         if context.project_data is None or context.project_name is None:
             return ToolErrorResponse(error="Contesto non disponibile fuori da un progetto.")

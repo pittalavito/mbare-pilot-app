@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from core.error import AppError, ConflictError, NotFoundError, ValidationError
 from core.observability import LogPrefix, observed
 from models.domain.agent import AgentDefinition, RunOrigin, ToolInfo
-from models.domain.chatbot import AutomationCacheEntry, ChatMessage, Chatbot, ChatbotKind, Conversation, MessageRole
+from models.domain.chatbot import AutomationCacheEntry, Chatbot, ChatbotKind, ChatMessage, Conversation, MessageRole
 from service.agent_config_service import AgentConfigService
 from service.agent_service import AgentService
 from service.automation_cache_service import CACHE_BYPASS, AutomationCacheService
@@ -26,7 +26,8 @@ _CACHE_MARK = "⚡"
 
 class ChatbotService:
 
-    def __init__(self, store_service: StoreService, agent_config_service: AgentConfigService, agent_service: AgentService, automation_cache: AutomationCacheService | None = None):
+    def __init__(self, store_service: StoreService, agent_config_service: AgentConfigService, agent_service: AgentService,
+                 automation_cache: AutomationCacheService | None = None):
         """``automation_cache`` is the cache; None = every message goes to the agent."""
         self._store = store_service
         self._agent_configs = agent_config_service
@@ -64,7 +65,7 @@ class ChatbotService:
         if self._store.get_project(project_name) is None:
             raise NotFoundError(f"Progetto non trovato: {project_name}")
         chatbot = Chatbot(
-            project_name=project_name, 
+            project_name=project_name,
             name=name,
             kind=kind,
             description=description.strip(),
@@ -97,10 +98,10 @@ class ChatbotService:
             **current.model_dump(),
             "name": name,
             "kind": kind or current.kind,
-            "description": description.strip(), 
+            "description": description.strip(),
             "system_prompt": system_prompt,
-            "model": model, 
-            "max_steps": max_steps, 
+            "model": model,
+            "max_steps": max_steps,
             "tool_names": tool_names or [],
             "updated_at": datetime.now(timezone.utc),
         }).with_kind_tools()
@@ -164,12 +165,12 @@ class ChatbotService:
             pipeline, run = self._cache.launch(entry)
         except AppError as exc:
             return ChatMessage(
-                conversation_id=conversation_id, 
+                conversation_id=conversation_id,
                 role=MessageRole.ERROR,
                 content=f"{_CACHE_MARK} Dalla cache, ma l'automation non è partita: {exc}"
             )
         return ChatMessage(
-            conversation_id=conversation_id, 
+            conversation_id=conversation_id,
             role=MessageRole.ASSISTANT,
             content=f"{_CACHE_MARK} Ho lanciato l'automation {pipeline.name} (id {run.id})."
         )

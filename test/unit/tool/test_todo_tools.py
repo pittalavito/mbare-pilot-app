@@ -22,7 +22,7 @@ def context(store_service) -> ToolContext:
     """Chatbot run of ``acme`` (no Copilot) with the list «Rilascio», linked to a reference."""
     store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
     data = ProjectDataService(store_service)
-    store_service.save_file(f"acme/notes/{REFERENCE}", "# Procedura\n\n## Contenuto\nsegreto\n".encode())
+    store_service.save_file(f"acme/notes/{REFERENCE}", b"# Procedura\n\n## Contenuto\nsegreto\n")
     data.create_todo_list("acme", TodoList(title="Rilascio", references=[REFERENCE], items=[
         TodoItem(text="Aggiornare le dipendenze", done=True), TodoItem(text="Taggare il commit"),
     ]))
