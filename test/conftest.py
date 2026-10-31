@@ -101,6 +101,11 @@ def mask_store(stores):
 
 
 @pytest.fixture
+def run_store(stores):
+    return stores.runs
+
+
+@pytest.fixture
 def store_service(stores):
     return stores.store_service
 
@@ -123,7 +128,7 @@ def agent_config_service(store_service):
 
 
 @pytest.fixture
-def make_agent_service(store_service, worker_store, mask_store, agent_config_service):
+def make_agent_service(store_service, run_store, worker_store, mask_store, agent_config_service):
     """Builds an AgentService on the in-memory stores, with every service it
     needs, as the Container does. A test passes the ones it drives itself (a
     ChatService with a fake client, its own PipelineService, ...)."""
@@ -137,7 +142,7 @@ def make_agent_service(store_service, worker_store, mask_store, agent_config_ser
         assert not services, f"servizi sconosciuti: {sorted(services)}"
         return AgentService(
             chat_service=chat_service or ChatService(), agent_config_service=agent_config_service,
-            store_service=store_service, git_service=git, pipeline_service=pipelines,
+            store_service=store_service, runs=run_store, git_service=git, pipeline_service=pipelines,
             masking_service=masking, project_data_service=data, copilot_service=copilot,
         )
 

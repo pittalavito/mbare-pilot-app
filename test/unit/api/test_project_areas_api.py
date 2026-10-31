@@ -358,8 +358,8 @@ def test_config_is_masked(client):
     assert config["redis_dashboard_port"] == 8083
 
 
-def test_observability(client, store_service):
-    store_service.save_run(make_run_record("run-1"))
+def test_observability(client, run_store):
+    run_store.save(make_run_record("run-1"))
 
     [run] = client.get("/observability/runs").json()
     assert (run["run_id"], run["total_tokens"]["input_tokens"]) == ("run-1", 150)

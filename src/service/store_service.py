@@ -37,26 +37,20 @@ from domain.store.db.store import (
     DbProjectRepository,
     DbPromptRepository,
     DbRoleRepository,
-    DbRunRepository,
     DbToolRepository,
     Engine,
     Factory as DbFactory,
     transaction,
 )
 from domain.store.files.store import LocalFileRepository, StoredFile
-from domain.store.redis.store import (
-    Client as RedisClient,
-    Factory as RedisFactory,
-    RedisTraceRepository,
-)
-from models.domain.agent import AgentConfig, AgentRole, AgentRunRecord, AgentRunSummary, SystemPrompt, ToolCallSummary, ToolInfo
+from domain.store.redis.repository import Client as RedisClient
+from models.domain.agent import AgentConfig, AgentRole, SystemPrompt, ToolInfo
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
 from models.domain.chat import ChatModel
 from models.domain.chatbot import AutomationCacheEntry, Chatbot, ChatMessage, Conversation
 from models.domain.copilot import CopilotMessage, CopilotModelUsage, CopilotSession, CopilotSessionStatus, CopilotTurnRecord
 from models.domain.pipeline import Pipeline, PipelineRun, PipelineStepRun, RunStatus
 from models.domain.project import Project, ProjectSource
-from models.store.redis import AgentTraceRecord
 
 
 class StoreService:
@@ -71,7 +65,6 @@ class StoreService:
         if redis_client is None:
             redis_client = RedisClient.create_redis_client(config.redis_url)
 
-        self._runs_repository = DbRunRepository(engine)
         self._chat_model_repository = DbChatModelRepository(engine)
         self._role_repository = DbRoleRepository(engine)
         self._prompt_repository = DbPromptRepository(engine)
@@ -92,25 +85,9 @@ class StoreService:
         self._copilot_session_repository = DbCopilotSessionRepository(engine)
         self._copilot_message_repository = DbCopilotMessageRepository(engine)
         self._copilot_turn_repository = DbCopilotTurnRepository(engine)
-        self._traces_repository = RedisTraceRepository(redis_client)
         self._files_repository = LocalFileRepository(config.project_data_root)
         self._definitions_repository = LocalFileRepository(config.definitions_root)
         self._secret_box = SecretBox(config.secret_key)
-
-    # ------------------------------------------------------------------ runs
-    def save_run(self, record: AgentRunRecord) -> None:
-        """Facts in SQL, verbatim trace in Redis (same run_id)."""
-        self._runs_repository.save_rows(DbFactory.to_run_row(record), DbFactory.to_tool_rows(record))
-        self._traces_repository.save(RedisFactory.to_trace_record(record))
-
-    def list_runs(self, limit: int = 100) -> list[AgentRunSummary]:
-        return [DbAdapter.to_run_summary(row) for row in self._runs_repository.list_recent(limit)]
-
-    def list_tool_calls(self, limit: int = 100) -> list[ToolCallSummary]:
-        return [DbAdapter.to_tool_call_summary(row) for row in self._runs_repository.list_recent_tool_calls(limit)]
-
-    def get_run_trace(self, run_id: str) -> AgentTraceRecord | None:
-        return self._traces_repository.load(run_id)
 
     # ----------------------------------------------------------- chat models
     def seed_chat_models(self, seeds: list[ChatModel]) -> int:

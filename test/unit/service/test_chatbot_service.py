@@ -115,7 +115,7 @@ def test_chatbots_are_independent_from_the_library_agents(service, agent_config_
 
 # ------------------------------------------------------------ conversations
 
-def test_send_runs_the_chatbots_own_agent_on_its_project(service, agents, store_service):
+def test_send_runs_the_chatbots_own_agent_on_its_project(service, agents, run_store):
     chatbot = _create(service, max_steps=7, tool_names=["git_status"])
     conversation = service.new_conversation(chatbot.id)
 
@@ -124,7 +124,7 @@ def test_send_runs_the_chatbots_own_agent_on_its_project(service, agents, store_
     assert (reply.role, reply.content) == (MessageRole.ASSISTANT, "echo: Ciao bot")
     [(definition, tools)] = agents.definitions
     assert (definition.system_prompt, definition.max_steps, tools) == ("Sei l'assistente del progetto.", 7, ["git_status"])
-    [run] = store_service.list_runs()
+    [run] = run_store.list_runs()
     assert (run.run_id, run.origin, run.project_name) == (reply.run_id, "chat", "acme")
     assert (run.config_name, run.role_name, run.prompt_version) == ("chatbot/Bot", "chatbot", 1)
 

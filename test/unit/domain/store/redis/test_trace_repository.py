@@ -1,5 +1,6 @@
 from domain.store.redis.repository import AGENT_TRACE_KEYSPACE
-from domain.store.redis.store import Factory, RedisTraceRepository
+from domain.store.redis.trace_mapper import Factory
+from domain.store.redis.trace_repository import RedisTraceRepository
 from fakes import make_run_record
 
 

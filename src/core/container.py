@@ -27,6 +27,7 @@ from service.pipeline_service import PipelineService
 from service.process_service import ProcessService
 from service.project_data_service import ProjectDataService
 from service.project_service import ProjectService
+from service.run_service import RunService
 from service.store.stores import Stores
 
 
@@ -42,6 +43,7 @@ class Container:
         stores = stores or Stores()
         self.store_service = stores.store_service
         self.chat_service = ChatService()
+        self.run_service = RunService(stores.runs)
         self.model_service = ModelService(store_service=self.store_service)
         self.agent_config_service = AgentConfigService(store_service=self.store_service)
         self.project_data_service = ProjectDataService(store_service=self.store_service)
@@ -66,6 +68,7 @@ class Container:
             chat_service=self.chat_service,
             agent_config_service=self.agent_config_service,
             store_service=self.store_service,
+            runs=stores.runs,
             git_service=self.git_service,
             pipeline_service=self.pipeline_service,
             masking_service=self.masking_service,

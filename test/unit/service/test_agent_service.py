@@ -20,7 +20,7 @@ def _use_fake_agent(monkeypatch, error: Exception | None = None):
     )
 
 
-def test_run_persists_tokens_from_datapizza_spans(agent_service, store_service, monkeypatch):
+def test_run_persists_tokens_from_datapizza_spans(agent_service, monkeypatch, run_store):
     _use_fake_agent(monkeypatch)
 
     record = agent_service.run("hello", "ciao")
@@ -31,22 +31,22 @@ def test_run_persists_tokens_from_datapizza_spans(agent_service, store_service, 
     assert record.telemetry.tool_tokens.input_tokens == 50
     assert record.telemetry.agent_tokens.cost_eur == pytest.approx(100 / 1e6 * 3.5 + 20 / 1e6 * 10.0)
 
-    [summary] = store_service.list_runs()
+    [summary] = run_store.list_runs()
     assert summary.total_tokens.input_tokens == 150
     assert summary.tool_names == ["hello_world"]
-    [tool_call] = store_service.list_tool_calls()
+    [tool_call] = run_store.list_tool_calls()
     assert tool_call.tool_name == "hello_world" and tool_call.tokens.input_tokens == 50
-    assert store_service.get_run_trace(record.run_id).tool_calls[0].result is not None
+    assert run_store.get_trace(record.run_id).tool_calls[0].result is not None
 
 
-def test_run_persists_failed_run_with_partial_tokens(agent_service, store_service, monkeypatch):
+def test_run_persists_failed_run_with_partial_tokens(agent_service, monkeypatch, run_store):
     _use_fake_agent(monkeypatch, error=RuntimeError("boom"))
 
     record = agent_service.run("hello", "ciao")
 
     assert not record.ok and record.error == "boom"
     assert record.telemetry.total_tokens.input_tokens == 150
-    assert store_service.list_runs()[0].ok is False
+    assert run_store.list_runs()[0].ok is False
 
 
 def test_run_unknown_config_raises(agent_service):

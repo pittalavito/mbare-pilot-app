@@ -1,47 +1,11 @@
 from contextlib import contextmanager
-from datetime import timedelta
 
 import pytest
 from sqlalchemy import event
 
 from domain.pipeline.graph import linear_edges
 from domain.store.db.repository import transaction
-from fakes import make_run_record
 from models.domain.pipeline import INPUT_NODE, Pipeline, PipelineRun, PipelineStep, PipelineStepRun, StepAgent, StepKind
-
-
-def test_save_run_writes_facts_tool_calls_and_trace(store_service):
-    store_service.save_run(make_run_record("run-1"))
-
-    [summary] = store_service.list_runs()
-    assert summary.run_id == "run-1"
-    assert summary.agent_tokens.input_tokens == 100
-    assert summary.tool_tokens.input_tokens == 50
-    assert summary.total_tokens.cost_eur == pytest.approx(0.000825)
-
-    [tool_call] = store_service.list_tool_calls()
-    assert tool_call.run_id == "run-1" and tool_call.tool_name == "hello_world"
-
-    trace = store_service.get_run_trace("run-1")
-    assert trace is not None and len(trace.generations) == 2
-
-
-def test_saving_same_run_twice_replaces_tool_calls(store_service):
-    store_service.save_run(make_run_record("run-1"))
-    store_service.save_run(make_run_record("run-1"))
-
-    assert len(store_service.list_runs()) == 1
-    assert len(store_service.list_tool_calls()) == 1
-
-
-def test_listed_timestamps_are_timezone_aware_utc(store_service):
-    store_service.save_run(make_run_record("run-1"))
-
-    [summary] = store_service.list_runs()
-    [tool_call] = store_service.list_tool_calls()
-    assert summary.created_at.utcoffset() == timedelta(0)
-    assert tool_call.created_at.utcoffset() == timedelta(0)
-
 
 # ------------------------------------------------------------- transactions
 

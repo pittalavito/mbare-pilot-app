@@ -28,16 +28,11 @@ from domain.store.db.project_repository import DbProjectRepository
 from domain.store.db.prompt_repository import DbPromptRepository
 from domain.store.db.repository import Engine, transaction
 from domain.store.db.role_repository import DbRoleRepository
-from domain.store.db.run_repository import DbRunRepository
 from domain.store.db.tool_repository import DbToolRepository
 from models.domain.agent import (
     AgentConfig,
     AgentRole,
-    AgentRunRecord,
-    AgentRunSummary,
     SystemPrompt,
-    TokenSummary,
-    ToolCallSummary,
     ToolInfo,
 )
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
@@ -70,7 +65,6 @@ from models.domain.project import Project, ProjectSource
 from models.store.db import (
     AgentConfigTable,
     AgentRoleTable,
-    AgentRunTable,
     AtlassianFavoriteTable,
     AutomationCacheTable,
     ChatbotTable,
@@ -88,7 +82,6 @@ from models.store.db import (
     ProjectAtlassianTable,
     ProjectTable,
     SystemPromptTable,
-    ToolCallTable,
     ToolTable,
 )
 
@@ -114,7 +107,6 @@ __all__ = [
     "DbProjectRepository",
     "DbPromptRepository",
     "DbRoleRepository",
-    "DbRunRepository",
     "DbToolRepository",
     "Adapter",
     "Factory",
@@ -155,55 +147,7 @@ class Adapter:
     def to_copilot_message(row: CopilotMessageTable) -> CopilotMessage:
         return CopilotMessage(**{**row.model_dump(), "role": CopilotMessageRole(row.role), "created_at": _as_utc(row.created_at)})
 
-    @staticmethod
-    def to_run_summary(row: AgentRunTable) -> AgentRunSummary:
-        return AgentRunSummary(
-            run_id=row.run_id,
-            project_name=row.project_name,
-            origin=row.origin,
-            config_name=row.config_name,
-            role_name=row.role_name,
-            prompt_version=row.prompt_version,
-            model=row.model,
-            ok=row.ok,
-            error=row.error,
-            latency_ms=row.latency_ms,
-            agent_tokens=TokenSummary(
-                input_tokens=row.agent_input_tokens,
-                output_tokens=row.agent_output_tokens,
-                cost_eur=row.agent_cost_eur,
-            ),
-            tool_tokens=TokenSummary(
-                input_tokens=row.tool_input_tokens,
-                output_tokens=row.tool_output_tokens,
-                cost_eur=row.tool_cost_eur,
-            ),
-            total_tokens=TokenSummary(
-                input_tokens=row.total_input_tokens,
-                output_tokens=row.total_output_tokens,
-                cached_tokens=row.total_cached_tokens,
-                thinking_tokens=row.total_thinking_tokens,
-                cost_eur=row.total_cost_eur,
-            ),
-            tool_names=row.tool_names.split(",") if row.tool_names else [],
-            created_at=_as_utc(row.created_at),
-        )
 
-    @staticmethod
-    def to_tool_call_summary(row: ToolCallTable) -> ToolCallSummary:
-        return ToolCallSummary(
-            run_id=row.run_id,
-            tool_name=row.tool_name,
-            ok=row.ok,
-            error=row.error,
-            latency_ms=row.latency_ms,
-            tokens=TokenSummary(
-                input_tokens=row.input_tokens,
-                output_tokens=row.output_tokens,
-                cost_eur=row.cost_eur,
-            ),
-            created_at=_as_utc(row.created_at),
-        )
 
     @staticmethod
     def to_chat_model(row: ChatModelTable) -> ChatModel:
@@ -494,52 +438,3 @@ class Factory:
             max_steps=config.max_steps,
             tool_names=list(config.tool_names),
         )
-
-    @staticmethod
-    def to_run_row(record: AgentRunRecord) -> AgentRunTable:
-        telemetry = record.telemetry
-        total = telemetry.total_tokens
-        return AgentRunTable(
-            run_id=record.run_id,
-            project_name=record.project_name,
-            origin=record.origin.value,
-            config_name=record.config_name,
-            role_name=record.role_name,
-            prompt_id=record.prompt_id,
-            prompt_version=record.prompt_version,
-            model=record.model,
-            ok=record.ok,
-            error=record.error,
-            latency_ms=record.latency_ms,
-            agent_input_tokens=telemetry.agent_tokens.input_tokens,
-            agent_output_tokens=telemetry.agent_tokens.output_tokens,
-            agent_cost_eur=telemetry.agent_tokens.cost_eur,
-            tool_input_tokens=telemetry.tool_tokens.input_tokens,
-            tool_output_tokens=telemetry.tool_tokens.output_tokens,
-            tool_cost_eur=telemetry.tool_tokens.cost_eur,
-            total_input_tokens=total.input_tokens,
-            total_output_tokens=total.output_tokens,
-            total_cached_tokens=total.cached_tokens,
-            total_thinking_tokens=total.thinking_tokens,
-            total_cost_eur=total.cost_eur,
-            tool_names=",".join(call.name for call in telemetry.tool_calls),
-            created_at=record.created_at,
-        )
-
-    @staticmethod
-    def to_tool_rows(record: AgentRunRecord) -> list[ToolCallTable]:
-        return [
-            ToolCallTable(
-                run_id=record.run_id,
-                position=position,
-                tool_name=call.name,
-                ok=call.ok,
-                error=call.error,
-                latency_ms=call.latency_ms,
-                input_tokens=call.tokens.input_tokens,
-                output_tokens=call.tokens.output_tokens,
-                cost_eur=call.tokens.cost_eur,
-                created_at=record.created_at,
-            )
-            for position, call in enumerate(record.telemetry.tool_calls)
-        ]

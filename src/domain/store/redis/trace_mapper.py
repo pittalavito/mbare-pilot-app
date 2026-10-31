@@ -1,15 +1,7 @@
-"""Redis store facade: one import point for the Redis persistence layer.
-
-Re-exports the Redis repositories and holds the translation seams:
-``Factory`` (domain models -> Redis records, writes) and ``Adapter``
-(Redis records -> domain models, reads).
-"""
-from domain.store.redis.repository import Client
-from domain.store.redis.trace_repository import RedisTraceRepository
+"""Verbatim run traces: domain ``AgentRunRecord`` -> Redis ``AgentTraceRecord``
+(read back as it is: the trace has no domain model of its own)."""
 from models.domain.agent import AgentRunRecord
 from models.store.redis import AgentTraceRecord
-
-__all__ = ["Client", "RedisTraceRepository", "Factory"]
 
 
 class Factory:

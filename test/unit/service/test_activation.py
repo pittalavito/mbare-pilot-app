@@ -93,7 +93,7 @@ def test_toggle_unknown_prompt_raises(agent_config_service):
 
 
 # ----------------------------------------------------------------------- run
-def test_agent_service_refuses_inactive_role(agent_config_service, store_service, monkeypatch, make_agent_service):
+def test_agent_service_refuses_inactive_role(agent_config_service, monkeypatch, make_agent_service, run_store):
     from service.chat_service import ChatService
 
     chat_service = ChatService()
@@ -103,4 +103,4 @@ def test_agent_service_refuses_inactive_role(agent_config_service, store_service
 
     with pytest.raises(ValidationError):
         agent_service.run("hello", "ciao")
-    assert store_service.list_runs() == []
+    assert run_store.list_runs() == []

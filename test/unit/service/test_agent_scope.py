@@ -77,7 +77,7 @@ def test_unknown_project_and_duplicate_names_rejected(agent_config_service, proj
         agent_config_service.save_role(AgentRole(name="hello"), create=True)
 
 
-def test_run_records_project_of_the_config(agent_config_service, project, store_service, monkeypatch, make_agent_service):
+def test_run_records_project_of_the_config(agent_config_service, project, monkeypatch, make_agent_service, run_store):
     from fakes import FakeAgent
     from models.domain.agent import RunOrigin
     from service import agent_service as agent_service_module
@@ -90,5 +90,5 @@ def test_run_records_project_of_the_config(agent_config_service, project, store_
 
     record = make_agent_service(chat).run("acme-hello", "ciao", origin=RunOrigin.CHAT)
 
-    [summary] = store_service.list_runs()
+    [summary] = run_store.list_runs()
     assert (record.project_name, summary.project_name, summary.origin) == ("acme", "acme", "chat")

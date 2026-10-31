@@ -11,6 +11,7 @@ from config import Config
 from domain.store.db.repository import Engine
 from domain.store.redis.repository import Client as RedisClient
 from service.store.mask_store import MaskStore
+from service.store.run_store import RunStore
 from service.store.worker_store import WorkerStore
 from service.store_service import StoreService
 
@@ -26,3 +27,4 @@ class Stores:
         self.store_service = StoreService(engine=self.engine, redis_client=self.redis_client)
         self.workers = WorkerStore(self.redis_client)
         self.masks = MaskStore(self.redis_client)
+        self.runs = RunStore(self.engine, self.redis_client)

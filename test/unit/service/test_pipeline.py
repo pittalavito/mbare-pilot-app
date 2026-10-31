@@ -211,7 +211,7 @@ def test_workers_come_and_go_with_their_heartbeat(service, redis_client):
 
 # ---------------------------------------------------------------- execution
 
-def test_run_chains_the_steps(service, runner, agents, store_service):
+def test_run_chains_the_steps(service, runner, agents, run_store):
     pipeline = service.create_pipeline("acme", "Report", steps=[
         _own("A", template="Commit: {input}", max_steps=6),
         _library("B", template="{input} | originale: {pipeline_input}"),
@@ -229,7 +229,7 @@ def test_run_chains_the_steps(service, runner, agents, store_service):
     assert run.output == second.output == "echo: echo: Commit: ciao | originale: ciao"
     assert [definition.name for definition in agents] == ["pipeline/Report/A", "hello"]
     assert agents[0].max_steps == 6
-    runs = {summary.run_id: summary for summary in store_service.list_runs()}
+    runs = {summary.run_id: summary for summary in run_store.list_runs()}
     assert {runs[step.agent_run_id].origin for step in run.steps} == {"pipeline"}
     assert {runs[step.agent_run_id].project_name for step in run.steps} == {"acme"}
     assert runner.run_next() is None

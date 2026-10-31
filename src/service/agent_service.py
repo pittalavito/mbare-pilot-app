@@ -19,6 +19,7 @@ from service.masking_service import MaskingService
 from service.model_service import require_usable_model
 from service.pipeline_service import PipelineService
 from service.project_data_service import ProjectDataService
+from service.store.run_store import RunStore
 from service.store_service import StoreService
 from tool.context import ToolContext
 from tool.registry import build_tools
@@ -31,6 +32,7 @@ class AgentService:
         chat_service: ChatService,
         agent_config_service: AgentConfigService,
         store_service: StoreService,
+        runs: RunStore,
         git_service: GitService,
         pipeline_service: PipelineService,
         masking_service: MaskingService,
@@ -47,6 +49,7 @@ class AgentService:
         self._chat_service = chat_service
         self._agent_config_service = agent_config_service
         self._store_service = store_service
+        self._runs = runs
         self._git_service = git_service
         self._pipeline_service = pipeline_service
         self._masking_service = masking_service
@@ -117,7 +120,7 @@ class AgentService:
             output=output,
             telemetry=telemetry,
         )
-        self._store_service.save_run(record)
+        self._runs.save(record)
         return record
 
 
