@@ -4,7 +4,7 @@ Lo store su Postgres: tutto quello che l'app definisce e registra (progetti, age
 
 ```
 src/domain/store/db/
-  repository.py               Engine (connessione + schema), SqlRepository (base)
+  repository.py               Engine (connessione + schema), SqlRepository (base), transaction (unit of work)
   project_repository.py       progetti
   atlassian_repository.py     sito Atlassian di un progetto (token cifrato)
   atlassian_favorite_repository.py  issue e pagine preferite di un progetto
@@ -44,6 +44,20 @@ Una sessione per operazione e il CRUD per chiave primaria; i repository concreti
 | `save(row)` | inserisce o aggiorna, restituisce la riga salvata |
 | `insert_missing(rows)` | inserisce solo le righe la cui chiave non c'è ancora: è il **seed** dei default (modelli, tool), che non sovrascrive mai le modifiche fatte da UI |
 | `delete(pk)` | `True` se ha cancellato una riga |
+| `_grouped(statement, ids, key)` | per i repository concreti: le righe figlie di molti genitori con **una query** (`IN (...)`), raggruppate per id del genitore; ogni id c'è, anche senza righe. Evita una query per genitore (N+1) |
+
+## Transazioni (`transaction`)
+
+Ogni operazione di un repository ha la sua sessione e il suo commit. Quando più scritture devono riuscire o fallire **insieme**, si aprono dentro `transaction(engine)`:
+
+```python
+with transaction(self._engine):
+    row = self._pipeline_repository.save(...)
+    self._pipeline_step_repository.replace(row.id, ...)
+    self._pipeline_edge_repository.replace(row.id, ...)
+```
+
+Dentro il blocco tutti i repository usano la stessa sessione: il loro `commit` diventa un `flush` (gli id generati ci sono già), il commit vero è uno solo alla fine; se il blocco solleva, rollback di tutto. Un blocco aperto dentro un altro si unisce a quello esterno. Le righe restituite restano leggibili dopo il commit. Oggi lo usa `StoreService.save_pipeline` (automation, step e collegamenti).
 
 ## Query notevoli
 
@@ -78,5 +92,6 @@ Il token Atlassian entra e esce già cifrato: la cifratura con [`SecretBox`](../
 
 - `test/unit/domain/store/db/test_run_repository.py`: salvataggio di una run con le tool call, elenco dalla più recente, cancellazione.
 - `test/unit/domain/store/db/test_schema_refresh.py`: colonna nuova con default aggiunta tenendo le righe, tabella cambiata e vuota ricreata con chi la referenzia, tabella cambiata con dati che blocca l'avvio, schema aggiornato lasciato com'è.
+- `test/unit/service/test_store_service.py`: `save_pipeline` tutto o niente, transazioni annidate, numero di query di `list_pipelines` e `list_pipeline_runs`.
 
 Girano su SQLite in memoria, con la fixture `engine` di `test/conftest.py`. Gli altri repository sono coperti dai test dei service.

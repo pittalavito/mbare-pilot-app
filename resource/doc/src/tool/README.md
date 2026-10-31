@@ -81,7 +81,7 @@ class GitStatusResponse(BaseModel):
 
 I tool restituiscono il **modello** di output, non una stringa: è `AgentMask` a serializzarlo, così il modello non vede mai un oggetto Python.
 
-`require_project()` restituisce il progetto o solleva un `ValidationError`: per i tool che hanno senso solo dentro un progetto.
+`require_project()` restituisce il progetto o solleva un `ValidationError`: per i tool che hanno senso solo dentro un progetto. Allo stesso modo `require_pipelines()`, `require_project_data()` e `require_copilot()` restituiscono il service opzionale: un tool li chiama subito dopo il suo controllo (`chatbot_run`, `notes_run`, `copilot_run`), così il type checker sa che il service c'è.
 
 **Il progetto lo decide la run, non il modello**: `git_status` riceve dal modello solo `repository`, e lo cerca sempre dentro il progetto della run. Un agente di un progetto non può leggere i repository di un altro.
 
@@ -175,7 +175,7 @@ In entrambi i casi: il modello di output in `models/domain/tool.py`.
 
 ## Test
 
-- `test/unit/tool/test_registry.py`: registry per nome, ogni tool si costruisce con nome e descrizione, ordine di `build_tools`, nome sconosciuto, `require_project`.
+- `test/unit/tool/test_registry.py`: registry per nome, ogni tool si costruisce con nome e descrizione, ordine di `build_tools`, nome sconosciuto, `require_project` e `require_*` dei service.
 - `test/unit/tool/test_hello_world.py`
 - `test/unit/tool/test_run_automation.py`: run messa in coda con risposta immediata, solo automation attive e con step nella descrizione, automation sconosciuta, niente lancio fuori dal chatbot di un progetto (run manuale, fuori da un progetto, dentro un'automation, anche eseguita davvero dal runner).
 - `test/unit/tool/test_automation_status.py`: solo gli stati dell'esecuzione e degli step, mai output o errori; esecuzioni di altri progetti non trovate; solo nel chatbot.
