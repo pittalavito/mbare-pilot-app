@@ -1,6 +1,6 @@
 """Agent run facts (tables agent_run + tool_call). The verbatim traces live in Redis."""
 from sqlalchemy.engine import Engine
-from sqlmodel import delete, select
+from sqlmodel import col, delete, select
 
 from domain.store.db.repository import SqlRepository
 from models.store.db import AgentRunTable, ToolCallTable
@@ -15,7 +15,7 @@ class DbRunRepository(SqlRepository[AgentRunTable]):
         """Persist one run and its tool calls in one transaction. Saving an
         existing run_id replaces its tool calls."""
         with self._session() as session:
-            session.exec(delete(ToolCallTable).where(ToolCallTable.run_id == run_row.run_id))
+            session.exec(delete(ToolCallTable).where(col(ToolCallTable.run_id) == run_row.run_id))
             session.merge(run_row)
             session.flush()
             session.add_all(tool_rows)
@@ -23,7 +23,7 @@ class DbRunRepository(SqlRepository[AgentRunTable]):
 
     def list_recent(self, limit: int = 100) -> list[AgentRunTable]:
         """Most recent runs first."""
-        statement = select(AgentRunTable).order_by(AgentRunTable.created_at.desc()).limit(limit)
+        statement = select(AgentRunTable).order_by(col(AgentRunTable.created_at).desc()).limit(limit)
         with self._session() as session:
             return list(session.exec(statement).all())
 
@@ -31,7 +31,7 @@ class DbRunRepository(SqlRepository[AgentRunTable]):
         """Most recent tool calls first; calls of the same run in call order."""
         statement = (
             select(ToolCallTable)
-            .order_by(ToolCallTable.created_at.desc(), ToolCallTable.position)
+            .order_by(col(ToolCallTable.created_at).desc(), col(ToolCallTable.position))
             .limit(limit)
         )
         with self._session() as session:

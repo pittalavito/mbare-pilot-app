@@ -1,6 +1,6 @@
 """Projects (table project)."""
 from sqlalchemy.engine import Engine
-from sqlmodel import select
+from sqlmodel import col, select
 
 from domain.store.db.repository import SqlRepository
 from models.store.db import ProjectTable
@@ -16,6 +16,6 @@ class DbProjectRepository(SqlRepository[ProjectTable]):
         statement = select(ProjectTable)
         if source is not None:
             statement = statement.where(ProjectTable.source == source)
-        statement = statement.order_by(ProjectTable.created_at.desc())
+        statement = statement.order_by(col(ProjectTable.created_at).desc())
         with self._session() as session:
             return list(session.exec(statement).all())

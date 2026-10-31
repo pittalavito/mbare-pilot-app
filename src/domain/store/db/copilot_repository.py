@@ -40,14 +40,14 @@ class DbCopilotSessionRepository(SqlRepository[CopilotSessionTable]):
         different fields of the same session at the same time (e.g. a cancel
         while the execution starts) and neither overwrites the other's."""
         with self._session() as session:
-            session.exec(update(CopilotSessionTable).where(CopilotSessionTable.id == session_id).values(**fields))
+            session.exec(update(CopilotSessionTable).where(col(CopilotSessionTable.id) == session_id).values(**fields))
             session.commit()
             return session.get(CopilotSessionTable, session_id)
 
     def claim_next(self) -> CopilotSessionTable | None:
         """The oldest ``queued`` session whose repository has no execution
         running, switched to ``running`` atomically (``FOR UPDATE SKIP LOCKED``)."""
-        running = CopilotSessionTable.__table__.alias("running")
+        running = CopilotSessionTable.__table__.alias("running")  # type: ignore[attr-defined]  # set by SQLModel at class creation
         busy = exists().where(and_(
             running.c.status == "running",
             running.c.project_name == CopilotSessionTable.project_name,
@@ -55,7 +55,7 @@ class DbCopilotSessionRepository(SqlRepository[CopilotSessionTable]):
         ))
         statement = (
             select(CopilotSessionTable).where(CopilotSessionTable.status == "queued", ~busy)
-            .order_by(CopilotSessionTable.id).limit(1).with_for_update(skip_locked=True)
+            .order_by(col(CopilotSessionTable.id)).limit(1).with_for_update(skip_locked=True)
         )
         with self._session() as session:
             row = session.exec(statement).first()
@@ -76,7 +76,7 @@ class DbCopilotMessageRepository(SqlRepository[CopilotMessageTable]):
 
     def list_for_session(self, session_id: int) -> list[CopilotMessageTable]:
         """Oldest first."""
-        statement = select(CopilotMessageTable).where(CopilotMessageTable.session_id == session_id).order_by(CopilotMessageTable.id)
+        statement = select(CopilotMessageTable).where(col(CopilotMessageTable.session_id) == session_id).order_by(col(CopilotMessageTable.id))
         with self._session() as session:
             return list(session.exec(statement).all())
 
@@ -97,7 +97,7 @@ class DbCopilotTurnRepository(SqlRepository[CopilotTurnTable]):
 
     def list_for_session(self, session_id: int) -> list[CopilotTurnTable]:
         """Oldest first."""
-        statement = select(CopilotTurnTable).where(CopilotTurnTable.session_id == session_id).order_by(CopilotTurnTable.id)
+        statement = select(CopilotTurnTable).where(col(CopilotTurnTable.session_id) == session_id).order_by(col(CopilotTurnTable.id))
         with self._session() as session:
             return list(session.exec(statement).all())
 

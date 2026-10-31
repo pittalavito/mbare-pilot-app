@@ -5,6 +5,8 @@
 - ``<project>:counter:<category>``: last number used for that category, so
   aliases are never reused, even after a removal.
 """
+from typing import cast
+
 import redis
 
 from domain.store.redis.repository import MASK_KEYSPACE, RedisRepository
@@ -21,7 +23,7 @@ class RedisMaskRepository(RedisRepository):
         return [MaskRecord.model_validate_json(item) for item in raw]
 
     def find(self, project_name: str, value: str) -> MaskRecord | None:
-        alias = self._client.hget(self._key(project_name, "index"), value.lower())
+        alias = cast(str | None, self._client.hget(self._key(project_name, "index"), value.lower()))  # decode_responses=True
         return self.get(project_name, alias) if alias else None
 
     def get(self, project_name: str, alias: str) -> MaskRecord | None:

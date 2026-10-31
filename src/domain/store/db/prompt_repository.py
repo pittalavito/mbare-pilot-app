@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import func
 from sqlalchemy.engine import Engine
-from sqlmodel import select
+from sqlmodel import col, select
 
 from domain.store.db.repository import SqlRepository
 from models.store.db import SystemPromptTable
@@ -37,6 +37,6 @@ class DbPromptRepository(SqlRepository[SystemPromptTable]):
         statement = select(SystemPromptTable)
         if role_name is not None:
             statement = statement.where(SystemPromptTable.role_name == role_name)
-        statement = statement.order_by(SystemPromptTable.role_name, SystemPromptTable.version.desc())
+        statement = statement.order_by(col(SystemPromptTable.role_name), col(SystemPromptTable.version).desc())
         with self._session() as session:
             return list(session.exec(statement).all())

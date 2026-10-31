@@ -1,6 +1,6 @@
 """Favorite Jira issues and Confluence pages of each project (table atlassian_favorite)."""
 from sqlalchemy.engine import Engine
-from sqlmodel import delete, select
+from sqlmodel import col, delete, select
 
 from domain.store.db.repository import SqlRepository
 from models.store.db import AtlassianFavoriteTable
@@ -15,7 +15,7 @@ class DbAtlassianFavoriteRepository(SqlRepository[AtlassianFavoriteTable]):
         """Oldest first, so the list does not reorder as favorites are added."""
         statement = (
             select(AtlassianFavoriteTable).where(AtlassianFavoriteTable.project_name == project_name)
-            .order_by(AtlassianFavoriteTable.id)
+            .order_by(col(AtlassianFavoriteTable.id))
         )
         with self._session() as session:
             return list(session.exec(statement).all())
@@ -32,7 +32,7 @@ class DbAtlassianFavoriteRepository(SqlRepository[AtlassianFavoriteTable]):
     def delete_other_sites(self, project_name: str, site: str) -> int:
         """Remove the project's favorites of any site but ``site``; how many."""
         statement = delete(AtlassianFavoriteTable).where(
-            AtlassianFavoriteTable.project_name == project_name, AtlassianFavoriteTable.site != site,
+            col(AtlassianFavoriteTable.project_name) == project_name, col(AtlassianFavoriteTable.site) != site,
         )
         with self._session() as session:
             removed = session.exec(statement).rowcount

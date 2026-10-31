@@ -18,7 +18,7 @@ class DbChatModelRepository(SqlRepository[ChatModelTable]):
     def keys_in_use(self) -> set[str]:
         """``<provider>/<model>`` keys used by agent configs, chatbots and pipeline steps."""
         with self._session() as session:
-            keys = set(session.exec(select(AgentConfigTable.model)).all())
+            keys: set[str | None] = set(session.exec(select(AgentConfigTable.model)).all())
             keys |= set(session.exec(select(ChatbotTable.model)).all())
             keys |= set(session.exec(select(PipelineStepTable.model)).all())
         return {key for key in keys if key}

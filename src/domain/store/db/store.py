@@ -312,7 +312,7 @@ class Adapter:
             agent = StepAgent(
                 system_prompt=row.system_prompt or "",
                 prompt_version=row.prompt_version,
-                model=row.model,
+                model=row.model or "",
                 max_steps=row.max_steps or 4,
                 tool_names=list(row.tool_names),
             )

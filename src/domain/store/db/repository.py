@@ -15,6 +15,8 @@ from typing import Any, Generic, TypeVar
 
 from sqlalchemy import func, inspect, literal, text
 from sqlalchemy.engine import Engine as SqlAlchemyEngine
+from sqlalchemy.orm import class_mapper
+from sqlalchemy.sql.schema import ScalarElementColumnDefault
 from sqlmodel import Session, SQLModel, create_engine, select
 
 # Imported for its side effect: registers every table on SQLModel.metadata.
@@ -77,7 +79,7 @@ class Engine:
                 for column in table.columns:
                     if column.name in present or column.primary_key:
                         continue
-                    default = column.default.arg if column.default is not None and column.default.is_scalar else None
+                    default = column.default.arg if isinstance(column.default, ScalarElementColumnDefault) else None
                     if default is None and not column.nullable:
                         continue  # left to the recreate below
                     ddl = f"ALTER TABLE {table.name} ADD COLUMN {column.name} {column.type.compile(dialect=engine.dialect)}"
@@ -152,7 +154,8 @@ class SqlRepository(Generic[TableT]):
         """Insert the rows whose primary key is not in the table yet; existing
         rows are left untouched (seeds never overwrite edits). Returns the
         number of rows inserted."""
-        pk_names = [column.key for column in self._table.__mapper__.primary_key]
+        mapper = class_mapper(self._table)
+        pk_names = [mapper.get_property_by_column(column).key for column in mapper.primary_key]
         with self._session() as session:
             missing = []
             for row in rows:

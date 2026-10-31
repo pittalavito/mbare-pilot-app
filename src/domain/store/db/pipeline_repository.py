@@ -28,7 +28,7 @@ class DbPipelineStepRepository(SqlRepository[PipelineStepTable]):
 
     def list_for_pipeline(self, pipeline_id: int) -> list[PipelineStepTable]:
         """In execution order."""
-        statement = select(PipelineStepTable).where(PipelineStepTable.pipeline_id == pipeline_id).order_by(PipelineStepTable.position)
+        statement = select(PipelineStepTable).where(col(PipelineStepTable.pipeline_id) == pipeline_id).order_by(col(PipelineStepTable.position))
         with self._session() as session:
             return list(session.exec(statement).all())
 
@@ -66,7 +66,7 @@ class DbPipelineRunRepository(SqlRepository[PipelineRunTable]):
         ``FOR UPDATE SKIP LOCKED`` two workers never take the same run."""
         statement = (
             select(PipelineRunTable).where(PipelineRunTable.status == "queued")
-            .order_by(PipelineRunTable.id).limit(1).with_for_update(skip_locked=True)
+            .order_by(col(PipelineRunTable.id)).limit(1).with_for_update(skip_locked=True)
         )
         with self._session() as session:
             row = session.exec(statement).first()
@@ -93,7 +93,7 @@ class DbPipelineStepRunRepository(SqlRepository[PipelineStepRunTable]):
         """In execution order."""
         statement = (
             select(PipelineStepRunTable).where(PipelineStepRunTable.pipeline_run_id == pipeline_run_id)
-            .order_by(PipelineStepRunTable.position)
+            .order_by(col(PipelineStepRunTable.position))
         )
         with self._session() as session:
             return list(session.exec(statement).all())
@@ -105,7 +105,7 @@ class DbPipelineEdgeRepository(SqlRepository[PipelineEdgeTable]):
         super().__init__(engine, PipelineEdgeTable)
 
     def list_for_pipeline(self, pipeline_id: int) -> list[PipelineEdgeTable]:
-        statement = select(PipelineEdgeTable).where(PipelineEdgeTable.pipeline_id == pipeline_id).order_by(PipelineEdgeTable.id)
+        statement = select(PipelineEdgeTable).where(col(PipelineEdgeTable.pipeline_id) == pipeline_id).order_by(col(PipelineEdgeTable.id))
         with self._session() as session:
             return list(session.exec(statement).all())
 

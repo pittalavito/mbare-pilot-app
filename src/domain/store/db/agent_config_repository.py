@@ -1,7 +1,7 @@
 """Agent configurations (table agent_config)."""
 from sqlalchemy import or_
 from sqlalchemy.engine import Engine
-from sqlmodel import select
+from sqlmodel import col, select
 
 from domain.store.db.repository import SqlRepository
 from models.store.db import AgentConfigTable
@@ -17,9 +17,9 @@ class DbAgentConfigRepository(SqlRepository[AgentConfigTable]):
         optionally together with the global ones. Sorted by name."""
         statement = select(AgentConfigTable)
         if project_name is None:
-            statement = statement.where(AgentConfigTable.project_name.is_(None))
+            statement = statement.where(col(AgentConfigTable.project_name).is_(None))
         elif include_global:
-            statement = statement.where(or_(AgentConfigTable.project_name.is_(None), AgentConfigTable.project_name == project_name))
+            statement = statement.where(or_(col(AgentConfigTable.project_name).is_(None), col(AgentConfigTable.project_name) == project_name))
         else:
             statement = statement.where(AgentConfigTable.project_name == project_name)
         with self._session() as session:
