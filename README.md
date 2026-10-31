@@ -49,6 +49,12 @@ Lint (lo stesso controllo della CI, `.github/workflows/ci.yml`; `--fix` corregge
 uv run ruff check .
 ```
 
+Type check (anche questo in CI). I moduli con errori ancora da sistemare sono elencati in `pyproject.toml` (`[[tool.mypy.overrides]]`): quando ne ripulisci uno, toglilo dalla lista.
+
+```bash
+uv run mypy
+```
+
 La cartella dei dati sta **fuori dal repo**: le note e i file dei progetti non vanno nella storia del codice. Le definizioni (`definition/`) conviene versionarle in un loro repo git privato.
 
 Export del DB in `../mbare-pilot-back-up/db/` (anche da **Admin → Backup**):
