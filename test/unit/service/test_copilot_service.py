@@ -55,7 +55,7 @@ def data(project_data_service):
 
 
 def _service(stores, data, command=None, execution_timeout=30.0) -> CopilotService:
-    return CopilotService(stores.store_service, GitService(stores.projects), data, CopilotClient(command or FAKE),
+    return CopilotService(stores.store_service, stores.copilot, GitService(stores.projects), data, CopilotClient(command or FAKE),
                           planning_timeout_seconds=30, execution_timeout_seconds=execution_timeout)
 
 
@@ -220,24 +220,24 @@ def test_a_slow_execution_is_stopped_by_the_timeout(data, project, stores):
     assert session.status == CopilotSessionStatus.FAILED and "Nessuna risposta" in session.error
 
 
-def test_one_execution_at_a_time_per_repository(store_service, data, project, stores):
+def test_one_execution_at_a_time_per_repository(data, project, stores, copilot_store):
     service = _service(stores, data)
     first, second, other = (service.start("acme", _task(data, title), repo)
                             for title, repo in (("Uno", "api"), ("Due", "api"), ("Tre", "web")))
     for session in (first, second, other):
         service.approve(session.id)
 
-    claimed = store_service.claim_next_copilot_session()  # first, now running on api
+    claimed = copilot_store.claim_next_session()  # first, now running on api
     assert claimed.id == first.id
-    assert store_service.claim_next_copilot_session().id == other.id  # second waits: api is busy
+    assert copilot_store.claim_next_session().id == other.id  # second waits: api is busy
 
 
-def test_executions_left_running_by_a_dead_worker_fail_at_restart(store_service, data, project, stores):
+def test_executions_left_running_by_a_dead_worker_fail_at_restart(data, project, stores, copilot_store):
     service = _service(stores, data)
     note = _task(data)
     session = service.start("acme", note, "api")
     service.approve(session.id)
-    store_service.claim_next_copilot_session()
+    copilot_store.claim_next_session()
 
     assert service.fail_interrupted() == 1
     assert service.session(session.id).status == CopilotSessionStatus.FAILED

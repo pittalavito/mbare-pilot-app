@@ -136,6 +136,11 @@ def atlassian_store(stores):
 
 
 @pytest.fixture
+def copilot_store(stores):
+    return stores.copilot
+
+
+@pytest.fixture
 def store_service(stores):
     return stores.store_service
 
@@ -178,7 +183,7 @@ def pipeline_service(pipeline_store, project_store, worker_store, catalog_store,
 
 
 @pytest.fixture
-def make_agent_service(store_service, run_store, catalog_store, agent_config_service,
+def make_agent_service(store_service, run_store, catalog_store, copilot_store, agent_config_service,
                        git_service, project_data_service, masking_service, pipeline_service):
     """Builds an AgentService on the in-memory stores, with every service it
     needs, as the Container does. A test passes the ones it drives itself (a
@@ -189,7 +194,7 @@ def make_agent_service(store_service, run_store, catalog_store, agent_config_ser
         data = services.pop("project_data_service", None) or project_data_service
         pipelines = services.pop("pipeline_service", None) or pipeline_service
         masking = services.pop("masking_service", None) or masking_service
-        copilot = services.pop("copilot_service", None) or CopilotService.from_config(store_service, git, data)
+        copilot = services.pop("copilot_service", None) or CopilotService.from_config(store_service, copilot_store, git, data)
         assert not services, f"servizi sconosciuti: {sorted(services)}"
         return AgentService(
             chat_service=chat_service or ChatService(), agent_config_service=agent_config_service,

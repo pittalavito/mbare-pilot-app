@@ -6,24 +6,15 @@ and the local file store, all from ``Config.get()``. The repositories deal only
 in rows/records; the per-store ``Adapter``/``Factory`` translate to and from the
 domain models.
 """
-from datetime import datetime
 from pathlib import Path
 
 import redis
 from sqlalchemy.engine import Engine as SqlAlchemyEngine
 
 from config import Config
-from domain.store.db.store import (
-    Adapter as DbAdapter,
-    DbCopilotMessageRepository,
-    DbCopilotSessionRepository,
-    DbCopilotTurnRepository,
-    Engine,
-    Factory as DbFactory,
-)
+from domain.store.db.repository import Engine
 from domain.store.files.store import LocalFileRepository, StoredFile
 from domain.store.redis.repository import Client as RedisClient
-from models.domain.copilot import CopilotMessage, CopilotModelUsage, CopilotSession, CopilotSessionStatus, CopilotTurnRecord
 
 
 class StoreService:
@@ -38,64 +29,8 @@ class StoreService:
         if redis_client is None:
             redis_client = RedisClient.create_redis_client(config.redis_url)
 
-        self._copilot_session_repository = DbCopilotSessionRepository(engine)
-        self._copilot_message_repository = DbCopilotMessageRepository(engine)
-        self._copilot_turn_repository = DbCopilotTurnRepository(engine)
         self._files_repository = LocalFileRepository(config.project_data_root)
         self._definitions_repository = LocalFileRepository(config.definitions_root)
-
-    # --------------------------------------------------------------- copilot
-    def save_copilot_session(self, session: CopilotSession) -> CopilotSession:
-        """Insert (``id`` None) or update."""
-        return DbAdapter.to_copilot_session(self._copilot_session_repository.save(DbFactory.to_copilot_session_row(session)))
-
-    def update_copilot_session(self, session_id: int, **changes) -> CopilotSession:
-        """Only ``changes`` (domain field names and values), not the whole row."""
-        row = DbFactory.to_copilot_session_row(self.get_copilot_session(session_id).model_copy(update=changes))
-        fields = {name: getattr(row, name) for name in changes}
-        return DbAdapter.to_copilot_session(self._copilot_session_repository.update_fields(session_id, fields))
-
-    def get_copilot_session(self, session_id: int) -> CopilotSession | None:
-        row = self._copilot_session_repository.get(session_id)
-        return DbAdapter.to_copilot_session(row) if row else None
-
-    def list_copilot_sessions(self, project_name: str) -> list[CopilotSession]:
-        """Newest first."""
-        return [DbAdapter.to_copilot_session(row) for row in self._copilot_session_repository.list_for_project(project_name)]
-
-    def list_copilot_sessions_by_status(self, status: CopilotSessionStatus) -> list[CopilotSession]:
-        return [DbAdapter.to_copilot_session(row) for row in self._copilot_session_repository.list_by_status(status.value)]
-
-    def claim_next_copilot_session(self) -> CopilotSession | None:
-        """The next queued execution whose repository is free, now ``running``."""
-        row = self._copilot_session_repository.claim_next()
-        return DbAdapter.to_copilot_session(row) if row else None
-
-    def delete_copilot_session(self, session_id: int) -> bool:
-        """With its messages."""
-        return self._copilot_session_repository.delete(session_id)
-
-    def add_copilot_message(self, message: CopilotMessage) -> CopilotMessage:
-        return DbAdapter.to_copilot_message(self._copilot_message_repository.save(DbFactory.to_copilot_message_row(message)))
-
-    def list_copilot_messages(self, session_id: int) -> list[CopilotMessage]:
-        """Oldest first."""
-        return [DbAdapter.to_copilot_message(row) for row in self._copilot_message_repository.list_for_session(session_id)]
-
-    def add_copilot_turn(self, turn: CopilotTurnRecord) -> CopilotTurnRecord:
-        return DbAdapter.to_copilot_turn(self._copilot_turn_repository.save(DbFactory.to_copilot_turn_row(turn)))
-
-    def list_copilot_turns(self, limit: int = 100, project_name: str | None = None) -> list[CopilotTurnRecord]:
-        """Newest first."""
-        return [DbAdapter.to_copilot_turn(row) for row in self._copilot_turn_repository.list_recent(limit, project_name)]
-
-    def list_copilot_session_turns(self, session_id: int) -> list[CopilotTurnRecord]:
-        """Oldest first."""
-        return [DbAdapter.to_copilot_turn(row) for row in self._copilot_turn_repository.list_for_session(session_id)]
-
-    def copilot_usage_by_model(self, since: datetime | None = None, project_name: str | None = None) -> list[CopilotModelUsage]:
-        """The most AI credits first."""
-        return [DbAdapter.to_copilot_model_usage(row) for row in self._copilot_turn_repository.totals_by_model(since, project_name)]
 
     # ----------------------------------------------------------------- files
     def list_files(self, prefix: str = "") -> list[StoredFile]:

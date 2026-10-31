@@ -1,5 +1,6 @@
-"""SQL tables (SQLModel). Rows never leave the store layer: domain/store/db/store.py
-maps them to and from domain models.
+"""SQL tables (SQLModel). Rows never leave the store layer: each aggregate's
+mapper (domain/store/db/<aggregate>_mapper.py) maps them to and from domain
+models, and its store (service/store/) is the only one that uses them.
 
 Schema overview (project-centric):
   project ─┬─ project_atlassian, atlassian_favorite         (Jira + Confluence site, favorites)

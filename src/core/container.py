@@ -62,6 +62,7 @@ class Container:
         self.backup_service = BackupService.from_config()
         self.copilot_service = CopilotService.from_config(
             store_service=self.store_service,
+            copilot=stores.copilot,
             git_service=self.git_service,
             project_data_service=self.project_data_service,
         )

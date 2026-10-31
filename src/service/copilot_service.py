@@ -44,6 +44,7 @@ from models.domain.copilot import (
 from models.domain.note import TaskStatus
 from service.git_service import GitService
 from service.project_data_service import ProjectDataService
+from service.store.copilot_store import CopilotStore
 from service.store_service import StoreService
 
 _CANCEL_CHECK_SECONDS = 2.0
@@ -62,6 +63,7 @@ class CopilotService:
     def __init__(
         self,
         store_service: StoreService,
+        copilot: CopilotStore,
         git_service: GitService,
         project_data_service: ProjectDataService,
         client: CopilotClient,
@@ -69,6 +71,7 @@ class CopilotService:
         execution_timeout_seconds: float,
     ):
         self._store = store_service
+        self._copilot = copilot
         self._git = git_service
         self._data = project_data_service
         self._client = client
@@ -76,7 +79,8 @@ class CopilotService:
         self._execution_timeout = execution_timeout_seconds
 
     @classmethod
-    def from_config(cls, store_service: StoreService, git_service: GitService, project_data_service: ProjectDataService) -> "CopilotService":
+    def from_config(cls, store_service: StoreService, copilot: CopilotStore, git_service: GitService,
+                    project_data_service: ProjectDataService) -> "CopilotService":
         """The CLI, model, token and timeouts from the Config (COPILOT_*).
         ``git_service`` resolves the repository folder and reads HEAD and
         ``git status`` around an execution (moved HEAD, changed files)."""
@@ -84,6 +88,7 @@ class CopilotService:
         token = config.copilot_github_token.get_secret_value() if config.copilot_github_token else None
         return cls(
             store_service=store_service,
+            copilot=copilot,
             git_service=git_service,
             project_data_service=project_data_service,
             client=CopilotClient(config.copilot_command, config.copilot_model, token),
@@ -105,7 +110,7 @@ class CopilotService:
         """The definition's models, the cheapest first (input + output price;
         those without a price last, in the file's order), each with what it
         used so far in every project (None = never used)."""
-        used = {item.model: item for item in self._store.copilot_usage_by_model()}
+        used = {item.model: item for item in self._copilot.usage_by_model()}
         ordered = sorted(settings.models, key=lambda model: (model.price is None, model.price.input + model.price.output if model.price else 0.0))
         return [(model, used.get(model.name)) for model in ordered]
 
@@ -123,30 +128,30 @@ class CopilotService:
 
     def sessions(self, project_name: str) -> list[CopilotSession]:
         """A project's sessions, newest first."""
-        return self._store.list_copilot_sessions(project_name)
+        return self._copilot.list_sessions(project_name)
 
     def session(self, session_id: int) -> CopilotSession:
-        session = self._store.get_copilot_session(session_id)
+        session = self._copilot.get_session(session_id)
         if session is None:
             raise NotFoundError(f"Sessione Copilot non trovata: {session_id}")
         return session
 
     def messages(self, session_id: int) -> list[CopilotMessage]:
-        return self._store.list_copilot_messages(self.session(session_id).id)
+        return self._copilot.list_messages(self.session(session_id).id)
 
     # ----------------------------------------------------------------- usage
     def session_turns(self, session_id: int) -> list[CopilotTurnRecord]:
         """What each turn of the session used, oldest first."""
-        return self._store.list_copilot_session_turns(self.session(session_id).id)
+        return self._copilot.list_session_turns(self.session(session_id).id)
 
     def recent_turns(self, limit: int = 100, project_name: str | None = None) -> list[CopilotTurnRecord]:
         """Every session's turns, newest first (also of deleted sessions)."""
-        return self._store.list_copilot_turns(limit, project_name)
+        return self._copilot.list_turns(limit, project_name)
 
     def usage_by_model(self, days: int | None = None, project_name: str | None = None) -> list[CopilotModelUsage]:
         """Totals per model over the last ``days`` (None = ever), the most AI credits first."""
         since = _now() - timedelta(days=days) if days else None
-        return self._store.copilot_usage_by_model(since, project_name)
+        return self._copilot.usage_by_model(since, project_name)
 
     # -------------------------------------------------------------- planning
     @observed(LogPrefix.COPILOT_SERVICE)
@@ -165,7 +170,7 @@ class CopilotService:
         session_id = str(uuid4())
         if task.references and (note := coding_agent.references_note(settings, self._data.copilot_folder(project_name, task_note, session_id))):
             first_turn += f"\n\n{note}"
-        session = self._store.save_copilot_session(CopilotSession(
+        session = self._copilot.save_session(CopilotSession(
             project_name=project_name,
             task_note=task_note,
             repository=repository.strip().strip("/\\"),
@@ -203,7 +208,7 @@ class CopilotService:
         session = self.session(session_id)
         if session.status != CopilotSessionStatus.PLANNING:
             raise ConflictError("Si può dare l'ok solo durante la preparazione.")
-        if not any(message.role == CopilotMessageRole.COPILOT for message in self._store.list_copilot_messages(session.id)):
+        if not any(message.role == CopilotMessageRole.COPILOT for message in self._copilot.list_messages(session.id)):
             raise ConflictError("Copilot non ha ancora risposto: aspetta la sua risposta prima di dare l'ok.")
         changed = self._changed_files(session)
         if changed:
@@ -231,7 +236,7 @@ class CopilotService:
         session = self.session(session_id)
         if session.status in (CopilotSessionStatus.QUEUED, CopilotSessionStatus.RUNNING):
             raise ConflictError("La sessione è in coda o in esecuzione: annullala prima.")
-        self._store.delete_copilot_session(session.id)
+        self._copilot.delete_session(session.id)
         self._data.delete_copilot_folder(session.project_name, session.copilot_session_id)
 
     @observed(LogPrefix.COPILOT_SERVICE)
@@ -240,18 +245,18 @@ class CopilotService:
         their messages; none if one of them is queued or running. The usage of
         their turns stays in Observability. Returns how many were deleted."""
         name = note_file_name(task_note)
-        sessions = [session for session in self._store.list_copilot_sessions(project_name) if note_file_name(session.task_note) == name]
+        sessions = [session for session in self._copilot.list_sessions(project_name) if note_file_name(session.task_note) == name]
         if any(session.status in (CopilotSessionStatus.QUEUED, CopilotSessionStatus.RUNNING) for session in sessions):
             raise ConflictError("Una sessione di questo task è in coda o in esecuzione: annullala prima.")
         for session in sessions:
-            self._store.delete_copilot_session(session.id)
+            self._copilot.delete_session(session.id)
             self._data.delete_copilot_folder(project_name, session.copilot_session_id)
         return len(sessions)
 
     # ---------------------------------------------------------------- worker
     def run_next(self, on_claim: Callable[[CopilotSession], None] | None = None) -> CopilotSession | None:
         """Execute the next queued session whose repository is free; None when there is none."""
-        session = self._store.claim_next_copilot_session()
+        session = self._copilot.claim_next_session()
         if session is None:
             return None
         if on_claim:
@@ -277,7 +282,7 @@ class CopilotService:
 
     def fail_interrupted(self) -> int:
         """At the worker's start: the executions left ``running`` by a worker that died."""
-        sessions = self._store.list_copilot_sessions_by_status(CopilotSessionStatus.RUNNING)
+        sessions = self._copilot.list_sessions_by_status(CopilotSessionStatus.RUNNING)
         for session in sessions:
             self._message(session, CopilotMessageRole.EVENT, "❌ Interrotta: il worker si è fermato durante l'esecuzione.")
             self._update(session, status=CopilotSessionStatus.FAILED, error="Worker interrotto.", finished_at=_now())
@@ -323,8 +328,8 @@ class CopilotService:
         (a turn killed before writing them is caught up by the next one).
         Best effort: a failure here never stops the session."""
         try:
-            previous = sum((recorded.usage for recorded in self._store.list_copilot_session_turns(session.id)), CopilotUsage())
-            self._store.add_copilot_turn(CopilotTurnRecord(
+            previous = sum((recorded.usage for recorded in self._copilot.list_session_turns(session.id)), CopilotUsage())
+            self._copilot.add_turn(CopilotTurnRecord(
                 session_id=session.id,
                 project_name=session.project_name,
                 task_note=session.task_note,
@@ -356,7 +361,7 @@ class CopilotService:
             nonlocal last, requested
             if not requested and time.monotonic() - last >= _CANCEL_CHECK_SECONDS:
                 last = time.monotonic()
-                current = self._store.get_copilot_session(session_id)
+                current = self._copilot.get_session(session_id)
                 requested = current is None or current.cancel_requested
             return requested
 
@@ -376,9 +381,9 @@ class CopilotService:
             log_exception(LogPrefix.COPILOT_SERVICE, "Stato del task %s non aggiornato", session.task_note)
 
     def _message(self, session: CopilotSession, role: CopilotMessageRole, content: str) -> None:
-        self._store.add_copilot_message(CopilotMessage(session_id=session.id, role=role, content=content))
+        self._copilot.add_message(CopilotMessage(session_id=session.id, role=role, content=content))
 
     def _update(self, session: CopilotSession, **changes) -> CopilotSession:
         """Writes only ``changes``: the API and the worker write the same
         session at the same time (e.g. a cancel while the execution starts)."""
-        return self._store.update_copilot_session(session.id, **changes, updated_at=_now())
+        return self._copilot.update_session(session.id, **changes, updated_at=_now())
