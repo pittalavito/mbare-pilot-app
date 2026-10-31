@@ -7,8 +7,8 @@ from models.domain.project import Project, ProjectSource
 
 
 @pytest.fixture
-def project(store_service):
-    return store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path="/tmp/acme"))
+def project(project_store):
+    return project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path="/tmp/acme"))
 
 
 def _config(service, name: str, role: str, project_name: str | None) -> AgentConfig:
@@ -49,8 +49,8 @@ def test_global_config_cannot_use_project_role(agent_config_service, project):
         agent_config_service.save_config(_config(agent_config_service, "global-bot", "acme-role", None), create=True)
 
 
-def test_config_cannot_use_role_of_another_project(agent_config_service, project, store_service):
-    store_service.save_project(Project(name="other", source=ProjectSource.FOLDER, root_path="/tmp/other"))
+def test_config_cannot_use_role_of_another_project(agent_config_service, project, project_store):
+    project_store.save(Project(name="other", source=ProjectSource.FOLDER, root_path="/tmp/other"))
     _project_role(agent_config_service)
 
     with pytest.raises(ValidationError):

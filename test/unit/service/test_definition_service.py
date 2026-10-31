@@ -39,13 +39,13 @@ CONTROLLO = """
 
 
 @pytest.fixture
-def services(store_service, agent_config_service, make_agent_service, catalog_store, pipeline_service, agent_store):
+def services(store_service, agent_config_service, make_agent_service, catalog_store, pipeline_service, agent_store, project_store):
     store_service.save_definition("global-agent.yml", "")  # each test writes what it needs
-    store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
+    project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
     agents = make_agent_service()
     pipelines = pipeline_service
-    chatbots = ChatbotService(store_service, catalog_store, agent_config_service, agents)
-    return DefinitionService(store_service, agent_store, agent_config_service, chatbots, pipelines), chatbots, pipelines
+    chatbots = ChatbotService(store_service, project_store, catalog_store, agent_config_service, agents)
+    return DefinitionService(store_service, project_store, agent_store, agent_config_service, chatbots, pipelines), chatbots, pipelines
 
 
 def _write(store_service, path, text):
@@ -322,7 +322,7 @@ def test_an_automation_chatbot_from_the_files_gets_its_fixed_tools(services, sto
     assert "togli tools" in definitions.preview("acme")[1].message
 
 
-def test_the_default_chatbots_are_created_where_missing_and_never_changed(services, store_service, caplog, catalog_store):
+def test_the_default_chatbots_are_created_where_missing_and_never_changed(services, caplog, catalog_store, project_store):
     definitions, chatbots, _ = services
     mine = chatbots.create_chatbot("acme", "segretario", system_prompt="Mio.", model=MODEL)  # same name: left as it is
 
@@ -333,7 +333,7 @@ def test_the_default_chatbots_are_created_where_missing_and_never_changed(servic
     assert bots["segretario"] == mine
     assert definitions.seed_default_chatbots(["acme"]) == 0  # already there
 
-    store_service.save_project(Project(name="beta", source=ProjectSource.FOLDER, root_path="/code/beta"))
+    project_store.save(Project(name="beta", source=ProjectSource.FOLDER, root_path="/code/beta"))
     default_model = catalog_store.get_model("openrouter/google/gemini-3.1-flash-lite-preview")
     catalog_store.save_model(default_model.model_copy(update={"active": False}))
 

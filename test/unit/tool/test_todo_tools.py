@@ -17,9 +17,9 @@ REFERENCE = "context-reference-procedura.md"
 
 
 @pytest.fixture
-def context(store_service, project_data_service) -> ToolContext:
+def context(store_service, project_data_service, project_store) -> ToolContext:
     """Chatbot run of ``acme`` (no Copilot) with the list «Rilascio», linked to a reference."""
-    store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
+    project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
     data = project_data_service
     store_service.save_file(f"acme/notes/{REFERENCE}", b"# Procedura\n\n## Contenuto\nsegreto\n")
     data.create_todo_list("acme", TodoList(title="Rilascio", references=[REFERENCE], items=[

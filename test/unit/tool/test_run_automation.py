@@ -33,8 +33,8 @@ class _Launching:
 
 
 @pytest.fixture
-def pipelines(store_service, pipeline_service):
-    store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
+def pipelines(pipeline_service, project_store):
+    project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
     return pipeline_service
 
 

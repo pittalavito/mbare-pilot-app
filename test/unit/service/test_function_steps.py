@@ -14,7 +14,6 @@ from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
 from service.chat_service import ChatService
 from service.pipeline_runner import PipelineRunner
-from service.project_data_service import ProjectDataService
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
 
@@ -24,7 +23,7 @@ def _git(cwd, *args):
 
 
 @pytest.fixture
-def project(store_service, tmp_path):
+def project(tmp_path, project_store):
     """Project "shop" with a repository ``api`` holding two commits."""
     repo = tmp_path / "shop" / "api"
     repo.mkdir(parents=True)
@@ -35,7 +34,7 @@ def project(store_service, tmp_path):
         (repo / "main.py").write_text(message, encoding="utf-8")
         _git(repo, "add", "main.py")
         _git(repo, "commit", "-q", "-m", message)
-    store_service.save_project(Project(name="shop", source=ProjectSource.FOLDER, root_path=str(tmp_path / "shop")))
+    project_store.save(Project(name="shop", source=ProjectSource.FOLDER, root_path=str(tmp_path / "shop")))
     return repo
 
 
@@ -153,10 +152,10 @@ def test_git_status_of_every_repository(service, masked_runner, masking, project
     assert sorted(entry.value for entry in masking.entries("shop")) == ["api", "rotto", "web"]
 
 
-def test_git_status_of_every_repository_needs_one(service, runner, store_service, tmp_path):
+def test_git_status_of_every_repository_needs_one(service, runner, tmp_path, project_store):
     empty = tmp_path / "vuoto"
     empty.mkdir()
-    store_service.save_project(Project(name="vuoto", source=ProjectSource.FOLDER, root_path=str(empty)))
+    project_store.save(Project(name="vuoto", source=ProjectSource.FOLDER, root_path=str(empty)))
     pipeline = service.create_pipeline("vuoto", "P", steps=[_function(function="git_status", repository="*")])
     service.enqueue(pipeline.id, "")
 
@@ -165,12 +164,12 @@ def test_git_status_of_every_repository_needs_one(service, runner, store_service
     assert run.status is RunStatus.FAILED and "Nessun repository git" in run.steps[0].error
 
 
-def test_save_note_function(service, runner):
+def test_save_note_function(service, runner, project_data_service):
     run = _run(service, runner, [_function(function="save_note", title="Report {date}")], pipeline_input="Testo")
 
     assert run.status is RunStatus.DONE and run.output.startswith("Nota salvata: Report ")
-    [note] = ProjectDataService(service._store).list_notes("shop")
-    assert note.name.startswith("Report ") and ProjectDataService(service._store).read_note("shop", note.name) == "Testo"
+    [note] = project_data_service.list_notes("shop")
+    assert note.name.startswith("Report ") and project_data_service.read_note("shop", note.name) == "Testo"
 
 
 def test_function_steps_register_the_values_they_declare_sensitive(service, masked_runner, masking):

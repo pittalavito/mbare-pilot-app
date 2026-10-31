@@ -26,8 +26,8 @@ def project_root(tmp_path):
 
 
 @pytest.fixture
-def client(stores, store_service, project_root, monkeypatch):
-    store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(project_root)))
+def client(stores, project_root, monkeypatch, project_store):
+    project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(project_root)))
     monkeypatch.setattr(agent_service_module.AgentFactory, "create_agent",
                         staticmethod(lambda definition, client, tools: FakeAgent(None)))
     container = Container(stores=stores)

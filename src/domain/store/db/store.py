@@ -22,10 +22,8 @@ from domain.store.db.pipeline_repository import (
     DbPipelineStepRepository,
     DbPipelineStepRunRepository,
 )
-from domain.store.db.project_repository import DbProjectRepository
 from domain.store.db.repository import Engine, transaction
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
-from models.domain.chat import EmbeddingModelName
 from models.domain.chatbot import AutomationCacheEntry, Chatbot, ChatMessage, Conversation, MessageRole
 from models.domain.copilot import (
     CopilotMessage,
@@ -37,7 +35,6 @@ from models.domain.copilot import (
     CopilotTurnRecord,
     CopilotUsage,
 )
-from models.domain.note import NoteType
 from models.domain.pipeline import (
     INPUT_NODE,
     EdgeConditionKind,
@@ -50,7 +47,6 @@ from models.domain.pipeline import (
     StepAgent,
     StepKind,
 )
-from models.domain.project import Project, ProjectSource
 from models.store.db import (
     AtlassianFavoriteTable,
     AutomationCacheTable,
@@ -66,7 +62,6 @@ from models.store.db import (
     PipelineStepTable,
     PipelineTable,
     ProjectAtlassianTable,
-    ProjectTable,
 )
 
 __all__ = [
@@ -86,7 +81,6 @@ __all__ = [
     "DbCopilotMessageRepository",
     "DbCopilotSessionRepository",
     "DbCopilotTurnRepository",
-    "DbProjectRepository",
     "Adapter",
     "Factory",
 ]
@@ -127,19 +121,6 @@ class Adapter:
         return CopilotMessage(**{**row.model_dump(), "role": CopilotMessageRole(row.role), "created_at": _as_utc(row.created_at)})
 
 
-
-    @staticmethod
-    def to_project(row: ProjectTable) -> Project:
-        return Project(
-            name=row.name,
-            description=row.description,
-            source=ProjectSource(row.source),
-            root_path=row.root_path,
-            embedding_model=EmbeddingModelName(row.embedding_model),
-            visible_note_types=[NoteType(value) for value in row.visible_note_types if value in NoteType.__members__.values()]
-            if row.visible_note_types is not None else None,
-            created_at=_as_utc(row.created_at),
-        )
 
     @staticmethod
     def to_chatbot(row: ChatbotTable) -> Chatbot:
@@ -348,15 +329,3 @@ class Factory:
     @staticmethod
     def to_atlassian_favorite_row(favorite: AtlassianFavorite) -> AtlassianFavoriteTable:
         return AtlassianFavoriteTable(**{**favorite.model_dump(), "kind": favorite.kind.value})
-
-    @staticmethod
-    def to_project_row(project: Project) -> ProjectTable:
-        return ProjectTable(
-            name=project.name,
-            description=project.description,
-            source=project.source.value,
-            root_path=project.root_path,
-            embedding_model=project.embedding_model.value,
-            visible_note_types=[kind.value for kind in project.visible_note_types] if project.visible_note_types is not None else None,
-            created_at=project.created_at,
-        )

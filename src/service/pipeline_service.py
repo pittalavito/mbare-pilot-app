@@ -16,15 +16,17 @@ from service.agent_config_service import AgentConfigService
 from service.model_service import require_usable_model
 from service.store.agent_store import AgentStore
 from service.store.catalog_store import CatalogStore
+from service.store.project_store import ProjectStore
 from service.store.worker_store import WorkerStore
 from service.store_service import StoreService
 
 
 class PipelineService:
 
-    def __init__(self, store_service: StoreService, workers: WorkerStore, catalog: CatalogStore, agent_store: AgentStore,
+    def __init__(self, store_service: StoreService, projects: ProjectStore, workers: WorkerStore, catalog: CatalogStore, agent_store: AgentStore,
                  agent_config_service: AgentConfigService):
         self._store = store_service
+        self._projects = projects
         self._workers = workers
         self._catalog = catalog
         self._agent_store = agent_store
@@ -64,7 +66,7 @@ class PipelineService:
         edges: list[PipelineEdge] | None = None
     ) -> Pipeline:
         """``edges`` empty = the chain of ``steps`` in their order."""
-        if self._store.get_project(project_name) is None:
+        if self._projects.get(project_name) is None:
             raise NotFoundError(f"Progetto non trovato: {project_name}")
         steps = [step.model_copy(update={"id": None}) for step in steps or []]
         pipeline = Pipeline(

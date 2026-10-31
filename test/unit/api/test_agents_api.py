@@ -9,8 +9,8 @@ from models.domain.project import Project, ProjectSource
 
 
 @pytest.fixture
-def client(stores, store_service):
-    store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
+def client(stores, project_store):
+    project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
     with TestClient(create_app(Container(stores=stores))) as client:
         yield client
 

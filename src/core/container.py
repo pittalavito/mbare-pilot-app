@@ -45,13 +45,13 @@ class Container:
         self.chat_service = ChatService()
         self.run_service = RunService(stores.runs)
         self.model_service = ModelService(catalog=stores.catalog)
-        self.agent_config_service = AgentConfigService(store_service=self.store_service, agents=stores.agents, catalog=stores.catalog)
-        self.project_data_service = ProjectDataService(store_service=self.store_service)
-        self.atlassian_service = AtlassianService(store_service=self.store_service, project_data_service=self.project_data_service)
-        self.git_service = GitService(store_service=self.store_service)
-        self.masking_service = MaskingService(store_service=self.store_service, masks=stores.masks)
+        self.agent_config_service = AgentConfigService(projects=stores.projects, agents=stores.agents, catalog=stores.catalog)
+        self.project_data_service = ProjectDataService(store_service=self.store_service, projects=stores.projects)
+        self.atlassian_service = AtlassianService(store_service=self.store_service, projects=stores.projects, project_data_service=self.project_data_service)
+        self.git_service = GitService(projects=stores.projects)
+        self.masking_service = MaskingService(projects=stores.projects, masks=stores.masks)
         self.pipeline_service = PipelineService(
-            store_service=self.store_service, workers=stores.workers, catalog=stores.catalog, agent_store=stores.agents,
+            store_service=self.store_service, projects=stores.projects, workers=stores.workers, catalog=stores.catalog, agent_store=stores.agents,
             agent_config_service=self.agent_config_service,
         )
         self.process_service = ProcessService(
@@ -85,14 +85,14 @@ class Container:
             masking_service=self.masking_service,
         )
         self.chatbot_service = ChatbotService(
-            store_service=self.store_service,
+            store_service=self.store_service, projects=stores.projects,
             catalog=stores.catalog,
             agent_config_service=self.agent_config_service,
             agent_service=self.agent_service,
             automation_cache=self.automation_cache_service,
         )
         self.definition_service = DefinitionService(
-            store_service=self.store_service,
+            store_service=self.store_service, projects=stores.projects,
             agent_store=stores.agents,
             agent_config_service=self.agent_config_service,
             chatbot_service=self.chatbot_service,
@@ -106,7 +106,7 @@ class Container:
             masking_service=self.masking_service,
         )
         self.project_service = ProjectService(
-            store_service=self.store_service,
+            projects=stores.projects,
             masks=stores.masks,
             folder_browser=FolderBrowser(config.project_root_paths),
             definition_service=self.definition_service,
@@ -122,4 +122,4 @@ class Container:
         self.model_service.seed_defaults(DEFAULT_CHAT_MODELS)
         self.agent_config_service.sync_tools()
         self.definition_service.seed_global_agents()
-        self.definition_service.seed_default_chatbots([project.name for project in self.store_service.list_projects()])
+        self.definition_service.seed_default_chatbots([project.name for project in self.project_service.list_projects()])

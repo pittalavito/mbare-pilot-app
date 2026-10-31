@@ -116,16 +116,21 @@ def agent_store(stores):
 
 
 @pytest.fixture
+def project_store(stores):
+    return stores.projects
+
+
+@pytest.fixture
 def store_service(stores):
     return stores.store_service
 
 
 @pytest.fixture
-def agent_config_service(store_service, agent_store, catalog_store):
+def agent_config_service(project_store, agent_store, catalog_store):
     """AgentConfigService on the in-memory store with the tool catalog and the
     example agent the tests build on: global role ``hello``, prompt v1, agent
     ``hello`` with ``hello_world`` (in the app it comes from global-agent.yml)."""
-    service = AgentConfigService(store_service, agent_store, catalog_store)
+    service = AgentConfigService(project_store, agent_store, catalog_store)
     service.sync_tools()
     if agent_store.get_config("hello") is None:  # a Container may have created it already
         service.save_role(AgentRole(name="hello", description="Assistente di esempio che saluta e conta parole."), create=True)
@@ -138,23 +143,23 @@ def agent_config_service(store_service, agent_store, catalog_store):
 
 
 @pytest.fixture
-def git_service(store_service):
-    return GitService(store_service)
+def git_service(project_store):
+    return GitService(project_store)
 
 
 @pytest.fixture
-def project_data_service(store_service):
-    return ProjectDataService(store_service)
+def project_data_service(store_service, project_store):
+    return ProjectDataService(store_service, project_store)
 
 
 @pytest.fixture
-def masking_service(store_service, mask_store):
-    return MaskingService(store_service, mask_store)
+def masking_service(project_store, mask_store):
+    return MaskingService(project_store, mask_store)
 
 
 @pytest.fixture
-def pipeline_service(store_service, worker_store, catalog_store, agent_store, agent_config_service):
-    return PipelineService(store_service, worker_store, catalog_store, agent_store, agent_config_service)
+def pipeline_service(store_service, project_store, worker_store, catalog_store, agent_store, agent_config_service):
+    return PipelineService(store_service, project_store, worker_store, catalog_store, agent_store, agent_config_service)
 
 
 @pytest.fixture

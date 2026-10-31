@@ -15,7 +15,7 @@ from core.error import NotFoundError, ValidationError
 from domain.masking.masker import Masker
 from models.domain.masking import MaskCategory, MaskEntry, sensitive_values
 from service.store.mask_store import MaskStore
-from service.store_service import StoreService
+from service.store.project_store import ProjectStore
 
 MIN_LENGTH = 3
 """Shorter values are not masked: they would match too much."""
@@ -23,8 +23,8 @@ MIN_LENGTH = 3
 
 class MaskingService:
 
-    def __init__(self, store_service: StoreService, masks: MaskStore):
-        self._store = store_service
+    def __init__(self, projects: ProjectStore, masks: MaskStore):
+        self._projects = projects
         self._masks = masks
 
     def entries(self, project_name: str) -> list[MaskEntry]:
@@ -47,7 +47,7 @@ class MaskingService:
 
     def add_term(self, project_name: str, category: MaskCategory, value: str) -> MaskEntry:
         """A value added by hand; already in the map = returned as it is."""
-        if self._store.get_project(project_name) is None:
+        if self._projects.get(project_name) is None:
             raise NotFoundError(f"Progetto non trovato: {project_name}")
         value = value.strip()
         if len(value) < MIN_LENGTH:

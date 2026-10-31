@@ -31,7 +31,6 @@ from domain.store.db.store import (
     DbPipelineRunRepository,
     DbPipelineStepRepository,
     DbPipelineStepRunRepository,
-    DbProjectRepository,
     Engine,
     Factory as DbFactory,
     transaction,
@@ -42,7 +41,6 @@ from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, Favori
 from models.domain.chatbot import AutomationCacheEntry, Chatbot, ChatMessage, Conversation
 from models.domain.copilot import CopilotMessage, CopilotModelUsage, CopilotSession, CopilotSessionStatus, CopilotTurnRecord
 from models.domain.pipeline import Pipeline, PipelineRun, PipelineStepRun, RunStatus
-from models.domain.project import Project, ProjectSource
 
 
 class StoreService:
@@ -57,7 +55,6 @@ class StoreService:
         if redis_client is None:
             redis_client = RedisClient.create_redis_client(config.redis_url)
 
-        self._project_repository = DbProjectRepository(engine)
         self._atlassian_repository = DbAtlassianRepository(engine)
         self._atlassian_favorite_repository = DbAtlassianFavoriteRepository(engine)
         self._chatbot_repository = DbChatbotRepository(engine)
@@ -75,22 +72,6 @@ class StoreService:
         self._files_repository = LocalFileRepository(config.project_data_root)
         self._definitions_repository = LocalFileRepository(config.definitions_root)
         self._secret_box = SecretBox(config.secret_key)
-
-    # -------------------------------------------------------------- projects
-    def list_projects(self, source: ProjectSource | None = None) -> list[Project]:
-        """Projects, most recent first."""
-        rows = self._project_repository.list_recent(source.value if source else None)
-        return [DbAdapter.to_project(row) for row in rows]
-
-    def get_project(self, name: str) -> Project | None:
-        row = self._project_repository.get(name)
-        return DbAdapter.to_project(row) if row else None
-
-    def save_project(self, project: Project) -> Project:
-        return DbAdapter.to_project(self._project_repository.save(DbFactory.to_project_row(project)))
-
-    def delete_project(self, name: str) -> bool:
-        return self._project_repository.delete(name)
 
     # -------------------------------------------------------------- chatbots
     def list_chatbots(self, project_name: str) -> list[Chatbot]:

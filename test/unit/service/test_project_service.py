@@ -17,8 +17,8 @@ def root(tmp_path):
 
 
 @pytest.fixture
-def project_service(store_service, root, mask_store):
-    return ProjectService(store_service, mask_store, FolderBrowser([root]))
+def project_service(root, mask_store, project_store):
+    return ProjectService(project_store, mask_store, FolderBrowser([root]))
 
 
 def test_open_existing_folder(project_service, root):
@@ -85,10 +85,10 @@ def test_remove_does_not_delete_folder(project_service, root):
 
 
 def test_a_new_project_gets_the_default_chatbots(store_service, root, agent_config_service, mask_store, make_agent_service,
-                                                  catalog_store, pipeline_service, agent_store):
-    chatbots = ChatbotService(store_service, catalog_store, agent_config_service, make_agent_service())
-    definitions = DefinitionService(store_service, agent_store, agent_config_service, chatbots, pipeline_service)
-    projects = ProjectService(store_service, mask_store, FolderBrowser([root]), definition_service=definitions)
+                                                  catalog_store, pipeline_service, agent_store, project_store):
+    chatbots = ChatbotService(store_service, project_store, catalog_store, agent_config_service, make_agent_service())
+    definitions = DefinitionService(store_service, project_store, agent_store, agent_config_service, chatbots, pipeline_service)
+    projects = ProjectService(project_store, mask_store, FolderBrowser([root]), definition_service=definitions)
 
     projects.open_folder("App", "", root / "existing-app")
     projects.create_from_scratch("Nuovo", "", root, "nuovo")

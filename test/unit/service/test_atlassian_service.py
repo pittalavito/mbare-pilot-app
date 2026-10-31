@@ -17,10 +17,10 @@ def _site(handler, **defaults) -> AtlassianSite:
 
 
 @pytest.fixture
-def service(store_service):
+def service(store_service, project_store):
     for name in ("Alpha", "Beta"):
-        store_service.save_project(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/tmp/{name}"))
-    return AtlassianService(store_service)
+        project_store.save(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/tmp/{name}"))
+    return AtlassianService(store_service, project_store)
 
 
 def _save(service, project="Alpha", **overrides):
@@ -190,7 +190,7 @@ def test_empty_or_invalid_inputs_rejected(call):
 
 # ---------------------------------------------------------------- favorites
 
-def test_favorites_per_project_without_duplicates(service, store_service):
+def test_favorites_per_project_without_duplicates(service):
     _save(service)
     issue = service.add_favorite("Alpha", FavoriteKind.JIRA_ISSUE, " proj-1 ", "Login rotto", "https://x/browse/PROJ-1")
     page = service.add_favorite("Alpha", FavoriteKind.CONFLUENCE_PAGE, "42", "Setup", "https://x/wiki/42")

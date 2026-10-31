@@ -26,6 +26,7 @@ from models.domain.atlassian import (
 )
 from models.domain.note import NoteType, Reference
 from service.project_data_service import ProjectDataService
+from service.store.project_store import ProjectStore
 from service.store_service import StoreService
 
 _PROJECT_KEY = re.compile(r"^[A-Z][A-Z0-9_]{1,9}$")
@@ -35,9 +36,10 @@ _SPACE_KEY = re.compile(r"^~?[A-Za-z0-9_]{1,255}$")
 
 class AtlassianService:
 
-    def __init__(self, store_service: StoreService, project_data_service: ProjectDataService | None = None):
+    def __init__(self, store_service: StoreService, projects: ProjectStore, project_data_service: ProjectDataService | None = None):
         """``project_data_service``: to copy issues and pages into the project as references."""
         self._store = store_service
+        self._projects = projects
         self._data = project_data_service
         self._sites: dict[str, tuple[AtlassianSettings, AtlassianSite]] = {}
         """Built sites per project, rebuilt when the project's settings change."""
@@ -63,7 +65,7 @@ class AtlassianService:
         """Set the project's site. An empty ``api_token`` keeps the saved one.
         The favorites of any other site are dropped (same site = kept, also
         after removing and adding the settings again)."""
-        if self._store.get_project(project_name) is None:
+        if self._projects.get(project_name) is None:
             raise NotFoundError(f"Progetto non trovato: {project_name}")
         base_url = base_url.strip().rstrip("/")
         if not re.match(r"^https://[^/\s]+$", base_url):
@@ -101,7 +103,7 @@ class AtlassianService:
     def add_favorite(self, project_name: str, kind: FavoriteKind, ref: str, title: str, url: str) -> AtlassianFavorite:
         """Save an issue or page of the project's site as a favorite; already a
         favorite = returned as it is. ValidationError when Atlassian is not configured."""
-        if self._store.get_project(project_name) is None:
+        if self._projects.get(project_name) is None:
             raise NotFoundError(f"Progetto non trovato: {project_name}")
         settings = self._require_settings(project_name)
         ref = ref.strip().upper() if kind is FavoriteKind.JIRA_ISSUE else ref.strip()

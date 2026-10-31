@@ -33,7 +33,7 @@ def _commit(repo, message, file="main.py"):
 
 
 @pytest.fixture
-def repos(store_service, tmp_path):
+def repos(tmp_path, project_store):
     seed = tmp_path / "seed"
     seed.mkdir()
     _git(seed, "init", "-q")
@@ -45,7 +45,7 @@ def repos(store_service, tmp_path):
     _identity(tmp_path / "shop" / "api")
     _git(tmp_path, "clone", "-q", str(tmp_path / "origin.git"), "pusher")
     _identity(tmp_path / "pusher", "Bob")
-    store_service.save_project(Project(name="Shop", source=ProjectSource.FOLDER, root_path=str(tmp_path / "shop")))
+    project_store.save(Project(name="Shop", source=ProjectSource.FOLDER, root_path=str(tmp_path / "shop")))
     return tmp_path
 
 

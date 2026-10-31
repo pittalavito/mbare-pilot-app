@@ -16,6 +16,7 @@ from service.agent_service import AgentService
 from service.automation_cache_service import CACHE_BYPASS, AutomationCacheService
 from service.model_service import require_usable_model
 from service.store.catalog_store import CatalogStore
+from service.store.project_store import ProjectStore
 from service.store_service import StoreService
 
 _TITLE_LENGTH = 60
@@ -27,10 +28,12 @@ _CACHE_MARK = "⚡"
 
 class ChatbotService:
 
-    def __init__(self, store_service: StoreService, catalog: CatalogStore, agent_config_service: AgentConfigService, agent_service: AgentService,
+    def __init__(self, store_service: StoreService, projects: ProjectStore, catalog: CatalogStore,
+                 agent_config_service: AgentConfigService, agent_service: AgentService,
                  automation_cache: AutomationCacheService | None = None):
         """``automation_cache`` is the cache; None = every message goes to the agent."""
         self._store = store_service
+        self._projects = projects
         self._catalog = catalog
         self._agent_configs = agent_config_service
         self._agents = agent_service
@@ -64,7 +67,7 @@ class ChatbotService:
         kind: ChatbotKind = ChatbotKind.CUSTOM,
     ) -> Chatbot:
         """``kind`` automation: its tools are the fixed ones, whatever ``tool_names`` says."""
-        if self._store.get_project(project_name) is None:
+        if self._projects.get(project_name) is None:
             raise NotFoundError(f"Progetto non trovato: {project_name}")
         chatbot = Chatbot(
             project_name=project_name,

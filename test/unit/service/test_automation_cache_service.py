@@ -69,9 +69,9 @@ def agent_runs(monkeypatch):
 
 
 @pytest.fixture
-def pipelines(store_service, pipeline_service):
+def pipelines(pipeline_service, project_store):
     for name in ("acme", "other"):
-        store_service.save_project(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/code/{name}"))
+        project_store.save(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/code/{name}"))
     return pipeline_service
 
 
@@ -81,11 +81,11 @@ def cache(store_service, pipelines):
 
 
 @pytest.fixture
-def chat(store_service, agent_config_service, cache, agent_runs, monkeypatch, make_agent_service, catalog_store):
+def chat(store_service, agent_config_service, cache, agent_runs, monkeypatch, make_agent_service, catalog_store, project_store):
     llm = ChatService()
     monkeypatch.setattr(llm, "get_client", lambda model: object())
     agents = make_agent_service(llm)
-    return ChatbotService(store_service, catalog_store, agent_config_service, agents, cache)
+    return ChatbotService(store_service, project_store, catalog_store, agent_config_service, agents, cache)
 
 
 @pytest.fixture

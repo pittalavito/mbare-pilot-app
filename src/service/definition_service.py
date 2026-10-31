@@ -68,6 +68,7 @@ from service.agent_config_service import AgentConfigService
 from service.chatbot_service import ChatbotService
 from service.pipeline_service import PipelineService
 from service.store.agent_store import AgentStore
+from service.store.project_store import ProjectStore
 from service.store_service import StoreService
 
 _AGENTS_KEY = "agents"
@@ -77,9 +78,10 @@ _CHATBOTS_KEY = "chatbots"
 
 class DefinitionService:
 
-    def __init__(self, store_service: StoreService, agent_store: AgentStore, agent_config_service: AgentConfigService,
+    def __init__(self, store_service: StoreService, projects: ProjectStore, agent_store: AgentStore, agent_config_service: AgentConfigService,
                  chatbot_service: ChatbotService, pipeline_service: PipelineService):
         self._store = store_service
+        self._projects = projects
         self._agent_store = agent_store
         self._agents = agent_config_service
         self._chatbots = chatbot_service
@@ -100,7 +102,7 @@ class DefinitionService:
 
     def _elements(self, project_name: str) -> list["_Element"]:
         """Every element of the project's files, in the order a sync applies them."""
-        if self._store.get_project(project_name) is None:
+        if self._projects.get(project_name) is None:
             raise NotFoundError(f"Progetto non trovato: {project_name}")
         folder = project_definitions(project_name)
         elements = self._list(DefinitionKind.AGENT, GLOBAL_AGENTS_FILE, _AGENTS_KEY, AgentFile, lambda spec: self._sync_agent(None, spec))

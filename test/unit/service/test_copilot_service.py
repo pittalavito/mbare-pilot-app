@@ -20,7 +20,7 @@ from models.domain.project import Project, ProjectSource
 from service.copilot_service import CopilotService
 from service.git_service import GitService
 from service.project_data_service import ProjectDataService
-from service.store_service import StoreService
+from service.store.stores import Stores
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
 
@@ -32,7 +32,7 @@ def _git(cwd, *args) -> str:
 
 
 @pytest.fixture
-def project(store_service, tmp_path, monkeypatch):
+def project(tmp_path, monkeypatch, project_store):
     """Project ``acme`` with the repositories ``api`` and ``web`` (one commit each)."""
     monkeypatch.setenv("FAKE_COPILOT_STATE", str(tmp_path / "copilot-state"))
     root = tmp_path / "acme"
@@ -45,7 +45,7 @@ def project(store_service, tmp_path, monkeypatch):
         (repo / "README.md").write_text(name, encoding="utf-8")
         _git(repo, "add", ".")
         _git(repo, "commit", "-qm", "init")
-    store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(root)))
+    project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(root)))
     return root
 
 
@@ -54,8 +54,8 @@ def data(project_data_service):
     return project_data_service
 
 
-def _service(store_service, data, command=None, execution_timeout=30.0) -> CopilotService:
-    return CopilotService(store_service, GitService(store_service), data, CopilotClient(command or FAKE),
+def _service(stores, data, command=None, execution_timeout=30.0) -> CopilotService:
+    return CopilotService(stores.store_service, GitService(stores.projects), data, CopilotClient(command or FAKE),
                           planning_timeout_seconds=30, execution_timeout_seconds=execution_timeout)
 
 
@@ -73,8 +73,8 @@ def _roles(service, session) -> list[str]:
 
 # ------------------------------------------------------------------ planning
 
-def test_delegating_a_task_starts_the_planning_chat_on_the_same_copilot_session(store_service, data, project, tmp_path):
-    service = _service(store_service, data)
+def test_delegating_a_task_starts_the_planning_chat_on_the_same_copilot_session(data, project, tmp_path, stores):
+    service = _service(stores, data)
     note = _task(data)
 
     session = service.start("acme", note, "api")
@@ -90,8 +90,8 @@ def test_delegating_a_task_starts_the_planning_chat_on_the_same_copilot_session(
     assert not (project / "api" / "copilot.txt").exists()
 
 
-def test_a_session_needs_an_agent_task_a_repository_and_the_cli(store_service, data, project):
-    service = _service(store_service, data)
+def test_a_session_needs_an_agent_task_a_repository_and_the_cli(data, project, stores):
+    service = _service(stores, data)
     note = _task(data)
     data.save_note("acme", "appunti", "# libero")
 
@@ -102,13 +102,13 @@ def test_a_session_needs_an_agent_task_a_repository_and_the_cli(store_service, d
     with pytest.raises(ValidationError):
         service.start("acme", note, "")  # the project folder is not a repository
     with pytest.raises(UpstreamError):
-        _service(store_service, data, command="definitely-not-copilot-xyz").start("acme", note, "api")
+        _service(stores, data, command="definitely-not-copilot-xyz").start("acme", note, "api")
 
 
 # ----------------------------------------------------------------- execution
 
-def test_the_ok_runs_copilot_in_the_worker_without_commits_and_closes_the_task(store_service, data, project, tmp_path):
-    service = _service(store_service, data)
+def test_the_ok_runs_copilot_in_the_worker_without_commits_and_closes_the_task(data, project, tmp_path, stores):
+    service = _service(stores, data)
     note = _task(data)
     session = service.start("acme", note, "api")
     (project / "api" / "mia-modifica.txt").write_text("mia", encoding="utf-8")
@@ -132,8 +132,8 @@ def test_the_ok_runs_copilot_in_the_worker_without_commits_and_closes_the_task(s
     assert service.run_next() is None  # nothing else queued
 
 
-def test_a_commit_during_the_execution_is_reported_not_undone(store_service, data, project):
-    service = _service(store_service, data)
+def test_a_commit_during_the_execution_is_reported_not_undone(data, project, stores):
+    service = _service(stores, data)
     session = service.start("acme", _task(data, "Fai COMMIT"), "api")
     head = _git(project / "api", "rev-parse", "HEAD")
 
@@ -145,11 +145,11 @@ def test_a_commit_during_the_execution_is_reported_not_undone(store_service, dat
     assert any("L'HEAD è cambiato" in message.content for message in service.messages(session.id))
 
 
-def test_a_repository_without_commits_works_and_its_first_commit_is_reported(store_service, data, project):
+def test_a_repository_without_commits_works_and_its_first_commit_is_reported(data, project, stores):
     fresh = project / "nuovo"
     fresh.mkdir()
     _git(fresh, "init", "-q")  # no commit yet: no HEAD
-    service = _service(store_service, data)
+    service = _service(stores, data)
 
     clean = service.start("acme", _task(data, "Parti da zero"), "nuovo")
     service.approve(clean.id)
@@ -164,8 +164,8 @@ def test_a_repository_without_commits_works_and_its_first_commit_is_reported(sto
     assert any("nessun commit →" in message.content for message in service.messages(committed.id))
 
 
-def test_a_failed_execution_reopens_the_task_and_the_chat_can_go_on(store_service, data, project):
-    service = _service(store_service, data)
+def test_a_failed_execution_reopens_the_task_and_the_chat_can_go_on(data, project, stores):
+    service = _service(stores, data)
     note = _task(data, "FAIL apposta")
     session = service.start("acme", note, "api")
     service.approve(session.id)
@@ -177,15 +177,15 @@ def test_a_failed_execution_reopens_the_task_and_the_chat_can_go_on(store_servic
     assert service.send(session.id, "riproviamo").status == CopilotSessionStatus.PLANNING
 
 
-def test_cancelling_stops_a_queued_or_running_execution(store_service, redis_client, project, tmp_path):
+def test_cancelling_stops_a_queued_or_running_execution(redis_client, project, tmp_path, project_store):
     """The worker and the API write the same session at the same time: on a
     SQLite file (a connection per thread, as Postgres) instead of the shared
     in-memory one."""
     engine = create_engine(f"sqlite:///{tmp_path / 'threads.db'}", connect_args={"check_same_thread": False})
     SQLModel.metadata.create_all(engine)
-    store = StoreService(engine=engine, redis_client=redis_client)
-    store.save_project(store_service.get_project("acme"))
-    data = ProjectDataService(store)
+    store = Stores(engine=engine, redis_client=redis_client)
+    store.projects.save(project_store.get("acme"))
+    data = ProjectDataService(store.store_service, store.projects)
     service = _service(store, data)
     queued = service.start("acme", _task(data, "Primo"), "api")
     service.approve(queued.id)
@@ -210,8 +210,8 @@ def test_cancelling_stops_a_queued_or_running_execution(store_service, redis_cli
         service.cancel(running.id)
 
 
-def test_a_slow_execution_is_stopped_by_the_timeout(store_service, data, project):
-    service = _service(store_service, data, execution_timeout=1)
+def test_a_slow_execution_is_stopped_by_the_timeout(data, project, stores):
+    service = _service(stores, data, execution_timeout=1)
     session = service.start("acme", _task(data, "SLEEP"), "api")
     service.approve(session.id)
 
@@ -220,8 +220,8 @@ def test_a_slow_execution_is_stopped_by_the_timeout(store_service, data, project
     assert session.status == CopilotSessionStatus.FAILED and "Nessuna risposta" in session.error
 
 
-def test_one_execution_at_a_time_per_repository(store_service, data, project):
-    service = _service(store_service, data)
+def test_one_execution_at_a_time_per_repository(store_service, data, project, stores):
+    service = _service(stores, data)
     first, second, other = (service.start("acme", _task(data, title), repo)
                             for title, repo in (("Uno", "api"), ("Due", "api"), ("Tre", "web")))
     for session in (first, second, other):
@@ -232,8 +232,8 @@ def test_one_execution_at_a_time_per_repository(store_service, data, project):
     assert store_service.claim_next_copilot_session().id == other.id  # second waits: api is busy
 
 
-def test_executions_left_running_by_a_dead_worker_fail_at_restart(store_service, data, project):
-    service = _service(store_service, data)
+def test_executions_left_running_by_a_dead_worker_fail_at_restart(store_service, data, project, stores):
+    service = _service(stores, data)
     note = _task(data)
     session = service.start("acme", note, "api")
     service.approve(session.id)
@@ -247,12 +247,12 @@ def test_executions_left_running_by_a_dead_worker_fail_at_restart(store_service,
 
 # --------------------------------------------------- coding-agent definition
 
-def test_the_project_definition_replaces_the_global_fields_and_prompts_can_be_files(store_service, data, project, config, tmp_path):
+def test_the_project_definition_replaces_the_global_fields_and_prompts_can_be_files(data, project, config, tmp_path, stores):
     folder = config.definitions_root / "project" / "acme"
     folder.mkdir(parents=True)
     (folder / "piano.md").write_text("Piano su misura con {braces} JSON.\n\n{task}\n", encoding="utf-8")
     (folder / "coding-agent.yml").write_text("plan_prompt_file: piano.md\ndenied_tools: []\n", encoding="utf-8")
-    service = _service(store_service, data)
+    service = _service(stores, data)
 
     settings = service.coding_agent("acme")
     assert settings.denied_tools == [] and settings.execute_prompt.startswith("Ok, procedi")  # execute_prompt from the global
@@ -263,7 +263,7 @@ def test_the_project_definition_replaces_the_global_fields_and_prompts_can_be_fi
     assert service.coding_agent().denied_tools  # other projects: the global list
 
 
-def test_delegating_with_a_chosen_prompt_and_model_uses_them_for_every_turn(store_service, data, project, config, tmp_path):
+def test_delegating_with_a_chosen_prompt_and_model_uses_them_for_every_turn(data, project, config, tmp_path, stores):
     root = config.definitions_root
     (root / "global-coding-agent.yml").write_text(
         (root / "global-coding-agent.yml").read_text(encoding="utf-8") + "models: [gpt-5, claude-sonnet-4.5]\n", encoding="utf-8")
@@ -273,7 +273,7 @@ def test_delegating_with_a_chosen_prompt_and_model_uses_them_for_every_turn(stor
     (root / "coding-agent" / "note.txt").write_text("non è un prompt", encoding="utf-8")
     (root / "project" / "acme" / "coding-agent").mkdir(parents=True)
     (root / "project" / "acme" / "coding-agent" / "bug.md").write_text("Bug, a modo di acme.\n{task}", encoding="utf-8")
-    service = _service(store_service, data)
+    service = _service(stores, data)
 
     assert list(service.coding_agent("acme").prompts) == ["bug", "refactor"]
     assert service.coding_agent("acme").prompts["bug"].startswith("Bug, a modo di acme.")  # the project's wins
@@ -293,11 +293,11 @@ def test_delegating_with_a_chosen_prompt_and_model_uses_them_for_every_turn(stor
     assert "--model" not in _turns(tmp_path, service.start("acme", _task(data, "Default"), "api"))[0]["args"]
 
 
-def test_a_prompt_file_without_the_task_placeholder_is_an_error(store_service, data, project, config):
+def test_a_prompt_file_without_the_task_placeholder_is_an_error(data, project, config, stores):
     (config.definitions_root / "coding-agent").mkdir()
     (config.definitions_root / "coding-agent" / "rotto.md").write_text("Niente segnaposto", encoding="utf-8")
 
-    assert "coding-agent/rotto.md deve contenere {task}" in _service(store_service, data).coding_agent_or_error()[1]
+    assert "coding-agent/rotto.md deve contenere {task}" in _service(stores, data).coding_agent_or_error()[1]
 
 
 @pytest.mark.parametrize("text, error", [
@@ -309,20 +309,20 @@ def test_a_prompt_file_without_the_task_placeholder_is_an_error(store_service, d
     ("plan_prompt_file: manca.md\nexecute_prompt: vai\ndenied_tools: []\n", "non trovato o vuoto"),
     ("plan_prompt: [rotto\n", "YAML non valido"),
 ])
-def test_a_missing_or_broken_global_definition_stops_copilot(store_service, data, project, config, text, error):
+def test_a_missing_or_broken_global_definition_stops_copilot(data, project, config, text, error, stores):
     path = config.definitions_root / "global-coding-agent.yml"
     path.unlink()
     if text is not None:
         path.write_text(text, encoding="utf-8")
-    service = _service(store_service, data)
+    service = _service(stores, data)
 
     assert error in service.coding_agent_or_error("acme")[1]
     with pytest.raises(ValidationError, match=error.replace("{", r"\{").replace("}", r"\}")):
         service.start("acme", _task(data), "api")
 
 
-def test_an_execution_fails_when_the_definition_broke_after_the_ok(store_service, data, project, config):
-    service = _service(store_service, data)
+def test_an_execution_fails_when_the_definition_broke_after_the_ok(data, project, config, stores):
+    service = _service(stores, data)
     session = service.start("acme", _task(data), "api")
     service.approve(session.id)
     (config.definitions_root / "global-coding-agent.yml").unlink()
@@ -352,10 +352,10 @@ def test_the_client_reports_a_missing_cli_and_reads_the_last_message(tmp_path, m
 
 # --------------------------------------------------------------------- usage
 
-def test_each_turn_records_what_it_used_out_of_the_session_totals(store_service, data, project, config):
+def test_each_turn_records_what_it_used_out_of_the_session_totals(data, project, config, stores):
     (config.definitions_root / "global-coding-agent.yml").write_text(
         (config.definitions_root / "global-coding-agent.yml").read_text(encoding="utf-8") + "models: [gpt-5]\n", encoding="utf-8")
-    service = _service(store_service, data)
+    service = _service(stores, data)
     session = service.start("acme", _task(data), "api", model="gpt-5")
     service.send(session.id, "ok")
     service.approve(session.id)
@@ -373,8 +373,8 @@ def test_each_turn_records_what_it_used_out_of_the_session_totals(store_service,
     assert len(service.recent_turns(project_name="acme")) == 3  # the history outlives the session
 
 
-def test_a_turn_killed_before_writing_its_usage_records_none(store_service, data, project):
-    service = _service(store_service, data, execution_timeout=1)
+def test_a_turn_killed_before_writing_its_usage_records_none(data, project, stores):
+    service = _service(stores, data, execution_timeout=1)
     session = service.start("acme", _task(data, "SLEEP"), "api")
     service.approve(session.id)
     service.run_next()
@@ -420,7 +420,7 @@ def test_the_usage_file_is_read_as_copilot_writes_it(tmp_path):
     assert read_usage(tmp_path / "rotto.json") == (None, "")
 
 
-def test_models_come_with_their_price_cheapest_first_and_what_they_cost_so_far(store_service, data, project, config):
+def test_models_come_with_their_price_cheapest_first_and_what_they_cost_so_far(data, project, config, stores):
     path = config.definitions_root / "global-coding-agent.yml"
     path.write_text(path.read_text(encoding="utf-8") + """models:
   - auto
@@ -429,7 +429,7 @@ def test_models_come_with_their_price_cheapest_first_and_what_they_cost_so_far(s
      long_context: {above: 100000, input: 0.5, cached_input: 0.05, cache_write: 0.625, output: 2.5}}
   - {name: senza-cache-write, input: 2, cached_input: 0.1, output: 10}
 """, encoding="utf-8")
-    service = _service(store_service, data)
+    service = _service(stores, data)
     session = service.start("acme", _task(data), "api", model="economico")
     service.send(session.id, "ok")
 
@@ -449,15 +449,15 @@ def test_models_come_with_their_price_cheapest_first_and_what_they_cost_so_far(s
     ("[x, {name: x, input: 1, output: 2}]", "modelli ripetuti in models: x"),
     ("[{name: x, output: 1, input: 1, long_context: {input: 2, cached_input: 0, output: 3}}]", "above"),
 ])
-def test_a_wrong_model_price_is_an_error(store_service, data, project, config, models, error):
+def test_a_wrong_model_price_is_an_error(data, project, config, models, error, stores):
     path = config.definitions_root / "global-coding-agent.yml"
     path.write_text(path.read_text(encoding="utf-8") + f"models: {models}\n", encoding="utf-8")
 
-    assert error in _service(store_service, data).coding_agent_or_error()[1]
+    assert error in _service(stores, data).coding_agent_or_error()[1]
 
 
-def test_deleting_a_tasks_sessions_keeps_the_others_and_the_usage(store_service, data, project):
-    service = _service(store_service, data)
+def test_deleting_a_tasks_sessions_keeps_the_others_and_the_usage(data, project, stores):
+    service = _service(stores, data)
     note, other = _task(data), _task(data, "Altro")
     first, second = service.start("acme", note, "api"), service.start("acme", note, "web")
     kept = service.start("acme", other, "api")
@@ -476,12 +476,12 @@ def test_deleting_a_tasks_sessions_keeps_the_others_and_the_usage(store_service,
 
 # --------------------------------------------------------------- task folder
 
-def test_copilot_reads_the_task_and_its_references_from_a_folder_rebuilt_every_turn(store_service, data, project, config, tmp_path):
+def test_copilot_reads_the_task_and_its_references_from_a_folder_rebuilt_every_turn(data, project, config, tmp_path, stores):
     from models.domain.note import NoteType, Reference
 
     path = config.definitions_root / "global-coding-agent.yml"
     path.write_text(path.read_text(encoding="utf-8") + "references_prompt: 'I riferimenti sono in {task_folder}.'\n", encoding="utf-8")
-    service = _service(store_service, data)
+    service = _service(stores, data)
     ref = data.create_reference("acme", NoteType.CODE_REFERENCE, Reference(title="Login", path="src/a.py", content="v1"))
     note = data.create_agent_task("acme", AgentTask(title="Con riferimenti", references=[ref, "context-reference-sparito.md"]))
 
@@ -502,8 +502,8 @@ def test_copilot_reads_the_task_and_its_references_from_a_folder_rebuilt_every_t
     assert not folder.exists()
 
 
-def test_without_references_nothing_is_added_and_a_deleted_task_still_lets_the_chat_go_on(store_service, data, project, tmp_path):
-    service = _service(store_service, data)
+def test_without_references_nothing_is_added_and_a_deleted_task_still_lets_the_chat_go_on(data, project, tmp_path, stores):
+    service = _service(stores, data)
     note = _task(data)
     session = service.start("acme", note, "api")
     assert "riferimenti" not in _turns(tmp_path, session)[0]["prompt"].lower()
@@ -514,8 +514,8 @@ def test_without_references_nothing_is_added_and_a_deleted_task_still_lets_the_c
     assert session.status == CopilotSessionStatus.PLANNING and _turns(tmp_path, session)[-1]["args"].count("--add-dir") == 1
 
 
-def test_a_references_prompt_needs_the_task_folder_placeholder(store_service, data, project, config):
+def test_a_references_prompt_needs_the_task_folder_placeholder(data, project, config, stores):
     path = config.definitions_root / "global-coding-agent.yml"
     path.write_text(path.read_text(encoding="utf-8") + "references_prompt: senza segnaposto\n", encoding="utf-8")
 
-    assert "{task_folder}" in _service(store_service, data).coding_agent_or_error()[1]
+    assert "{task_folder}" in _service(stores, data).coding_agent_or_error()[1]

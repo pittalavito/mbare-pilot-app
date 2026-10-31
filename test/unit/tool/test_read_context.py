@@ -10,8 +10,8 @@ from tool.list.project.read_context import READ_CONTEXT
 
 
 @pytest.fixture
-def project_data(store_service, project_data_service):
-    store_service.save_project(Project(name="My App", source=ProjectSource.FOLDER, root_path="/code/app"))
+def project_data(project_data_service, project_store):
+    project_store.save(Project(name="My App", source=ProjectSource.FOLDER, root_path="/code/app"))
     return project_data_service
 
 

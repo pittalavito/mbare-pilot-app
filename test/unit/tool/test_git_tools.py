@@ -19,7 +19,7 @@ def _git(cwd, *args):
 
 
 @pytest.fixture
-def git(store_service, tmp_path, git_service):
+def git(tmp_path, git_service, project_store):
     """Project "Shop" with a repository ``api`` holding two commits, and an
     "Other" project the tools must never reach."""
     repo = tmp_path / "shop" / "api"
@@ -32,8 +32,8 @@ def git(store_service, tmp_path, git_service):
         _git(repo, "add", "main.py")
         _git(repo, "commit", "-q", "-m", message)
     (tmp_path / "other").mkdir()
-    store_service.save_project(Project(name="Shop", source=ProjectSource.FOLDER, root_path=str(tmp_path / "shop")))
-    store_service.save_project(Project(name="Other", source=ProjectSource.FOLDER, root_path=str(tmp_path / "other")))
+    project_store.save(Project(name="Shop", source=ProjectSource.FOLDER, root_path=str(tmp_path / "shop")))
+    project_store.save(Project(name="Other", source=ProjectSource.FOLDER, root_path=str(tmp_path / "other")))
     return git_service
 
 

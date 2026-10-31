@@ -12,14 +12,14 @@ from models.domain.agent import AgentConfig, AgentRole, AgentSpec, SystemPrompt,
 from service.model_service import require_usable_model
 from service.store.agent_store import AgentStore
 from service.store.catalog_store import CatalogStore
-from service.store_service import StoreService
+from service.store.project_store import ProjectStore
 from tool.registry import TOOL_REGISTRY
 
 
 class AgentConfigService:
 
-    def __init__(self, store_service: StoreService, agents: AgentStore, catalog: CatalogStore):
-        self._store = store_service
+    def __init__(self, projects: ProjectStore, agents: AgentStore, catalog: CatalogStore):
+        self._projects = projects
         self._agents = agents
         self._catalog = catalog
 
@@ -150,7 +150,7 @@ class AgentConfigService:
 
     # ----------------------------------------------------------------- seeds
     def _require_project(self, project_name: str | None) -> None:
-        if project_name is not None and self._store.get_project(project_name) is None:
+        if project_name is not None and self._projects.get(project_name) is None:
             raise ValidationError(f"Progetto inesistente: {project_name}")
 
     def _require_role(self, role_name: str) -> AgentRole:

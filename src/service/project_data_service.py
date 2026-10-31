@@ -36,13 +36,15 @@ from domain.project.note_templates import (
 from models.domain.note import AgentTask, NoteType, Reference, TodoList
 from models.domain.project import DEFAULT_VISIBLE_NOTE_TYPES, ProjectDataFile, ProjectDataKind
 from models.store.files import StoredFile
+from service.store.project_store import ProjectStore
 from service.store_service import StoreService
 
 
 class ProjectDataService:
 
-    def __init__(self, store_service: StoreService):
+    def __init__(self, store_service: StoreService, projects: ProjectStore):
         self._store = store_service
+        self._projects = projects
 
     # ----------------------------------------------------------------- notes
     def list_notes(self, project_name: str) -> list[ProjectDataFile]:
@@ -221,14 +223,14 @@ class ProjectDataService:
     # -------------------------------------------------------------- settings
     def visible_note_types(self, project_name: str) -> list[NoteType]:
         """The note types the Dati tab shows (the project's choice, else the default ones)."""
-        project = self._store.get_project(self._project(project_name))
+        project = self._projects.get(self._project(project_name))
         return project.visible_note_types if project.visible_note_types is not None else list(DEFAULT_VISIBLE_NOTE_TYPES)
 
     def save_visible_note_types(self, project_name: str, kinds: list[NoteType]) -> list[NoteType]:
         """In the order of NoteType, each once."""
-        project = self._store.get_project(self._project(project_name))
+        project = self._projects.get(self._project(project_name))
         ordered = [kind for kind in NoteType if kind in set(kinds)]
-        self._store.save_project(project.model_copy(update={"visible_note_types": ordered}))
+        self._projects.save(project.model_copy(update={"visible_note_types": ordered}))
         return ordered
 
     # ----------------------------------------------------------------- files
@@ -258,7 +260,7 @@ class ProjectDataService:
 
     # --------------------------------------------------------------- helpers
     def _project(self, project_name: str) -> str:
-        project = self._store.get_project(project_name)
+        project = self._projects.get(project_name)
         if project is None:
             raise NotFoundError(f"Progetto non trovato: {project_name}")
         return project.name

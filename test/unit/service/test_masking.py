@@ -51,9 +51,9 @@ def test_empty_map_changes_nothing():
 # ------------------------------------------------------------ map on Redis
 
 @pytest.fixture
-def masking(store_service, masking_service):
+def masking(masking_service, project_store):
     for name in ("acme", "other"):
-        store_service.save_project(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/code/{name}"))
+        project_store.save(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/code/{name}"))
     return masking_service
 
 
@@ -82,11 +82,11 @@ def test_short_values_and_unknown_aliases(masking):
         masking.add_term("missing", MaskCategory.TERM, "abc")
 
 
-def test_removing_the_project_removes_its_map(masking, store_service, tmp_path, mask_store):
+def test_removing_the_project_removes_its_map(masking, tmp_path, mask_store, project_store):
     masking.add_term("acme", MaskCategory.TERM, "Grandi Navi")
     masking.add_term("other", MaskCategory.TERM, "Grandi Navi")
 
-    ProjectService(store_service, mask_store, FolderBrowser([tmp_path])).remove("acme")
+    ProjectService(project_store, mask_store, FolderBrowser([tmp_path])).remove("acme")
 
     assert masking.entries("acme") == [] and len(masking.entries("other")) == 1
 
@@ -109,13 +109,13 @@ class _Recording:
 
 
 @pytest.fixture
-def agent_service(store_service, agent_config_service, masking, tmp_path, monkeypatch, make_agent_service):
+def agent_service(agent_config_service, masking, tmp_path, monkeypatch, make_agent_service, project_store):
     repo = tmp_path / "acme" / "project-be"
     repo.mkdir(parents=True)
     if shutil.which("git") is None:
         pytest.skip("git not installed")
     subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
-    store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(tmp_path / "acme")))
+    project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(tmp_path / "acme")))
     agent_config_service.save_config(AgentConfig(
         name="bot", project_name="acme", role_name="hello", prompt_id=agent_config_service.latest_prompt("hello").id,
         model="openai/gpt-4o", tool_names=["git_status"],

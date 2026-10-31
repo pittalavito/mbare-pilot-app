@@ -25,14 +25,14 @@ FAKE = [sys.executable, str(Path(__file__).parents[2] / "fake_copilot.py")]
 
 
 @pytest.fixture
-def context(store_service, tmp_path, monkeypatch, git_service, project_data_service) -> ToolContext:
+def context(store_service, tmp_path, monkeypatch, git_service, project_data_service, project_store) -> ToolContext:
     """Chatbot run of project ``acme`` (repository ``api``) with the task «Fix porto»."""
     monkeypatch.setenv("FAKE_COPILOT_STATE", str(tmp_path / "state"))
     repo = tmp_path / "acme" / "api"
     repo.mkdir(parents=True)
     for args in (["init", "-q"], ["-c", "user.name=A", "-c", "user.email=a@b.it", "commit", "-q", "--allow-empty", "-m", "init"]):
         subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
-    store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(tmp_path / "acme")))
+    project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(tmp_path / "acme")))
     data = project_data_service
     data.create_agent_task("acme", AgentTask(title="Fix porto"))
     git = git_service

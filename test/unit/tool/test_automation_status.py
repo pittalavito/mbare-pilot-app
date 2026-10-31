@@ -18,9 +18,9 @@ MODEL = "openai/gpt-4o"
 
 
 @pytest.fixture
-def pipelines(store_service, pipeline_service):
+def pipelines(pipeline_service, project_store):
     for name in ("acme", "other"):
-        store_service.save_project(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/code/{name}"))
+        project_store.save(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/code/{name}"))
     return pipeline_service
 
 
