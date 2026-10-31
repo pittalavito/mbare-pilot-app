@@ -34,6 +34,9 @@ const badge = (session: CopilotSession) =>
 /** ``agent-task-fix-porto.md`` → ``fix porto``: the task's name without prefix and suffix. */
 const taskLabel = (note: string) => note.replace(/^agent-task-/i, "").replace(/\.md$/i, "").replace(/-/g, " ");
 const repoLabel = (path: string) => path || "(cartella del progetto)";
+/** The repositories Copilot works on: ``api, web``. */
+const reposLabel = (session: CopilotSession) => session.repositories.map(repoLabel).join(", ");
+const short = (commit: string | undefined) => commit?.slice(0, 8) || "nessun commit";
 
 export function CopilotTab() {
   const { project = "" } = useParams();
@@ -75,8 +78,8 @@ export function CopilotTab() {
               label={taskLabel(session.task_note)}
               description={
                 taskNames && !taskNames.has(session.task_note)
-                  ? <>{repoLabel(session.repository)} · <Text span size="xs" c="orange">task eliminato</Text></>
-                  : repoLabel(session.repository)
+                  ? <>{reposLabel(session)} · <Text span size="xs" c="orange">task eliminato</Text></>
+                  : reposLabel(session)
               }
               rightSection={<Badge size="xs" variant="light" color={badge(session)?.color}>{badge(session)?.label}</Badge>}
               active={session.id === selected?.id}
@@ -149,7 +152,7 @@ function SessionView({ project, session, onDeleted }: { project: string; session
             <Badge variant="light" color={badge(session)?.color}>{badge(session)?.label}</Badge>
           </Group>
           <Text size="xs" c="dimmed">
-            <code>{repoLabel(session.repository)}</code> · prompt: {session.prompt || "predefinito"} · modello:{" "}
+            <code>{reposLabel(session)}</code> · prompt: {session.prompt || "predefinito"} · modello:{" "}
             {session.model || "predefinito"}
           </Text>
           {usage.data && (
@@ -188,18 +191,29 @@ function SessionView({ project, session, onDeleted }: { project: string; session
       {(approve.error || cancel.error) && <Alert color="red">{(approve.error ?? cancel.error)!.message}</Alert>}
       {session.head_moved && (
         <Alert color="red" title="L'HEAD è cambiato durante l'esecuzione">
-          Un commit o un'altra operazione git non autorizzata ({session.head_before?.slice(0, 8) || "nessun commit"} → {session.head_after?.slice(0, 8)}). Controlla il
-          repository: non è stato annullato niente.
+          Un commit o un'altra operazione git non autorizzata (
+          {session.heads_before && session.heads_after
+            ? session.moved_repositories.map((repo) => `${repoLabel(repo)}: ${short(session.heads_before?.[repo])} → ${short(session.heads_after?.[repo])}`).join("; ")
+            : `${short(session.head_before ?? undefined)} → ${short(session.head_after ?? undefined)}`}
+          ). Controlla i repository: non è stato annullato niente.
         </Alert>
       )}
       {session.changed_files.length > 0 && !executing && (
         <Card withBorder padding="sm">
-          <Text size="sm" fw={600}>File modificati nel repository ({session.changed_files.length})</Text>
+          <Text size="sm" fw={600}>File modificati nei repository scelti ({session.changed_files.length})</Text>
           <List size="xs" mt={4}>
             {session.changed_files.map((path) => <List.Item key={path}><code>{path}</code></List.Item>)}
           </List>
           <Text size="xs" c="dimmed" mt={4}>Il commit lo fai tu: controlla le modifiche con il tuo editor o da Git.</Text>
         </Card>
+      )}
+      {session.outside_files.length > 0 && !executing && (
+        <Alert color="orange" title={`Cambiati ${session.outside_files.length} file in repository non scelti`}>
+          <List size="xs">
+            {session.outside_files.map((path) => <List.Item key={path}><code>{path}</code></List.Item>)}
+          </List>
+          <Text size="xs" mt={4}>Copilot non doveva toccarli (oppure li ha cambiati un'altra esecuzione in corso nello stesso momento).</Text>
+        </Alert>
       )}
 
       <Card withBorder p={0}>

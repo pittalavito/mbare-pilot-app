@@ -53,7 +53,13 @@ class CopilotSession(BaseModel):
     task_note: str
     """The agent task's note (``agent-task-<title>.md``)."""
     repository: str = ""
-    """Folder of the repository inside the project (``""`` = the project folder)."""
+    """The only repository chosen (folder inside the project, ``""`` = the
+    project folder); ``""`` when several were chosen. Sessions made before
+    ``repositories`` have only this."""
+    repositories: list[str] = Field(default_factory=list)
+    """The repositories Copilot works on (folders inside the project): one = Copilot
+    starts in it; more = in the project folder, told which ones. Only these are
+    locked during an execution; empty in sessions made before (``repository``)."""
     copilot_session_id: str
     """Copilot's own session (UUID): every turn resumes it."""
     prompt: str = ""
@@ -66,10 +72,18 @@ class CopilotSession(BaseModel):
     cancel_requested: bool = False
     """Set by the API, read by the worker that is running it (an execution or a planning turn)."""
     head_before: str | None = None
-    """HEAD when the execution started; ``""`` = the repository had no commits."""
+    """Sessions made before ``heads_before``: HEAD of ``repository`` when the execution started."""
     head_after: str | None = None
+    heads_before: dict[str, str] | None = None
+    """HEAD of every repository of the project when the execution started
+    (path → commit; ``""`` = no commits yet): all are checked, not only the chosen ones."""
+    heads_after: dict[str, str] | None = None
     changed_files: list[str] = Field(default_factory=list)
-    """``git status`` of the repository when the execution ended."""
+    """``git status`` of the chosen repositories when the execution ended
+    (``<repository>/<path>``; just ``<path>`` for the project folder as repository)."""
+    outside_files: list[str] = Field(default_factory=list)
+    """Files of the other repositories of the project that changed during the
+    execution (they were clean when it started): Copilot was not supposed to touch them."""
     premium_requests: int = 0
     """Copilot's premium requests used by the session so far."""
     error: str | None = None
@@ -79,9 +93,23 @@ class CopilotSession(BaseModel):
     finished_at: datetime | None = None
 
     @property
+    def repos(self) -> list[str]:
+        """The repositories Copilot works on (``repository`` for the sessions made before)."""
+        return self.repositories or [self.repository]
+
+    @property
+    def moved_repositories(self) -> list[str]:
+        """The repositories whose HEAD changed during the execution: a commit (or
+        a reset, a checkout...) despite the rules. Any of the project, chosen or not."""
+        if self.heads_before is not None and self.heads_after is not None:
+            return sorted(path for path, head in self.heads_before.items() if path in self.heads_after and self.heads_after[path] != head)
+        if self.head_before is not None and self.head_after is not None and self.head_before != self.head_after:
+            return [self.repository]
+        return []
+
+    @property
     def head_moved(self) -> bool:
-        """A commit (or a reset, a checkout...) happened during the execution, despite the rules."""
-        return self.head_before is not None and self.head_after is not None and self.head_before != self.head_after
+        return bool(self.moved_repositories)
 
 
 class CopilotMessage(BaseModel):

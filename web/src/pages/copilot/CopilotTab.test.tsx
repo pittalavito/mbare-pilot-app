@@ -10,9 +10,10 @@ import { CopilotTab } from "./CopilotTab";
 afterEach(() => vi.unstubAllGlobals());
 
 const session = (patch: Partial<CopilotSession> = {}): CopilotSession => ({
-  id: 4, project_name: "acme", task_note: "agent-task-fix-porto.md", repository: "api", prompt: "", model: "", status: "planning", planning_turn: null,
+  id: 4, project_name: "acme", task_note: "agent-task-fix-porto.md", repository: "api", repositories: ["api"], prompt: "", model: "", status: "planning", planning_turn: null,
   cancel_requested: false,
-  head_before: null, head_after: null, head_moved: false, changed_files: [], premium_requests: 1, error: null,
+  head_before: null, head_after: null, heads_before: null, heads_after: null, head_moved: false, moved_repositories: [], changed_files: [],
+  outside_files: [], premium_requests: 1, error: null,
   created_at: "2026-10-26T10:00:00Z", updated_at: "2026-10-26T10:00:00Z", started_at: null, finished_at: null, ...patch,
 });
 const MESSAGES = [
@@ -64,7 +65,11 @@ describe("CopilotTab", () => {
       "GET /copilot/status": { installed: true, version: "x" },
       "GET /projects/acme/copilot-sessions": [
         session({ status: "running" }),
-        session({ id: 5, task_note: "agent-task-altro.md", status: "done", changed_files: ["calc.py"], head_moved: true, head_before: "aaaaaaaa1", head_after: "bbbbbbbb2" }),
+        session({
+          id: 5, task_note: "agent-task-altro.md", status: "done", repository: "", repositories: ["api", "web"], changed_files: ["api/calc.py"],
+          head_moved: true, moved_repositories: ["web"], heads_before: { api: "cccccccc1", web: "aaaaaaaa1" },
+          heads_after: { api: "cccccccc1", web: "bbbbbbbb2" }, outside_files: ["lib/x.py"],
+        }),
       ],
       "GET /copilot-sessions/4/messages": MESSAGES,
       "GET /copilot-sessions/5/messages": [],
@@ -78,8 +83,12 @@ describe("CopilotTab", () => {
     await waitFor(() => expect(cancelled).toHaveBeenCalled());
 
     fireEvent.click(screen.getByText("altro"));
-    expect(await screen.findByText("calc.py")).toBeInTheDocument();
+    expect(await screen.findByText("api/calc.py")).toBeInTheDocument();
     expect(screen.getByText(/L'HEAD è cambiato/)).toBeInTheDocument();
+    expect(screen.getByText(/web: aaaaaaaa → bbbbbbbb/)).toBeInTheDocument(); // only the repository that moved
+    expect(screen.getByText("Cambiati 1 file in repository non scelti")).toBeInTheDocument();
+    expect(screen.getByText("lib/x.py")).toBeInTheDocument();
+    expect(screen.getAllByText("api, web").length).toBeGreaterThan(0);
   });
 
   it("while Copilot writes the chat waits, follows the worker's answer and warns when no worker is on", async () => {
@@ -112,7 +121,7 @@ describe("CopilotTab", () => {
     const cancelled = vi.fn(() => session());
     mockApi({
       "GET /copilot/status": { installed: true, version: "x" },
-      "GET /admin/worker": { workers: [{ worker_id: "h-1", host: "h", pid: 1, busy_run_id: null, busy_copilot_session_id: 4 }] },
+      "GET /admin/worker": { workers: [{ worker_id: "h-1", host: "h", pid: 1, busy_run_id: null, busy_copilot_session_ids: [4] }] },
       "GET /projects/acme/copilot-sessions": [session({ planning_turn: "running" })],
       "GET /copilot-sessions/4/messages": MESSAGES.slice(0, 1),
       "POST /copilot-sessions/4/cancel": cancelled,
@@ -154,7 +163,7 @@ describe("CopilotTab", () => {
       },
       "GET /projects/acme/notes": [],
       "GET /projects/acme/agent-tasks": [TASK],
-      "GET /projects/acme/git/repositories": [{ path: "api", name: "api" }],
+      "GET /projects/acme/git/repositories": [{ path: "api", name: "api" }, { path: "web", name: "web" }],
       "POST /projects/acme/copilot-sessions": started,
       "GET /projects/acme/copilot-sessions": () => (started.mock.calls.length ? [session({ id: 9 })] : []),
       "GET /copilot-sessions/9/messages": MESSAGES,
@@ -164,7 +173,7 @@ describe("CopilotTab", () => {
     fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
     fireEvent.click(await screen.findByRole("button", { name: /Delega a Copilot/ }));
     const dialog = await screen.findByRole("dialog");
-    await waitFor(() => expect(within(dialog).getByRole("button", { name: "Delega" })).toBeEnabled()); // the only repository is chosen
+    await waitFor(() => expect(within(dialog).getByRole("button", { name: "Delega" })).toBeEnabled()); // all the repositories are chosen
     expect(within(dialog).getByDisplayValue("Predefinito (plan_prompt)")).toBeInTheDocument();
     fireEvent.click(within(dialog).getByDisplayValue("Predefinito (di Copilot)"));
     fireEvent.click(await screen.findByRole("option", { name: "claude-haiku-5.5 · $0,10 / $0,50" }));
@@ -174,7 +183,7 @@ describe("CopilotTab", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Delega" }));
 
     await waitFor(() => expect(started).toHaveBeenCalled());
-    expect(await started.mock.results[0].value).toMatchObject({ task_note: "agent-task-fix-porto.md", repository: "api", prompt: "", model: "claude-haiku-5.5" });
+    expect(await started.mock.results[0].value).toMatchObject({ task_note: "agent-task-fix-porto.md", repositories: ["api", "web"], prompt: "", model: "claude-haiku-5.5" });
     expect(await screen.findByText("Domanda")).toBeInTheDocument(); // now on the Copilot tab, its chat open
   });
 });

@@ -2075,10 +2075,10 @@ export interface components {
             /** Task Note */
             task_note: string;
             /**
-             * Repository
-             * @default
+             * Repositories
+             * @default []
              */
-            repository: string;
+            repositories: string[];
             /**
              * Prompt
              * @default
@@ -2100,6 +2100,8 @@ export interface components {
             task_note: string;
             /** Repository */
             repository: string;
+            /** Repositories */
+            repositories: string[];
             /** Prompt */
             prompt: string;
             /** Model */
@@ -2114,10 +2116,22 @@ export interface components {
             head_before: string | null;
             /** Head After */
             head_after: string | null;
+            /** Heads Before */
+            heads_before: {
+                [key: string]: string;
+            } | null;
+            /** Heads After */
+            heads_after: {
+                [key: string]: string;
+            } | null;
             /** Head Moved */
             head_moved: boolean;
+            /** Moved Repositories */
+            moved_repositories: string[];
             /** Changed Files */
             changed_files: string[];
+            /** Outside Files */
+            outside_files: string[];
             /** Premium Requests */
             premium_requests: number;
             /** Error */
@@ -3118,8 +3132,11 @@ export interface components {
             last_seen: string;
             /** Busy Run Id */
             busy_run_id: number | null;
-            /** Busy Copilot Session Id */
-            busy_copilot_session_id?: number | null;
+            /**
+             * Busy Copilot Session Ids
+             * @default []
+             */
+            busy_copilot_session_ids: number[];
         };
         /** WorkerStateResponse */
         WorkerStateResponse: {

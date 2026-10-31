@@ -15,14 +15,19 @@ A session lives in two phases:
 The prompts and the denied tools come from the coding-agent definition in the
 data folder (domain/project/coding_agent.py), read at every use.
 
-One execution at a time per repository (the queue waits); after an execution
-the chat can go on and a new ok starts a new one. Planning turns do not wait
-for the repository: plan mode only reads, so a turn can run while another
-session executes on the same repository (it may see files half changed). The
+A session works on the repositories chosen when delegating (all of the
+project's by default): with one Copilot starts in it, with more in the project
+folder, told which ones. One execution at a time per repository: an execution
+locks only its repositories, so sessions on different repositories of the same
+project run in parallel. HEAD and ``git status`` are read in every repository
+of the project, though: files changed outside the chosen ones are reported.
+After an execution the chat can go on and a new ok starts a new one. Planning
+turns do not wait for the repositories: plan mode only reads, so a turn can run
+while another session executes on them (it may see files half changed). The
 task's status follows: in progress while it runs, done when it succeeds, back
 to todo otherwise."""
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -63,6 +68,15 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _in_repo(repository: str, path: str) -> str:
+    """A repository's file as ``<repository>/<path>``; just ``<path>`` for the project folder as repository."""
+    return f"{repository}/{path}" if repository else path
+
+
+def _label(repository: str) -> str:
+    return repository or "(cartella del progetto)"
+
+
 def _busy(session: CopilotSession) -> bool:
     """The worker has it, or will: an execution or a planning turn queued or running."""
     return session.planning_turn is not None or session.status in (CopilotSessionStatus.QUEUED, CopilotSessionStatus.RUNNING)
@@ -89,7 +103,7 @@ class CopilotService:
     @classmethod
     def from_config(cls, store_service: StoreService, git_service: GitService, project_data_service: ProjectDataService) -> "CopilotService":
         """The CLI, model, token and timeouts from the Config (COPILOT_*).
-        ``git_service`` resolves the repository folder and reads HEAD and
+        ``git_service`` lists and checks the repositories and reads HEAD and
         ``git status`` around an execution (moved HEAD, changed files)."""
         config = Config.get()
         token = config.copilot_github_token.get_secret_value() if config.copilot_github_token else None
@@ -161,27 +175,32 @@ class CopilotService:
 
     # -------------------------------------------------------------- planning
     @observed(LogPrefix.COPILOT_SERVICE)
-    def start(self, project_name: str, task_note: str, repository: str = "", prompt: str = "", model: str = "") -> CopilotSession:
+    def start(self, project_name: str, task_note: str, repositories: str | Sequence[str] = (), prompt: str = "", model: str = "") -> CopilotSession:
         """A new session on an agent task, with its first planning turn queued
         for the worker: returns at once, Copilot's questions (or the error)
-        arrive later. ``prompt``: one of the definition's prompts (``""`` =
-        ``plan_prompt``); ``model``: one of its models (``""`` = the default),
-        for every turn. What can be checked now (CLI, definition, task,
-        repository) raises here."""
+        arrive later. ``repositories``: the project's repositories Copilot works
+        on (a folder or a list of them; empty = all); ``prompt``: one of the
+        definition's prompts (``""`` = ``plan_prompt``); ``model``: one of its
+        models (``""`` = the default), for every turn. What can be checked now
+        (CLI, definition, task, repositories) raises here."""
         if not self._client.available:
             raise UpstreamError(NOT_FOUND)
         settings = self.coding_agent(project_name)
         model = coding_agent.check_model(settings, model)
         task = self._data.agent_task(project_name, task_note)  # exists and is an agent task
-        self._git.repository_folder(project_name, repository)
+        chosen = self._chosen_repositories(project_name, repositories)
         first_turn = coding_agent.plan_prompt(settings, self._data.read_note(project_name, task_note), prompt.strip())
+        if len(chosen) > 1:
+            first_turn += (f"\n\nLavori sui repository {', '.join(chosen)}: sono cartelle dentro quella del progetto, "
+                           "da cui parti. Gli altri repository del progetto non vanno modificati.")
         session_id = str(uuid4())
         if task.references and (note := coding_agent.references_note(settings, self._data.copilot_folder(project_name, task_note, session_id))):
             first_turn += f"\n\n{note}"
         session = self._store.save_copilot_session(CopilotSession(
             project_name=project_name,
             task_note=task_note,
-            repository=repository.strip().strip("/\\"),
+            repository=chosen[0] if len(chosen) == 1 else "",
+            repositories=chosen,
             copilot_session_id=session_id,
             prompt=prompt.strip(),
             model=model,
@@ -200,7 +219,7 @@ class CopilotService:
             raise ConflictError("Copilot sta ancora rispondendo al messaggio precedente: aspetta la sua risposta.")
         if not text.strip():
             raise ValidationError("Il messaggio è vuoto.")
-        self._git.repository_folder(session.project_name, session.repository)
+        self._workdir(session)
         return self._queue_plan_turn(session, text.strip())
 
     def _queue_plan_turn(self, session: CopilotSession, prompt: str) -> CopilotSession:
@@ -212,7 +231,7 @@ class CopilotService:
     @observed(LogPrefix.COPILOT_SERVICE)
     def approve(self, session_id: int) -> CopilotSession:
         """The user's ok: the execution goes in the worker's queue. Files
-        already changed in the repository are listed, as a warning."""
+        already changed in the chosen repositories are listed, as a warning."""
         session = self.session(session_id)
         if session.status != CopilotSessionStatus.PLANNING:
             raise ConflictError("Si può dare l'ok solo durante la preparazione.")
@@ -224,8 +243,9 @@ class CopilotService:
         if changed:
             listed = "\n".join(f"- {path}" for path in changed[:20]) + ("\n- …" if len(changed) > 20 else "")
             self._message(session, CopilotMessageRole.EVENT,
-                          f"⚠️ Nel repository ci sono già {len(changed)} file modificati: le modifiche di Copilot si aggiungeranno a queste.\n{listed}")
-        self._message(session, CopilotMessageRole.EVENT, "In coda: parte appena il worker è libero (un'esecuzione alla volta per repository).")
+                          f"⚠️ Nei repository scelti ci sono già {len(changed)} file modificati: le modifiche di Copilot si aggiungeranno a queste.\n{listed}")
+        self._message(session, CopilotMessageRole.EVENT,
+                      "In coda: parte appena i suoi repository sono liberi (un'esecuzione alla volta per repository).")
         return self._update(session, status=CopilotSessionStatus.QUEUED, cancel_requested=False, error=None)
 
     @observed(LogPrefix.COPILOT_SERVICE)
@@ -276,13 +296,21 @@ class CopilotService:
         only: also while the repository has an execution running); None when
         there is none. Copilot's answer (or the error) becomes the session's
         messages, the turn's usage a row for Observability."""
-        session = self._store.claim_next_copilot_planning_turn()
+        session = self.claim_planning_turn()
         if session is None:
             return None
         if on_claim:
             on_claim(session)
+        return self.answer(session)
+
+    def claim_planning_turn(self) -> CopilotSession | None:
+        """The planning turn that has waited longest, now ``running``; None when there is none."""
+        return self._store.claim_next_copilot_planning_turn()
+
+    def answer(self, session: CopilotSession) -> CopilotSession:
+        """Run a claimed planning turn (``claim_planning_turn``) and save Copilot's answer."""
         try:
-            folder = self._git.repository_folder(session.project_name, session.repository)
+            folder = self._workdir(session)
         except AppError as exc:
             self._message(session, CopilotMessageRole.EVENT, f"❌ {exc}")
             return self._update(session, planning_turn=None, cancel_requested=False, error=str(exc))
@@ -298,20 +326,29 @@ class CopilotService:
         return self._update(session, planning_turn=None, cancel_requested=False)
 
     def run_next(self, on_claim: Callable[[CopilotSession], None] | None = None) -> CopilotSession | None:
-        """Execute the next queued session whose repository is free; None when there is none."""
-        session = self._store.claim_next_copilot_session()
+        """Execute the next queued session whose repositories are all free; None when there is none."""
+        session = self.claim_execution()
         if session is None:
             return None
         if on_claim:
             on_claim(session)
+        return self.execute(session)
+
+    def claim_execution(self) -> CopilotSession | None:
+        """The oldest queued execution whose repositories are all free, now ``running``; None when there is none."""
+        return self._store.claim_next_copilot_session()
+
+    def execute(self, session: CopilotSession) -> CopilotSession:
+        """Run a claimed execution (``claim_execution``) to its end: done, failed or cancelled."""
         try:
             settings = self.coding_agent(session.project_name)
-            folder = self._git.repository_folder(session.project_name, session.repository)
-            head_before = self._git.head(session.project_name, session.repository)
+            folder = self._workdir(session)
+            heads_before, changes_before = self._snapshot(session.project_name)
         except AppError as exc:
             self._message(session, CopilotMessageRole.EVENT, f"❌ Non partita: {exc}")
             return self._update(session, status=CopilotSessionStatus.FAILED, error=str(exc), finished_at=_now())
-        session = self._update(session, head_before=head_before, head_after=None, changed_files=[], error=None)
+        session = self._update(session, heads_before=heads_before, heads_after=None, head_before=None, head_after=None,
+                               changed_files=[], outside_files=[], error=None)
         self._message(session, CopilotMessageRole.EVENT, "▶️ Esecuzione partita: Copilot modifica i file, senza commit.")
         self._set_task_status(session, TaskStatus.IN_PROGRESS)
         self._message(session, CopilotMessageRole.USER, settings.execute_prompt)
@@ -321,7 +358,7 @@ class CopilotService:
                                  extra_dirs=self._task_folder(session))
         self._record_usage(session, turn, CopilotPhase.EXECUTE, started)
         session = self._record(session, turn)
-        return self._finish(session, turn)
+        return self._finish(session, turn, changes_before)
 
     def fail_interrupted(self) -> int:
         """At the worker's start: the executions and the planning turns left
@@ -339,25 +376,36 @@ class CopilotService:
             self._update(session, planning_turn=None, cancel_requested=False, error="Worker interrotto.")
         return len(sessions) + len(turns)
 
-    def _finish(self, session: CopilotSession, turn: CopilotTurn) -> CopilotSession:
-        head_after, changed = None, []
+    def _finish(self, session: CopilotSession, turn: CopilotTurn, changes_before: dict[str, list[str]]) -> CopilotSession:
+        heads_after: dict[str, str] = {}
+        changes: dict[str, list[str]] = {}
         try:
-            head_after = self._git.head(session.project_name, session.repository)
-            changed = self._changed_files(session)
+            heads_after, changes = self._snapshot(session.project_name)
         except AppError:
             log_exception(LogPrefix.COPILOT_SERVICE, "Stato git non letto a fine esecuzione")
+        chosen = set(session.repos)
+        changed = sorted(path for repo in chosen for path in changes.get(repo, []))
+        dirty_before = {path for paths in changes_before.values() for path in paths}
+        outside = sorted(path for repo, paths in changes.items() if repo not in chosen for path in paths if path not in dirty_before)
         status = (
             CopilotSessionStatus.CANCELLED if turn.cancelled
             else CopilotSessionStatus.FAILED if turn.error else CopilotSessionStatus.DONE
         )
-        session = self._update(session, status=status, head_after=head_after, changed_files=changed,
+        session = self._update(session, status=status, heads_after=heads_after or None, changed_files=changed, outside_files=outside,
                                cancel_requested=False, finished_at=_now())
-        if session.head_moved:
+        others = self._others_running(session)
+        if moved := session.moved_repositories:
+            heads = "; ".join(f"{_label(repo)}: {_short((session.heads_before or {}).get(repo, ''))} → {_short(heads_after.get(repo, ''))}"
+                              for repo in moved)
             self._message(session, CopilotMessageRole.EVENT,
-                          f"⚠️ L'HEAD è cambiato durante l'esecuzione ({_short(session.head_before)} → {_short(session.head_after)}): "
-                          "un commit o un'altra operazione git non autorizzata. Controlla prima di continuare: non ho annullato niente.")
+                          f"⚠️ L'HEAD è cambiato durante l'esecuzione ({heads}): un commit o un'altra operazione git non autorizzata"
+                          f"{others}. Controlla prima di continuare: non ho annullato niente.")
+        if outside:
+            listed = "\n".join(f"- {path}" for path in outside[:20]) + ("\n- …" if len(outside) > 20 else "")
+            self._message(session, CopilotMessageRole.EVENT,
+                          f"⚠️ Cambiati {len(outside)} file in repository non scelti{others}:\n{listed}")
         summary = {CopilotSessionStatus.DONE: "✅ Finita", CopilotSessionStatus.FAILED: "❌ Fallita", CopilotSessionStatus.CANCELLED: "⏹️ Annullata"}
-        files = f": {len(changed)} file modificati nel repository." if changed else ": nessun file modificato."
+        files = f": {len(changed)} file modificati nei repository scelti." if changed else ": nessun file modificato."
         self._message(session, CopilotMessageRole.EVENT, summary[status] + files)
         self._set_task_status(session, TaskStatus.DONE if status == CopilotSessionStatus.DONE else TaskStatus.TODO)
         return session
@@ -418,8 +466,49 @@ class CopilotService:
         return should_cancel
 
     def _changed_files(self, session: CopilotSession) -> list[str]:
-        """``git status`` of the session's repository: the changed files, untracked ones too."""
-        return [change.path for change in self._git.status(session.project_name, session.repository).changes]
+        """``git status`` of the chosen repositories: the changed files, untracked ones too (``<repository>/<path>``)."""
+        return [_in_repo(repo, change.path) for repo in session.repos for change in self._git.status(session.project_name, repo).changes]
+
+    def _chosen_repositories(self, project_name: str, repositories: str | Sequence[str]) -> list[str]:
+        """The repositories asked for, checked and sorted; none = every repository of the project."""
+        asked = [repositories] if isinstance(repositories, str) else list(repositories)
+        available = [repo.path for repo in self._git.repositories(project_name)]
+        if not asked:
+            if not available:
+                raise ValidationError("Nessun repository git nella cartella del progetto.")
+            return available
+        chosen = sorted({repo.strip().strip("/\\").replace("\\", "/") for repo in asked})
+        for repo in chosen:
+            self._git.repository_folder(project_name, repo)  # inside the project and a repository
+            if repo not in available:
+                raise ValidationError(f"{_label(repo)} non è un repository del progetto. Disponibili: "
+                                      f"{', '.join(_label(path) for path in available) or 'nessuno'}.")
+        return chosen
+
+    def _workdir(self, session: CopilotSession) -> Path:
+        """Where Copilot starts: the only chosen repository, or the project folder
+        with more. Each chosen repository is checked: it may have been moved meanwhile."""
+        folders = [self._git.repository_folder(session.project_name, repo) for repo in session.repos]
+        return folders[0] if len(folders) == 1 else self._git.root_folder(session.project_name)
+
+    def _snapshot(self, project_name: str) -> tuple[dict[str, str], dict[str, list[str]]]:
+        """HEAD and changed files (``<repository>/<path>``) of every repository of
+        the project. A repository that cannot be read is skipped (logged)."""
+        heads: dict[str, str] = {}
+        changes: dict[str, list[str]] = {}
+        for repo in self._git.repositories(project_name):
+            try:
+                heads[repo.path] = self._git.head(project_name, repo.path)
+                changes[repo.path] = [_in_repo(repo.path, change.path) for change in self._git.status(project_name, repo.path).changes]
+            except AppError:
+                log_exception(LogPrefix.COPILOT_SERVICE, "Stato git di %s non letto", repo.path)
+        return heads, changes
+
+    def _others_running(self, session: CopilotSession) -> str:
+        """`` (forse di un'altra esecuzione …)`` when other executions run in the project: they may have done it."""
+        others = [other for other in self._store.list_copilot_sessions_by_status(CopilotSessionStatus.RUNNING)
+                  if other.project_name == session.project_name and other.id != session.id]
+        return " (forse di un'altra esecuzione in corso nel progetto)" if others else ""
 
     def _set_task_status(self, session: CopilotSession, status: TaskStatus) -> None:
         """Best effort: the task may have been deleted or edited by hand meanwhile."""

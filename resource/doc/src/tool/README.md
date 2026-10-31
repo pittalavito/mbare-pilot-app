@@ -17,7 +17,7 @@ I tool che un agente può chiamare durante una run:
 | `create_todo_list` | **con contesto**, solo chatbot | crea una todo list con le sue voci |
 | `update_todo_list` | **con contesto**, solo chatbot | aggiunge voci in fondo e spunta o despunta per numero; non cancella né rinomina, i riferimenti collegati restano |
 | `list_agent_tasks` | **con contesto**, solo chatbot | gli agent task del progetto (nome, titolo, stato) con lo stato dell'ultima sessione Copilot, se c'è Copilot: quelli che si possono delegare |
-| `delegate_task` | **con contesto**, solo chatbot | delega un agent task a Copilot su un repository: apre la chat di preparazione e restituisce subito il link (Copilot risponde lì, dal worker) |
+| `delegate_task` | **con contesto**, solo chatbot | delega un agent task a Copilot su alcuni o tutti i repository del progetto: apre la chat di preparazione e restituisce subito il link (Copilot risponde lì, dal worker) |
 | `copilot_status` | **con contesto**, solo chatbot | stato di un task delegato: solo lo stato, se Copilot sta ancora scrivendo in chat, quanti file ha cambiato e se l'HEAD si è mosso |
 | `read_context` | **con contesto** | il contesto del progetto per il chatbot: i `.md` di `project/<slug>/context/` (la cartella che indicizzerà il RAG); ultima risorsa |
 
@@ -104,12 +104,12 @@ I tool del chatbot `secretary` ([service](../service/README.md)), in `notes/todo
 - **Data di oggi** nelle risposte, per scadenze come «entro venerdì».
 - Solo nel chatbot di un progetto (`notes_run()`: serve `project_data`, non Copilot). Anche `list_agent_tasks` usa questa condizione: senza Copilot dà lo stato delle note e `copilot_status` vuoto.
 
-## Copilot: `delegate_task(task, repository)`
+## Copilot: `delegate_task(task, repositories)`
 
-Il chatbot delega un agent task (`agent-task-<titolo>.md`, l'elenco lo dà `list_agent_tasks`) a GitHub Copilot su un repository del progetto ([service](../service/README.md#copilot)).
+Il chatbot delega un agent task (`agent-task-<titolo>.md`, l'elenco lo dà `list_agent_tasks`) a GitHub Copilot su alcuni repository del progetto (`[]` = tutti) ([service](../service/README.md#copilot)).
 
-- **Conferma**: la descrizione del tool chiede al chatbot di dire quale task e quale repository e di aspettare un sì esplicito nel messaggio successivo. La rete di sicurezza vera è dopo: il tool apre solo la **chat di preparazione** (Copilot legge e fa domande, non può modificare niente); l'esecuzione parte solo con «Ok, parti» nella chat.
-- **Cosa restituisce**: id della sessione, il **link** alla chat (`/projects/<progetto>/copilot?session=<id>`) e il passo successivo. Le domande di Copilot restano nella sua chat: possono citare il codice.
+- **Conferma**: la descrizione del tool chiede al chatbot di dire quale task e quali repository e di aspettare un sì esplicito nel messaggio successivo. La rete di sicurezza vera è dopo: il tool apre solo la **chat di preparazione** (Copilot legge e fa domande, non può modificare niente); l'esecuzione parte solo con «Ok, parti» nella chat.
+- **Cosa restituisce**: id della sessione, i repository (mascherati come nomi sensibili), il **link** alla chat (`/projects/<progetto>/copilot?session=<id>`) e il passo successivo. Le domande di Copilot restano nella sua chat: possono citare il codice.
 - **Tempo**: risponde subito. Il primo turno di Copilot lo esegue il worker (deve essere acceso), quindi la risposta del chatbot non aspetta Copilot; la descrizione del tool dice al chatbot di non aspettarlo e di non riportare cosa ha detto.
 - `copilot_status(session_id)`: solo lo stato, `copilot_answering` (un turno di preparazione in coda o in corso), quanti file sono cambiati e `head_moved`; sessioni di altri progetti non trovate.
 - Solo nel chatbot di un progetto (`copilot_run()`), come i tool delle automation.

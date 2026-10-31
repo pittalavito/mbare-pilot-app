@@ -183,6 +183,10 @@ class GitService:
             raise ValidationError(f"{folder} non è dentro un repository git.")
         return folder
 
+    def root_folder(self, project_name: str) -> Path:
+        """The project folder, checked: it exists (it need not be a repository)."""
+        return self._root(project_name)
+
     def head(self, project_name: str, subpath: str = "") -> str:
         """The commit HEAD points to; ``""`` in a repository without commits yet (just ``git init``)."""
         folder = self.repository_folder(project_name, subpath)

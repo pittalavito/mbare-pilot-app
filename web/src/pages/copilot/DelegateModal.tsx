@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Group, Modal, Select, Stack, Text } from "@mantine/core";
+import { Alert, Button, Card, Group, Modal, MultiSelect, Select, Stack, Text } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -16,9 +16,9 @@ const usd = (value: number) => `$${value.toLocaleString("it-IT", { minimumFracti
 const modelLabel = (option: CopilotModelOption) =>
   option.price ? `${option.name} · ${usd(option.price.input)} / ${usd(option.price.output)}` : `${option.name} · prezzo non indicato`;
 
-/** Delegate an agent task to Copilot on a repository of the project: the
- * planning chat opens with Copilot's first answer (it reads the task and the
- * code: tens of seconds). ``task`` fixed when opened from the task's form.
+/** Delegate an agent task to Copilot on some or all of the project's
+ * repositories (all chosen at first): the planning chat opens at once, the
+ * worker writes Copilot's first answer there. ``task`` fixed when opened from the task's form.
  * Prompt and model come from the coding-agent definition (data folder). */
 export function DelegateModal({ project, task, opened, onClose }: { project: string; task?: string; opened: boolean; onClose: () => void }) {
   const navigate = useNavigate();
@@ -27,7 +27,8 @@ export function DelegateModal({ project, task, opened, onClose }: { project: str
   const status = useCopilotStatus(project);
   const start = useStartCopilot(project);
   const [chosenTask, setChosenTask] = useState<string | null>(task ?? null);
-  const [repository, setRepository] = useState<string | null>(null);
+  /** null until the repositories arrive: then all of them. */
+  const [chosenRepos, setChosenRepos] = useState<string[] | null>(null);
   const [prompt, setPrompt] = useState<string | null>(DEFAULT);
   const [model, setModel] = useState<string | null>(DEFAULT);
 
@@ -35,20 +36,22 @@ export function DelegateModal({ project, task, opened, onClose }: { project: str
     if (!opened) return;
     start.reset();
     setChosenTask(task ?? null);
+    setChosenRepos(null);
     setPrompt(DEFAULT);
     setModel(DEFAULT);
   }, [opened, task]); // a fresh form each time it opens
   useEffect(() => {
-    if (repository === null && repositories.data?.length === 1) setRepository(repositories.data[0].path);
-  }, [repositories.data, repository]);
+    if (chosenRepos === null && repositories.data) setChosenRepos(repositories.data.map((repo) => repo.path));
+  }, [repositories.data, chosenRepos]);
+  const repos = chosenRepos ?? [];
 
   const models = status.data?.models ?? [];
   const chosenModel = models.find((option) => option.name === model);
 
   const delegate = () =>
-    chosenTask !== null && repository !== null &&
+    chosenTask !== null && repos.length > 0 &&
     start.mutate(
-      { task_note: chosenTask, repository, prompt: fromSelect(prompt), model: fromSelect(model) },
+      { task_note: chosenTask, repositories: repos, prompt: fromSelect(prompt), model: fromSelect(model) },
       {
         onSuccess: (session) => {
           onClose();
@@ -74,13 +77,14 @@ export function DelegateModal({ project, task, opened, onClose }: { project: str
             onChange={setChosenTask}
           />
         )}
-        <Select
+        <MultiSelect
           label="Repository"
-          placeholder={repositories.isPending ? "Cerco i repository…" : "Scegli il repository"}
+          description="Quelli su cui lavora Copilot: un'esecuzione blocca solo questi. HEAD e file cambiati si controllano in tutti."
+          placeholder={repositories.isPending ? "Cerco i repository…" : repos.length ? undefined : "Scegli almeno un repository"}
           searchable
           data={(repositories.data ?? []).map((repo) => ({ value: repo.path, label: repoLabel(repo.path) }))}
-          value={repository}
-          onChange={setRepository}
+          value={repos}
+          onChange={setChosenRepos}
           error={repositories.error?.message}
         />
         {repositories.data && !repositories.data.length && <Alert color="orange">Nessun repository git nella cartella del progetto.</Alert>}
@@ -110,7 +114,7 @@ export function DelegateModal({ project, task, opened, onClose }: { project: str
         {start.error && <Alert color="red">{start.error.message}</Alert>}
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose} disabled={start.isPending}>Annulla</Button>
-          <Button onClick={delegate} loading={start.isPending} disabled={chosenTask === null || repository === null}>Delega</Button>
+          <Button onClick={delegate} loading={start.isPending} disabled={chosenTask === null || !repos.length}>Delega</Button>
         </Group>
       </Stack>
     </Modal>

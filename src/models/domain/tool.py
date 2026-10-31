@@ -57,7 +57,7 @@ class DelegateTaskResponse(BaseModel):
     """The planning chat with Copilot is open: Copilot's questions arrive there shortly (the worker writes them), not here."""
     session_id: int = Field(..., description="The Copilot session: copilot_status wants it.")
     task: str
-    repository: MaskRepositoryName = Field(..., description="Repository folder inside the project ('' = the project folder).")
+    repositories: MaskRepositoryNames = Field(..., description="The repository folders Copilot works on ('' = the project folder).")
     chat: str = Field(..., description="Link to the Copilot chat in the app: give it to the user as a markdown link.")
     next_step: str = Field(..., description="What the user has to do now.")
 

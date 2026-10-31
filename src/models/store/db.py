@@ -306,6 +306,9 @@ class CopilotSessionTable(SQLModel, table=True):
     project_name: str = _project_fk(nullable=False)
     task_note: str
     repository: str = ""
+    """The only repository chosen; ``""`` with several (``repositories``)."""
+    repositories: list[str] | None = Field(default=None, sa_type=JSON)
+    """The repositories Copilot works on; NULL in sessions made before (``repository``)."""
     copilot_session_id: str = Field(unique=True)
     prompt: str = ""
     """The planning prompt chosen (a coding-agent/<name>.md); ``""`` = the default."""
@@ -318,7 +321,12 @@ class CopilotSessionTable(SQLModel, table=True):
     cancel_requested: bool = False
     head_before: str | None = None
     head_after: str | None = None
+    heads_before: dict[str, str] | None = Field(default=None, sa_type=JSON)
+    """HEAD of every repository of the project (path → commit) when the execution started."""
+    heads_after: dict[str, str] | None = Field(default=None, sa_type=JSON)
     changed_files: list[str] = Field(default_factory=list, sa_type=JSON)
+    outside_files: list[str] | None = Field(default=None, sa_type=JSON)
+    """Files of the repositories not chosen that changed during the execution."""
     premium_requests: int = 0
     error: str | None = Field(default=None, sa_type=Text)
     created_at: datetime = _timestamp(index=True)

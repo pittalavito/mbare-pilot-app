@@ -136,6 +136,8 @@ class Adapter:
             **row.model_dump(),
             "status": CopilotSessionStatus(row.status),
             "planning_turn": CopilotPlanningTurn(row.planning_turn) if row.planning_turn else None,
+            "repositories": row.repositories or [],
+            "outside_files": row.outside_files or [],
             "created_at": _as_utc(row.created_at),
             "updated_at": _as_utc(row.updated_at),
             "started_at": _as_utc(row.started_at) if row.started_at else None,
@@ -373,6 +375,7 @@ class Factory:
     def to_copilot_session_row(session: CopilotSession) -> CopilotSessionTable:
         return CopilotSessionTable(**{
             **session.model_dump(), "status": session.status.value, "changed_files": list(session.changed_files),
+            "repositories": list(session.repositories), "outside_files": list(session.outside_files),
             "planning_turn": session.planning_turn.value if session.planning_turn else None,
         })
 

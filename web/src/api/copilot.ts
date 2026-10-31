@@ -102,7 +102,7 @@ function useRefresh(project: string) {
 export function useStartCopilot(project: string) {
   const refresh = useRefresh(project);
   return useMutation({
-    mutationFn: (body: { task_note: string; repository: string; prompt: string; model: string }) =>
+    mutationFn: (body: { task_note: string; repositories: string[]; prompt: string; model: string }) =>
       unwrap(api.POST("/projects/{project}/copilot-sessions", { params: { path: { project } }, body })),
     onSuccess: (session) => refresh(session.id),
   });

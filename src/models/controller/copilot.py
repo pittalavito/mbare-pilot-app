@@ -9,8 +9,9 @@ from models.domain.copilot import CopilotMessage, CopilotModel, CopilotModelUsag
 class CopilotSessionRequest(BaseModel):
     task_note: str
     """The agent task's note (``agent-task-<title>.md``)."""
-    repository: str = ""
-    """Folder of the repository inside the project (``""`` = the project folder)."""
+    repositories: list[str] = []
+    """The project's repositories Copilot works on (folders inside the project, as
+    ``GET /projects/{p}/git/repositories`` lists them); empty = all of them."""
     prompt: str = ""
     """One of the status' ``prompts``; ``""`` = the definition's ``plan_prompt``."""
     model: str = ""
@@ -26,6 +27,9 @@ class CopilotSessionResponse(BaseModel):
     project_name: str
     task_note: str
     repository: str
+    """The only repository chosen; ``""`` with several."""
+    repositories: list[str]
+    """The repositories Copilot works on (sessions made before: just ``repository``)."""
     prompt: str
     """The planning prompt chosen; ``""`` = the default."""
     model: str
@@ -36,10 +40,19 @@ class CopilotSessionResponse(BaseModel):
     """While ``planning``: ``queued`` (the message waits for a worker) | ``running`` (Copilot is answering) | null (Copilot answered)."""
     cancel_requested: bool
     head_before: str | None
+    """Sessions made before ``heads_before``: HEAD of ``repository``."""
     head_after: str | None
+    heads_before: dict[str, str] | None
+    """HEAD of every repository of the project when the execution started (``""`` = no commits)."""
+    heads_after: dict[str, str] | None
     head_moved: bool
     """HEAD changed during the execution: a commit (or similar) despite the rules."""
+    moved_repositories: list[str]
+    """Where HEAD changed (any repository of the project)."""
     changed_files: list[str]
+    """Of the chosen repositories (``<repository>/<path>``)."""
+    outside_files: list[str]
+    """Changed during the execution in repositories not chosen."""
     premium_requests: int
     error: str | None
     created_at: datetime
@@ -49,7 +62,8 @@ class CopilotSessionResponse(BaseModel):
 
     @classmethod
     def from_session(cls, session: CopilotSession) -> "CopilotSessionResponse":
-        return cls(**session.model_dump(exclude={"copilot_session_id"}), head_moved=session.head_moved)
+        return cls(**session.model_dump(exclude={"copilot_session_id", "repositories"}), repositories=session.repos,
+                   head_moved=session.head_moved, moved_repositories=session.moved_repositories)
 
 
 class CopilotMessageResponse(BaseModel):

@@ -248,7 +248,7 @@ def test_the_ok_runs_copilot_in_the_worker_without_commits_and_closes_the_task(s
     session = service.run_next()
 
     assert session.status == CopilotSessionStatus.DONE and not session.head_moved
-    assert sorted(session.changed_files) == ["copilot.txt", "mia-modifica.txt"]
+    assert sorted(session.changed_files) == ["api/copilot.txt", "api/mia-modifica.txt"] and session.outside_files == []
     assert (project / "api" / "copilot.txt").is_file()
     assert data.agent_task("acme", note).status == TaskStatus.DONE
     execution = _turns(tmp_path, session)[-1]
@@ -268,7 +268,7 @@ def test_a_commit_during_the_execution_is_reported_not_undone(store_service, dat
     service.approve(session.id)
     session = service.run_next()
 
-    assert session.head_moved and session.head_before == head
+    assert session.moved_repositories == ["api"] and session.heads_before == {"api": head, "web": _git(project / "web", "rev-parse", "HEAD")}
     assert _git(project / "api", "log", "-1", "--format=%s") == "copilot"  # still there
     assert any("L'HEAD è cambiato" in message.content for message in service.messages(session.id))
 
@@ -282,14 +282,14 @@ def test_a_repository_without_commits_works_and_its_first_commit_is_reported(sto
     clean = _start(service, "acme", _task(data, "Parti da zero"), "nuovo")
     service.approve(clean.id)
     clean = service.run_next()
-    assert (clean.status, clean.head_before, clean.head_after, clean.head_moved) == (CopilotSessionStatus.DONE, "", "", False)
-    assert clean.changed_files == ["copilot.txt"]
+    assert (clean.status, clean.heads_before["nuovo"], clean.heads_after["nuovo"], clean.head_moved) == (CopilotSessionStatus.DONE, "", "", False)
+    assert clean.changed_files == ["nuovo/copilot.txt"]
 
     committed = _start(service, "acme", _task(data, "Fai COMMIT subito"), "nuovo")
     service.approve(committed.id)
     committed = service.run_next()
-    assert committed.head_before == "" and committed.head_moved
-    assert any("nessun commit →" in message.content for message in service.messages(committed.id))
+    assert committed.heads_before["nuovo"] == "" and committed.moved_repositories == ["nuovo"]
+    assert any("nuovo: nessun commit →" in message.content for message in service.messages(committed.id))
 
 
 def test_a_failed_execution_reopens_the_task_and_the_chat_can_go_on(store_service, data, project):
@@ -362,6 +362,72 @@ def test_executions_left_running_by_a_dead_worker_fail_at_restart(store_service,
     assert service.session(session.id).status == CopilotSessionStatus.FAILED
     with pytest.raises(ConflictError):
         service.approve(session.id)  # only from planning
+
+
+# -------------------------------------------------------------- repositories
+
+def test_without_a_choice_copilot_works_on_every_repository_from_the_project_folder(store_service, data, project, tmp_path):
+    service = _service(store_service, data)
+
+    session = _start(service, "acme", _task(data), [])
+
+    assert (session.repository, session.repositories) == ("", ["api", "web"])
+    turn = _turns(tmp_path, session)[0]
+    assert turn["args"][turn["args"].index("--add-dir") + 1] == str(project)  # starts in the project folder
+    assert "Lavori sui repository api, web" in turn["prompt"]
+    service.approve(session.id)
+    session = service.run_next()
+    assert session.status == CopilotSessionStatus.DONE and set(session.heads_before) == {"api", "web"}
+
+
+def test_only_repositories_of_the_project_can_be_chosen(store_service, data, project):
+    service = _service(store_service, data)
+    note = _task(data)
+    (project / "api" / "src").mkdir()
+
+    with pytest.raises(ValidationError, match="non è un repository del progetto"):
+        service.start("acme", note, ["api/src"])  # inside a repository, not one
+    with pytest.raises(ValidationError):
+        service.start("acme", note, ["api", "manca"])
+    assert service.start("acme", note, ["web/", "api", "api"]).repositories == ["api", "web"]
+
+
+def test_an_execution_locks_only_its_repositories(store_service, data, project):
+    service = _service(store_service, data)
+    first, both, other, third = (_start(service, "acme", _task(data, title), repos) for title, repos in
+                                 (("Uno", ["api"]), ("Entrambi", ["api", "web"]), ("Web", ["web"]), ("Ancora web", ["web"])))
+    for session in (first, both, other, third):
+        service.approve(session.id)
+
+    assert store_service.claim_next_copilot_session().id == first.id
+    assert store_service.claim_next_copilot_session().id == other.id  # «Entrambi» waits for api, web is free
+    assert store_service.claim_next_copilot_session() is None  # «Entrambi» and «Ancora web» wait
+
+
+def test_files_changed_in_a_repository_not_chosen_are_reported(store_service, data, project):
+    service = _service(store_service, data)
+    (project / "web" / "gia-sporco.txt").write_text("mio", encoding="utf-8")
+    session = _start(service, "acme", _task(data, "Scrivi FUORI"), ["api"])
+    service.approve(session.id)
+
+    session = service.run_next()
+
+    assert session.changed_files == ["api/copilot.txt"] and session.outside_files == ["web/fuori.txt"]  # not the file dirty before
+    assert any("Cambiati 1 file in repository non scelti:\n- web/fuori.txt" in message.content for message in service.messages(session.id))
+
+
+def test_sessions_made_before_the_choice_keep_their_repository(store_service, data, project):
+    from models.domain.copilot import CopilotSession
+    service = _service(store_service, data)
+    old = store_service.save_copilot_session(CopilotSession(project_name="acme", task_note=_task(data), repository="api",
+                                                            copilot_session_id="vecchia", status=CopilotSessionStatus.QUEUED,
+                                                            head_before="a", head_after="b"))
+    assert (old.repos, old.moved_repositories) == (["api"], ["api"])
+    _start(service, "acme", _task(data, "Nuova"), ["api"])
+    service.approve(service.sessions("acme")[0].id)
+
+    assert store_service.claim_next_copilot_session().id == old.id
+    assert store_service.claim_next_copilot_session() is None  # api is busy with the old one
 
 
 # --------------------------------------------------- coding-agent definition

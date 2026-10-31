@@ -54,7 +54,7 @@ function WorkerControl() {
   if (!worker.data) return null;
   const status = worker.data.status as keyof typeof WORKER_LABELS;
   const label = WORKER_LABELS[status] ?? WORKER_LABELS.stopped;
-  const busy = worker.data.workers.some((item) => item.busy_run_id !== null || item.busy_copilot_session_id != null);
+  const busy = worker.data.workers.some((item) => item.busy_run_id !== null || item.busy_copilot_session_ids.length > 0);
   return (
     <Menu position="bottom-end" withinPortal>
       <Menu.Target>

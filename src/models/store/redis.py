@@ -23,7 +23,7 @@ class WorkerHeartbeatRecord(BaseModel):
     started_at: datetime
     last_seen: datetime
     busy_run_id: int | None = None
-    busy_copilot_session_id: int | None = None
+    busy_copilot_session_ids: list[int] = Field(default_factory=list)
 
 
 class MaskRecord(BaseModel):

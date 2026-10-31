@@ -45,6 +45,7 @@ def test_delegate_chat_approve_cancel_and_delete(client):
     assert session.status_code == 201
     session = session.json()
     assert (session["status"], session["planning_turn"]) == ("planning", "queued") and "copilot_session_id" not in session
+    assert session["repositories"] == [""]  # all of the project's: here the project folder is the only repository
     sid = session["id"]
     assert client.post(f"/copilot-sessions/{sid}/approve").status_code == 409  # Copilot has not answered yet
     assert client.post(f"/copilot-sessions/{sid}/messages", json={"text": "e allora?"}).status_code == 409  # one turn at a time

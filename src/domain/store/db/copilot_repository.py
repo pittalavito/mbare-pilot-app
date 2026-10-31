@@ -3,9 +3,9 @@ copilot_message, copilot_turn). ``copilot_session`` is also the worker queue of 
 (``status``) and of the planning turns (``planning_turn``)."""
 from datetime import datetime, timezone
 
-from sqlalchemy import func, update
+from sqlalchemy import func, text, update
 from sqlalchemy.engine import Engine
-from sqlmodel import and_, col, exists, select
+from sqlmodel import col, select
 
 from domain.store.db.repository import SqlRepository
 from models.store.db import CopilotMessageTable, CopilotSessionTable, CopilotTurnTable
@@ -16,6 +16,15 @@ USAGE_COLUMNS = [
     "cache_read_tokens", "cache_write_tokens", "reasoning_tokens", "api_duration_ms",
 ]
 """The usage columns of ``copilot_turn`` (the fields of the domain's CopilotUsage)."""
+
+
+_CLAIM_LOCK = 7_031_001
+"""Key of the advisory lock that serializes the claims of Copilot executions."""
+
+
+def _repos(row: CopilotSessionTable) -> list[str]:
+    """The repositories a session works on (``repository`` for the sessions made before ``repositories``)."""
+    return row.repositories or [row.repository]
 
 
 class DbCopilotSessionRepository(SqlRepository[CopilotSessionTable]):
@@ -50,21 +59,23 @@ class DbCopilotSessionRepository(SqlRepository[CopilotSessionTable]):
             return session.get(CopilotSessionTable, session_id)
 
     def claim_next(self) -> CopilotSessionTable | None:
-        """The oldest ``queued`` session whose repository has no execution
-        running, switched to ``running`` atomically (``FOR UPDATE SKIP LOCKED``)."""
-        running = CopilotSessionTable.__table__.alias("running")  # type: ignore[attr-defined]  # set by SQLModel at class creation
-        busy = exists().where(and_(
-            running.c.status == "running",
-            running.c.project_name == CopilotSessionTable.project_name,
-            running.c.repository == CopilotSessionTable.repository,
-        ))
-        statement = (
-            select(CopilotSessionTable).where(CopilotSessionTable.status == "queued", ~busy)
-            .order_by(col(CopilotSessionTable.id)).limit(1).with_for_update(skip_locked=True)
-        )
+        """The oldest ``queued`` session none of whose repositories (``repositories``,
+        or ``repository`` for the sessions made before) has an execution running,
+        switched to ``running`` atomically: ``FOR UPDATE SKIP LOCKED`` on the queue
+        and, on Postgres, a transaction-level advisory lock, so two claims never
+        both pick sessions sharing a repository."""
         with self._session() as session:
-            row = session.exec(statement).first()
+            if session.get_bind().dialect.name == "postgresql":
+                session.exec(text("SELECT pg_advisory_xact_lock(:key)").bindparams(key=_CLAIM_LOCK))  # type: ignore[call-overload]  # a plain SQL statement
+            running = session.exec(select(CopilotSessionTable).where(CopilotSessionTable.status == "running")).all()
+            busy = {(row.project_name, repo) for row in running for repo in _repos(row)}
+            queued = session.exec(
+                select(CopilotSessionTable).where(CopilotSessionTable.status == "queued")
+                .order_by(col(CopilotSessionTable.id)).with_for_update(skip_locked=True)
+            ).all()
+            row = next((row for row in queued if not any((row.project_name, repo) in busy for repo in _repos(row))), None)
             if row is None:
+                session.commit()  # releases the advisory lock
                 return None
             row.status = "running"
             row.started_at = row.updated_at = datetime.now(timezone.utc)
@@ -72,7 +83,6 @@ class DbCopilotSessionRepository(SqlRepository[CopilotSessionTable]):
             session.commit()
             session.refresh(row)
             return row
-
 
     def claim_next_planning_turn(self) -> CopilotSessionTable | None:
         """The session whose planning turn has waited longest, switched from

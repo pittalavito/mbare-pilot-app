@@ -6,7 +6,8 @@ arguments it got. What it does depends on the task (the session's first prompt):
 - default: plan turns answer with a question; the execution writes ``copilot.txt``;
 - ``COMMIT``: the execution also commits (a broken rule, for the HEAD check);
 - ``SLEEP``: the execution sleeps (for cancellation and timeouts);
-- ``FAIL``: the execution fails (exit code 1, message on stderr).
+- ``FAIL``: the execution fails (exit code 1, message on stderr);
+- ``FUORI``: the execution also writes ``../web/fuori.txt`` (a repository it was not given).
 
 A plan turn whose own prompt says ``PENSACI`` sleeps (for cancelling a planning
 turn and its timeout).
@@ -52,6 +53,8 @@ def main() -> int:
     if "SLEEP" in task:
         time.sleep(60)
     Path("copilot.txt").write_text("scritto da Copilot\n", encoding="utf-8")
+    if "FUORI" in task:
+        Path("../web/fuori.txt").write_text("fuori\n", encoding="utf-8")
     if "COMMIT" in task:
         subprocess.run(["git", "add", "copilot.txt"], check=True, capture_output=True)
         subprocess.run(["git", "-c", "user.name=Copilot", "-c", "user.email=c@example.com", "commit", "-qm", "copilot"],

@@ -12,7 +12,7 @@ src/core/
   container.py        Container: crea tutti i service una volta per processo
 src/
   api.py              entry dell'API: app = create_server(Config.get().web_dist)
-  worker.py           entry del worker delle automation
+  worker.py           entry del worker: automation, esecuzioni e chat di Copilot su tre corsie
 ```
 
 ## Avvio: API e worker
@@ -25,6 +25,8 @@ Due processi separati: l'API la avviano `run-app.py` e `run-web.py` (`resource/s
 | Worker | `src/worker.py` | `python src/worker.py` (default, cambiabile con `WORKER_SCRIPT`) |
 
 Ognuno costruisce il suo `Container`.
+
+Il worker ha **tre corsie indipendenti**, così nessuna aspetta le altre: le **automation** una alla volta (il thread principale), le **esecuzioni di Copilot** ognuna nel suo thread, in parallelo (la coda dà solo esecuzioni i cui repository sono liberi), i **turni di chat di Copilot** ognuno nel suo thread (la modalità piano legge e basta: non aspettano niente). Un'esecuzione di Copilot lunga non ferma le automation, né la chat. L'heartbeat dice la run in corso (`busy_run_id`) e le sessioni di Copilot in lavorazione (`busy_copilot_session_ids`).
 
 ## Container (`container.py`)
 

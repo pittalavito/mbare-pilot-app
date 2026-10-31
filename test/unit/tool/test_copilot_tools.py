@@ -46,9 +46,9 @@ def test_the_chatbot_lists_the_tasks_and_delegates_one(context, tmp_path):
     tasks = as_dict(LIST_AGENT_TASKS.build(context).func())
     assert tasks == {"tasks": [{"task": "agent-task-fix-porto.md", "title": "Fix porto", "status": "todo", "copilot_status": None}]}
 
-    delegated = as_dict(DELEGATE_TASK.build(context).func(task="agent-task-fix-porto.md", repository="api"))
+    delegated = as_dict(DELEGATE_TASK.build(context).func(task="agent-task-fix-porto.md", repositories=["api"]))
 
-    assert delegated["repository"] == "api" and "copilot_answered" not in delegated
+    assert delegated["repositories"] == ["api"] and "copilot_answered" not in delegated
     assert delegated["chat"] == f"/projects/acme/copilot?session={delegated['session_id']}"
     assert not (tmp_path / "state").exists()  # Copilot not started yet: the worker runs it
     assert as_dict(LIST_AGENT_TASKS.build(context).func())["tasks"][0]["copilot_status"] == "planning"
@@ -64,8 +64,8 @@ def test_the_chatbot_lists_the_tasks_and_delegates_one(context, tmp_path):
 def test_errors_come_back_to_the_chatbot(context):
     delegate = DELEGATE_TASK.build(context).func
 
-    assert "non è un agent task" in as_dict(delegate(task="appunti.md", repository="api"))["error"]
-    missing_repo = as_dict(delegate(task="agent-task-fix-porto.md", repository="web"))
+    assert "non è un agent task" in as_dict(delegate(task="appunti.md", repositories=["api"]))["error"]
+    missing_repo = as_dict(delegate(task="agent-task-fix-porto.md", repositories=["web"]))
     assert "inesistente" in missing_repo["error"] and missing_repo["repositories"] == ["api"]
     assert "non trovata" in as_dict(COPILOT_STATUS.build(context).func(session_id=999))["error"]
 
@@ -74,6 +74,6 @@ def test_only_in_a_chatbot_run(context):
     manual = ToolContext(project_name="acme", git=context.git, origin=RunOrigin.MANUAL,
                          project_data=context.project_data, copilot=context.copilot)
 
-    for spec, kwargs in ((LIST_AGENT_TASKS, {}), (DELEGATE_TASK, {"task": "agent-task-fix-porto.md", "repository": "api"}),
+    for spec, kwargs in ((LIST_AGENT_TASKS, {}), (DELEGATE_TASK, {"task": "agent-task-fix-porto.md", "repositories": ["api"]}),
                          (COPILOT_STATUS, {"session_id": 1})):
         assert "solo nel chatbot" in as_dict(spec.build(manual).func(**kwargs))["error"]
