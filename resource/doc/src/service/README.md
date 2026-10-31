@@ -197,7 +197,7 @@ Un progetto nuovo viene rifiutato se il nome contiene `/` o `\` (finisce negli U
 
 ## Dati e git del progetto
 
-- **`GitService`**: trova i repository nella cartella del progetto (fino a 2 livelli) e ne legge log e status, senza mai uscire dalla cartella.
+- **`GitService`**: trova i repository nella cartella del progetto (fino a 2 livelli), senza mai uscire dalla cartella. Legge log, status, diff, branch e stash; cambia i repository solo con operazioni che non perdono niente: fetch, pull in fast-forward, stash e stash apply, checkout e nuovo branch (rifiutati se rischiano le modifiche locali), add + commit, push mai forzato, e `pull_all_by_branch` (tutti i repository su un branch, saltando quelli che non si possono toccare). Le regole di ogni comando sono nella [documentazione dei tool](../tool/README.md).
 - **`ProjectDataService`**: note e file del progetto in `ProjectFileStore`, con i nomi validati da `domain/project/data_paths`.
 
 ## Test

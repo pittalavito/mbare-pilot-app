@@ -9,6 +9,16 @@ I tool che un agente può chiamare durante una run:
 | `git_pull_fast_forward` | **con contesto** | aggiorna un repository del progetto dal remoto, solo in fast-forward |
 | `git_stash` | **con contesto** | mette da parte le modifiche non committate di un repository del progetto |
 | `git_stash_apply` | **con contesto** | riapplica uno stash (che resta nella lista) |
+| `git_stash_list` | **con contesto** | gli stash di un repository, dal più recente |
+| `git_log` | **con contesto** | ultimi commit di un repository, filtrabili per autore, messaggio o hash |
+| `git_diff` | **con contesto** | diff delle modifiche non staged, staged o di un commit |
+| `git_branches` | **con contesto** | branch locali (upstream, da pushare/pullare, upstream cancellato) e remoti |
+| `git_fetch` | **con contesto** | `git fetch --all --prune`: scarica senza toccare branch e file |
+| `git_checkout` | **con contesto** | passa a un branch esistente, locale o solo remoto |
+| `git_create_branch` | **con contesto** | crea un branch (dal commit corrente o da un altro) e ci passa |
+| `git_commit` | **con contesto** | `git add` + `git commit` di file scelti o di tutte le modifiche |
+| `git_push` | **con contesto** | push del branch corrente, mai forzato; senza upstream lo pubblica su origin |
+| `git_pull_all_by_branch` | **con contesto** | tutti i repository del progetto su un branch, aggiornati in fast-forward |
 | `list_automations` | **con contesto**, solo chatbot | le automation del progetto che si possono lanciare adesso (attive, con step), con la descrizione |
 | `run_automation` | **con contesto**, solo chatbot | lancia un'automation del progetto in background e riporta l'id dell'esecuzione |
 | `automation_status` | **con contesto**, solo chatbot | stato di un'esecuzione di un'automation del progetto e dei suoi step: solo gli stati, niente output né messaggi d'errore |
@@ -45,6 +55,16 @@ src/tool/
       git_pull_fast_forward.py  pull solo in fast-forward
       git_stash.py      stash delle modifiche locali
       git_stash_apply.py  riapplica uno stash
+      git_stash_list.py   elenco degli stash
+      git_log.py          ultimi commit, con filtri
+      git_diff.py         diff non staged, staged o di un commit
+      git_branches.py     branch locali e remoti
+      git_fetch.py        fetch di tutti i remoti
+      git_checkout.py     cambio di branch
+      git_create_branch.py  nuovo branch
+      git_commit.py       add + commit
+      git_push.py         push del branch corrente
+      git_pull_all_by_branch.py  tutti i repository su un branch, aggiornati
       params.py         argomenti dei tool git come li vede il modello
       errors.py         errori dei tool git restituiti all'agente
 ```
@@ -116,7 +136,7 @@ Il chatbot delega un agent task (`agent-task-<titolo>.md`, l'elenco lo dà `list
 
 ## Pull: `git_pull_fast_forward(repository)`
 
-Uno dei tool git che **modificano** il repository (con `git_stash` e `git_stash_apply`). Fa `git pull --ff-only` del branch corrente dal suo upstream:
+Uno dei tool git che **modificano** il repository (con `git_stash`, `git_stash_apply`, `git_fetch`, `git_checkout`, `git_create_branch`, `git_commit`, `git_push` e `git_pull_all_by_branch`). Fa `git pull --ff-only` del branch corrente dal suo upstream:
 
 - **mai un merge**: se il branch locale ha commit che il remoto non ha, si ferma e lo dice (serve un merge o un rebase fatto a mano);
 - **rifiuta** con modifiche non committate ai file tracciati (le elenca), con HEAD staccato o con un branch senza upstream; i file nuovi non tracciati non lo bloccano;
@@ -142,6 +162,29 @@ Usa le credenziali git del PC senza chiederne (niente prompt): se il remoto chie
 - **rifiuta** con modifiche non committate ai file tracciati, per non mescolarle con lo stash;
 - **conflitti** (lo stash tocca file cambiati dopo da un commit): git li lascia nella cartella di lavoro, il tool risponde `applied: false` con l'elenco dei file in conflitto; si risolvono a mano, lo stash è ancora lì;
 - risposta: lo stash applicato, il suo messaggio, i file cambiati.
+
+## Lettura: `git_log`, `git_diff`, `git_branches`, `git_stash_list`
+
+- **`git_log(repository, limit, author, message, commit)`**: i commit del branch corrente, dal più recente (1-500). I filtri si combinano: `author` (nome o email, anche in parte), `message` (testo nel messaggio, es. la chiave di un ticket), `commit` (un hash, anche abbreviato). Autori ed email sono mascherati.
+- **`git_diff(repository, staged, commit)`**: le modifiche non ancora in stage (`staged: false`), quelle in stage (`true`) o quelle di un commit (`commit`, che vince su `staged`). Risponde con tutti i file cambiati (righe aggiunte/tolte, binari) e il patch unificato, **tagliato a 20.000 caratteri** (`truncated: true`: si chiede una sottocartella per il resto). I file nuovi non tracciati non sono nel patch: stanno in `untracked`.
+- **`git_branches(repository)`**: il branch corrente, quelli locali con upstream, commit da pushare/pullare, ultimo commit e `upstream_gone` (cancellato sul remoto, es. dopo il merge della PR), e quelli remoti all'ultimo fetch.
+- **`git_stash_list(repository)`**: gli stash con il messaggio, per scegliere quello da dare a `git_stash_apply`.
+
+## Fetch e branch: `git_fetch`, `git_checkout`, `git_create_branch`
+
+- **`git_fetch(repository)`**: `git fetch --all --prune`. Non cambia né branch né file; risponde con i commit da pushare e da pullare del branch corrente dopo il fetch. Timeout 120 s.
+- **`git_checkout(repository, branch)`**: `git switch` a un branch **esistente**. Se c'è solo sul remoto crea quello locale che lo traccia (da `origin` se più remoti lo hanno). **Rifiuta** con modifiche non committate ai file tracciati (suggerisce stash o commit); se è già lì non fa niente.
+- **`git_create_branch(repository, name, start_point)`**: `git switch -c`. `start_point` vuoto = il commit corrente, altrimenti un branch, `origin/<branch>` (il nuovo lo traccia) o un hash. Le modifiche non committate vengono con lui. Rifiuta un nome che esiste già.
+- **Nomi dei branch**: controllati con `git check-ref-format --branch`; rifiutati quelli che iniziano con `-` o contengono `@{`.
+
+## Commit e push: `git_commit`, `git_push`
+
+- **`git_commit(repository, message, files)`**: `git add -A` dei `files` (relativi alla radice del repository, come li mostra `git_status`; nuovi, modificati o cancellati) oppure, con `[]`, di tutte le modifiche della cartella; poi `git commit`. Anche quello che era già in stage entra nel commit. **Rifiuta** con HEAD staccato, con conflitti, con messaggio vuoto, con file fuori dal repository o se non c'è niente da committare. Gli hook del repository girano. Non fa push.
+- **`git_push(repository)`**: push del branch corrente verso il suo upstream (`HEAD:<branch dell'upstream>`), **mai forzato**. Se il branch non ha upstream va su `origin` (o sull'unico remoto) con lo stesso nome e `-u`. **Rifiuta** se l'upstream ha commit non ancora pullati (anche quando lo scopre il remoto, senza fetch). Niente da pushare → `pushed: false`, nessuna chiamata al remoto. Risponde con i commit inviati.
+
+## Tutti i repository su un branch: `git_pull_all_by_branch(branch)`
+
+Per ogni repository del progetto, uno dopo l'altro: fetch, `git_checkout` sul branch (se esiste in locale o sul remoto), `git_pull_fast_forward`. Un repository che non si può toccare viene **saltato** con il motivo (modifiche locali, branch che non c'è, nessun upstream, fast-forward impossibile), uno che fallisce (es. remoto irraggiungibile) è `failed`; gli altri vanno avanti. Risponde con un esito per repository (`updated`, `up_to_date`, `skipped`, `failed`), il branch di prima e i commit arrivati; nei motivi i percorsi locali sono nascosti.
 
 ## Errori restituiti all'agente
 
@@ -182,6 +225,7 @@ In entrambi i casi: il modello di output in `models/domain/tool.py`.
 - `test/unit/tool/test_copilot_tools.py`: elenco dei task, delega che apre la chat senza riportare le risposte di Copilot, stato, errori con i repository disponibili, solo nel chatbot (con il finto Copilot di `test/fake_copilot.py`).
 - `test/unit/tool/test_read_context.py`: i `.md` di `context/`, nient'altro; errori senza file o senza progetto.
 - `test/unit/tool/test_git_write.py`: pull e stash con un remoto vero: commit arrivati, già aggiornato, modifiche locali che bloccano, file non tracciati che non bloccano, branch divergente mai unito, branch senza upstream, autori registrati per il mascheramento, errori senza percorsi locali; stash dei soli file tracciati, stash e poi pull, niente da mettere da parte; stash apply dell'ultimo o di uno indicato (lo stash resta), errori (nessuno stash, stash inesistente o non valido, modifiche locali), conflitti segnalati.
+- `test/unit/tool/test_git_workflow.py`: log, diff, fetch, branch, checkout, nuovo branch, commit, push e pull di tutti i repository su un branch, con un `origin` vero e due cloni: fetch che non tocca i file e dimentica i branch cancellati, checkout di un branch solo remoto, rifiuti con modifiche locali, diff non staged/staged/di un commit e taglio, commit di tutto o di file scelti, push con e senza upstream, push rifiutato (con e senza fetch), repository saltati o falliti senza fermare gli altri; ogni tool nuovo risponde, errori con i repository disponibili, repository e autori mascherati, percorsi locali nascosti; le funzioni `git_pull_all_repo_by_branch`, `git_fetch` e `git_log`.
 - `test/unit/tool/test_git_tools.py`: `git_status` su un repository vero; progetto deciso dalla run, errori con i repository disponibili, percorsi fuori dal progetto, run senza progetto, schema degli argomenti, percorsi locali nascosti negli errori. Serve `git` nel PATH.
 
 Usano `GitService` e gli altri service sugli store in memoria delle fixture di `test/conftest.py`.

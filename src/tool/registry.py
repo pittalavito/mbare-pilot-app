@@ -18,9 +18,19 @@ from tool.list.automation.run_automation import RUN_AUTOMATION
 from tool.list.copilot.copilot_status import COPILOT_STATUS
 from tool.list.copilot.delegate_task import DELEGATE_TASK
 from tool.list.copilot.list_agent_tasks import LIST_AGENT_TASKS
+from tool.list.git.git_branches import GIT_BRANCHES
+from tool.list.git.git_checkout import GIT_CHECKOUT
+from tool.list.git.git_commit import GIT_COMMIT
+from tool.list.git.git_create_branch import GIT_CREATE_BRANCH
+from tool.list.git.git_diff import GIT_DIFF
+from tool.list.git.git_fetch import GIT_FETCH
+from tool.list.git.git_log import GIT_LOG
+from tool.list.git.git_pull_all_by_branch import GIT_PULL_ALL_BY_BRANCH
 from tool.list.git.git_pull_fast_forward import GIT_PULL_FAST_FORWARD
+from tool.list.git.git_push import GIT_PUSH
 from tool.list.git.git_stash import GIT_STASH
 from tool.list.git.git_stash_apply import GIT_STASH_APPLY
+from tool.list.git.git_stash_list import GIT_STASH_LIST
 from tool.list.git.git_status import GIT_STATUS
 from tool.list.hello_world import hello_world
 from tool.list.notes.todo_lists import CREATE_TODO_LIST, LIST_TODO_LISTS, READ_TODO_LIST, UPDATE_TODO_LIST
@@ -43,8 +53,18 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         COPILOT_STATUS,
         READ_CONTEXT,
         GIT_STATUS,
+        GIT_LOG,
+        GIT_DIFF,
+        GIT_BRANCHES,
+        GIT_FETCH,
         GIT_PULL_FAST_FORWARD,
+        GIT_PULL_ALL_BY_BRANCH,
+        GIT_CHECKOUT,
+        GIT_CREATE_BRANCH,
+        GIT_COMMIT,
+        GIT_PUSH,
         GIT_STASH,
+        GIT_STASH_LIST,
         GIT_STASH_APPLY,
     )
 }
