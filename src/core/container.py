@@ -27,19 +27,20 @@ from service.pipeline_service import PipelineService
 from service.process_service import ProcessService
 from service.project_data_service import ProjectDataService
 from service.project_service import ProjectService
-from service.store_service import StoreService
+from service.store.stores import Stores
 
 
 class Container:
 
     @observed(LogPrefix.CONTAINER)
-    def __init__(self, store_service: StoreService | None = None):
-        """``store_service`` is for tests (in-memory backends); by default it
-        connects to Postgres and Redis from the Config."""
+    def __init__(self, stores: Stores | None = None):
+        """``stores`` is for tests (in-memory backends); by default they
+        connect to Postgres and Redis from the Config."""
         config = Config.get()
         datapizza.tracing.console.quiet = not config.datapizza_trace_summary
 
-        self.store_service = store_service or StoreService()
+        stores = stores or Stores()
+        self.store_service = stores.store_service
         self.chat_service = ChatService()
         self.model_service = ModelService(store_service=self.store_service)
         self.agent_config_service = AgentConfigService(store_service=self.store_service)

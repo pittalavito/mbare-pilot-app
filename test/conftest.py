@@ -12,7 +12,7 @@ from domain.chat.models_default import DEFAULT_CHAT_MODELS
 from domain.store.files.store import LocalFileRepository
 from models.domain.agent import AgentConfig, AgentRole
 from service.agent_config_service import AgentConfigService
-from service.store_service import StoreService
+from service.store.stores import Stores
 
 HELLO_AGENT = """agents:
   - name: hello
@@ -76,10 +76,16 @@ def files_repository(config):
 
 
 @pytest.fixture
-def store_service(engine, redis_client):
-    service = StoreService(engine=engine, redis_client=redis_client)
-    service.seed_chat_models(DEFAULT_CHAT_MODELS)
-    return service
+def stores(engine, redis_client):
+    """Every store on the in-memory backends, with the default chat models."""
+    stores = Stores(engine=engine, redis_client=redis_client)
+    stores.store_service.seed_chat_models(DEFAULT_CHAT_MODELS)
+    return stores
+
+
+@pytest.fixture
+def store_service(stores):
+    return stores.store_service
 
 
 @pytest.fixture

@@ -26,8 +26,8 @@ def test_get_loads_once_and_set_replaces(config):
     assert Config.get() is other
 
 
-def test_a_container_in_the_tests_never_reaches_the_real_copilot_cli(store_service):
+def test_a_container_in_the_tests_never_reaches_the_real_copilot_cli(stores, store_service):
     """The real CLI spends AI credits: the tests' Config points to a command that does not exist."""
     from core.container import Container
 
-    assert not Container(store_service=store_service).copilot_service._client.available
+    assert not Container(stores=stores).copilot_service._client.available
