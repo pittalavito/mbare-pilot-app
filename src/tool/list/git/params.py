@@ -4,3 +4,5 @@ works in OpenAI strict mode."""
 from typing import Annotated
 
 Repository = Annotated[str, "Repository folder relative to the project folder (e.g. 'project-core-lib'); '' = the project folder itself."]
+Branch = Annotated[str, "Branch name, e.g. 'develop' or 'feature/login' (without the remote prefix)."]
+CommitHash = Annotated[str, "A commit hash, also abbreviated (at least 4 characters); '' = not used."]

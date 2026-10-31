@@ -1,18 +1,21 @@
 """Git commands run with the ``git`` executable in a working folder: no pager,
 no credential prompts, no optional locks, bounded time. Output is parsed into
-domain models. All read-only except ``pull_fast_forward``, ``stash_push`` and ``stash_apply``."""
+domain models. Read-only except ``pull_fast_forward``, ``stash_push``,
+``stash_apply``, ``fetch``, ``switch``, ``create_branch``, ``add``, ``commit``
+and ``push`` (never forced)."""
 import os
+import re
 import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
 
 from core.error import UpstreamError
-from models.domain.git import GitChange, GitChangeKind, GitCommit, GitStash, GitStatus
+from models.domain.git import GitBranch, GitChange, GitChangeKind, GitCommit, GitDiffFile, GitStash, GitStatus
 
 _TIMEOUT_SECONDS = 20
-_PULL_TIMEOUT_SECONDS = 120
-"""A pull talks to the remote: more time than the local commands."""
+_REMOTE_TIMEOUT_SECONDS = 120
+"""Pull, fetch and push talk to the remote: more time than the local commands."""
 _FIELD = "\x1f"
 _RECORD = "\x1e"
 _LOG_FORMAT = _FIELD.join(["%H", "%h", "%an", "%ae", "%aI", "%s"]) + _RECORD
@@ -77,7 +80,7 @@ class GitClient:
     def pull_fast_forward(self, cwd: Path) -> None:
         """``git pull --ff-only`` of the current branch from its upstream: never
         a merge. UpstreamError when it cannot fast-forward or the remote fails."""
-        self._run(cwd, ["pull", "--ff-only", "--no-rebase"], timeout=_PULL_TIMEOUT_SECONDS)
+        self._run(cwd, ["pull", "--ff-only", "--no-rebase"], timeout=_REMOTE_TIMEOUT_SECONDS)
 
     def stash_push(self, cwd: Path, message: str) -> bool:
         """``git stash push -m message``: puts aside the changes to tracked files
@@ -95,6 +98,78 @@ class GitClient:
         """``git stash apply <ref>``: the stash stays in the list. UpstreamError
         when it does not apply cleanly (conflicts are left in the working tree)."""
         self._run(cwd, ["stash", "apply", ref])
+
+    def fetch(self, cwd: Path) -> None:
+        """``git fetch --all --prune``: every remote, deleted remote branches forgotten."""
+        self._run(cwd, ["fetch", "--all", "--prune", "--quiet"], timeout=_REMOTE_TIMEOUT_SECONDS)
+
+    def branches(self, cwd: Path) -> list[GitBranch]:
+        """The local branches, sorted by name."""
+        fields = ["%(refname:short)", "%(HEAD)", "%(upstream:short)", "%(upstream:track,nobracket)",
+                  "%(objectname:short)", "%(committerdate:iso-strict)", "%(contents:subject)"]
+        output = self._run(cwd, ["for-each-ref", f"--format={_FIELD.join(fields)}{_RECORD}", "refs/heads"])
+        return [_parse_branch(record) for record in output.split(_RECORD) if record.strip()]
+
+    def remote_branches(self, cwd: Path) -> list[str]:
+        """The remote-tracking branches (``origin/main``), without the remotes' ``HEAD``."""
+        output = self._run(cwd, ["for-each-ref", f"--format=%(refname:short){_FIELD}%(symref)", "refs/remotes"])
+        return [name for name, symref in (line.split(_FIELD, 1) for line in output.splitlines() if _FIELD in line) if not symref]
+
+    def remotes(self, cwd: Path) -> list[str]:
+        return [line.strip() for line in self._run(cwd, ["remote"]).splitlines() if line.strip()]
+
+    def is_valid_branch_name(self, cwd: Path, name: str) -> bool:
+        try:
+            self._run(cwd, ["check-ref-format", "--branch", name])
+        except UpstreamError:
+            return False
+        return True
+
+    def switch(self, cwd: Path, branch: str) -> None:
+        """``git switch <branch>``: a branch only on one remote becomes a local
+        branch tracking it. UpstreamError when it does not exist or local
+        changes would be overwritten."""
+        self._run(cwd, ["switch", "--quiet", branch])
+
+    def create_branch(self, cwd: Path, name: str, start_point: str | None = None) -> None:
+        """``git switch -c <name> [<start_point>]``: from a remote branch it tracks it."""
+        self._run(cwd, ["switch", "--quiet", "-c", name, *([start_point] if start_point else [])])
+
+    def diff_files(self, cwd: Path, staged: bool = False, revision: str | None = None, only_here: bool = False) -> list[GitDiffFile]:
+        """``--numstat`` of the working tree against the index, of the index
+        against HEAD (``staged``) or of the ``revision`` commit."""
+        output = self._run(cwd, [*_diff_args(staged, revision), "--numstat", "-z", *(["--", "."] if only_here else [])])
+        return _parse_numstat(output)
+
+    def diff_patch(self, cwd: Path, staged: bool = False, revision: str | None = None, only_here: bool = False) -> str:
+        return self._run(cwd, [*_diff_args(staged, revision), "--patch", *(["--", "."] if only_here else [])])
+
+    def add(self, cwd: Path, paths: list[str]) -> None:
+        """``git add -A -- <paths>``: new, changed and deleted files."""
+        self._run(cwd, ["add", "-A", "--", *paths])
+
+    def staged_files(self, cwd: Path) -> list[str]:
+        output = self._run(cwd, ["diff", "--cached", "--name-only", "-z"])
+        return [path for path in output.split("\0") if path]
+
+    def commit(self, cwd: Path, message: str) -> None:
+        """``git commit`` of the index; the repository's hooks run."""
+        self._run(cwd, ["commit", "--quiet", "-m", message])
+
+    def config_value(self, cwd: Path, key: str) -> str | None:
+        try:
+            return self._run(cwd, ["config", "--get", key]).strip() or None
+        except UpstreamError:
+            return None
+
+    def unpushed_commits(self, cwd: Path, limit: int) -> list[GitCommit]:
+        """The commits of HEAD that no remote branch has, newest first."""
+        output = self._run(cwd, ["log", f"--max-count={limit}", f"--format={_LOG_FORMAT}", "HEAD", "--not", "--remotes"])
+        return [_parse_commit(record) for record in output.split(_RECORD) if record.strip()]
+
+    def push(self, cwd: Path, remote: str, refspec: str, set_upstream: bool = False) -> None:
+        """``git push [-u] <remote> <refspec>``: never forced."""
+        self._run(cwd, ["push", "--quiet", *(["-u"] if set_upstream else []), remote, refspec], timeout=_REMOTE_TIMEOUT_SECONDS)
 
     def status(self, cwd: Path, only_here: bool = False) -> GitStatus:
         """Branch and changed files of the working tree (untracked included,
@@ -168,6 +243,44 @@ def _parse_change(token: str, original_path: str | None) -> GitChange:
         staged=index != ".",
         unstaged=worktree != ".",
         original_path=original_path,
+    )
+
+
+def _diff_args(staged: bool, revision: str | None) -> list[str]:
+    base = ["--no-color", "--no-ext-diff", "--find-renames"]
+    if revision:
+        return ["show", "--format=", *base, revision]
+    return ["diff", *base, *(["--cached"] if staged else [])]
+
+
+def _parse_numstat(output: str) -> list[GitDiffFile]:
+    """``--numstat -z``: ``added<TAB>deleted<TAB>path<NUL>``; a rename has an
+    empty path followed by the old and the new path. Binary files have ``-``."""
+    files: list[GitDiffFile] = []
+    tokens = iter(output.split("\0"))
+    for token in tokens:
+        token = token.lstrip("\n")
+        if not token:
+            continue
+        added, deleted, path = token.split("\t", 2)
+        if not path:
+            next(tokens)  # the old path
+            path = next(tokens)
+        binary = added == "-"
+        files.append(GitDiffFile(path=path, added=0 if binary else int(added), deleted=0 if binary else int(deleted), binary=binary))
+    return files
+
+
+_TRACK = re.compile(r"(ahead|behind) (\d+)")
+
+
+def _parse_branch(record: str) -> GitBranch:
+    name, head, upstream, track, short_hash, date, subject = record.strip("\n").split(_FIELD, 6)
+    counts = {kind: int(count) for kind, count in _TRACK.findall(track)}
+    return GitBranch(
+        name=name, current=head == "*", upstream=upstream or None,
+        ahead=counts.get("ahead", 0), behind=counts.get("behind", 0), upstream_gone=track == "gone",
+        last_commit=short_hash, last_commit_date=datetime.fromisoformat(date) if date else None, last_subject=subject,
     )
 
 

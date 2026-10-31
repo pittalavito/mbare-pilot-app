@@ -1,7 +1,7 @@
 """Output contracts of the tools, one model per tool."""
 from pydantic import BaseModel, Field
 
-from models.domain.git import GitCommit, GitStatus
+from models.domain.git import GitBranch, GitBranchPullOutcome, GitCommit, GitDiffFile, GitStash, GitStatus
 from models.domain.masking import MaskRepositoryName, MaskRepositoryNames
 
 
@@ -111,6 +111,71 @@ class GitStashApplyResponse(BaseModel):
     applied: bool = Field(..., description="False when it left conflicts.")
     files: list[str] = Field(..., description="Files changed in the working tree after applying.")
     conflicts: list[str] = Field(..., description="Files left in conflict, to resolve by hand.")
+
+
+class GitLogResponse(BaseModel):
+    repository: MaskRepositoryName = Field(..., description="Repository folder inside the project ('' = the project folder).")
+    commits: list[GitCommit] = Field(..., description="Newest first.")
+
+
+class GitDiffResponse(BaseModel):
+    repository: MaskRepositoryName = Field(..., description="Repository folder inside the project ('' = the project folder).")
+    of: str = Field(..., description="What the diff shows: 'unstaged', 'staged' or 'commit <hash>'.")
+    files: list[GitDiffFile] = Field(..., description="Every changed file, with lines added/deleted.")
+    patch: str = Field(..., description="The unified diff.")
+    truncated: bool = Field(..., description="True when the patch was cut: ask for a subfolder to see the rest.")
+    untracked: list[str] = Field(..., description="New files not tracked by git: not in the patch.")
+
+
+class GitFetchResponse(BaseModel):
+    repository: MaskRepositoryName = Field(..., description="Repository folder inside the project ('' = the project folder).")
+    branch: str | None = Field(..., description="Current branch; null = detached HEAD.")
+    upstream: str | None
+    ahead: int = Field(..., description="Commits to push.")
+    behind: int = Field(..., description="Commits that arrived and are still to pull (git_pull_fast_forward).")
+
+
+class GitBranchesResponse(BaseModel):
+    repository: MaskRepositoryName = Field(..., description="Repository folder inside the project ('' = the project folder).")
+    current: str | None = Field(..., description="Current branch; null = detached HEAD.")
+    local: list[GitBranch] = Field(..., description="Local branches; upstream_gone = deleted on the remote.")
+    remote: list[str] = Field(..., description="Remote-tracking branches as of the last fetch.")
+
+
+class GitCheckoutResponse(BaseModel):
+    repository: MaskRepositoryName = Field(..., description="Repository folder inside the project ('' = the project folder).")
+    previous: str | None = Field(..., description="The branch before.")
+    branch: str = Field(..., description="The branch now checked out.")
+    created: bool = Field(..., description="True when a new local branch was created.")
+    upstream: str | None
+
+
+class GitCommitResponse(BaseModel):
+    repository: MaskRepositoryName = Field(..., description="Repository folder inside the project ('' = the project folder).")
+    branch: str
+    commit: GitCommit
+    files: list[str] = Field(..., description="The files in the commit.")
+
+
+class GitPushResponse(BaseModel):
+    repository: MaskRepositoryName = Field(..., description="Repository folder inside the project ('' = the project folder).")
+    branch: str
+    upstream: str
+    upstream_created: bool = Field(..., description="True when the branch was pushed for the first time and now tracks it.")
+    pushed: bool = Field(..., description="False when there was nothing to push.")
+    commits: list[GitCommit] = Field(..., description="The commits sent, newest first.")
+
+
+class GitStashListResponse(BaseModel):
+    repository: MaskRepositoryName = Field(..., description="Repository folder inside the project ('' = the project folder).")
+    stashes: list[GitStash] = Field(..., description="Newest first: stash@{0} is the latest.")
+
+
+class GitPullAllResponse(BaseModel):
+    branch: str
+    repositories: list[GitBranchPullOutcome] = Field(
+        ..., description="One per repository: status updated, up_to_date, skipped (reason says why) or failed.",
+    )
 
 
 class TodoListInfo(BaseModel):
