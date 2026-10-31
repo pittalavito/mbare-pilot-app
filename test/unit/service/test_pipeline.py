@@ -50,10 +50,10 @@ def agent_service(store_service, agent_config_service, monkeypatch):
 
 
 @pytest.fixture
-def service(store_service, agent_config_service, agents):
+def service(store_service, agent_config_service, agents, worker_store):
     for name in ("acme", "other"):
         store_service.save_project(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/code/{name}"))
-    return PipelineService(store_service, agent_config_service)
+    return PipelineService(store_service, agent_config_service, worker_store)
 
 
 @pytest.fixture

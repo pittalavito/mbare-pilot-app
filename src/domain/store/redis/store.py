@@ -7,13 +7,11 @@ Re-exports the Redis repositories and holds the translation seams:
 from domain.store.redis.mask_repository import RedisMaskRepository
 from domain.store.redis.repository import Client
 from domain.store.redis.trace_repository import RedisTraceRepository
-from domain.store.redis.worker_repository import RedisWorkerRepository
 from models.domain.agent import AgentRunRecord
 from models.domain.masking import MaskCategory, MaskEntry
-from models.domain.worker import WorkerStatus
-from models.store.redis import AgentTraceRecord, MaskRecord, WorkerHeartbeatRecord
+from models.store.redis import AgentTraceRecord, MaskRecord
 
-__all__ = ["Client", "RedisMaskRepository", "RedisTraceRepository", "RedisWorkerRepository", "Factory", "Adapter"]
+__all__ = ["Client", "RedisMaskRepository", "RedisTraceRepository", "Factory", "Adapter"]
 
 
 class Factory:
@@ -29,17 +27,9 @@ class Factory:
             generations=record.telemetry.generations,
         )
 
-    @staticmethod
-    def to_heartbeat_record(status: WorkerStatus) -> WorkerHeartbeatRecord:
-        return WorkerHeartbeatRecord(**status.model_dump())
-
 
 class Adapter:
     """Read seam: Redis records -> domain models."""
-
-    @staticmethod
-    def to_worker_status(record: WorkerHeartbeatRecord) -> WorkerStatus:
-        return WorkerStatus(**record.model_dump())
 
     @staticmethod
     def to_mask_entry(record: MaskRecord) -> MaskEntry:

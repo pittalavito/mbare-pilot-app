@@ -84,6 +84,11 @@ def stores(engine, redis_client):
 
 
 @pytest.fixture
+def worker_store(stores):
+    return stores.workers
+
+
+@pytest.fixture
 def store_service(stores):
     return stores.store_service
 

@@ -28,9 +28,9 @@ MODEL = "openai/gpt-4o"
 
 
 @pytest.fixture
-def service(store_service, agent_config_service):
+def service(store_service, agent_config_service, worker_store):
     store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
-    return PipelineService(store_service, agent_config_service)
+    return PipelineService(store_service, agent_config_service, worker_store)
 
 
 def _step(name, x=0.0, y=0.0):

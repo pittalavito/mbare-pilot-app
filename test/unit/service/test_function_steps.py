@@ -44,10 +44,10 @@ def project(store_service, tmp_path):
 
 
 @pytest.fixture
-def service(store_service, agent_config_service, project, monkeypatch):
+def service(store_service, agent_config_service, project, monkeypatch, worker_store):
     monkeypatch.setattr(agent_service_module.AgentFactory, "create_agent",
                         staticmethod(lambda definition, client, tools: FakeAgent()))
-    return PipelineService(store_service, agent_config_service)
+    return PipelineService(store_service, agent_config_service, worker_store)
 
 
 @pytest.fixture

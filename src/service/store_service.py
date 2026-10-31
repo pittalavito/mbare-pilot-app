@@ -50,7 +50,6 @@ from domain.store.redis.store import (
     Factory as RedisFactory,
     RedisMaskRepository,
     RedisTraceRepository,
-    RedisWorkerRepository,
 )
 from models.domain.agent import AgentConfig, AgentRole, AgentRunRecord, AgentRunSummary, SystemPrompt, ToolCallSummary, ToolInfo
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
@@ -60,7 +59,6 @@ from models.domain.copilot import CopilotMessage, CopilotModelUsage, CopilotSess
 from models.domain.masking import MaskCategory, MaskEntry
 from models.domain.pipeline import Pipeline, PipelineRun, PipelineStepRun, RunStatus
 from models.domain.project import Project, ProjectSource
-from models.domain.worker import WorkerStatus
 from models.store.redis import AgentTraceRecord
 
 
@@ -98,7 +96,6 @@ class StoreService:
         self._copilot_message_repository = DbCopilotMessageRepository(engine)
         self._copilot_turn_repository = DbCopilotTurnRepository(engine)
         self._traces_repository = RedisTraceRepository(redis_client)
-        self._workers_repository = RedisWorkerRepository(redis_client)
         self._masks_repository = RedisMaskRepository(redis_client)
         self._files_repository = LocalFileRepository(config.project_data_root)
         self._definitions_repository = LocalFileRepository(config.definitions_root)
@@ -352,16 +349,6 @@ class StoreService:
     def save_pipeline_step_run(self, step_run: PipelineStepRun) -> PipelineStepRun:
         row = self._pipeline_step_run_repository.save(DbFactory.to_pipeline_step_run_row(step_run))
         return DbAdapter.to_pipeline_step_run(row)
-
-    # --------------------------------------------------------------- workers
-    def save_worker_heartbeat(self, status: WorkerStatus) -> None:
-        self._workers_repository.save(RedisFactory.to_heartbeat_record(status))
-
-    def list_workers(self) -> list[WorkerStatus]:
-        return [RedisAdapter.to_worker_status(record) for record in self._workers_repository.list_alive()]
-
-    def delete_worker(self, worker_id: str) -> None:
-        self._workers_repository.delete(worker_id)
 
     # --------------------------------------------------------------- masking
     def list_masks(self, project_name: str) -> list[MaskEntry]:

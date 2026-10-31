@@ -37,9 +37,9 @@ class _Launching:
 
 
 @pytest.fixture
-def pipelines(store_service, agent_config_service):
+def pipelines(store_service, agent_config_service, worker_store):
     store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
-    return PipelineService(store_service, agent_config_service)
+    return PipelineService(store_service, agent_config_service, worker_store)
 
 
 @pytest.fixture

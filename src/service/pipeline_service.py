@@ -14,13 +14,15 @@ from models.domain.pipeline import Pipeline, PipelineEdge, PipelineRun, Pipeline
 from models.domain.worker import WorkerStatus
 from service.agent_config_service import AgentConfigService
 from service.model_service import require_usable_model
+from service.store.worker_store import WorkerStore
 from service.store_service import StoreService
 
 
 class PipelineService:
 
-    def __init__(self, store_service: StoreService, agent_config_service: AgentConfigService):
+    def __init__(self, store_service: StoreService, agent_config_service: AgentConfigService, workers: WorkerStore):
         self._store = store_service
+        self._workers = workers
         self._agent_configs = agent_config_service
 
     # ------------------------------------------------------------- pipelines
@@ -141,15 +143,15 @@ class PipelineService:
     # ------------------------------------------------------------ workers
     def heartbeat(self, status: WorkerStatus) -> None:
         """A worker says it is alive (call every few seconds, well under the keyspace TTL)."""
-        self._store.save_worker_heartbeat(status)
+        self._workers.save_heartbeat(status)
 
     def workers(self) -> list[WorkerStatus]:
         """The running workers (their heartbeat has not expired), oldest first."""
-        return sorted(self._store.list_workers(), key=lambda worker: worker.started_at)
+        return sorted(self._workers.list_alive(), key=lambda worker: worker.started_at)
 
     def worker_stopped(self, worker_id: str) -> None:
         """A worker shutting down cleanly: gone at once, without waiting for the TTL."""
-        self._store.delete_worker(worker_id)
+        self._workers.delete(worker_id)
 
     # ------------------------------------------------------------- helpers
     def _validate(self, pipeline: Pipeline) -> None:
