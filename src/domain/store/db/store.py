@@ -26,7 +26,7 @@ from domain.store.db.pipeline_repository import (
 )
 from domain.store.db.project_repository import DbProjectRepository
 from domain.store.db.prompt_repository import DbPromptRepository
-from domain.store.db.repository import Engine
+from domain.store.db.repository import Engine, transaction
 from domain.store.db.role_repository import DbRoleRepository
 from domain.store.db.run_repository import DbRunRepository
 from domain.store.db.tool_repository import DbToolRepository
@@ -94,6 +94,7 @@ from models.store.db import (
 
 __all__ = [
     "Engine",
+    "transaction",
     "DbAgentConfigRepository",
     "DbAtlassianFavoriteRepository",
     "DbAtlassianRepository",

@@ -1,6 +1,7 @@
-"""SQL persistence base for the DB store: the ``Engine`` factory and the
-``SqlRepository`` base every concrete repository extends. Concrete repositories
-live in their own files under domain/store/db/.
+"""SQL persistence base for the DB store: the ``Engine`` factory, the
+``SqlRepository`` base every concrete repository extends and ``transaction``
+(unit of work across repositories). Concrete repositories live in their own
+files under domain/store/db/.
 
 Schema migrations are out of scope (no Alembic): ``create_all`` creates the
 missing tables at startup. A table renamed in code is renamed in place first
@@ -10,7 +11,9 @@ other change recreates the table only while it is empty (with the tables
 referencing it); with rows the app stops and says which table to migrate by hand.
 """
 import json
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any, Generic, TypeVar
 
 from sqlalchemy import func, inspect, literal, text
@@ -27,6 +30,43 @@ TableT = TypeVar("TableT", bound=SQLModel)
 
 RENAMED_TABLES = {"chat_route": "automation_cache"}
 """Old name → new name: renamed at startup when only the old one exists."""
+
+
+class _TransactionSession(Session):
+    """The Session of an open ``transaction``: the repositories' ``commit`` only
+    flushes and leaving their ``with`` block keeps it open; ``transaction``
+    commits once at the end."""
+
+    def commit(self) -> None:
+        self.flush()
+
+    def __exit__(self, type_: Any, value: Any, traceback: Any) -> None:
+        pass
+
+
+_current_transaction: ContextVar[_TransactionSession | None] = ContextVar("db_transaction", default=None)
+
+
+@contextmanager
+def transaction(engine: SqlAlchemyEngine) -> Iterator[None]:
+    """Unit of work: the repository calls inside the block share one Session
+    and are committed together at the end, or rolled back together when the
+    block raises. A block opened inside another joins the outer one."""
+    if _current_transaction.get() is not None:
+        yield
+        return
+    # Rows returned inside the block stay readable after the final commit.
+    session = _TransactionSession(engine, expire_on_commit=False)
+    token = _current_transaction.set(session)
+    try:
+        yield
+        Session.commit(session)
+    except BaseException:
+        session.rollback()
+        raise
+    finally:
+        _current_transaction.reset(token)
+        session.close()
 
 
 class Engine:
@@ -129,7 +169,11 @@ class SqlRepository(Generic[TableT]):
         self._table = table
 
     def _session(self) -> Session:
-        """A new Session bound to the engine: ``with self._session() as session:``."""
+        """A new Session bound to the engine, or the open ``transaction``'s:
+        ``with self._session() as session:``."""
+        current = _current_transaction.get()
+        if current is not None and current.get_bind() is self._engine:
+            return current
         return Session(self._engine)
 
     def get(self, pk: Any) -> TableT | None:
