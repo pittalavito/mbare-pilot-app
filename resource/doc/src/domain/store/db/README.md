@@ -64,6 +64,8 @@ Dentro il blocco tutti i repository usano la stessa sessione: il loro `commit` d
 | Dove | Cosa |
 |---|---|
 | `DbPipelineRunRepository.claim_next()` | prende la run `queued` più vecchia e la passa a `running` in modo atomico con `FOR UPDATE SKIP LOCKED`: due worker non prendono mai la stessa run |
+| `DbCopilotSessionRepository.claim_next()` | come sopra per le esecuzioni di Copilot, saltando i repository che ne hanno già una `running` |
+| `DbCopilotSessionRepository.claim_next_planning_turn()` | il turno di preparazione in coda da più tempo (`planning_turn` da `queued` a `running`), con `FOR UPDATE SKIP LOCKED`; non guarda il repository (la modalità piano legge e basta) |
 | `DbPipelineStepRepository.replace()` | salva gli step di un'automation in una transazione: aggiorna quelli con id, inserisce i nuovi, cancella quelli tolti |
 | `DbPromptRepository.create_version()` | aggiunge la versione `max + 1` del prompt di un ruolo; le versioni non si modificano mai |
 | `DbChatModelRepository.keys_in_use()` | i modelli usati da agenti, chatbot e step: questi non si possono eliminare dal catalogo |

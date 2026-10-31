@@ -1,6 +1,7 @@
 """Agent tasks delegated to GitHub Copilot CLI: sessions per project, the
-planning chat (each message waits for Copilot's answer), the ok that queues
-the execution for the worker, cancellation; what the turns used, per session
+planning chat (each message is queued for the worker, which saves Copilot's
+answer: the page polls), the ok that queues the execution for the worker,
+cancellation; what the turns used, per session
 and for Observability (/observability/copilot/...)."""
 from fastapi import APIRouter, Depends, Response, status
 
@@ -44,7 +45,8 @@ def list_sessions(project: str, service: CopilotService = Depends(copilot_servic
 
 @router.post("/projects/{project}/copilot-sessions", status_code=status.HTTP_201_CREATED)
 def start_session(project: str, request: CopilotSessionRequest, service: CopilotService = Depends(copilot_service)) -> CopilotSessionResponse:
-    """Delegate an agent task: the first planning turn runs now (Copilot reads the code and asks)."""
+    """Delegate an agent task: returns at once, with the first planning turn queued for the worker
+    (Copilot reads the code and asks; its answer arrives in the messages)."""
     return CopilotSessionResponse.from_session(service.start(project, request.task_note, request.repository, request.prompt, request.model))
 
 
@@ -85,7 +87,7 @@ def usage_by_model(days: int | None = None, project: str | None = None, service:
 
 @router.post("/copilot-sessions/{session_id}/messages")
 def send_message(session_id: int, request: CopilotMessageRequest, service: CopilotService = Depends(copilot_service)) -> CopilotSessionResponse:
-    """A message of the planning chat; returns when Copilot has answered."""
+    """A message of the planning chat: returns at once, the worker runs the turn (409 while the previous one is pending)."""
     return CopilotSessionResponse.from_session(service.send(session_id, request.text))
 
 
@@ -97,6 +99,7 @@ def approve(session_id: int, service: CopilotService = Depends(copilot_service))
 
 @router.post("/copilot-sessions/{session_id}/cancel")
 def cancel(session_id: int, service: CopilotService = Depends(copilot_service)) -> CopilotSessionResponse:
+    """Stops the execution, or Copilot's pending answer in the planning chat (the chat stays open)."""
     return CopilotSessionResponse.from_session(service.cancel(session_id))
 
 

@@ -2,9 +2,11 @@
 
 A session lives in two phases:
 
-1. **Planning** (in the API, while the user waits): the first turn gives
-   Copilot the task and asks it to read the code, ask its questions and
-   propose a plan; then the user and Copilot chat. Plan mode: nothing changes.
+1. **Planning**: the first turn gives Copilot the task and asks it to read the
+   code, ask its questions and propose a plan; then the user and Copilot chat.
+   Plan mode: nothing changes. The API only saves the user's message and
+   queues the turn (``planning_turn``): the worker runs Copilot and saves its
+   answer, the page follows it by polling.
 2. **Execution** (in the worker, after ``approve``): the same Copilot session
    resumes in autopilot and changes the files, minus the denied tools (no
    commits). HEAD is read before and after: if it moved, the session says so
@@ -14,8 +16,11 @@ The prompts and the denied tools come from the coding-agent definition in the
 data folder (domain/project/coding_agent.py), read at every use.
 
 One execution at a time per repository (the queue waits); after an execution
-the chat can go on and a new ok starts a new one. The task's status follows:
-in progress while it runs, done when it succeeds, back to todo otherwise."""
+the chat can go on and a new ok starts a new one. Planning turns do not wait
+for the repository: plan mode only reads, so a turn can run while another
+session executes on the same repository (it may see files half changed). The
+task's status follows: in progress while it runs, done when it succeeds, back
+to todo otherwise."""
 import time
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
@@ -35,6 +40,7 @@ from models.domain.copilot import (
     CopilotModel,
     CopilotModelUsage,
     CopilotPhase,
+    CopilotPlanningTurn,
     CopilotSession,
     CopilotSessionStatus,
     CopilotTurn,
@@ -55,6 +61,11 @@ def _short(commit: str) -> str:
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _busy(session: CopilotSession) -> bool:
+    """The worker has it, or will: an execution or a planning turn queued or running."""
+    return session.planning_turn is not None or session.status in (CopilotSessionStatus.QUEUED, CopilotSessionStatus.RUNNING)
 
 
 class CopilotService:
@@ -151,16 +162,18 @@ class CopilotService:
     # -------------------------------------------------------------- planning
     @observed(LogPrefix.COPILOT_SERVICE)
     def start(self, project_name: str, task_note: str, repository: str = "", prompt: str = "", model: str = "") -> CopilotSession:
-        """A new session on an agent task: the first planning turn runs now,
-        so the session comes back with Copilot's questions (or the error).
-        ``prompt``: one of the definition's prompts (``""`` = ``plan_prompt``);
-        ``model``: one of its models (``""`` = the default), for every turn."""
+        """A new session on an agent task, with its first planning turn queued
+        for the worker: returns at once, Copilot's questions (or the error)
+        arrive later. ``prompt``: one of the definition's prompts (``""`` =
+        ``plan_prompt``); ``model``: one of its models (``""`` = the default),
+        for every turn. What can be checked now (CLI, definition, task,
+        repository) raises here."""
         if not self._client.available:
             raise UpstreamError(NOT_FOUND)
         settings = self.coding_agent(project_name)
         model = coding_agent.check_model(settings, model)
         task = self._data.agent_task(project_name, task_note)  # exists and is an agent task
-        folder = self._git.repository_folder(project_name, repository)
+        self._git.repository_folder(project_name, repository)
         first_turn = coding_agent.plan_prompt(settings, self._data.read_note(project_name, task_note), prompt.strip())
         session_id = str(uuid4())
         if task.references and (note := coding_agent.references_note(settings, self._data.copilot_folder(project_name, task_note, session_id))):
@@ -173,28 +186,28 @@ class CopilotService:
             prompt=prompt.strip(),
             model=model,
         ))
-        return self._plan_turn(session, folder, first_turn)
+        return self._queue_plan_turn(session, first_turn)
 
     @observed(LogPrefix.COPILOT_SERVICE)
     def send(self, session_id: int, text: str) -> CopilotSession:
-        """A message of the planning chat and Copilot's answer. After an
-        execution the chat goes on: the session is back to planning."""
+        """A message of the planning chat, queued for the worker: returns at
+        once, Copilot's answer arrives later. After an execution the chat goes
+        on: the session is back to planning."""
         session = self.session(session_id)
         if session.status in (CopilotSessionStatus.QUEUED, CopilotSessionStatus.RUNNING):
             raise ConflictError("Copilot sta eseguendo il task: aspetta che finisca o annulla.")
+        if session.planning_turn is not None:
+            raise ConflictError("Copilot sta ancora rispondendo al messaggio precedente: aspetta la sua risposta.")
         if not text.strip():
             raise ValidationError("Il messaggio è vuoto.")
-        folder = self._git.repository_folder(session.project_name, session.repository)
-        return self._plan_turn(session, folder, text.strip())
+        self._git.repository_folder(session.project_name, session.repository)
+        return self._queue_plan_turn(session, text.strip())
 
-    def _plan_turn(self, session: CopilotSession, folder: Path, prompt: str) -> CopilotSession:
+    def _queue_plan_turn(self, session: CopilotSession, prompt: str) -> CopilotSession:
+        """The user's message is the turn's prompt: the worker reads it back (the last ``user`` message)."""
         self._message(session, CopilotMessageRole.USER, prompt)
-        session = self._update(session, status=CopilotSessionStatus.PLANNING, error=None)
-        started = time.monotonic()
-        turn = self._client.turn(folder, session.copilot_session_id, prompt, CopilotMode.PLAN, self._planning_timeout, model=session.model,
-                                 extra_dirs=self._task_folder(session))
-        self._record_usage(session, turn, CopilotPhase.PLAN, started)
-        return self._record(session, turn)
+        return self._update(session, status=CopilotSessionStatus.PLANNING, planning_turn=CopilotPlanningTurn.QUEUED,
+                            cancel_requested=False, error=None)
 
     @observed(LogPrefix.COPILOT_SERVICE)
     def approve(self, session_id: int) -> CopilotSession:
@@ -203,6 +216,8 @@ class CopilotService:
         session = self.session(session_id)
         if session.status != CopilotSessionStatus.PLANNING:
             raise ConflictError("Si può dare l'ok solo durante la preparazione.")
+        if session.planning_turn is not None:
+            raise ConflictError("Copilot sta ancora rispondendo: aspetta la sua risposta prima di dare l'ok.")
         if not any(message.role == CopilotMessageRole.COPILOT for message in self._store.list_copilot_messages(session.id)):
             raise ConflictError("Copilot non ha ancora risposto: aspetta la sua risposta prima di dare l'ok.")
         changed = self._changed_files(session)
@@ -215,21 +230,28 @@ class CopilotService:
 
     @observed(LogPrefix.COPILOT_SERVICE)
     def cancel(self, session_id: int) -> CopilotSession:
-        """A queued execution never starts; a running one is stopped by the worker."""
+        """A queued execution never starts; a running one is stopped by the
+        worker. The same for a planning turn: the chat stays open."""
         session = self.session(session_id)
+        if session.planning_turn == CopilotPlanningTurn.QUEUED:
+            self._message(session, CopilotMessageRole.EVENT, "Messaggio annullato prima che Copilot lo leggesse.")
+            return self._update(session, planning_turn=None)
+        if session.planning_turn == CopilotPlanningTurn.RUNNING:
+            self._message(session, CopilotMessageRole.EVENT, "Annullamento richiesto: il worker ferma Copilot.")
+            return self._update(session, cancel_requested=True)
         if session.status == CopilotSessionStatus.QUEUED:
             self._message(session, CopilotMessageRole.EVENT, "Annullata prima di partire.")
             return self._update(session, status=CopilotSessionStatus.CANCELLED, finished_at=_now())
         if session.status == CopilotSessionStatus.RUNNING:
             self._message(session, CopilotMessageRole.EVENT, "Annullamento richiesto: il worker ferma Copilot.")
             return self._update(session, cancel_requested=True)
-        raise ConflictError("Non c'è un'esecuzione da annullare.")
+        raise ConflictError("Non c'è un'esecuzione o una risposta di Copilot da annullare.")
 
     @observed(LogPrefix.COPILOT_SERVICE)
     def delete(self, session_id: int) -> None:
         """With its messages; the files Copilot changed stay. Copilot's own session stays in its folder."""
         session = self.session(session_id)
-        if session.status in (CopilotSessionStatus.QUEUED, CopilotSessionStatus.RUNNING):
+        if _busy(session):
             raise ConflictError("La sessione è in coda o in esecuzione: annullala prima.")
         self._store.delete_copilot_session(session.id)
         self._data.delete_copilot_folder(session.project_name, session.copilot_session_id)
@@ -241,7 +263,7 @@ class CopilotService:
         their turns stays in Observability. Returns how many were deleted."""
         name = note_file_name(task_note)
         sessions = [session for session in self._store.list_copilot_sessions(project_name) if note_file_name(session.task_note) == name]
-        if any(session.status in (CopilotSessionStatus.QUEUED, CopilotSessionStatus.RUNNING) for session in sessions):
+        if any(_busy(session) for session in sessions):
             raise ConflictError("Una sessione di questo task è in coda o in esecuzione: annullala prima.")
         for session in sessions:
             self._store.delete_copilot_session(session.id)
@@ -249,6 +271,32 @@ class CopilotService:
         return len(sessions)
 
     # ---------------------------------------------------------------- worker
+    def plan_next(self, on_claim: Callable[[CopilotSession], None] | None = None) -> CopilotSession | None:
+        """Answer the planning turn that has waited longest (plan mode, read
+        only: also while the repository has an execution running); None when
+        there is none. Copilot's answer (or the error) becomes the session's
+        messages, the turn's usage a row for Observability."""
+        session = self._store.claim_next_copilot_planning_turn()
+        if session is None:
+            return None
+        if on_claim:
+            on_claim(session)
+        try:
+            folder = self._git.repository_folder(session.project_name, session.repository)
+        except AppError as exc:
+            self._message(session, CopilotMessageRole.EVENT, f"❌ {exc}")
+            return self._update(session, planning_turn=None, cancel_requested=False, error=str(exc))
+        prompt = next((message.content for message in reversed(self._store.list_copilot_messages(session.id))
+                       if message.role == CopilotMessageRole.USER), "")
+        started = time.monotonic()
+        turn = self._client.turn(folder, session.copilot_session_id, prompt, CopilotMode.PLAN, self._planning_timeout,
+                                 should_cancel=self._cancel_check(session.id), model=session.model, extra_dirs=self._task_folder(session))
+        self._record_usage(session, turn, CopilotPhase.PLAN, started)
+        session = self._record(session, turn)
+        if turn.cancelled:
+            self._message(session, CopilotMessageRole.EVENT, "⏹️ Risposta annullata: puoi scrivere un altro messaggio.")
+        return self._update(session, planning_turn=None, cancel_requested=False)
+
     def run_next(self, on_claim: Callable[[CopilotSession], None] | None = None) -> CopilotSession | None:
         """Execute the next queued session whose repository is free; None when there is none."""
         session = self._store.claim_next_copilot_session()
@@ -276,13 +324,20 @@ class CopilotService:
         return self._finish(session, turn)
 
     def fail_interrupted(self) -> int:
-        """At the worker's start: the executions left ``running`` by a worker that died."""
+        """At the worker's start: the executions and the planning turns left
+        ``running`` by a worker that died. An execution fails; a planning turn
+        ends with the error and the chat stays open (the user sends again)."""
         sessions = self._store.list_copilot_sessions_by_status(CopilotSessionStatus.RUNNING)
         for session in sessions:
             self._message(session, CopilotMessageRole.EVENT, "❌ Interrotta: il worker si è fermato durante l'esecuzione.")
             self._update(session, status=CopilotSessionStatus.FAILED, error="Worker interrotto.", finished_at=_now())
             self._set_task_status(session, TaskStatus.TODO)
-        return len(sessions)
+        turns = self._store.list_copilot_sessions_by_planning_turn(CopilotPlanningTurn.RUNNING)
+        for session in turns:
+            self._message(session, CopilotMessageRole.EVENT,
+                          "❌ Interrotta: il worker si è fermato mentre Copilot rispondeva. Manda di nuovo il messaggio.")
+            self._update(session, planning_turn=None, cancel_requested=False, error="Worker interrotto.")
+        return len(sessions) + len(turns)
 
     def _finish(self, session: CopilotSession, turn: CopilotTurn) -> CopilotSession:
         head_after, changed = None, []

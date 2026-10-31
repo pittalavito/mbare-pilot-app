@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 
 import {
-  type CopilotMessage, type CopilotSession, isExecuting, useApproveCopilot, useCancelCopilot, useCopilotMessages, useCopilotSessionUsage,
+  type CopilotMessage, type CopilotSession, isAnswering, isExecuting, isLive, useApproveCopilot, useCancelCopilot, useCopilotMessages, useCopilotSessionUsage,
   useCopilotSessions, useCopilotStatus, useDeleteCopilotSession, useSendCopilotMessage,
 } from "../../api/copilot";
 import { useAgentTasks } from "../../api/projectData";
@@ -15,7 +15,8 @@ import { DelegateModal } from "./DelegateModal";
 
 /** The Copilot tab of a project: the agent tasks delegated to GitHub Copilot
  * (sessions on the left, ``?session=`` the open one) and the open session's
- * chat: Copilot's questions, «Ok, parti», then the execution followed live. */
+ * chat: Copilot's questions (written by the worker, followed live), «Ok,
+ * parti», then the execution followed live. */
 
 export const STATUS: Record<string, { label: string; color: string }> = {
   planning: { label: "Preparazione", color: "blue" },
@@ -25,6 +26,10 @@ export const STATUS: Record<string, { label: string; color: string }> = {
   failed: { label: "Fallita", color: "red" },
   cancelled: { label: "Annullata", color: "gray" },
 };
+
+/** The session's badge: while planning, whether Copilot is still writing its answer. */
+const badge = (session: CopilotSession) =>
+  isAnswering(session) ? { label: "Copilot scrive…", color: "cyan" } : STATUS[session.status];
 
 /** ``agent-task-fix-porto.md`` → ``fix porto``: the task's name without prefix and suffix. */
 const taskLabel = (note: string) => note.replace(/^agent-task-/i, "").replace(/\.md$/i, "").replace(/-/g, " ");
@@ -73,7 +78,7 @@ export function CopilotTab() {
                   ? <>{repoLabel(session.repository)} · <Text span size="xs" c="orange">task eliminato</Text></>
                   : repoLabel(session.repository)
               }
-              rightSection={<Badge size="xs" variant="light" color={STATUS[session.status]?.color}>{STATUS[session.status]?.label}</Badge>}
+              rightSection={<Badge size="xs" variant="light" color={badge(session)?.color}>{badge(session)?.label}</Badge>}
               active={session.id === selected?.id}
               onClick={() => setSearch({ session: String(session.id) }, { replace: true })}
             />
@@ -97,8 +102,11 @@ export function CopilotTab() {
 
 function SessionView({ project, session, onDeleted }: { project: string; session: CopilotSession; onDeleted: () => void }) {
   const executing = isExecuting(session);
-  const messages = useCopilotMessages(session.id, executing);
-  const usage = useCopilotSessionUsage(session.id, executing);
+  const answering = isAnswering(session);
+  /** The worker has it: no new message, no ok, no delete until it is done. */
+  const busy = isLive(session);
+  const messages = useCopilotMessages(session.id, busy);
+  const usage = useCopilotSessionUsage(session.id, busy);
   const send = useSendCopilotMessage(project);
   const approve = useApproveCopilot(project);
   const cancel = useCancelCopilot(project);
@@ -109,13 +117,24 @@ function SessionView({ project, session, onDeleted }: { project: string; session
   const list = messages.data ?? [];
   const answered = list.some((message) => message.role === "copilot");
 
+  /** The worker let go of the session (Copilot answered, the execution ended):
+   * one last refresh, the polling may have stopped before the last messages. */
+  const wasBusy = useRef(busy);
+  useEffect(() => {
+    if (wasBusy.current && !busy) {
+      void messages.refetch();
+      void usage.refetch();
+    }
+    wasBusy.current = busy;
+  }, [busy]); // only on the transition
+
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: "end" }); // braces: browsers may return a promise, not a cleanup
   }, [list.length, pending]);
 
   const submit = () => {
     const message = text.trim();
-    if (!message || send.isPending || executing) return;
+    if (!message || send.isPending || busy) return;
     setPending(message);
     setText("");
     send.mutate({ id: session.id, text: message }, { onError: () => setText(message), onSettled: () => setPending(undefined) });
@@ -127,7 +146,7 @@ function SessionView({ project, session, onDeleted }: { project: string; session
         <Stack gap={2}>
           <Group gap="xs">
             <Text fw={600}>{taskLabel(session.task_note)}</Text>
-            <Badge variant="light" color={STATUS[session.status]?.color}>{STATUS[session.status]?.label}</Badge>
+            <Badge variant="light" color={badge(session)?.color}>{badge(session)?.label}</Badge>
           </Group>
           <Text size="xs" c="dimmed">
             <code>{repoLabel(session.repository)}</code> · prompt: {session.prompt || "predefinito"} · modello:{" "}
@@ -142,17 +161,18 @@ function SessionView({ project, session, onDeleted }: { project: string; session
         </Stack>
         <Group gap="xs">
           {session.status === "planning" && (
-            <Button color="green" onClick={() => approve.mutate(session.id)} loading={approve.isPending} disabled={!answered || send.isPending}
-                    title={answered ? undefined : "Aspetta la risposta di Copilot"}>
+            <Button color="green" onClick={() => approve.mutate(session.id)} loading={approve.isPending}
+                    disabled={!answered || answering || send.isPending} title={answered && !answering ? undefined : "Aspetta la risposta di Copilot"}>
               ✅ Ok, parti
             </Button>
           )}
-          {executing && (
-            <Button color="red" variant="light" onClick={() => cancel.mutate(session.id)} loading={cancel.isPending} disabled={session.cancel_requested}>
+          {busy && (
+            <Button color="red" variant="light" onClick={() => cancel.mutate(session.id)} loading={cancel.isPending} disabled={session.cancel_requested}
+                    title={answering ? "Ferma la risposta di Copilot: la chat resta aperta" : undefined}>
               {session.cancel_requested ? "Annullamento in corso…" : "⏹️ Annulla"}
             </Button>
           )}
-          {!executing && (
+          {!busy && (
             <ConfirmButton
               size="xs"
               message="Eliminare la sessione e i suoi messaggi? Le modifiche di Copilot ai file restano."
@@ -188,10 +208,10 @@ function SessionView({ project, session, onDeleted }: { project: string; session
             {messages.isPending && <Loader size="sm" />}
             {list.map((message) => <MessageItem key={message.id} message={message} />)}
             {pending && <MessageItem message={{ id: -1, role: "user", content: pending, created_at: "" }} />}
-            {(send.isPending || session.status === "running") && (
+            {(answering || session.status === "running") && (
               <Group gap="xs">
                 <Loader size="xs" type="dots" />
-                <Text size="sm" c="dimmed">{session.status === "running" ? "Copilot sta lavorando sui file…" : "Copilot sta pensando…"}</Text>
+                <Text size="sm" c="dimmed">{session.status === "running" ? "Copilot sta lavorando sui file…" : "Copilot sta scrivendo…"}</Text>
               </Group>
             )}
             <Box ref={bottom} />
@@ -199,15 +219,20 @@ function SessionView({ project, session, onDeleted }: { project: string; session
         </ScrollArea>
       </Card>
       {send.error && <Alert color="red">{send.error.message}</Alert>}
-      {session.status === "queued" && <QueueHint />}
+      {session.status === "queued" && <QueueHint waiting="l'esecuzione resta in coda" />}
+      {session.planning_turn === "queued" && <QueueHint waiting="Copilot risponde solo quando il worker è acceso" />}
       <Group align="flex-end" wrap="nowrap">
         <Textarea
           style={{ flex: 1 }}
           autosize
           minRows={1}
           maxRows={8}
-          disabled={executing}
-          placeholder={executing ? "Copilot sta eseguendo: aspetta che finisca o annulla." : "Rispondi a Copilot… (Invio per mandare, Maiusc+Invio per andare a capo)"}
+          disabled={busy}
+          placeholder={
+            executing ? "Copilot sta eseguendo: aspetta che finisca o annulla."
+              : answering ? "Copilot sta scrivendo: aspetta la sua risposta."
+              : "Rispondi a Copilot… (Invio per mandare, Maiusc+Invio per andare a capo)"
+          }
           value={text}
           onChange={(event) => setText(event.currentTarget.value)}
           onKeyDown={(event) => {
@@ -217,18 +242,19 @@ function SessionView({ project, session, onDeleted }: { project: string; session
             }
           }}
         />
-        <Button onClick={submit} loading={send.isPending} disabled={!text.trim() || executing}>Invia</Button>
+        <Button onClick={submit} loading={send.isPending} disabled={!text.trim() || busy}>Invia</Button>
       </Group>
     </Stack>
   );
 }
 
-/** Who runs the execution: the worker, which must be on and started after the app's last update. */
-function QueueHint() {
+/** Who runs the execution and the planning turns: the worker, which must be
+ * on and started after the app's last update. ``waiting``: what stays still without it. */
+function QueueHint({ waiting }: { waiting: string }) {
   const worker = useWorkerState();
   if (worker.isPending) return null;
   if (!worker.data?.workers.length) {
-    return <Alert color="orange">Nessun worker attivo: l'esecuzione resta in coda. Avvialo dal menu Worker in alto a destra.</Alert>;
+    return <Alert color="orange">Nessun worker attivo: {waiting}. Avvialo dal menu Worker in alto a destra.</Alert>;
   }
   return (
     <Text size="xs" c="dimmed">

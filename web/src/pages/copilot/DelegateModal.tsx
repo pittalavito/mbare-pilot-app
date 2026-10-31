@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Group, Loader, Modal, Select, Stack, Text } from "@mantine/core";
+import { Alert, Button, Card, Group, Modal, Select, Stack, Text } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -108,12 +108,6 @@ export function DelegateModal({ project, task, opened, onClose }: { project: str
         {chosenModel && <ModelDetail option={chosenModel} />}
         {status.data?.definition_error && <Alert color="orange">Prompt e divieti di Copilot: {status.data.definition_error}</Alert>}
         {start.error && <Alert color="red">{start.error.message}</Alert>}
-        {start.isPending && (
-          <Group gap="xs">
-            <Loader size="xs" type="dots" />
-            <Text size="sm" c="dimmed">Copilot sta leggendo il task e il codice: può volerci qualche decina di secondi…</Text>
-          </Group>
-        )}
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose} disabled={start.isPending}>Annulla</Button>
           <Button onClick={delegate} loading={start.isPending} disabled={chosenTask === null || repository === null}>Delega</Button>

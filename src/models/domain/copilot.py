@@ -1,7 +1,7 @@
 """Agent tasks delegated to GitHub Copilot CLI. A session is a conversation
 with Copilot about one task on one repository of the project: first the
 planning chat (Copilot reads the code and asks questions, it cannot change
-anything), then, after the user's ok, the execution in the worker (Copilot
+anything; each turn runs in the worker), then, after the user's ok, the execution in the worker (Copilot
 changes files, never commits). Copilot keeps the conversation itself
 (``copilot_session_id``); the app keeps the messages to show them."""
 from datetime import datetime, timezone
@@ -16,7 +16,8 @@ def _utc_now() -> datetime:
 
 class CopilotSessionStatus(StrEnum):
     PLANNING = "planning"
-    """The chat before the ok: each message is a turn in plan mode (read only)."""
+    """The chat before the ok: each message is a turn in plan mode (read only),
+    run by the worker (``planning_turn``)."""
     QUEUED = "queued"
     """Ok given: waiting for the worker (one execution at a time per repository)."""
     RUNNING = "running"
@@ -27,6 +28,16 @@ class CopilotSessionStatus(StrEnum):
     @property
     def finished(self) -> bool:
         return self in (CopilotSessionStatus.DONE, CopilotSessionStatus.FAILED, CopilotSessionStatus.CANCELLED)
+
+
+class CopilotPlanningTurn(StrEnum):
+    """A planning turn handed to the worker: the API saves the user's message
+    and answers at once, the worker runs Copilot in plan mode and saves its
+    answer. ``None`` on the session = no turn pending (Copilot answered)."""
+    QUEUED = "queued"
+    """The user's message is saved: waiting for a worker."""
+    RUNNING = "running"
+    """A worker is running Copilot on it."""
 
 
 class CopilotMessageRole(StrEnum):
@@ -50,8 +61,10 @@ class CopilotSession(BaseModel):
     model: str = ""
     """Copilot's model, for every turn of the session; ``""`` = COPILOT_MODEL or Copilot's default."""
     status: CopilotSessionStatus = CopilotSessionStatus.PLANNING
+    planning_turn: CopilotPlanningTurn | None = None
+    """The planning turn waiting for (or in) the worker; None = Copilot answered. Only while ``planning``."""
     cancel_requested: bool = False
-    """Set by the API, read by the worker that is running it."""
+    """Set by the API, read by the worker that is running it (an execution or a planning turn)."""
     head_before: str | None = None
     """HEAD when the execution started; ``""`` = the repository had no commits."""
     head_after: str | None = None

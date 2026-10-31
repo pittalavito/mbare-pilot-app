@@ -1,5 +1,6 @@
 """Copilot sessions, their messages and the usage of their turns (tables copilot_session,
-copilot_message, copilot_turn). ``copilot_session`` is also the worker queue of the executions."""
+copilot_message, copilot_turn). ``copilot_session`` is also the worker queue of the executions
+(``status``) and of the planning turns (``planning_turn``)."""
 from datetime import datetime, timezone
 
 from sqlalchemy import func, update
@@ -35,6 +36,10 @@ class DbCopilotSessionRepository(SqlRepository[CopilotSessionTable]):
         with self._session() as session:
             return list(session.exec(select(CopilotSessionTable).where(CopilotSessionTable.status == status)).all())
 
+    def list_by_planning_turn(self, planning_turn: str) -> list[CopilotSessionTable]:
+        with self._session() as session:
+            return list(session.exec(select(CopilotSessionTable).where(CopilotSessionTable.planning_turn == planning_turn)).all())
+
     def update_fields(self, session_id: int, fields: dict) -> CopilotSessionTable | None:
         """``UPDATE ... SET <only these fields>``: the API and the worker write
         different fields of the same session at the same time (e.g. a cancel
@@ -63,6 +68,26 @@ class DbCopilotSessionRepository(SqlRepository[CopilotSessionTable]):
                 return None
             row.status = "running"
             row.started_at = row.updated_at = datetime.now(timezone.utc)
+            session.add(row)
+            session.commit()
+            session.refresh(row)
+            return row
+
+
+    def claim_next_planning_turn(self) -> CopilotSessionTable | None:
+        """The session whose planning turn has waited longest, switched from
+        ``queued`` to ``running`` atomically (``FOR UPDATE SKIP LOCKED``). The
+        repository being busy does not matter: plan mode only reads."""
+        statement = (
+            select(CopilotSessionTable).where(CopilotSessionTable.planning_turn == "queued")
+            .order_by(col(CopilotSessionTable.updated_at), col(CopilotSessionTable.id)).limit(1).with_for_update(skip_locked=True)
+        )
+        with self._session() as session:
+            row = session.exec(statement).first()
+            if row is None:
+                return None
+            row.planning_turn = "running"
+            row.updated_at = datetime.now(timezone.utc)
             session.add(row)
             session.commit()
             session.refresh(row)

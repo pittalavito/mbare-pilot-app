@@ -83,7 +83,7 @@ class Config(BaseSettings):
     copilot_github_token: SecretStr | None = None
     """A GitHub token for Copilot; empty = the login made with ``copilot`` → /login."""
     copilot_planning_timeout_minutes: float = 5
-    """A turn of the planning chat (the API waits for it)."""
+    """A turn of the planning chat, in the worker (the API answers at once; the page polls)."""
     copilot_execution_timeout_minutes: float = 60
     """An execution in the worker."""
 

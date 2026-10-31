@@ -28,7 +28,14 @@ def client(store_service, tmp_path, monkeypatch):
     container = Container(store_service=store_service)
     container.copilot_service._client = CopilotClient(FAKE)
     with TestClient(create_app(container)) as client:
+        client.worker = container.copilot_service  # type: ignore[attr-defined]  # plan_next: the worker's side
         yield client
+
+
+def _answer(client) -> None:
+    """What the worker does with the queued planning turns."""
+    while client.worker.plan_next() is not None:
+        pass
 
 
 def test_delegate_chat_approve_cancel_and_delete(client):
@@ -37,10 +44,17 @@ def test_delegate_chat_approve_cancel_and_delete(client):
     session = client.post("/projects/acme/copilot-sessions", json={"task_note": task})
     assert session.status_code == 201
     session = session.json()
-    assert session["status"] == "planning" and "copilot_session_id" not in session
+    assert (session["status"], session["planning_turn"]) == ("planning", "queued") and "copilot_session_id" not in session
     sid = session["id"]
+    assert client.post(f"/copilot-sessions/{sid}/approve").status_code == 409  # Copilot has not answered yet
+    assert client.post(f"/copilot-sessions/{sid}/messages", json={"text": "e allora?"}).status_code == 409  # one turn at a time
+    _answer(client)
+    assert client.get(f"/copilot-sessions/{sid}").json()["planning_turn"] is None
 
-    assert client.post(f"/copilot-sessions/{sid}/messages", json={"text": "ok così"}).json()["premium_requests"] == 2
+    sent = client.post(f"/copilot-sessions/{sid}/messages", json={"text": "ok così"}).json()
+    assert (sent["planning_turn"], sent["premium_requests"]) == ("queued", 1)  # answers at once
+    _answer(client)
+    assert client.get(f"/copilot-sessions/{sid}").json()["premium_requests"] == 2
     assert [m["role"] for m in client.get(f"/copilot-sessions/{sid}/messages").json()] == ["user", "copilot", "user", "copilot"]
     assert client.post(f"/copilot-sessions/{sid}/messages", json={"text": "  "}).status_code == 400
 
@@ -73,6 +87,8 @@ def test_status_and_validation(client):
 def test_deleting_the_sessions_of_a_task(client):
     task = client.post("/projects/acme/agent-tasks", json={"title": "Da buttare"}).json()["name"]
     client.post("/projects/acme/copilot-sessions", json={"task_note": task})
+    assert client.delete("/projects/acme/copilot-sessions", params={"task_note": task}).status_code == 409  # Copilot is answering
+    _answer(client)
 
     assert client.delete("/projects/acme/copilot-sessions", params={"task_note": task}).json() == {"deleted": 1}
     assert client.get("/projects/acme/copilot-sessions").json() == []

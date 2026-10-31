@@ -5,7 +5,8 @@ import { dataKeys } from "./projectData";
 import type { components } from "./schema";
 
 /** Agent tasks delegated to GitHub Copilot CLI: sessions, the planning chat
- * (each message waits for Copilot's answer), the ok, cancellation. */
+ * (each message is queued for the worker, which writes Copilot's answer: the
+ * page polls), the ok, cancellation. */
 
 export type CopilotSession = components["schemas"]["CopilotSessionResponse"];
 export type CopilotMessage = components["schemas"]["CopilotMessageResponse"];
@@ -16,6 +17,12 @@ export type CopilotModelOption = components["schemas"]["CopilotModelOptionRespon
 
 /** Queued or running: the worker has it, the page follows it. */
 export const isExecuting = (session: CopilotSession) => session.status === "queued" || session.status === "running";
+
+/** A planning turn queued or running in the worker: Copilot's answer is on its way. */
+export const isAnswering = (session: CopilotSession) => session.planning_turn !== null;
+
+/** The worker has something of the session (an execution or a planning turn): the page polls it. */
+export const isLive = (session: CopilotSession) => isExecuting(session) || isAnswering(session);
 
 export const copilotKeys = {
   status: (project?: string) => ["copilot", "status", project ?? ""] as const,
@@ -37,16 +44,16 @@ export function useCopilotStatus(project?: string) {
   });
 }
 
-/** Newest first; refreshed every 3 seconds while one of them is executing. */
+/** Newest first; refreshed every 3 seconds while the worker has one of them (execution or planning turn). */
 export function useCopilotSessions(project: string) {
   return useQuery({
     queryKey: copilotKeys.sessions(project),
     queryFn: () => unwrap(api.GET("/projects/{project}/copilot-sessions", { params: { path: { project } } })),
-    refetchInterval: (query) => (query.state.data?.some(isExecuting) ? 3_000 : false),
+    refetchInterval: (query) => (query.state.data?.some(isLive) ? 3_000 : false),
   });
 }
 
-/** The messages of a session; ``live`` refreshes them while it executes. */
+/** The messages of a session; ``live`` refreshes them while the worker has it. */
 export function useCopilotMessages(id: number | undefined, live: boolean) {
   return useQuery({
     queryKey: copilotKeys.messages(id ?? 0),
@@ -56,7 +63,7 @@ export function useCopilotMessages(id: number | undefined, live: boolean) {
   });
 }
 
-/** What each turn of a session used, and the sum; ``live`` refreshes it while it executes. */
+/** What each turn of a session used, and the sum; ``live`` refreshes it while the worker has it. */
 export function useCopilotSessionUsage(id: number | undefined, live: boolean) {
   return useQuery({
     queryKey: copilotKeys.usage(id ?? 0),
@@ -91,7 +98,7 @@ function useRefresh(project: string) {
     ]);
 }
 
-/** Delegate an agent task: resolves when Copilot has answered the first turn (tens of seconds). */
+/** Delegate an agent task: resolves at once, with the first planning turn queued for the worker. */
 export function useStartCopilot(project: string) {
   const refresh = useRefresh(project);
   return useMutation({
@@ -101,7 +108,7 @@ export function useStartCopilot(project: string) {
   });
 }
 
-/** A message of the planning chat; resolves with Copilot's answer. */
+/** A message of the planning chat: resolves at once (queued for the worker); Copilot's answer arrives by polling. */
 export function useSendCopilotMessage(project: string) {
   const refresh = useRefresh(project);
   return useMutation({

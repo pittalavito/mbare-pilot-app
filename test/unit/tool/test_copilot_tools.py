@@ -1,6 +1,6 @@
 """The chatbot's Copilot tools with the fake Copilot CLI on a real repository:
-list the agent tasks, delegate one (the planning chat opens, nothing changes),
-read its status. Only in a chatbot's run of a project."""
+list the agent tasks, delegate one (the planning chat opens, nothing changes,
+the tool does not wait for Copilot: the worker answers), read its status. Only in a chatbot's run of a project."""
 import shutil
 import subprocess
 import sys
@@ -42,18 +42,23 @@ def context(store_service, tmp_path, monkeypatch) -> ToolContext:
     return ToolContext(project_name="acme", git=git, origin=RunOrigin.CHAT, project_data=data, copilot=copilot)
 
 
-def test_the_chatbot_lists_the_tasks_and_delegates_one(context):
+def test_the_chatbot_lists_the_tasks_and_delegates_one(context, tmp_path):
     tasks = as_dict(LIST_AGENT_TASKS.build(context).func())
     assert tasks == {"tasks": [{"task": "agent-task-fix-porto.md", "title": "Fix porto", "status": "todo", "copilot_status": None}]}
 
     delegated = as_dict(DELEGATE_TASK.build(context).func(task="agent-task-fix-porto.md", repository="api"))
 
-    assert delegated["copilot_answered"] and delegated["repository"] == "api"
+    assert delegated["repository"] == "api" and "copilot_answered" not in delegated
     assert delegated["chat"] == f"/projects/acme/copilot?session={delegated['session_id']}"
-    assert "Domanda" not in str(delegated)  # Copilot's answer stays in its chat
+    assert not (tmp_path / "state").exists()  # Copilot not started yet: the worker runs it
     assert as_dict(LIST_AGENT_TASKS.build(context).func())["tasks"][0]["copilot_status"] == "planning"
     status = as_dict(COPILOT_STATUS.build(context).func(session_id=delegated["session_id"]))
-    assert (status["status"], status["changed_files"], status["head_moved"]) == ("planning", 0, False)
+    assert (status["status"], status["copilot_answering"], status["changed_files"], status["head_moved"]) == ("planning", True, 0, False)
+
+    assert context.require_copilot().plan_next() is not None  # the worker's side
+    status = as_dict(COPILOT_STATUS.build(context).func(session_id=delegated["session_id"]))
+    assert (status["status"], status["copilot_answering"]) == ("planning", False)
+    assert "Domanda" not in str(status)  # Copilot's answer stays in its chat
 
 
 def test_errors_come_back_to_the_chatbot(context):

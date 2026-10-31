@@ -1,6 +1,6 @@
 """Agent tasks delegated to Copilot, end to end with a fake Copilot CLI
-(test/fake_copilot.py) on real git repositories: planning chat, ok, execution
-in the worker, the HEAD check, cancellation, the per-repository queue."""
+(test/fake_copilot.py) on real git repositories: planning chat (each turn
+queued for the worker), ok, execution in the worker, the HEAD check, cancellation, the per-repository queue."""
 import json
 import shutil
 import subprocess
@@ -14,7 +14,7 @@ from sqlmodel import SQLModel, create_engine
 
 from core.error import ConflictError, UpstreamError, ValidationError
 from domain.client.copilot.client import CopilotClient, CopilotMode
-from models.domain.copilot import CopilotMessageRole, CopilotSessionStatus
+from models.domain.copilot import CopilotMessageRole, CopilotPlanningTurn, CopilotSessionStatus
 from models.domain.note import AgentTask, TaskStatus
 from models.domain.project import Project, ProjectSource
 from service.copilot_service import CopilotService
@@ -54,9 +54,27 @@ def data(store_service):
     return ProjectDataService(store_service)
 
 
-def _service(store_service, data, command=None, execution_timeout=30.0) -> CopilotService:
+def _service(store_service, data, command=None, execution_timeout=30.0, planning_timeout=30.0) -> CopilotService:
     return CopilotService(store_service, GitService(store_service), data, CopilotClient(command or FAKE),
-                          planning_timeout_seconds=30, execution_timeout_seconds=execution_timeout)
+                          planning_timeout_seconds=planning_timeout, execution_timeout_seconds=execution_timeout)
+
+
+def _threaded_store(store_service, redis_client, tmp_path) -> StoreService:
+    """The worker and the API write the same session at the same time: on a
+    SQLite file (a connection per thread, as Postgres) instead of the shared
+    in-memory one."""
+    engine = create_engine(f"sqlite:///{tmp_path / 'threads.db'}", connect_args={"check_same_thread": False})
+    SQLModel.metadata.create_all(engine)
+    store = StoreService(engine=engine, redis_client=redis_client)
+    store.save_project(store_service.get_project("acme"))
+    return store
+
+
+def _wait(condition, what: str) -> None:
+    deadline = time.monotonic() + 15
+    while not condition():
+        assert time.monotonic() < deadline, what
+        time.sleep(0.1)
 
 
 def _task(data, title="Aggiungi copilot.txt") -> str:
@@ -65,6 +83,26 @@ def _task(data, title="Aggiungi copilot.txt") -> str:
 
 def _turns(tmp_path, session) -> list[dict]:
     return json.loads((tmp_path / "copilot-state" / f"{session.copilot_session_id}.json").read_text(encoding="utf-8"))
+
+
+def _plan(service) -> None:
+    """The worker's side of the planning chat: answers every queued turn."""
+    while service.plan_next() is not None:
+        pass
+
+
+def _start(service, *args, **kwargs):
+    """``start`` and the worker's answer to the first turn."""
+    session = service.start(*args, **kwargs)
+    _plan(service)
+    return service.session(session.id)
+
+
+def _send(service, session_id, text):
+    """``send`` and the worker's answer."""
+    service.send(session_id, text)
+    _plan(service)
+    return service.session(session_id)
 
 
 def _roles(service, session) -> list[str]:
@@ -77,8 +115,8 @@ def test_delegating_a_task_starts_the_planning_chat_on_the_same_copilot_session(
     service = _service(store_service, data)
     note = _task(data)
 
-    session = service.start("acme", note, "api")
-    session = service.send(session.id, "Sì, procedi pure così")
+    session = _start(service, "acme", note, "api")
+    session = _send(service, session.id, "Sì, procedi pure così")
 
     assert session.status == CopilotSessionStatus.PLANNING and session.premium_requests == 2
     messages = service.messages(session.id)
@@ -90,17 +128,107 @@ def test_delegating_a_task_starts_the_planning_chat_on_the_same_copilot_session(
     assert not (project / "api" / "copilot.txt").exists()
 
 
+def test_the_api_answers_at_once_and_the_worker_runs_the_planning_turn(store_service, data, project, tmp_path):
+    service = _service(store_service, data)
+
+    session = service.start("acme", _task(data), "api")
+
+    assert (session.status, session.planning_turn) == (CopilotSessionStatus.PLANNING, CopilotPlanningTurn.QUEUED)
+    assert _roles(service, session) == ["user"] and not (tmp_path / "copilot-state").exists()  # Copilot not started
+    with pytest.raises(ConflictError, match="ancora rispondendo"):
+        service.send(session.id, "ci sei?")  # one turn at a time
+    with pytest.raises(ConflictError, match="ancora rispondendo"):
+        service.approve(session.id)
+    with pytest.raises(ConflictError):
+        service.delete(session.id)
+
+    answered = service.plan_next()
+
+    assert answered.id == session.id and answered.planning_turn is None and answered.premium_requests == 1
+    assert _roles(service, session) == ["user", "copilot"]
+    assert _turns(tmp_path, session)[0]["prompt"] == service.messages(session.id)[0].content  # the saved message is the prompt
+    assert service.plan_next() is None
+    assert service.send(session.id, "procedi").planning_turn == CopilotPlanningTurn.QUEUED
+    assert [turn.phase.value for turn in service.session_turns(session.id)] == ["plan"]  # the second one is not run yet
+
+
+def test_a_planning_turn_runs_while_the_repository_has_an_execution(store_service, data, project):
+    """Plan mode only reads: it does not wait for the repository's execution."""
+    service = _service(store_service, data)
+    executing = _start(service, "acme", _task(data, "Uno"), "api")
+    service.approve(executing.id)
+    assert store_service.claim_next_copilot_session().id == executing.id  # running on api
+    chatting = service.start("acme", _task(data, "Due"), "api")
+
+    assert service.plan_next().id == chatting.id
+    assert _roles(service, chatting) == ["user", "copilot"]
+
+
+def test_cancelling_a_queued_planning_turn_keeps_the_chat_open(store_service, data, project, tmp_path):
+    service = _service(store_service, data)
+    session = service.start("acme", _task(data), "api")
+
+    session = service.cancel(session.id)
+
+    assert (session.status, session.planning_turn) == (CopilotSessionStatus.PLANNING, None)
+    assert service.plan_next() is None and not (tmp_path / "copilot-state").exists()
+    assert _send(service, session.id, "riproviamo").premium_requests == 1  # Copilot answers the new message
+    with pytest.raises(ConflictError):
+        service.cancel(session.id)  # nothing pending
+
+
+def test_cancelling_a_running_planning_turn_stops_copilot(store_service, redis_client, project, tmp_path):
+    store = _threaded_store(store_service, redis_client, tmp_path)
+    data = ProjectDataService(store)
+    service = _service(store, data)
+    session = _start(service, "acme", _task(data), "api")
+    service.send(session.id, "PENSACI bene")
+    result = {}
+    worker = threading.Thread(target=lambda: result.update(session=service.plan_next()))
+    worker.start()
+    _wait(lambda: service.session(session.id).planning_turn == CopilotPlanningTurn.RUNNING, "never started")
+
+    service.cancel(session.id)
+    worker.join(timeout=20)
+
+    assert (result["session"].planning_turn, result["session"].cancel_requested, result["session"].error) == (None, False, None)
+    assert "Risposta annullata" in service.messages(session.id)[-1].content
+    assert service.session_turns(session.id)[-1].cancelled
+
+
+def test_a_slow_planning_turn_is_stopped_by_the_timeout(store_service, data, project):
+    service = _service(store_service, data, planning_timeout=1)
+    session = _start(service, "acme", _task(data), "api")
+
+    session = _send(service, session.id, "PENSACI")
+
+    assert (session.status, session.planning_turn) == (CopilotSessionStatus.PLANNING, None) and "Nessuna risposta" in session.error
+
+
+def test_a_planning_turn_left_running_by_a_dead_worker_ends_at_restart(store_service, data, project):
+    service = _service(store_service, data)
+    session = service.start("acme", _task(data), "api")
+    store_service.claim_next_copilot_planning_turn()  # the worker took it, then died
+
+    assert service.fail_interrupted() == 1
+
+    session = service.session(session.id)
+    assert (session.status, session.planning_turn, session.error) == (CopilotSessionStatus.PLANNING, None, "Worker interrotto.")
+    assert "Manda di nuovo il messaggio" in service.messages(session.id)[-1].content
+    assert _send(service, session.id, "di nuovo").planning_turn is None  # the chat goes on
+
+
 def test_a_session_needs_an_agent_task_a_repository_and_the_cli(store_service, data, project):
     service = _service(store_service, data)
     note = _task(data)
     data.save_note("acme", "appunti", "# libero")
 
     with pytest.raises(ValidationError):
-        service.start("acme", "appunti.md", "api")  # not an agent task
+        _start(service, "acme", "appunti.md", "api")  # not an agent task
     with pytest.raises(ValidationError):
-        service.start("acme", note, "../fuori")
+        _start(service, "acme", note, "../fuori")
     with pytest.raises(ValidationError):
-        service.start("acme", note, "")  # the project folder is not a repository
+        _start(service, "acme", note, "")  # the project folder is not a repository
     with pytest.raises(UpstreamError):
         _service(store_service, data, command="definitely-not-copilot-xyz").start("acme", note, "api")
 
@@ -110,7 +238,7 @@ def test_a_session_needs_an_agent_task_a_repository_and_the_cli(store_service, d
 def test_the_ok_runs_copilot_in_the_worker_without_commits_and_closes_the_task(store_service, data, project, tmp_path):
     service = _service(store_service, data)
     note = _task(data)
-    session = service.start("acme", note, "api")
+    session = _start(service, "acme", note, "api")
     (project / "api" / "mia-modifica.txt").write_text("mia", encoding="utf-8")
 
     session = service.approve(session.id)
@@ -134,7 +262,7 @@ def test_the_ok_runs_copilot_in_the_worker_without_commits_and_closes_the_task(s
 
 def test_a_commit_during_the_execution_is_reported_not_undone(store_service, data, project):
     service = _service(store_service, data)
-    session = service.start("acme", _task(data, "Fai COMMIT"), "api")
+    session = _start(service, "acme", _task(data, "Fai COMMIT"), "api")
     head = _git(project / "api", "rev-parse", "HEAD")
 
     service.approve(session.id)
@@ -151,13 +279,13 @@ def test_a_repository_without_commits_works_and_its_first_commit_is_reported(sto
     _git(fresh, "init", "-q")  # no commit yet: no HEAD
     service = _service(store_service, data)
 
-    clean = service.start("acme", _task(data, "Parti da zero"), "nuovo")
+    clean = _start(service, "acme", _task(data, "Parti da zero"), "nuovo")
     service.approve(clean.id)
     clean = service.run_next()
     assert (clean.status, clean.head_before, clean.head_after, clean.head_moved) == (CopilotSessionStatus.DONE, "", "", False)
     assert clean.changed_files == ["copilot.txt"]
 
-    committed = service.start("acme", _task(data, "Fai COMMIT subito"), "nuovo")
+    committed = _start(service, "acme", _task(data, "Fai COMMIT subito"), "nuovo")
     service.approve(committed.id)
     committed = service.run_next()
     assert committed.head_before == "" and committed.head_moved
@@ -167,41 +295,32 @@ def test_a_repository_without_commits_works_and_its_first_commit_is_reported(sto
 def test_a_failed_execution_reopens_the_task_and_the_chat_can_go_on(store_service, data, project):
     service = _service(store_service, data)
     note = _task(data, "FAIL apposta")
-    session = service.start("acme", note, "api")
+    session = _start(service, "acme", note, "api")
     service.approve(session.id)
 
     session = service.run_next()
 
     assert session.status == CopilotSessionStatus.FAILED and "errore simulato" in session.error
     assert data.agent_task("acme", note).status == TaskStatus.TODO
-    assert service.send(session.id, "riproviamo").status == CopilotSessionStatus.PLANNING
+    assert _send(service, session.id, "riproviamo").status == CopilotSessionStatus.PLANNING
 
 
 def test_cancelling_stops_a_queued_or_running_execution(store_service, redis_client, project, tmp_path):
-    """The worker and the API write the same session at the same time: on a
-    SQLite file (a connection per thread, as Postgres) instead of the shared
-    in-memory one."""
-    engine = create_engine(f"sqlite:///{tmp_path / 'threads.db'}", connect_args={"check_same_thread": False})
-    SQLModel.metadata.create_all(engine)
-    store = StoreService(engine=engine, redis_client=redis_client)
-    store.save_project(store_service.get_project("acme"))
+    store = _threaded_store(store_service, redis_client, tmp_path)
     data = ProjectDataService(store)
     service = _service(store, data)
-    queued = service.start("acme", _task(data, "Primo"), "api")
+    queued = _start(service, "acme", _task(data, "Primo"), "api")
     service.approve(queued.id)
     assert service.cancel(queued.id).status == CopilotSessionStatus.CANCELLED
 
-    running = service.start("acme", _task(data, "SLEEP lungo"), "api")
+    running = _start(service, "acme", _task(data, "SLEEP lungo"), "api")
     service.approve(running.id)
     result = {}
     worker = threading.Thread(target=lambda: result.update(session=service.run_next()))
     worker.start()
-    deadline = time.monotonic() + 15
-    while service.session(running.id).status != CopilotSessionStatus.RUNNING:
-        assert time.monotonic() < deadline, "never started"
-        time.sleep(0.1)
+    _wait(lambda: service.session(running.id).status == CopilotSessionStatus.RUNNING, "never started")
     with pytest.raises(ConflictError):
-        service.send(running.id, "ehi")
+        _send(service, running.id, "ehi")
     service.cancel(running.id)
     worker.join(timeout=20)
 
@@ -212,7 +331,7 @@ def test_cancelling_stops_a_queued_or_running_execution(store_service, redis_cli
 
 def test_a_slow_execution_is_stopped_by_the_timeout(store_service, data, project):
     service = _service(store_service, data, execution_timeout=1)
-    session = service.start("acme", _task(data, "SLEEP"), "api")
+    session = _start(service, "acme", _task(data, "SLEEP"), "api")
     service.approve(session.id)
 
     session = service.run_next()
@@ -222,7 +341,7 @@ def test_a_slow_execution_is_stopped_by_the_timeout(store_service, data, project
 
 def test_one_execution_at_a_time_per_repository(store_service, data, project):
     service = _service(store_service, data)
-    first, second, other = (service.start("acme", _task(data, title), repo)
+    first, second, other = (_start(service, "acme", _task(data, title), repo)
                             for title, repo in (("Uno", "api"), ("Due", "api"), ("Tre", "web")))
     for session in (first, second, other):
         service.approve(session.id)
@@ -235,7 +354,7 @@ def test_one_execution_at_a_time_per_repository(store_service, data, project):
 def test_executions_left_running_by_a_dead_worker_fail_at_restart(store_service, data, project):
     service = _service(store_service, data)
     note = _task(data)
-    session = service.start("acme", note, "api")
+    session = _start(service, "acme", note, "api")
     service.approve(session.id)
     store_service.claim_next_copilot_session()
 
@@ -256,7 +375,7 @@ def test_the_project_definition_replaces_the_global_fields_and_prompts_can_be_fi
 
     settings = service.coding_agent("acme")
     assert settings.denied_tools == [] and settings.execute_prompt.startswith("Ok, procedi")  # execute_prompt from the global
-    session = service.start("acme", _task(data), "api")
+    session = _start(service, "acme", _task(data), "api")
     assert service.messages(session.id)[0].content.startswith("Piano su misura con {braces} JSON.\n\n# Aggiungi copilot.txt")
     service.approve(session.id)
     assert "--deny-tool" not in _turns(tmp_path, service.run_next())[-1]["args"]
@@ -277,8 +396,8 @@ def test_delegating_with_a_chosen_prompt_and_model_uses_them_for_every_turn(stor
 
     assert list(service.coding_agent("acme").prompts) == ["bug", "refactor"]
     assert service.coding_agent("acme").prompts["bug"].startswith("Bug, a modo di acme.")  # the project's wins
-    session = service.start("acme", _task(data), "api", prompt="bug", model="gpt-5")
-    service.send(session.id, "ok")
+    session = _start(service, "acme", _task(data), "api", prompt="bug", model="gpt-5")
+    _send(service, session.id, "ok")
     service.approve(session.id)
     session = service.run_next()
 
@@ -287,10 +406,10 @@ def test_delegating_with_a_chosen_prompt_and_model_uses_them_for_every_turn(stor
     turns = _turns(tmp_path, session)
     assert len(turns) == 3 and all(turn["args"][turn["args"].index("--model") + 1] == "gpt-5" for turn in turns)
     with pytest.raises(ValidationError, match="Modello non previsto"):
-        service.start("acme", _task(data, "Altro"), "api", model="gpt-4")
+        _start(service, "acme", _task(data, "Altro"), "api", model="gpt-4")
     with pytest.raises(ValidationError, match="Prompt non trovato"):
-        service.start("acme", _task(data, "Altro ancora"), "api", prompt="manca")
-    assert "--model" not in _turns(tmp_path, service.start("acme", _task(data, "Default"), "api"))[0]["args"]
+        _start(service, "acme", _task(data, "Altro ancora"), "api", prompt="manca")
+    assert "--model" not in _turns(tmp_path, _start(service, "acme", _task(data, "Default"), "api"))[0]["args"]
 
 
 def test_a_prompt_file_without_the_task_placeholder_is_an_error(store_service, data, project, config):
@@ -318,12 +437,12 @@ def test_a_missing_or_broken_global_definition_stops_copilot(store_service, data
 
     assert error in service.coding_agent_or_error("acme")[1]
     with pytest.raises(ValidationError, match=error.replace("{", r"\{").replace("}", r"\}")):
-        service.start("acme", _task(data), "api")
+        _start(service, "acme", _task(data), "api")
 
 
 def test_an_execution_fails_when_the_definition_broke_after_the_ok(store_service, data, project, config):
     service = _service(store_service, data)
-    session = service.start("acme", _task(data), "api")
+    session = _start(service, "acme", _task(data), "api")
     service.approve(session.id)
     (config.definitions_root / "global-coding-agent.yml").unlink()
 
@@ -356,8 +475,8 @@ def test_each_turn_records_what_it_used_out_of_the_session_totals(store_service,
     (config.definitions_root / "global-coding-agent.yml").write_text(
         (config.definitions_root / "global-coding-agent.yml").read_text(encoding="utf-8") + "models: [gpt-5]\n", encoding="utf-8")
     service = _service(store_service, data)
-    session = service.start("acme", _task(data), "api", model="gpt-5")
-    service.send(session.id, "ok")
+    session = _start(service, "acme", _task(data), "api", model="gpt-5")
+    _send(service, session.id, "ok")
     service.approve(session.id)
     service.run_next()
 
@@ -375,7 +494,7 @@ def test_each_turn_records_what_it_used_out_of_the_session_totals(store_service,
 
 def test_a_turn_killed_before_writing_its_usage_records_none(store_service, data, project):
     service = _service(store_service, data, execution_timeout=1)
-    session = service.start("acme", _task(data, "SLEEP"), "api")
+    session = _start(service, "acme", _task(data, "SLEEP"), "api")
     service.approve(session.id)
     service.run_next()
 
@@ -430,8 +549,8 @@ def test_models_come_with_their_price_cheapest_first_and_what_they_cost_so_far(s
   - {name: senza-cache-write, input: 2, cached_input: 0.1, output: 10}
 """, encoding="utf-8")
     service = _service(store_service, data)
-    session = service.start("acme", _task(data), "api", model="economico")
-    service.send(session.id, "ok")
+    session = _start(service, "acme", _task(data), "api", model="economico")
+    _send(service, session.id, "ok")
 
     options = service.model_options(service.coding_agent("acme"))
 
@@ -459,8 +578,8 @@ def test_a_wrong_model_price_is_an_error(store_service, data, project, config, m
 def test_deleting_a_tasks_sessions_keeps_the_others_and_the_usage(store_service, data, project):
     service = _service(store_service, data)
     note, other = _task(data), _task(data, "Altro")
-    first, second = service.start("acme", note, "api"), service.start("acme", note, "web")
-    kept = service.start("acme", other, "api")
+    first, second = _start(service, "acme", note, "api"), _start(service, "acme", note, "web")
+    kept = _start(service, "acme", other, "api")
     service.approve(second.id)
 
     with pytest.raises(ConflictError):
@@ -485,7 +604,7 @@ def test_copilot_reads_the_task_and_its_references_from_a_folder_rebuilt_every_t
     ref = data.create_reference("acme", NoteType.CODE_REFERENCE, Reference(title="Login", path="src/a.py", content="v1"))
     note = data.create_agent_task("acme", AgentTask(title="Con riferimenti", references=[ref, "context-reference-sparito.md"]))
 
-    session = service.start("acme", note, "api")
+    session = _start(service, "acme", note, "api")
 
     turn = _turns(tmp_path, session)[0]
     folder = Path(turn["args"][[i for i, arg in enumerate(turn["args"]) if arg == "--add-dir"][1] + 1])
@@ -494,7 +613,7 @@ def test_copilot_reads_the_task_and_its_references_from_a_folder_rebuilt_every_t
     assert "# Con riferimenti" in (folder / "task.md").read_text(encoding="utf-8")
 
     data.save_reference("acme", ref, Reference(title="Login", path="src/a.py", content="v2"))
-    service.send(session.id, "e adesso?")
+    _send(service, session.id, "e adesso?")
     assert "v2" in (folder / "code-reference-login.md").read_text(encoding="utf-8")  # always current
     assert _turns(tmp_path, session)[1]["args"].count("--add-dir") == 2
 
@@ -505,11 +624,11 @@ def test_copilot_reads_the_task_and_its_references_from_a_folder_rebuilt_every_t
 def test_without_references_nothing_is_added_and_a_deleted_task_still_lets_the_chat_go_on(store_service, data, project, tmp_path):
     service = _service(store_service, data)
     note = _task(data)
-    session = service.start("acme", note, "api")
+    session = _start(service, "acme", note, "api")
     assert "riferimenti" not in _turns(tmp_path, session)[0]["prompt"].lower()
 
     data.delete_note("acme", note)
-    session = service.send(session.id, "ci sei?")
+    session = _send(service, session.id, "ci sei?")
 
     assert session.status == CopilotSessionStatus.PLANNING and _turns(tmp_path, session)[-1]["args"].count("--add-dir") == 1
 

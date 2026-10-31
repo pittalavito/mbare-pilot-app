@@ -1429,7 +1429,8 @@ export interface paths {
         put?: never;
         /**
          * Start Session
-         * @description Delegate an agent task: the first planning turn runs now (Copilot reads the code and asks).
+         * @description Delegate an agent task: returns at once, with the first planning turn queued for the worker
+         *     (Copilot reads the code and asks; its answer arrives in the messages).
          */
         post: operations["start_session_projects__project__copilot_sessions_post"];
         /**
@@ -1478,7 +1479,7 @@ export interface paths {
         put?: never;
         /**
          * Send Message
-         * @description A message of the planning chat; returns when Copilot has answered.
+         * @description A message of the planning chat: returns at once, the worker runs the turn (409 while the previous one is pending).
          */
         post: operations["send_message_copilot_sessions__session_id__messages_post"];
         delete?: never;
@@ -1576,7 +1577,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Cancel */
+        /**
+         * Cancel
+         * @description Stops the execution, or Copilot's pending answer in the planning chat (the chat stays open).
+         */
         post: operations["cancel_copilot_sessions__session_id__cancel_post"];
         delete?: never;
         options?: never;
@@ -2102,6 +2106,8 @@ export interface components {
             model: string;
             /** Status */
             status: string;
+            /** Planning Turn */
+            planning_turn: string | null;
             /** Cancel Requested */
             cancel_requested: boolean;
             /** Head Before */

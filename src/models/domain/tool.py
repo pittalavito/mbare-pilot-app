@@ -54,11 +54,10 @@ class ListAgentTasksResponse(BaseModel):
 
 
 class DelegateTaskResponse(BaseModel):
-    """The planning chat with Copilot is open: Copilot's questions are there, not here."""
+    """The planning chat with Copilot is open: Copilot's questions arrive there shortly (the worker writes them), not here."""
     session_id: int = Field(..., description="The Copilot session: copilot_status wants it.")
     task: str
     repository: MaskRepositoryName = Field(..., description="Repository folder inside the project ('' = the project folder).")
-    copilot_answered: bool = Field(..., description="Copilot read the task and answered (questions or a plan) in its chat.")
     chat: str = Field(..., description="Link to the Copilot chat in the app: give it to the user as a markdown link.")
     next_step: str = Field(..., description="What the user has to do now.")
 
@@ -68,6 +67,7 @@ class CopilotStatusResponse(BaseModel):
     session_id: int
     task: str
     status: str = Field(..., description="planning (chat open, waiting for the user's ok), queued, running, done, failed or cancelled.")
+    copilot_answering: bool = Field(..., description="Copilot is still writing in the planning chat (the worker runs it).")
     changed_files: int = Field(..., description="Files changed in the repository when the execution ended.")
     head_moved: bool = Field(..., description="True when a commit happened despite the rules: the user must check.")
     chat: str = Field(..., description="Link to the Copilot chat in the app.")

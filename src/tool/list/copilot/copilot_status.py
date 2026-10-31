@@ -15,7 +15,8 @@ from tool.spec import ToolSpec
 SessionId = Annotated[int, "The session id that delegate_task answered with."]
 
 _DESCRIPTION = (
-    "How a task delegated to Copilot is going: planning (its chat waits for the user's ok), queued, running, done, "
+    "How a task delegated to Copilot is going: planning (its chat waits for the user's ok; copilot_answering while "
+    "Copilot is still writing there), queued, running, done, "
     "failed or cancelled, with the number of changed files. Only statuses: the details are in the Copilot chat. "
     "Use it when the user asks how a delegated task went."
 )
@@ -37,6 +38,7 @@ def build(context: ToolContext) -> Tool:
             session_id=session_id,
             task=session.task_note,
             status=session.status.value,
+            copilot_answering=session.planning_turn is not None,
             changed_files=len(session.changed_files),
             head_moved=session.head_moved,
             chat=chat_link(session.project_name, session_id),

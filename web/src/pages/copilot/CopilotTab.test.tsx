@@ -10,7 +10,8 @@ import { CopilotTab } from "./CopilotTab";
 afterEach(() => vi.unstubAllGlobals());
 
 const session = (patch: Partial<CopilotSession> = {}): CopilotSession => ({
-  id: 4, project_name: "acme", task_note: "agent-task-fix-porto.md", repository: "api", prompt: "", model: "", status: "planning", cancel_requested: false,
+  id: 4, project_name: "acme", task_note: "agent-task-fix-porto.md", repository: "api", prompt: "", model: "", status: "planning", planning_turn: null,
+  cancel_requested: false,
   head_before: null, head_after: null, head_moved: false, changed_files: [], premium_requests: 1, error: null,
   created_at: "2026-10-26T10:00:00Z", updated_at: "2026-10-26T10:00:00Z", started_at: null, finished_at: null, ...patch,
 });
@@ -30,7 +31,7 @@ const renderTab = (route = "/projects/acme/copilot") =>
 
 describe("CopilotTab", () => {
   it("shows the planning chat, answers Copilot and gives the ok", async () => {
-    const sent = vi.fn(async (request: Request) => ({ ...session(), ...(await request.json()) }));
+    const sent = vi.fn(async (request: Request) => ({ ...session({ planning_turn: "queued" }), ...(await request.json()) }));
     const approved = vi.fn(() => session({ status: "queued" }));
     mockApi({
       "GET /copilot/status": { installed: true, version: "GitHub Copilot CLI 1.0.103." },
@@ -79,6 +80,50 @@ describe("CopilotTab", () => {
     fireEvent.click(screen.getByText("altro"));
     expect(await screen.findByText("calc.py")).toBeInTheDocument();
     expect(screen.getByText(/L'HEAD è cambiato/)).toBeInTheDocument();
+  });
+
+  it("while Copilot writes the chat waits, follows the worker's answer and warns when no worker is on", async () => {
+    let answered = false;
+    mockApi({
+      "GET /copilot/status": { installed: true, version: "x" },
+      "GET /admin/worker": { workers: [] },
+      "GET /projects/acme/copilot-sessions": () => [session({ planning_turn: answered ? null : "queued" })],
+      "GET /copilot-sessions/4/messages": () => {
+        if (answered) return MESSAGES;
+        answered = true; // the worker answers before the next poll
+        return MESSAGES.slice(0, 1);
+      },
+    });
+    renderTab();
+
+    expect(await screen.findByText("Copilot sta scrivendo…")).toBeInTheDocument();
+    expect(screen.getAllByText("Copilot scrive…").length).toBeGreaterThan(0); // the badges
+    expect(screen.getByPlaceholderText(/Copilot sta scrivendo: aspetta/)).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Ok, parti/ })).toBeDisabled();
+    expect(await screen.findByText(/Nessun worker attivo: Copilot risponde solo quando il worker è acceso/)).toBeInTheDocument();
+
+    expect(await screen.findByText("Domanda", {}, { timeout: 5_000 })).toBeInTheDocument(); // polled every 3 seconds
+    await waitFor(() => expect(screen.queryByText("Copilot sta scrivendo…")).not.toBeInTheDocument(), { timeout: 5_000 });
+    expect(screen.getByPlaceholderText(/Rispondi a Copilot/)).toBeEnabled();
+    expect(screen.getByRole("button", { name: /Ok, parti/ })).toBeEnabled();
+  }, 15_000);
+
+  it("stops Copilot's pending answer", async () => {
+    const cancelled = vi.fn(() => session());
+    mockApi({
+      "GET /copilot/status": { installed: true, version: "x" },
+      "GET /admin/worker": { workers: [{ worker_id: "h-1", host: "h", pid: 1, busy_run_id: null, busy_copilot_session_id: 4 }] },
+      "GET /projects/acme/copilot-sessions": [session({ planning_turn: "running" })],
+      "GET /copilot-sessions/4/messages": MESSAGES.slice(0, 1),
+      "POST /copilot-sessions/4/cancel": cancelled,
+    });
+    renderTab();
+
+    expect(await screen.findByText("Copilot sta scrivendo…")).toBeInTheDocument();
+    expect(screen.queryByText(/Nessun worker attivo/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Elimina" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Annulla/ }));
+    await waitFor(() => expect(cancelled).toHaveBeenCalled());
   });
 
   it("marks the sessions whose agent task was deleted", async () => {

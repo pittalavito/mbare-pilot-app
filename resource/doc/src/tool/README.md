@@ -17,8 +17,8 @@ I tool che un agente può chiamare durante una run:
 | `create_todo_list` | **con contesto**, solo chatbot | crea una todo list con le sue voci |
 | `update_todo_list` | **con contesto**, solo chatbot | aggiunge voci in fondo e spunta o despunta per numero; non cancella né rinomina, i riferimenti collegati restano |
 | `list_agent_tasks` | **con contesto**, solo chatbot | gli agent task del progetto (nome, titolo, stato) con lo stato dell'ultima sessione Copilot, se c'è Copilot: quelli che si possono delegare |
-| `delegate_task` | **con contesto**, solo chatbot | delega un agent task a Copilot su un repository: apre la chat di preparazione e restituisce il link |
-| `copilot_status` | **con contesto**, solo chatbot | stato di un task delegato: solo lo stato, quanti file ha cambiato e se l'HEAD si è mosso |
+| `delegate_task` | **con contesto**, solo chatbot | delega un agent task a Copilot su un repository: apre la chat di preparazione e restituisce subito il link (Copilot risponde lì, dal worker) |
+| `copilot_status` | **con contesto**, solo chatbot | stato di un task delegato: solo lo stato, se Copilot sta ancora scrivendo in chat, quanti file ha cambiato e se l'HEAD si è mosso |
 | `read_context` | **con contesto** | il contesto del progetto per il chatbot: i `.md` di `project/<slug>/context/` (la cartella che indicizzerà il RAG); ultima risorsa |
 
 ```
@@ -109,9 +109,9 @@ I tool del chatbot `secretary` ([service](../service/README.md)), in `notes/todo
 Il chatbot delega un agent task (`agent-task-<titolo>.md`, l'elenco lo dà `list_agent_tasks`) a GitHub Copilot su un repository del progetto ([service](../service/README.md#copilot)).
 
 - **Conferma**: la descrizione del tool chiede al chatbot di dire quale task e quale repository e di aspettare un sì esplicito nel messaggio successivo. La rete di sicurezza vera è dopo: il tool apre solo la **chat di preparazione** (Copilot legge e fa domande, non può modificare niente); l'esecuzione parte solo con «Ok, parti» nella chat.
-- **Cosa restituisce**: id della sessione, se Copilot ha risposto, il **link** alla chat (`/projects/<progetto>/copilot?session=<id>`) e il passo successivo. Le domande di Copilot restano nella sua chat: possono citare il codice.
-- **Tempo**: il primo turno di Copilot gira dentro la chiamata (decine di secondi).
-- `copilot_status(session_id)`: solo lo stato, quanti file sono cambiati e `head_moved`; sessioni di altri progetti non trovate.
+- **Cosa restituisce**: id della sessione, il **link** alla chat (`/projects/<progetto>/copilot?session=<id>`) e il passo successivo. Le domande di Copilot restano nella sua chat: possono citare il codice.
+- **Tempo**: risponde subito. Il primo turno di Copilot lo esegue il worker (deve essere acceso), quindi la risposta del chatbot non aspetta Copilot; la descrizione del tool dice al chatbot di non aspettarlo e di non riportare cosa ha detto.
+- `copilot_status(session_id)`: solo lo stato, `copilot_answering` (un turno di preparazione in coda o in corso), quanti file sono cambiati e `head_moved`; sessioni di altri progetti non trovate.
 - Solo nel chatbot di un progetto (`copilot_run()`), come i tool delle automation.
 
 ## Pull: `git_pull_fast_forward(repository)`
@@ -179,7 +179,7 @@ In entrambi i casi: il modello di output in `models/domain/tool.py`.
 - `test/unit/tool/test_hello_world.py`
 - `test/unit/tool/test_run_automation.py`: run messa in coda con risposta immediata, solo automation attive e con step nella descrizione, automation sconosciuta, niente lancio fuori dal chatbot di un progetto (run manuale, fuori da un progetto, dentro un'automation, anche eseguita davvero dal runner).
 - `test/unit/tool/test_automation_status.py`: solo gli stati dell'esecuzione e degli step, mai output o errori; esecuzioni di altri progetti non trovate; solo nel chatbot.
-- `test/unit/tool/test_copilot_tools.py`: elenco dei task, delega che apre la chat senza riportare le risposte di Copilot, stato, errori con i repository disponibili, solo nel chatbot (con il finto Copilot di `test/fake_copilot.py`).
+- `test/unit/tool/test_copilot_tools.py`: elenco dei task, delega che apre la chat senza aspettare Copilot (il turno lo fa `plan_next`, come il worker) e senza riportarne le risposte, stato, errori con i repository disponibili, solo nel chatbot (con il finto Copilot di `test/fake_copilot.py`).
 - `test/unit/tool/test_read_context.py`: i `.md` di `context/`, nient'altro; errori senza file o senza progetto.
 - `test/unit/tool/test_git_write.py`: pull e stash con un remoto vero: commit arrivati, già aggiornato, modifiche locali che bloccano, file non tracciati che non bloccano, branch divergente mai unito, branch senza upstream, autori registrati per il mascheramento, errori senza percorsi locali; stash dei soli file tracciati, stash e poi pull, niente da mettere da parte; stash apply dell'ultimo o di uno indicato (lo stash resta), errori (nessuno stash, stash inesistente o non valido, modifiche locali), conflitti segnalati.
 - `test/unit/tool/test_git_tools.py`: `git_status` su un repository vero; progetto deciso dalla run, errori con i repository disponibili, percorsi fuori dal progetto, run senza progetto, schema degli argomenti, percorsi locali nascosti negli errori. Serve `git` nel PATH.

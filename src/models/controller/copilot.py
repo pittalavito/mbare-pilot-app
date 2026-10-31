@@ -32,6 +32,8 @@ class CopilotSessionResponse(BaseModel):
     """``""`` = the default."""
     status: str
     """``planning`` | ``queued`` | ``running`` | ``done`` | ``failed`` | ``cancelled``."""
+    planning_turn: str | None
+    """While ``planning``: ``queued`` (the message waits for a worker) | ``running`` (Copilot is answering) | null (Copilot answered)."""
     cancel_requested: bool
     head_before: str | None
     head_after: str | None

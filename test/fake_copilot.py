@@ -8,6 +8,9 @@ arguments it got. What it does depends on the task (the session's first prompt):
 - ``SLEEP``: the execution sleeps (for cancellation and timeouts);
 - ``FAIL``: the execution fails (exit code 1, message on stderr).
 
+A plan turn whose own prompt says ``PENSACI`` sleeps (for cancelling a planning
+turn and its timeout).
+
 In plan mode it never writes in the working directory, as the real CLI. With
 ``--usage-output-file`` it writes the session's cumulative usage like the real
 one: each turn adds 1 premium request, 0.1 AI credits, 1000 input and 10 output
@@ -36,6 +39,8 @@ def main() -> int:
     usage_file = args[args.index("--usage-output-file") + 1] if "--usage-output-file" in args else None
     model = args[args.index("--model") + 1] if "--model" in args else "fake-default"
     if mode == "plan":
+        if "PENSACI" in prompt:
+            time.sleep(60)
         _answer(f"Domanda {len(turns)}: confermi? (turni in questa sessione: {len(turns)})", len(turns))
         _usage(usage_file, len(turns), model)
         return 0

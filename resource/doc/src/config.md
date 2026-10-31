@@ -19,7 +19,7 @@ Valori derivati:
 | `copilot_command` | `COPILOT_COMMAND` | `copilot`: GitHub Copilot CLI (nome nel PATH o percorso) |
 | `copilot_model` | `COPILOT_MODEL` | vuoto: il modello predefinito di Copilot |
 | `copilot_github_token` | `COPILOT_GITHUB_TOKEN` | vuoto: vale il login fatto con `copilot` → `/login` |
-| `copilot_planning_timeout_minutes`, `copilot_execution_timeout_minutes` | `COPILOT_PLANNING_TIMEOUT_MINUTES`, `COPILOT_EXECUTION_TIMEOUT_MINUTES` | 5 e 60: un turno di preparazione, un'esecuzione |
+| `copilot_planning_timeout_minutes`, `copilot_execution_timeout_minutes` | `COPILOT_PLANNING_TIMEOUT_MINUTES`, `COPILOT_EXECUTION_TIMEOUT_MINUTES` | 5 e 60: un turno di preparazione, un'esecuzione (entrambi nel worker) |
 | `automation_cache_threshold` | `AUTOMATION_CACHE_THRESHOLD` (vecchio nome `CHAT_ROUTE_THRESHOLD`) | 0,9: quanto un messaggio deve somigliare (coseno) a una voce della cache delle automation per lanciarne l'automation senza agente |
 | `automation_cache_embedder` | `AUTOMATION_CACHE_EMBEDDER` (vecchio nome `CHAT_ROUTE_EMBEDDER`) | `hashing`: l'embedder della cache (oppure `openrouter/<modello>`) |
 | `app_root`, `run_dir`, `logs_dir` | cartella dell'app, `resource/run`, `resource/logs` | file PID e log di API e worker |

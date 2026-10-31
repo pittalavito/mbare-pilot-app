@@ -56,7 +56,14 @@ from models.domain.agent import AgentConfig, AgentRole, AgentRunRecord, AgentRun
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
 from models.domain.chat import ChatModel
 from models.domain.chatbot import AutomationCacheEntry, Chatbot, ChatMessage, Conversation
-from models.domain.copilot import CopilotMessage, CopilotModelUsage, CopilotSession, CopilotSessionStatus, CopilotTurnRecord
+from models.domain.copilot import (
+    CopilotMessage,
+    CopilotModelUsage,
+    CopilotPlanningTurn,
+    CopilotSession,
+    CopilotSessionStatus,
+    CopilotTurnRecord,
+)
 from models.domain.masking import MaskCategory, MaskEntry
 from models.domain.pipeline import Pipeline, PipelineRun, PipelineStepRun, RunStatus
 from models.domain.project import Project, ProjectSource
@@ -441,6 +448,14 @@ class StoreService:
 
     def list_copilot_sessions_by_status(self, status: CopilotSessionStatus) -> list[CopilotSession]:
         return [DbAdapter.to_copilot_session(row) for row in self._copilot_session_repository.list_by_status(status.value)]
+
+    def list_copilot_sessions_by_planning_turn(self, planning_turn: CopilotPlanningTurn) -> list[CopilotSession]:
+        return [DbAdapter.to_copilot_session(row) for row in self._copilot_session_repository.list_by_planning_turn(planning_turn.value)]
+
+    def claim_next_copilot_planning_turn(self) -> CopilotSession | None:
+        """The planning turn that has waited longest, now ``running`` (atomic: two workers never get the same)."""
+        row = self._copilot_session_repository.claim_next_planning_turn()
+        return DbAdapter.to_copilot_session(row) if row else None
 
     def claim_next_copilot_session(self) -> CopilotSession | None:
         """The next queued execution whose repository is free, now ``running``."""

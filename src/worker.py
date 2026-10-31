@@ -1,5 +1,6 @@
 """Automation worker: a process apart from the API that executes the queued
-pipeline runs and Copilot executions, one at a time. Started by the API from the app's header (or `python src/worker.py`);
+pipeline runs, Copilot's planning turns and Copilot executions, one at a time
+(planning turns first: the user is waiting in the chat). Started by the API from the app's header (or `python src/worker.py`);
 more workers can run together (the queue never hands a run to two of them).
 
 While alive it beats every few seconds in Redis (also during a long run, from
@@ -70,14 +71,16 @@ def main() -> None:
     heartbeat = _Heartbeat(container.pipeline_service)
     interrupted = runner.fail_interrupted() + copilot.fail_interrupted()
     if interrupted:
-        log_info(LogPrefix.WORKER, "%s esecuzioni interrotte segnate come fallite", interrupted)
+        log_info(LogPrefix.WORKER, "%s esecuzioni o turni di Copilot interrotti segnati come falliti", interrupted)
     heartbeat.start()
     log_info(LogPrefix.WORKER, "Worker %s in attesa di automation da eseguire (Ctrl+C per fermare)",
              heartbeat.status.worker_id)
     try:
         while True:
             try:
-                done = runner.run_next(on_claim=lambda claimed: heartbeat.busy(run_id=claimed.id))
+                done = copilot.plan_next(on_claim=lambda claimed: heartbeat.busy(copilot_session_id=claimed.id))
+                if done is None:
+                    done = runner.run_next(on_claim=lambda claimed: heartbeat.busy(run_id=claimed.id))
                 if done is None:
                     done = copilot.run_next(on_claim=lambda claimed: heartbeat.busy(copilot_session_id=claimed.id))
                 if done is None:

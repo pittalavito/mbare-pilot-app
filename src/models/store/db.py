@@ -298,7 +298,8 @@ class PipelineStepRunTable(SQLModel, table=True):
 
 class CopilotSessionTable(SQLModel, table=True):
     """An agent task delegated to Copilot CLI: the planning chat, then the
-    execution. Also the worker queue of the executions (``queued`` rows)."""
+    execution. Also the worker queue of the executions (``queued`` rows) and
+    of the planning turns (``planning_turn = 'queued'``)."""
     __tablename__ = "copilot_session"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -312,6 +313,8 @@ class CopilotSessionTable(SQLModel, table=True):
     """Copilot's model for every turn; ``""`` = COPILOT_MODEL or Copilot's default."""
     status: str = Field(index=True)
     """``planning`` | ``queued`` | ``running`` | ``done`` | ``failed`` | ``cancelled``."""
+    planning_turn: str | None = None
+    """``queued`` | ``running`` | NULL: the planning turn in the worker's queue (only while ``planning``)."""
     cancel_requested: bool = False
     head_before: str | None = None
     head_after: str | None = None
