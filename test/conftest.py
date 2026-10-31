@@ -121,6 +121,11 @@ def project_store(stores):
 
 
 @pytest.fixture
+def chatbot_store(stores):
+    return stores.chatbots
+
+
+@pytest.fixture
 def store_service(stores):
     return stores.store_service
 

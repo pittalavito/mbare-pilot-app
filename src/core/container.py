@@ -78,14 +78,14 @@ class Container:
             copilot_service=self.copilot_service,
         )
         self.automation_cache_service = AutomationCacheService(
-            store_service=self.store_service,
+            chatbots=stores.chatbots,
             pipeline_service=self.pipeline_service,
             embedder=EmbedderFactory.create(config.automation_cache_embedder),
             threshold=config.automation_cache_threshold,
             masking_service=self.masking_service,
         )
         self.chatbot_service = ChatbotService(
-            store_service=self.store_service, projects=stores.projects,
+            chatbots=stores.chatbots, projects=stores.projects,
             catalog=stores.catalog,
             agent_config_service=self.agent_config_service,
             agent_service=self.agent_service,

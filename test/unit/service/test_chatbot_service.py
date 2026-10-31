@@ -34,13 +34,13 @@ def agents(monkeypatch):
 
 
 @pytest.fixture
-def service(store_service, agent_config_service, agents, monkeypatch, make_agent_service, catalog_store, project_store):
+def service(agent_config_service, agents, monkeypatch, make_agent_service, catalog_store, project_store, chatbot_store):
     for name in ("acme", "other"):
         project_store.save(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/code/{name}"))
     chat = ChatService()
     monkeypatch.setattr(chat, "get_client", lambda model: object())
     agent_service = make_agent_service(chat)
-    return ChatbotService(store_service, project_store, catalog_store, agent_config_service, agent_service)
+    return ChatbotService(chatbot_store, project_store, catalog_store, agent_config_service, agent_service)
 
 
 def _create(service, project="acme", name="Bot", **overrides):

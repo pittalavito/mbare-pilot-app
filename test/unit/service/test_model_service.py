@@ -63,9 +63,9 @@ def test_duplicates_rejected(service):
         service.save_catalog([model, model])
 
 
-def test_model_in_use_cannot_be_deleted_only_deactivated(service, store_service, project_store):
+def test_model_in_use_cannot_be_deleted_only_deactivated(service, project_store, chatbot_store):
     project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
-    store_service.save_chatbot(Chatbot(project_name="acme", name="Bot", system_prompt="x", model="ollama/mistral:7b"))
+    chatbot_store.save_chatbot(Chatbot(project_name="acme", name="Bot", system_prompt="x", model="ollama/mistral:7b"))
     without = [model for model in service.list_models() if model.key != "ollama/mistral:7b"]
 
     with pytest.raises(ConflictError, match="ollama/mistral:7b"):

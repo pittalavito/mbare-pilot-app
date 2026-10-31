@@ -26,7 +26,7 @@ from models.domain.chatbot import AutomationCacheEntry, AutomationCacheMatch, Me
 from models.domain.pipeline import Pipeline, PipelineRun
 from service.masking_service import MaskingService, MaskSession
 from service.pipeline_service import PipelineService
-from service.store_service import StoreService
+from service.store.chatbot_store import ChatbotStore
 
 CACHE_BYPASS = "!"
 """A message starting with it goes to the agent, never to the cache."""
@@ -36,13 +36,13 @@ _LOGGED_TEXT = 80
 
 class AutomationCacheService:
 
-    def __init__(self, store_service: StoreService, pipeline_service: PipelineService, embedder: Embedder, threshold: float,
+    def __init__(self, chatbots: ChatbotStore, pipeline_service: PipelineService, embedder: Embedder, threshold: float,
                  masking_service: MaskingService | None = None):
         """``masking_service`` is required with an embedder that is not local;
         without it the "same values" rule cannot apply (no aliases)."""
         if not embedder.local and masking_service is None:
             raise ValidationError(f"L'embedder {embedder.name} manda il testo fuori dal PC: serve il mascheramento.")
-        self._store = store_service
+        self._chatbots = chatbots
         self._pipelines = pipeline_service
         self._embedder = embedder
         self._threshold = threshold
@@ -50,18 +50,18 @@ class AutomationCacheService:
 
     def entries(self, chatbot_id: int) -> list[AutomationCacheEntry]:
         """A chatbot's entries, oldest first."""
-        return self._store.list_automation_cache_entries(chatbot_id)
+        return self._chatbots.list_automation_cache_entries(chatbot_id)
 
     @observed(LogPrefix.AUTOMATION_CACHE_SERVICE)
     def add(self, message_id: int, pipeline_id: int, pipeline_input: str = "") -> AutomationCacheEntry:
         """Put a user message in its chatbot's cache, launching ``pipeline_id``
         with ``pipeline_input`` (fixed: the same for every similar message)."""
-        message = self._store.get_message(message_id)
+        message = self._chatbots.get_message(message_id)
         if message is None:
             raise NotFoundError(f"Messaggio non trovato: {message_id}")
         if message.role is not MessageRole.USER:
             raise ValidationError("In cache vanno solo i tuoi messaggi, non le risposte.")
-        chatbot = self._store.get_chatbot(self._store.get_conversation(message.conversation_id).chatbot_id)
+        chatbot = self._chatbots.get_chatbot(self._chatbots.get_conversation(message.conversation_id).chatbot_id)
         if not chatbot.has_automation_cache:
             raise ValidationError(f"La cache delle automation è solo dei chatbot di tipo automation: {chatbot.name} non lo è.")
         chatbot_id, project_name = chatbot.id, chatbot.project_name
@@ -70,7 +70,7 @@ class AutomationCacheService:
         if any(entry.message_id == message_id for entry in self.entries(chatbot_id)):
             raise ConflictError("Questo messaggio è già in cache.")
         text = message.content.removeprefix(CACHE_BYPASS).strip()
-        entry = self._store.save_automation_cache_entry(AutomationCacheEntry(
+        entry = self._chatbots.save_automation_cache_entry(AutomationCacheEntry(
             chatbot_id=chatbot_id,
             message_id=message_id,
             text=text,
@@ -84,7 +84,7 @@ class AutomationCacheService:
         return entry
 
     def remove(self, entry_id: int) -> bool:
-        return self._store.delete_automation_cache_entry(entry_id)
+        return self._chatbots.delete_automation_cache_entry(entry_id)
 
     def match(self, chatbot_id: int, text: str) -> AutomationCacheMatch | None:
         """The entry most similar to ``text`` among those naming the same
@@ -93,7 +93,7 @@ class AutomationCacheService:
         entries = self.entries(chatbot_id)
         if not entries:
             return None
-        session = self._session(self._store.get_chatbot(chatbot_id).project_name)
+        session = self._session(self._chatbots.get_chatbot(chatbot_id).project_name)
         values = self._values(text, session)
         try:
             embedding = self._embed(text, session)
@@ -125,7 +125,7 @@ class AutomationCacheService:
         """Queue the entry's automation (checked as run_automation does: active,
         with steps) and count the hit."""
         run = self._pipelines.enqueue(entry.pipeline_id, entry.pipeline_input)
-        self._store.save_automation_cache_entry(entry.model_copy(update={"hits": entry.hits + 1}))
+        self._chatbots.save_automation_cache_entry(entry.model_copy(update={"hits": entry.hits + 1}))
         return self._pipelines.get_pipeline(entry.pipeline_id), run
 
     # --------------------------------------------------------------- helpers
@@ -150,7 +150,7 @@ class AutomationCacheService:
         another embedder is embedded again from its text, and saved."""
         if entry.embedder == self._embedder.name:
             return entry
-        updated = self._store.save_automation_cache_entry(entry.model_copy(update={
+        updated = self._chatbots.save_automation_cache_entry(entry.model_copy(update={
             "embedder": self._embedder.name,
             "embedding": self._embed(entry.text, session),
         }))

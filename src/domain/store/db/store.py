@@ -8,12 +8,6 @@ from datetime import datetime, timezone
 
 from domain.store.db.atlassian_favorite_repository import DbAtlassianFavoriteRepository
 from domain.store.db.atlassian_repository import DbAtlassianRepository
-from domain.store.db.chatbot_repository import (
-    DbAutomationCacheRepository,
-    DbChatbotRepository,
-    DbConversationRepository,
-    DbMessageRepository,
-)
 from domain.store.db.copilot_repository import USAGE_COLUMNS, DbCopilotMessageRepository, DbCopilotSessionRepository, DbCopilotTurnRepository
 from domain.store.db.pipeline_repository import (
     DbPipelineEdgeRepository,
@@ -24,7 +18,6 @@ from domain.store.db.pipeline_repository import (
 )
 from domain.store.db.repository import Engine, transaction
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
-from models.domain.chatbot import AutomationCacheEntry, Chatbot, ChatMessage, Conversation, MessageRole
 from models.domain.copilot import (
     CopilotMessage,
     CopilotMessageRole,
@@ -49,13 +42,9 @@ from models.domain.pipeline import (
 )
 from models.store.db import (
     AtlassianFavoriteTable,
-    AutomationCacheTable,
-    ChatbotTable,
-    ConversationTable,
     CopilotMessageTable,
     CopilotSessionTable,
     CopilotTurnTable,
-    MessageTable,
     PipelineEdgeTable,
     PipelineRunTable,
     PipelineStepRunTable,
@@ -69,10 +58,6 @@ __all__ = [
     "transaction",
     "DbAtlassianFavoriteRepository",
     "DbAtlassianRepository",
-    "DbChatbotRepository",
-    "DbAutomationCacheRepository",
-    "DbConversationRepository",
-    "DbMessageRepository",
     "DbPipelineEdgeRepository",
     "DbPipelineRepository",
     "DbPipelineRunRepository",
@@ -121,37 +106,6 @@ class Adapter:
         return CopilotMessage(**{**row.model_dump(), "role": CopilotMessageRole(row.role), "created_at": _as_utc(row.created_at)})
 
 
-
-    @staticmethod
-    def to_chatbot(row: ChatbotTable) -> Chatbot:
-        chatbot = Chatbot.model_validate(row.model_dump())
-        chatbot.created_at = _as_utc(chatbot.created_at)
-        chatbot.updated_at = _as_utc(chatbot.updated_at)
-        return chatbot
-
-    @staticmethod
-    def to_conversation(row: ConversationTable) -> Conversation:
-        conversation = Conversation.model_validate(row.model_dump())
-        conversation.created_at = _as_utc(conversation.created_at)
-        conversation.updated_at = _as_utc(conversation.updated_at)
-        return conversation
-
-    @staticmethod
-    def to_message(row: MessageTable) -> ChatMessage:
-        return ChatMessage(
-            id=row.id,
-            conversation_id=row.conversation_id,
-            role=MessageRole(row.role),
-            content=row.content,
-            run_id=row.run_id,
-            created_at=_as_utc(row.created_at),
-        )
-
-    @staticmethod
-    def to_automation_cache_entry(row: AutomationCacheTable) -> AutomationCacheEntry:
-        entry = AutomationCacheEntry.model_validate(row.model_dump())
-        entry.created_at = _as_utc(entry.created_at)
-        return entry
 
     @staticmethod
     def to_pipeline(row: PipelineTable, step_rows: list[PipelineStepTable],
@@ -253,14 +207,6 @@ class Factory:
         return CopilotMessageTable(**{**message.model_dump(), "role": message.role.value})
 
     @staticmethod
-    def to_chatbot_row(chatbot: Chatbot) -> ChatbotTable:
-        return ChatbotTable(**{**chatbot.model_dump(), "tool_names": list(chatbot.tool_names)})
-
-    @staticmethod
-    def to_conversation_row(conversation: Conversation) -> ConversationTable:
-        return ConversationTable(**conversation.model_dump())
-
-    @staticmethod
     def to_pipeline_row(pipeline: Pipeline) -> PipelineTable:
         return PipelineTable(**pipeline.model_dump(exclude={"steps", "edges"}))
 
@@ -306,14 +252,6 @@ class Factory:
         return PipelineStepRunTable(
             **{**step_run.model_dump(), "kind": step_run.kind.value, "status": step_run.status.value},
         )
-
-    @staticmethod
-    def to_message_row(message: ChatMessage) -> MessageTable:
-        return MessageTable(**{**message.model_dump(), "role": message.role.value})
-
-    @staticmethod
-    def to_automation_cache_row(entry: AutomationCacheEntry) -> AutomationCacheTable:
-        return AutomationCacheTable(**{**entry.model_dump(), "embedding": list(entry.embedding)})
 
     @staticmethod
     def to_atlassian_row(settings: AtlassianSettings, encrypted_token: str) -> ProjectAtlassianTable:

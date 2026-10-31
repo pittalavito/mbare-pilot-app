@@ -39,12 +39,12 @@ CONTROLLO = """
 
 
 @pytest.fixture
-def services(store_service, agent_config_service, make_agent_service, catalog_store, pipeline_service, agent_store, project_store):
+def services(store_service, agent_config_service, make_agent_service, catalog_store, pipeline_service, agent_store, project_store, chatbot_store):
     store_service.save_definition("global-agent.yml", "")  # each test writes what it needs
     project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
     agents = make_agent_service()
     pipelines = pipeline_service
-    chatbots = ChatbotService(store_service, project_store, catalog_store, agent_config_service, agents)
+    chatbots = ChatbotService(chatbot_store, project_store, catalog_store, agent_config_service, agents)
     return DefinitionService(store_service, project_store, agent_store, agent_config_service, chatbots, pipelines), chatbots, pipelines
 
 

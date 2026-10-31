@@ -76,16 +76,16 @@ def pipelines(pipeline_service, project_store):
 
 
 @pytest.fixture
-def cache(store_service, pipelines):
-    return AutomationCacheService(store_service, pipelines, HashingEmbedder(), threshold=0.9)
+def cache(pipelines, chatbot_store):
+    return AutomationCacheService(chatbot_store, pipelines, HashingEmbedder(), threshold=0.9)
 
 
 @pytest.fixture
-def chat(store_service, agent_config_service, cache, agent_runs, monkeypatch, make_agent_service, catalog_store, project_store):
+def chat(agent_config_service, cache, agent_runs, monkeypatch, make_agent_service, catalog_store, project_store, chatbot_store):
     llm = ChatService()
     monkeypatch.setattr(llm, "get_client", lambda model: object())
     agents = make_agent_service(llm)
-    return ChatbotService(store_service, project_store, catalog_store, agent_config_service, agents, cache)
+    return ChatbotService(chatbot_store, project_store, catalog_store, agent_config_service, agents, cache)
 
 
 @pytest.fixture
@@ -131,10 +131,10 @@ def test_different_messages_and_bang_go_to_the_agent(chat, cache, pipelines, con
     assert not chat.messages(conversation.id)[-1].content.startswith("⚡")
 
 
-def test_entries_of_another_embedder_are_embedded_again_and_kept(store_service, pipelines, chat, cache, conversation):
+def test_entries_of_another_embedder_are_embedded_again_and_kept(pipelines, chat, cache, conversation, chatbot_store):
     report = _automation(pipelines)
     cache.add(_user_message(chat, conversation, "lancia il report").id, report.id)
-    other = AutomationCacheService(store_service, pipelines, _OtherEmbedder(), threshold=0.9)
+    other = AutomationCacheService(chatbot_store, pipelines, _OtherEmbedder(), threshold=0.9)
 
     assert other.match(conversation.chatbot_id, "lancia il report").similarity == pytest.approx(1.0)
     assert [entry.embedder for entry in other.entries(conversation.chatbot_id)] == ["other"]  # saved with the new one
@@ -175,11 +175,11 @@ def test_entries_survive_their_conversation(chat, cache, pipelines, conversation
 
 # ------------------------------------------------- real embedders, logs
 
-def test_a_remote_embedder_only_gets_masked_text(store_service, pipelines, chat, conversation, masking_service):
+def test_a_remote_embedder_only_gets_masked_text(pipelines, chat, conversation, masking_service, chatbot_store):
     masking = masking_service
     masking.add_term("acme", MaskCategory.PERSON, "Mario Rossi")
     remote = _RemoteEmbedder()
-    cache = AutomationCacheService(store_service, pipelines, remote, threshold=0.9, masking_service=masking)
+    cache = AutomationCacheService(chatbot_store, pipelines, remote, threshold=0.9, masking_service=masking)
 
     cache.add(_user_message(chat, conversation, "report di Mario Rossi").id, _automation(pipelines).id)
     cache.match(conversation.chatbot_id, "report di Mario Rossi")
@@ -187,14 +187,14 @@ def test_a_remote_embedder_only_gets_masked_text(store_service, pipelines, chat,
     assert remote.received == ["report di PERSONA_1", "report di PERSONA_1"]
 
 
-def test_a_remote_embedder_without_masking_is_refused(store_service, pipelines):
+def test_a_remote_embedder_without_masking_is_refused(pipelines, chatbot_store):
     with pytest.raises(ValidationError, match="mascheramento"):
-        AutomationCacheService(store_service, pipelines, _RemoteEmbedder(), threshold=0.9)
+        AutomationCacheService(chatbot_store, pipelines, _RemoteEmbedder(), threshold=0.9)
 
 
-def test_if_embedding_fails_the_agent_answers(store_service, pipelines, chat, cache, conversation, agent_runs, caplog):
+def test_if_embedding_fails_the_agent_answers(pipelines, chat, cache, conversation, agent_runs, caplog, chatbot_store):
     cache.add(_user_message(chat, conversation, "lancia il report").id, _automation(pipelines).id)
-    down = AutomationCacheService(store_service, pipelines, _DownEmbedder(), threshold=0.9)
+    down = AutomationCacheService(chatbot_store, pipelines, _DownEmbedder(), threshold=0.9)
 
     with caplog.at_level(logging.WARNING):
         assert down.match(conversation.chatbot_id, "lancia il report") is None

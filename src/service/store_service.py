@@ -19,13 +19,9 @@ from domain.store.db.store import (
     Adapter as DbAdapter,
     DbAtlassianFavoriteRepository,
     DbAtlassianRepository,
-    DbAutomationCacheRepository,
-    DbChatbotRepository,
-    DbConversationRepository,
     DbCopilotMessageRepository,
     DbCopilotSessionRepository,
     DbCopilotTurnRepository,
-    DbMessageRepository,
     DbPipelineEdgeRepository,
     DbPipelineRepository,
     DbPipelineRunRepository,
@@ -38,7 +34,6 @@ from domain.store.db.store import (
 from domain.store.files.store import LocalFileRepository, StoredFile
 from domain.store.redis.repository import Client as RedisClient
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
-from models.domain.chatbot import AutomationCacheEntry, Chatbot, ChatMessage, Conversation
 from models.domain.copilot import CopilotMessage, CopilotModelUsage, CopilotSession, CopilotSessionStatus, CopilotTurnRecord
 from models.domain.pipeline import Pipeline, PipelineRun, PipelineStepRun, RunStatus
 
@@ -57,10 +52,6 @@ class StoreService:
 
         self._atlassian_repository = DbAtlassianRepository(engine)
         self._atlassian_favorite_repository = DbAtlassianFavoriteRepository(engine)
-        self._chatbot_repository = DbChatbotRepository(engine)
-        self._conversation_repository = DbConversationRepository(engine)
-        self._message_repository = DbMessageRepository(engine)
-        self._automation_cache_repository = DbAutomationCacheRepository(engine)
         self._pipeline_repository = DbPipelineRepository(engine)
         self._pipeline_step_repository = DbPipelineStepRepository(engine)
         self._pipeline_edge_repository = DbPipelineEdgeRepository(engine)
@@ -72,61 +63,6 @@ class StoreService:
         self._files_repository = LocalFileRepository(config.project_data_root)
         self._definitions_repository = LocalFileRepository(config.definitions_root)
         self._secret_box = SecretBox(config.secret_key)
-
-    # -------------------------------------------------------------- chatbots
-    def list_chatbots(self, project_name: str) -> list[Chatbot]:
-        return [DbAdapter.to_chatbot(row) for row in self._chatbot_repository.list_for_project(project_name)]
-
-    def get_chatbot(self, chatbot_id: int) -> Chatbot | None:
-        row = self._chatbot_repository.get(chatbot_id)
-        return DbAdapter.to_chatbot(row) if row else None
-
-    def save_chatbot(self, chatbot: Chatbot) -> Chatbot:
-        return DbAdapter.to_chatbot(self._chatbot_repository.save(DbFactory.to_chatbot_row(chatbot)))
-
-    def delete_chatbot(self, chatbot_id: int) -> bool:
-        """Its conversations and messages go with it (DB cascade)."""
-        return self._chatbot_repository.delete(chatbot_id)
-
-    def list_conversations(self, chatbot_id: int) -> list[Conversation]:
-        """Most recently updated first."""
-        return [DbAdapter.to_conversation(row) for row in self._conversation_repository.list_for_chatbot(chatbot_id)]
-
-    def get_conversation(self, conversation_id: int) -> Conversation | None:
-        row = self._conversation_repository.get(conversation_id)
-        return DbAdapter.to_conversation(row) if row else None
-
-    def save_conversation(self, conversation: Conversation) -> Conversation:
-        return DbAdapter.to_conversation(self._conversation_repository.save(DbFactory.to_conversation_row(conversation)))
-
-    def delete_conversation(self, conversation_id: int) -> bool:
-        """Its messages go with it (DB cascade)."""
-        return self._conversation_repository.delete(conversation_id)
-
-    def list_messages(self, conversation_id: int) -> list[ChatMessage]:
-        """Oldest first."""
-        return [DbAdapter.to_message(row) for row in self._message_repository.list_for_conversation(conversation_id)]
-
-    def get_message(self, message_id: int) -> ChatMessage | None:
-        row = self._message_repository.get(message_id)
-        return DbAdapter.to_message(row) if row else None
-
-    def save_message(self, message: ChatMessage) -> ChatMessage:
-        return DbAdapter.to_message(self._message_repository.save(DbFactory.to_message_row(message)))
-
-    def list_automation_cache_entries(self, chatbot_id: int) -> list[AutomationCacheEntry]:
-        """A chatbot's cache entries, oldest first."""
-        return [DbAdapter.to_automation_cache_entry(row) for row in self._automation_cache_repository.list_for_chatbot(chatbot_id)]
-
-    def get_automation_cache_entry(self, entry_id: int) -> AutomationCacheEntry | None:
-        row = self._automation_cache_repository.get(entry_id)
-        return DbAdapter.to_automation_cache_entry(row) if row else None
-
-    def save_automation_cache_entry(self, entry: AutomationCacheEntry) -> AutomationCacheEntry:
-        return DbAdapter.to_automation_cache_entry(self._automation_cache_repository.save(DbFactory.to_automation_cache_row(entry)))
-
-    def delete_automation_cache_entry(self, entry_id: int) -> bool:
-        return self._automation_cache_repository.delete(entry_id)
 
     # ------------------------------------------------------------- pipelines
     def list_pipelines(self, project_name: str) -> list[Pipeline]:
