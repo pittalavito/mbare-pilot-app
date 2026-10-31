@@ -106,9 +106,9 @@ def test_branch_without_upstream(git, repos):
         git.pull_fast_forward("Shop", "api")
 
 
-def test_tool_masks_the_authors_that_arrive(git, repos, store_service):
+def test_tool_masks_the_authors_that_arrive(git, repos, store_service, mask_store):
     _push(repos, "second")
-    masking = MaskingService(store_service)
+    masking = MaskingService(store_service, mask_store)
     pull = AgentMask(masking.session("Shop")).wrap([GIT_PULL_FAST_FORWARD.build(ToolContext("Shop", git))])[0]
 
     result = as_dict(pull.func(repository="api"))
@@ -162,11 +162,11 @@ def test_nothing_to_stash(git, repos):
     assert not result.stashed and result.ref is None and _stash_list(repos / "shop" / "api") == []
 
 
-def test_stash_tool(git, repos, store_service):
+def test_stash_tool(git, repos, store_service, mask_store):
     from tool.list.git.git_stash import GIT_STASH
 
     (repos / "shop" / "api" / "main.py").write_text("mia modifica", encoding="utf-8")
-    masking = MaskingService(store_service)
+    masking = MaskingService(store_service, mask_store)
     stash = AgentMask(masking.session("Shop")).wrap([GIT_STASH.build(ToolContext("Shop", git))])[0]
 
     result = as_dict(stash.func(repository="api", message=""))

@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from core.error import NotFoundError, ValidationError
 from domain.masking.masker import Masker
 from models.domain.masking import MaskCategory, MaskEntry, sensitive_values
+from service.store.mask_store import MaskStore
 from service.store_service import StoreService
 
 MIN_LENGTH = 3
@@ -22,19 +23,20 @@ MIN_LENGTH = 3
 
 class MaskingService:
 
-    def __init__(self, store_service: StoreService):
+    def __init__(self, store_service: StoreService, masks: MaskStore):
         self._store = store_service
+        self._masks = masks
 
     def entries(self, project_name: str) -> list[MaskEntry]:
         """The project's map, by category then alias number."""
-        return self._store.list_masks(project_name)
+        return self._masks.list(project_name)
 
     def register(self, project_name: str, category: MaskCategory, value: str) -> MaskEntry | None:
         """A value found by a tool; None when too short to be masked."""
         value = value.strip()
         if len(value) < MIN_LENGTH:
             return None
-        return self._store.add_mask(project_name, category, value, manual=False)
+        return self._masks.add(project_name, category, value, manual=False)
 
     def register_declared(self, project_name: str, output: BaseModel) -> None:
         """The values ``output`` declares sensitive (its Mask* fields, see
@@ -50,11 +52,11 @@ class MaskingService:
         value = value.strip()
         if len(value) < MIN_LENGTH:
             raise ValidationError(f"Il valore da mascherare deve avere almeno {MIN_LENGTH} caratteri.")
-        return self._store.add_mask(project_name, category, value, manual=True)
+        return self._masks.add(project_name, category, value, manual=True)
 
     def remove(self, project_name: str, alias: str) -> None:
         """The value goes back to the LLM in clear; its alias is never reused."""
-        if not self._store.delete_mask(project_name, alias):
+        if not self._masks.delete(project_name, alias):
             raise NotFoundError(f"Alias non trovato: {alias}")
 
     def session(self, project_name: str) -> "MaskSession":

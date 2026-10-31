@@ -89,6 +89,11 @@ def worker_store(stores):
 
 
 @pytest.fixture
+def mask_store(stores):
+    return stores.masks
+
+
+@pytest.fixture
 def store_service(stores):
     return stores.store_service
 

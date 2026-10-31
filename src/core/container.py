@@ -47,7 +47,7 @@ class Container:
         self.project_data_service = ProjectDataService(store_service=self.store_service)
         self.atlassian_service = AtlassianService(store_service=self.store_service, project_data_service=self.project_data_service)
         self.git_service = GitService(store_service=self.store_service)
-        self.masking_service = MaskingService(store_service=self.store_service)
+        self.masking_service = MaskingService(store_service=self.store_service, masks=stores.masks)
         self.pipeline_service = PipelineService(
             store_service=self.store_service, agent_config_service=self.agent_config_service, workers=stores.workers,
         )
@@ -100,6 +100,7 @@ class Container:
         )
         self.project_service = ProjectService(
             store_service=self.store_service,
+            masks=stores.masks,
             folder_browser=FolderBrowser(config.project_root_paths),
             definition_service=self.definition_service,
         )

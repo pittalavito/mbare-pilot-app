@@ -54,10 +54,10 @@ def test_empty_map_changes_nothing():
 # ------------------------------------------------------------ map on Redis
 
 @pytest.fixture
-def masking(store_service):
+def masking(store_service, mask_store):
     for name in ("acme", "other"):
         store_service.save_project(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/code/{name}"))
-    return MaskingService(store_service)
+    return MaskingService(store_service, mask_store)
 
 
 def test_aliases_per_category_per_project_never_reused(masking):
@@ -85,11 +85,11 @@ def test_short_values_and_unknown_aliases(masking):
         masking.add_term("missing", MaskCategory.TERM, "abc")
 
 
-def test_removing_the_project_removes_its_map(masking, store_service, tmp_path):
+def test_removing_the_project_removes_its_map(masking, store_service, tmp_path, mask_store):
     masking.add_term("acme", MaskCategory.TERM, "Grandi Navi")
     masking.add_term("other", MaskCategory.TERM, "Grandi Navi")
 
-    ProjectService(store_service, FolderBrowser([tmp_path])).remove("acme")
+    ProjectService(store_service, mask_store, FolderBrowser([tmp_path])).remove("acme")
 
     assert masking.entries("acme") == [] and len(masking.entries("other")) == 1
 

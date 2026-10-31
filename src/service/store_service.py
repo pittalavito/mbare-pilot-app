@@ -45,10 +45,8 @@ from domain.store.db.store import (
 )
 from domain.store.files.store import LocalFileRepository, StoredFile
 from domain.store.redis.store import (
-    Adapter as RedisAdapter,
     Client as RedisClient,
     Factory as RedisFactory,
-    RedisMaskRepository,
     RedisTraceRepository,
 )
 from models.domain.agent import AgentConfig, AgentRole, AgentRunRecord, AgentRunSummary, SystemPrompt, ToolCallSummary, ToolInfo
@@ -56,7 +54,6 @@ from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, Favori
 from models.domain.chat import ChatModel
 from models.domain.chatbot import AutomationCacheEntry, Chatbot, ChatMessage, Conversation
 from models.domain.copilot import CopilotMessage, CopilotModelUsage, CopilotSession, CopilotSessionStatus, CopilotTurnRecord
-from models.domain.masking import MaskCategory, MaskEntry
 from models.domain.pipeline import Pipeline, PipelineRun, PipelineStepRun, RunStatus
 from models.domain.project import Project, ProjectSource
 from models.store.redis import AgentTraceRecord
@@ -96,7 +93,6 @@ class StoreService:
         self._copilot_message_repository = DbCopilotMessageRepository(engine)
         self._copilot_turn_repository = DbCopilotTurnRepository(engine)
         self._traces_repository = RedisTraceRepository(redis_client)
-        self._masks_repository = RedisMaskRepository(redis_client)
         self._files_repository = LocalFileRepository(config.project_data_root)
         self._definitions_repository = LocalFileRepository(config.definitions_root)
         self._secret_box = SecretBox(config.secret_key)
@@ -349,21 +345,6 @@ class StoreService:
     def save_pipeline_step_run(self, step_run: PipelineStepRun) -> PipelineStepRun:
         row = self._pipeline_step_run_repository.save(DbFactory.to_pipeline_step_run_row(step_run))
         return DbAdapter.to_pipeline_step_run(row)
-
-    # --------------------------------------------------------------- masking
-    def list_masks(self, project_name: str) -> list[MaskEntry]:
-        entries = [RedisAdapter.to_mask_entry(record) for record in self._masks_repository.list(project_name)]
-        return sorted(entries, key=lambda entry: (entry.category.value, int(entry.alias.rsplit("_", 1)[1])))
-
-    def add_mask(self, project_name: str, category: MaskCategory, value: str, manual: bool) -> MaskEntry:
-        record = self._masks_repository.add(project_name, category.value, category.alias_prefix, value, manual)
-        return RedisAdapter.to_mask_entry(record)
-
-    def delete_mask(self, project_name: str, alias: str) -> bool:
-        return self._masks_repository.delete(project_name, alias)
-
-    def delete_masks(self, project_name: str) -> None:
-        self._masks_repository.delete_project(project_name)
 
     # ------------------------------------------------------------- atlassian
     def get_atlassian_settings(self, project_name: str) -> AtlassianSettings | None:

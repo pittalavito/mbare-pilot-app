@@ -11,6 +11,7 @@ from domain.project.data_paths import project_slug
 from domain.project.folder_browser import FolderBrowser
 from models.domain.chat import EmbeddingModelName
 from models.domain.project import Project, ProjectSource
+from service.store.mask_store import MaskStore
 from service.store_service import StoreService
 
 if TYPE_CHECKING:  # imported only for the type
@@ -19,9 +20,11 @@ if TYPE_CHECKING:  # imported only for the type
 
 class ProjectService:
 
-    def __init__(self, store_service: StoreService, folder_browser: FolderBrowser, definition_service: "DefinitionService | None" = None):
+    def __init__(self, store_service: StoreService, masks: MaskStore, folder_browser: FolderBrowser,
+                 definition_service: "DefinitionService | None" = None):
         """``definition_service`` gives a new project the default chatbots; None = no chatbots."""
         self._store = store_service
+        self._masks = masks
         self._folders = folder_browser
         self._definitions = definition_service
 
@@ -76,7 +79,7 @@ class ProjectService:
         on disk are untouched. Its masking map goes too."""
         removed = self._store.delete_project(name)
         if removed:
-            self._store.delete_masks(name)
+            self._masks.delete_project(name)
         return removed
 
     def folder_exists(self, project: Project) -> bool:

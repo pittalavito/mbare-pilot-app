@@ -10,6 +10,7 @@ from sqlalchemy.engine import Engine as SqlAlchemyEngine
 from config import Config
 from domain.store.db.repository import Engine
 from domain.store.redis.repository import Client as RedisClient
+from service.store.mask_store import MaskStore
 from service.store.worker_store import WorkerStore
 from service.store_service import StoreService
 
@@ -24,3 +25,4 @@ class Stores:
         self.redis_client = redis_client if redis_client is not None else RedisClient.create_redis_client(config.redis_url)
         self.store_service = StoreService(engine=self.engine, redis_client=self.redis_client)
         self.workers = WorkerStore(self.redis_client)
+        self.masks = MaskStore(self.redis_client)

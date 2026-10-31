@@ -179,8 +179,8 @@ def test_entries_survive_their_conversation(chat, cache, pipelines, conversation
 
 # ------------------------------------------------- real embedders, logs
 
-def test_a_remote_embedder_only_gets_masked_text(store_service, pipelines, chat, conversation):
-    masking = MaskingService(store_service)
+def test_a_remote_embedder_only_gets_masked_text(store_service, pipelines, chat, conversation, mask_store):
+    masking = MaskingService(store_service, mask_store)
     masking.add_term("acme", MaskCategory.PERSON, "Mario Rossi")
     remote = _RemoteEmbedder()
     cache = AutomationCacheService(store_service, pipelines, remote, threshold=0.9, masking_service=masking)

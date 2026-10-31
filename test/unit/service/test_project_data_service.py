@@ -102,10 +102,10 @@ def test_unknown_project(data_service):
         data_service.list_notes("ghost")
 
 
-def test_projects_with_the_same_slug_conflict(store_service, tmp_path):
+def test_projects_with_the_same_slug_conflict(store_service, tmp_path, mask_store):
     (tmp_path / "a").mkdir()
     (tmp_path / "b").mkdir()
-    projects = ProjectService(store_service, FolderBrowser([tmp_path]))
+    projects = ProjectService(store_service, mask_store, FolderBrowser([tmp_path]))
     projects.open_folder("My App", "", tmp_path / "a")
 
     with pytest.raises(ConflictError):

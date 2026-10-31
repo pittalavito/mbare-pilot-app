@@ -60,8 +60,8 @@ def runner(store_service, agent_config_service, monkeypatch):
 
 
 @pytest.fixture
-def masking(store_service):
-    return MaskingService(store_service)
+def masking(store_service, mask_store):
+    return MaskingService(store_service, mask_store)
 
 
 @pytest.fixture
