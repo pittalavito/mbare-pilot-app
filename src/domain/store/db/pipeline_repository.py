@@ -32,6 +32,14 @@ class DbPipelineStepRepository(SqlRepository[PipelineStepTable]):
         with self._session() as session:
             return list(session.exec(statement).all())
 
+    def list_for_pipelines(self, pipeline_ids: list[int]) -> dict[int, list[PipelineStepTable]]:
+        """The steps of many pipelines in one query, by pipeline id, in execution order."""
+        statement = (
+            select(PipelineStepTable).where(col(PipelineStepTable.pipeline_id).in_(pipeline_ids))
+            .order_by(col(PipelineStepTable.position))
+        )
+        return self._grouped(statement, pipeline_ids, lambda row: row.pipeline_id)
+
     def replace(self, pipeline_id: int, rows: list[PipelineStepTable]) -> list[PipelineStepTable]:
         """Make ``rows`` the pipeline's steps, in one transaction: rows with an
         id are updated, the others inserted, the steps missing from ``rows`` deleted."""
@@ -98,6 +106,14 @@ class DbPipelineStepRunRepository(SqlRepository[PipelineStepRunTable]):
         with self._session() as session:
             return list(session.exec(statement).all())
 
+    def list_for_runs(self, pipeline_run_ids: list[int]) -> dict[int, list[PipelineStepRunTable]]:
+        """The step runs of many runs in one query, by run id, in execution order."""
+        statement = (
+            select(PipelineStepRunTable).where(col(PipelineStepRunTable.pipeline_run_id).in_(pipeline_run_ids))
+            .order_by(col(PipelineStepRunTable.position))
+        )
+        return self._grouped(statement, pipeline_run_ids, lambda row: row.pipeline_run_id)
+
 
 class DbPipelineEdgeRepository(SqlRepository[PipelineEdgeTable]):
 
@@ -108,6 +124,11 @@ class DbPipelineEdgeRepository(SqlRepository[PipelineEdgeTable]):
         statement = select(PipelineEdgeTable).where(col(PipelineEdgeTable.pipeline_id) == pipeline_id).order_by(col(PipelineEdgeTable.id))
         with self._session() as session:
             return list(session.exec(statement).all())
+
+    def list_for_pipelines(self, pipeline_ids: list[int]) -> dict[int, list[PipelineEdgeTable]]:
+        """The edges of many pipelines in one query, by pipeline id."""
+        statement = select(PipelineEdgeTable).where(col(PipelineEdgeTable.pipeline_id).in_(pipeline_ids)).order_by(col(PipelineEdgeTable.id))
+        return self._grouped(statement, pipeline_ids, lambda row: row.pipeline_id)
 
     def replace(self, pipeline_id: int, rows: list[PipelineEdgeTable]) -> list[PipelineEdgeTable]:
         """Make ``rows`` the pipeline's edges, in one transaction."""

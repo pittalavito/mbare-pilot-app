@@ -11,7 +11,7 @@ other change recreates the table only while it is empty (with the tables
 referencing it); with rows the app stops and says which table to migrate by hand.
 """
 import json
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any, Generic, TypeVar
@@ -21,6 +21,7 @@ from sqlalchemy.engine import Engine as SqlAlchemyEngine
 from sqlalchemy.orm import class_mapper
 from sqlalchemy.sql.schema import ScalarElementColumnDefault
 from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel.sql.expression import SelectOfScalar
 
 # Imported for its side effect: registers every table on SQLModel.metadata.
 import models.store.db  # noqa: F401
@@ -175,6 +176,16 @@ class SqlRepository(Generic[TableT]):
         if current is not None and current.get_bind() is self._engine:
             return current
         return Session(self._engine)
+
+    def _grouped(self, statement: SelectOfScalar[TableT], ids: list[int], key: Callable[[TableT], int]) -> dict[int, list[TableT]]:
+        """The rows of ``statement`` grouped by ``key``, every id of ``ids`` present
+        (an empty list when it has no rows); no query when ``ids`` is empty."""
+        grouped: dict[int, list[TableT]] = {id_: [] for id_ in ids}
+        if ids:
+            with self._session() as session:
+                for row in session.exec(statement):
+                    grouped[key(row)].append(row)
+        return grouped
 
     def get(self, pk: Any) -> TableT | None:
         """Row by primary key, or None if absent."""

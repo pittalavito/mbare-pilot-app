@@ -290,7 +290,11 @@ class StoreService:
     # ------------------------------------------------------------- pipelines
     def list_pipelines(self, project_name: str) -> list[Pipeline]:
         """With their steps, sorted by name."""
-        return [self._with_steps(row) for row in self._pipeline_repository.list_for_project(project_name)]
+        rows = self._pipeline_repository.list_for_project(project_name)
+        ids = [row.id for row in rows]
+        steps = self._pipeline_step_repository.list_for_pipelines(ids)
+        edges = self._pipeline_edge_repository.list_for_pipelines(ids)
+        return [DbAdapter.to_pipeline(row, steps[row.id], edges[row.id]) for row in rows]
 
     def get_pipeline(self, pipeline_id: int) -> Pipeline | None:
         row = self._pipeline_repository.get(pipeline_id)
@@ -329,10 +333,9 @@ class StoreService:
 
     def list_pipeline_runs(self, pipeline_id: int, limit: int = 20) -> list[PipelineRun]:
         """With their steps, newest first."""
-        return [
-            DbAdapter.to_pipeline_run(row, self._pipeline_step_run_repository.list_for_run(row.id))
-            for row in self._pipeline_run_repository.list_for_pipeline(pipeline_id, limit)
-        ]
+        rows = self._pipeline_run_repository.list_for_pipeline(pipeline_id, limit)
+        step_runs = self._pipeline_step_run_repository.list_for_runs([row.id for row in rows])
+        return [DbAdapter.to_pipeline_run(row, step_runs[row.id]) for row in rows]
 
     def delete_pipeline_run(self, run_id: int) -> bool:
         """Its step runs go with it (DB cascade); the agent runs stay."""
