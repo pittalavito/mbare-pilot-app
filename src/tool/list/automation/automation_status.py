@@ -28,9 +28,10 @@ def build(context: ToolContext) -> Tool:
     def automation_status(run_id: RunId) -> AutomationStatusResponse | ToolErrorResponse:
         if not chatbot_run(context):
             return ToolErrorResponse(error="Stato delle automation disponibile solo nel chatbot di un progetto.")
+        pipelines = context.require_pipelines()
         try:
-            run = context.pipelines.get_run(run_id)
-            pipeline = context.pipelines.get_pipeline(run.pipeline_id)
+            run = pipelines.get_run(run_id)
+            pipeline = pipelines.get_pipeline(run.pipeline_id)
         except AppError:
             return _not_found(run_id)
         if pipeline.project_name != context.project_name:

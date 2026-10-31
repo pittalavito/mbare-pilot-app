@@ -36,17 +36,18 @@ def build(context: ToolContext) -> Tool:
     def delegate_task(task: Task, repository: Repository) -> DelegateTaskResponse | ToolErrorResponse:
         if not copilot_run(context):
             return ToolErrorResponse(error="Delega a Copilot disponibile solo nel chatbot di un progetto.")
+        copilot, project_name = context.require_copilot(), context.require_project()
         try:
-            session = context.copilot.start(context.project_name, task, repository)
+            session = copilot.start(project_name, task, repository)
         except AppError as exc:
             return git_error(context, exc)
-        answered = any(message.role == CopilotMessageRole.COPILOT for message in context.copilot.messages(session.id))
+        answered = any(message.role == CopilotMessageRole.COPILOT for message in copilot.messages(session.id))
         return DelegateTaskResponse(
             session_id=session.id,
             task=task,
             repository=repository,
             copilot_answered=answered,
-            chat=chat_link(context.project_name, session.id),
+            chat=chat_link(project_name, session.id),
             next_step=(
                 "Apri la chat di Copilot, rispondi alle sue domande e premi «Ok, parti» quando il piano ti va bene."
                 if answered else "Copilot non ha risposto: apri la chat per vedere l'errore."

@@ -34,3 +34,21 @@ class ToolContext:
         if self.project_name is None:
             raise ValidationError("Questo tool funziona solo in un agente eseguito dentro un progetto.")
         return self.project_name
+
+    def require_pipelines(self) -> "PipelineService":
+        """The automations' service; ValidationError when the run has none."""
+        return _required(self.pipelines, "automation")
+
+    def require_project_data(self) -> "ProjectDataService":
+        """The project data's service; ValidationError when the run has none."""
+        return _required(self.project_data, "dati del progetto")
+
+    def require_copilot(self) -> "CopilotService":
+        """The Copilot service; ValidationError when the run has none."""
+        return _required(self.copilot, "Copilot")
+
+
+def _required[ServiceT](service: ServiceT | None, what: str) -> ServiceT:
+    if service is None:
+        raise ValidationError(f"Questo tool non ha accesso a {what} in questa run.")
+    return service

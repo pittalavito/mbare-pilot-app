@@ -46,3 +46,13 @@ def test_require_project(context):
     assert ToolContext(project_name="acme", git=context.git).require_project() == "acme"
     with pytest.raises(ValidationError, match="progetto"):
         context.require_project()
+
+
+@pytest.mark.parametrize("require, field", [
+    ("require_pipelines", "pipelines"), ("require_project_data", "project_data"), ("require_copilot", "copilot"),
+])
+def test_require_service(context, require, field):
+    service = object()
+    assert getattr(ToolContext(project_name="acme", git=context.git, **{field: service}), require)() is service
+    with pytest.raises(ValidationError, match="non ha accesso"):
+        getattr(context, require)()

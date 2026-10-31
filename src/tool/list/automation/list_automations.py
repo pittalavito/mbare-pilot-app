@@ -20,7 +20,7 @@ def build(context: ToolContext) -> Tool:
     def list_automations() -> ListAutomationsResponse | ToolErrorResponse:
         if not chatbot_run(context):
             return ToolErrorResponse(error="Elenco delle automation disponibile solo nel chatbot di un progetto.")
-        automations = context.pipelines.runnable_pipelines(context.project_name)
+        automations = context.require_pipelines().runnable_pipelines(context.require_project())
         return ListAutomationsResponse(automations=[
             AutomationInfo(name=pipeline.name, description=pipeline.description) for pipeline in automations
         ])
