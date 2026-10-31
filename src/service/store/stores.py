@@ -16,13 +16,13 @@ from service.store.atlassian_store import AtlassianStore
 from service.store.catalog_store import CatalogStore
 from service.store.chatbot_store import ChatbotStore
 from service.store.copilot_store import CopilotStore
+from service.store.definition_store import DefinitionStore
 from service.store.mask_store import MaskStore
 from service.store.pipeline_store import PipelineStore
 from service.store.project_file_store import ProjectFileStore
 from service.store.project_store import ProjectStore
 from service.store.run_store import RunStore
 from service.store.worker_store import WorkerStore
-from service.store_service import StoreService
 
 
 class Stores:
@@ -33,15 +33,18 @@ class Stores:
         config = Config.get()
         self.engine = engine if engine is not None else Engine.create_db_engine(config.database_url)
         self.redis_client = redis_client if redis_client is not None else RedisClient.create_redis_client(config.redis_url)
-        self.store_service = StoreService(engine=self.engine, redis_client=self.redis_client)
-        self.workers = WorkerStore(self.redis_client)
-        self.masks = MaskStore(self.redis_client)
-        self.runs = RunStore(self.engine, self.redis_client)
+        # Postgres
+        self.runs = RunStore(self.engine, self.redis_client)  # with the traces in Redis
         self.catalog = CatalogStore(self.engine)
         self.agents = AgentStore(self.engine)
         self.projects = ProjectStore(self.engine)
         self.chatbots = ChatbotStore(self.engine)
         self.pipelines = PipelineStore(self.engine)
         self.copilot = CopilotStore(self.engine)
-        self.project_files = ProjectFileStore(config.project_data_root)
         self.atlassian = AtlassianStore(self.engine, SecretBox(config.secret_key))
+        # Redis
+        self.workers = WorkerStore(self.redis_client)
+        self.masks = MaskStore(self.redis_client)
+        # files under <data_home>
+        self.project_files = ProjectFileStore(config.project_data_root)
+        self.definitions = DefinitionStore(config.definitions_root)

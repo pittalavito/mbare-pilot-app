@@ -55,7 +55,7 @@ def data(project_data_service):
 
 
 def _service(stores, data, command=None, execution_timeout=30.0) -> CopilotService:
-    return CopilotService(stores.store_service, stores.copilot, GitService(stores.projects), data, CopilotClient(command or FAKE),
+    return CopilotService(stores.definitions, stores.copilot, GitService(stores.projects), data, CopilotClient(command or FAKE),
                           planning_timeout_seconds=30, execution_timeout_seconds=execution_timeout)
 
 

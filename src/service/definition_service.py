@@ -68,8 +68,8 @@ from service.agent_config_service import AgentConfigService
 from service.chatbot_service import ChatbotService
 from service.pipeline_service import PipelineService
 from service.store.agent_store import AgentStore
+from service.store.definition_store import DefinitionStore
 from service.store.project_store import ProjectStore
-from service.store_service import StoreService
 
 _AGENTS_KEY = "agents"
 _AUTOMATIONS_KEY = "automations"
@@ -78,9 +78,9 @@ _CHATBOTS_KEY = "chatbots"
 
 class DefinitionService:
 
-    def __init__(self, store_service: StoreService, projects: ProjectStore, agent_store: AgentStore, agent_config_service: AgentConfigService,
+    def __init__(self, definitions: DefinitionStore, projects: ProjectStore, agent_store: AgentStore, agent_config_service: AgentConfigService,
                  chatbot_service: ChatbotService, pipeline_service: PipelineService):
-        self._store = store_service
+        self._definitions = definitions
         self._projects = projects
         self._agent_store = agent_store
         self._agents = agent_config_service
@@ -184,7 +184,7 @@ class DefinitionService:
 
     def _read(self, path: str) -> dict | None:
         """The YAML of a definition file; None when missing or empty."""
-        text = self._store.read_definition(path)
+        text = self._definitions.read_definition(path)
         if text is None:
             return None
         try:
@@ -251,7 +251,7 @@ class DefinitionService:
         prompt = spec.system_prompt
         if prompt is None:
             path = f"{prompt_folder}/{data_file_name(spec.system_prompt_file)}".lstrip("/")
-            prompt = self._store.read_definition(path)
+            prompt = self._definitions.read_definition(path)
             if prompt is None or not prompt.strip():
                 raise ValidationError(f"File del prompt non trovato o vuoto: {path}")
         values = dict(

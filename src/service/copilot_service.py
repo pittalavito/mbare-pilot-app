@@ -45,7 +45,7 @@ from models.domain.note import TaskStatus
 from service.git_service import GitService
 from service.project_data_service import ProjectDataService
 from service.store.copilot_store import CopilotStore
-from service.store_service import StoreService
+from service.store.definition_store import DefinitionStore
 
 _CANCEL_CHECK_SECONDS = 2.0
 
@@ -62,7 +62,7 @@ class CopilotService:
 
     def __init__(
         self,
-        store_service: StoreService,
+        definitions: DefinitionStore,
         copilot: CopilotStore,
         git_service: GitService,
         project_data_service: ProjectDataService,
@@ -70,7 +70,7 @@ class CopilotService:
         planning_timeout_seconds: float,
         execution_timeout_seconds: float,
     ):
-        self._store = store_service
+        self._definitions = definitions
         self._copilot = copilot
         self._git = git_service
         self._data = project_data_service
@@ -79,7 +79,7 @@ class CopilotService:
         self._execution_timeout = execution_timeout_seconds
 
     @classmethod
-    def from_config(cls, store_service: StoreService, copilot: CopilotStore, git_service: GitService,
+    def from_config(cls, definitions: DefinitionStore, copilot: CopilotStore, git_service: GitService,
                     project_data_service: ProjectDataService) -> "CopilotService":
         """The CLI, model, token and timeouts from the Config (COPILOT_*).
         ``git_service`` resolves the repository folder and reads HEAD and
@@ -87,7 +87,7 @@ class CopilotService:
         config = Config.get()
         token = config.copilot_github_token.get_secret_value() if config.copilot_github_token else None
         return cls(
-            store_service=store_service,
+            definitions=definitions,
             copilot=copilot,
             git_service=git_service,
             project_data_service=project_data_service,
@@ -104,7 +104,7 @@ class CopilotService:
     def coding_agent(self, project_name: str | None = None) -> CodingAgentSettings:
         """Prompts and denied tools: the global definition, with the project's
         fields over it. Raises ValidationError when missing or broken."""
-        return coding_agent.load(self._store, project_name)
+        return coding_agent.load(self._definitions, project_name)
 
     def model_options(self, settings: CodingAgentSettings) -> list[tuple[CopilotModel, CopilotModelUsage | None]]:
         """The definition's models, the cheapest first (input + output price;

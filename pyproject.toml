@@ -86,7 +86,6 @@ module = [
     "models.domain.agent",
     "models.domain.definitions",
     "models.store.db",
-    "service.agent_service",
     "service.atlassian_service",
     "service.automation_cache_service",
     "service.chatbot_service",
@@ -95,6 +94,5 @@ module = [
     "service.pipeline_runner",
     "service.pipeline_service",
     "service.project_data_service",
-    "service.store_service",
 ]
 ignore_errors = true

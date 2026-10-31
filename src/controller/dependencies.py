@@ -17,7 +17,6 @@ from service.process_service import ProcessService
 from service.project_data_service import ProjectDataService
 from service.project_service import ProjectService
 from service.run_service import RunService
-from service.store_service import StoreService
 
 
 def project_service(request: Request) -> ProjectService:
@@ -58,10 +57,6 @@ def pipeline_service(request: Request) -> PipelineService:
 
 def atlassian_service(request: Request) -> AtlassianService:
     return request.app.state.container.atlassian_service
-
-
-def store_service(request: Request) -> StoreService:
-    return request.app.state.container.store_service
 
 
 def run_service(request: Request) -> RunService:

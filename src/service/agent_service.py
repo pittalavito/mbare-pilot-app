@@ -21,7 +21,6 @@ from service.pipeline_service import PipelineService
 from service.project_data_service import ProjectDataService
 from service.store.catalog_store import CatalogStore
 from service.store.run_store import RunStore
-from service.store_service import StoreService
 from tool.context import ToolContext
 from tool.registry import build_tools
 
@@ -32,7 +31,6 @@ class AgentService:
         self,
         chat_service: ChatService,
         agent_config_service: AgentConfigService,
-        store_service: StoreService,
         runs: RunStore,
         catalog: CatalogStore,
         git_service: GitService,
@@ -50,7 +48,6 @@ class AgentService:
         tool (``ToolContext.require_*``, the run's origin), not by leaving it out."""
         self._chat_service = chat_service
         self._agent_config_service = agent_config_service
-        self._store_service = store_service
         self._runs = runs
         self._catalog = catalog
         self._git_service = git_service
@@ -78,8 +75,11 @@ class AgentService:
         project_name = project_name or definition.project_name
         require_usable_model(self._catalog, definition.model)
         client = self._chat_service.get_client(definition.model)
-        session = self._masking_service.session(project_name) if project_name else None
-        mask = AgentMask(session, self._repository_paths(project_name) if session else [])
+        session, repository_paths = None, []
+        if project_name:
+            session = self._masking_service.session(project_name)
+            repository_paths = self._repository_paths(project_name)
+        mask = AgentMask(session, repository_paths)
         context = ToolContext(
             project_name=project_name,
             git=self._git_service,

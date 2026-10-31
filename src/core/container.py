@@ -35,23 +35,29 @@ class Container:
 
     @observed(LogPrefix.CONTAINER)
     def __init__(self, stores: Stores | None = None):
-        """``stores`` is for tests (in-memory backends); by default they
-        connect to Postgres and Redis from the Config."""
+        """Each service gets only the stores it uses. ``stores`` is for tests
+        (in-memory backends); by default they connect to Postgres and Redis
+        from the Config."""
         config = Config.get()
         datapizza.tracing.console.quiet = not config.datapizza_trace_summary
 
         stores = stores or Stores()
-        self.store_service = stores.store_service
         self.chat_service = ChatService()
         self.run_service = RunService(stores.runs)
         self.model_service = ModelService(catalog=stores.catalog)
         self.agent_config_service = AgentConfigService(projects=stores.projects, agents=stores.agents, catalog=stores.catalog)
         self.project_data_service = ProjectDataService(files=stores.project_files, projects=stores.projects)
-        self.atlassian_service = AtlassianService(atlassian=stores.atlassian, projects=stores.projects, project_data_service=self.project_data_service)
+        self.atlassian_service = AtlassianService(
+            atlassian=stores.atlassian, projects=stores.projects, project_data_service=self.project_data_service,
+        )
         self.git_service = GitService(projects=stores.projects)
         self.masking_service = MaskingService(projects=stores.projects, masks=stores.masks)
         self.pipeline_service = PipelineService(
-            pipelines=stores.pipelines, projects=stores.projects, workers=stores.workers, catalog=stores.catalog, agent_store=stores.agents,
+            pipelines=stores.pipelines,
+            projects=stores.projects,
+            workers=stores.workers,
+            catalog=stores.catalog,
+            agent_store=stores.agents,
             agent_config_service=self.agent_config_service,
         )
         self.process_service = ProcessService(
@@ -61,7 +67,7 @@ class Container:
         )
         self.backup_service = BackupService.from_config()
         self.copilot_service = CopilotService.from_config(
-            store_service=self.store_service,
+            definitions=stores.definitions,
             copilot=stores.copilot,
             git_service=self.git_service,
             project_data_service=self.project_data_service,
@@ -69,7 +75,6 @@ class Container:
         self.agent_service = AgentService(
             chat_service=self.chat_service,
             agent_config_service=self.agent_config_service,
-            store_service=self.store_service,
             runs=stores.runs,
             catalog=stores.catalog,
             git_service=self.git_service,
@@ -86,14 +91,16 @@ class Container:
             masking_service=self.masking_service,
         )
         self.chatbot_service = ChatbotService(
-            chatbots=stores.chatbots, projects=stores.projects,
+            chatbots=stores.chatbots,
+            projects=stores.projects,
             catalog=stores.catalog,
             agent_config_service=self.agent_config_service,
             agent_service=self.agent_service,
             automation_cache=self.automation_cache_service,
         )
         self.definition_service = DefinitionService(
-            store_service=self.store_service, projects=stores.projects,
+            definitions=stores.definitions,
+            projects=stores.projects,
             agent_store=stores.agents,
             agent_config_service=self.agent_config_service,
             chatbot_service=self.chatbot_service,
