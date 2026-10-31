@@ -6,14 +6,13 @@ and the local file store, all from ``Config.get()``. The repositories deal only
 in rows/records; the per-store ``Adapter``/``Factory`` translate to and from the
 domain models.
 """
-from pathlib import Path
 
 import redis
 from sqlalchemy.engine import Engine as SqlAlchemyEngine
 
 from config import Config
 from domain.store.db.repository import Engine
-from domain.store.files.store import LocalFileRepository, StoredFile
+from domain.store.files.store import LocalFileRepository
 from domain.store.redis.repository import Client as RedisClient
 
 
@@ -29,32 +28,7 @@ class StoreService:
         if redis_client is None:
             redis_client = RedisClient.create_redis_client(config.redis_url)
 
-        self._files_repository = LocalFileRepository(config.project_data_root)
         self._definitions_repository = LocalFileRepository(config.definitions_root)
-
-    # ----------------------------------------------------------------- files
-    def list_files(self, prefix: str = "") -> list[StoredFile]:
-        return self._files_repository.list(prefix)
-
-    def save_file(self, file_id: str, data: bytes) -> StoredFile:
-        return self._files_repository.save(file_id, data)
-
-    def get_file(self, file_id: str) -> StoredFile | None:
-        return self._files_repository.get(file_id)
-
-    def read_file(self, file_id: str) -> bytes:
-        return self._files_repository.read(file_id)
-
-    def delete_file(self, file_id: str) -> bool:
-        return self._files_repository.delete(file_id)
-
-    def file_path(self, file_id: str) -> Path:
-        """Where ``file_id`` is on disk: for a program that reads it itself (Copilot's --add-dir)."""
-        return self._files_repository.path(file_id)
-
-    def delete_folder(self, prefix: str) -> bool:
-        """A folder of the file store with everything in it."""
-        return self._files_repository.delete_tree(prefix)
 
     # ----------------------------------------------------------- definitions
     def read_definition(self, path: str) -> str | None:

@@ -36,14 +36,14 @@ from domain.project.note_templates import (
 from models.domain.note import AgentTask, NoteType, Reference, TodoList
 from models.domain.project import DEFAULT_VISIBLE_NOTE_TYPES, ProjectDataFile, ProjectDataKind
 from models.store.files import StoredFile
+from service.store.project_file_store import ProjectFileStore
 from service.store.project_store import ProjectStore
-from service.store_service import StoreService
 
 
 class ProjectDataService:
 
-    def __init__(self, store_service: StoreService, projects: ProjectStore):
-        self._store = store_service
+    def __init__(self, files: ProjectFileStore, projects: ProjectStore):
+        self._files = files
         self._projects = projects
 
     # ----------------------------------------------------------------- notes
@@ -51,15 +51,15 @@ class ProjectDataService:
         return self._list(project_name, NOTES_DIR, ProjectDataKind.NOTE)
 
     def read_note(self, project_name: str, note_name: str) -> str:
-        return self._store.read_file(self._id(project_name, NOTES_DIR, note_file_name(note_name))).decode("utf-8")
+        return self._files.read(self._id(project_name, NOTES_DIR, note_file_name(note_name))).decode("utf-8")
 
     def save_note(self, project_name: str, note_name: str, content: str) -> ProjectDataFile:
         """Create or overwrite the note."""
-        stored = self._store.save_file(self._id(project_name, NOTES_DIR, note_file_name(note_name)), content.encode("utf-8"))
+        stored = self._files.save(self._id(project_name, NOTES_DIR, note_file_name(note_name)), content.encode("utf-8"))
         return _to_data_file(stored, ProjectDataKind.NOTE)
 
     def delete_note(self, project_name: str, note_name: str) -> bool:
-        return self._store.delete_file(self._id(project_name, NOTES_DIR, note_file_name(note_name)))
+        return self._files.delete(self._id(project_name, NOTES_DIR, note_file_name(note_name)))
 
     # ----------------------------------------------------------- typed notes
     def agent_tasks(self, project_name: str) -> list[tuple[str, AgentTask]]:
@@ -148,7 +148,7 @@ class ProjectDataService:
         ``link_to``. Returns (name, created). ConflictError when the name is
         taken by another reference."""
         name = typed_note_file_name(kind, reference.title)
-        created = self._store.get_file(self._id(project_name, NOTES_DIR, name)) is None
+        created = self._files.get(self._id(project_name, NOTES_DIR, name)) is None
         if created:
             self.create_reference(project_name, kind, reference)
         else:
@@ -188,7 +188,7 @@ class ProjectDataService:
 
     def _create_typed(self, project_name: str, kind: NoteType, title: str, content: str) -> str:
         name = typed_note_file_name(kind, title)
-        if self._store.get_file(self._id(project_name, NOTES_DIR, name)) is not None:
+        if self._files.get(self._id(project_name, NOTES_DIR, name)) is not None:
             raise ConflictError(f"Esiste già una nota {name}: cambia il titolo.")
         return self.save_note(project_name, name, content).name
 
@@ -196,7 +196,7 @@ class ProjectDataService:
         name = note_file_name(note_name)
         if note_type(name) != kind:
             raise ValidationError(f"{name} non è una nota di tipo {kind}.")
-        if self._store.get_file(self._id(project_name, NOTES_DIR, name)) is None:
+        if self._files.get(self._id(project_name, NOTES_DIR, name)) is None:
             raise NotFoundError(f"Nota non trovata: {name}")
         self.save_note(project_name, name, content)
 
@@ -209,16 +209,16 @@ class ProjectDataService:
         task_name = note_file_name(task_note)
         task = self.agent_task(project_name, task_name)
         prefix = self._id(project_name, COPILOT_DIR, data_file_name(folder_id))
-        self._store.delete_folder(prefix)
-        self._store.save_file(f"{prefix}/{TASK_FILE}", self.read_note(project_name, task_name).encode("utf-8"))
+        self._files.delete_folder(prefix)
+        self._files.save(f"{prefix}/{TASK_FILE}", self.read_note(project_name, task_name).encode("utf-8"))
         for name in task.references:
             reference = self._id(project_name, NOTES_DIR, note_file_name(name))
-            if self._store.get_file(reference) is not None:
-                self._store.save_file(f"{prefix}/{note_file_name(name)}", self._store.read_file(reference))
-        return self._store.file_path(prefix)
+            if self._files.get(reference) is not None:
+                self._files.save(f"{prefix}/{note_file_name(name)}", self._files.read(reference))
+        return self._files.path(prefix)
 
     def delete_copilot_folder(self, project_name: str, folder_id: str) -> None:
-        self._store.delete_folder(self._id(project_name, COPILOT_DIR, data_file_name(folder_id)))
+        self._files.delete_folder(self._id(project_name, COPILOT_DIR, data_file_name(folder_id)))
 
     # -------------------------------------------------------------- settings
     def visible_note_types(self, project_name: str) -> list[NoteType]:
@@ -238,23 +238,23 @@ class ProjectDataService:
         return self._list(project_name, FILES_DIR, ProjectDataKind.FILE)
 
     def read_file(self, project_name: str, file_name: str) -> bytes:
-        return self._store.read_file(self._id(project_name, FILES_DIR, data_file_name(file_name)))
+        return self._files.read(self._id(project_name, FILES_DIR, data_file_name(file_name)))
 
     def save_file(self, project_name: str, file_name: str, data: bytes) -> ProjectDataFile:
         """Store an uploaded file (same name = overwritten)."""
-        stored = self._store.save_file(self._id(project_name, FILES_DIR, data_file_name(file_name)), data)
+        stored = self._files.save(self._id(project_name, FILES_DIR, data_file_name(file_name)), data)
         return _to_data_file(stored, ProjectDataKind.FILE)
 
     def delete_file(self, project_name: str, file_name: str) -> bool:
-        return self._store.delete_file(self._id(project_name, FILES_DIR, data_file_name(file_name)))
+        return self._files.delete(self._id(project_name, FILES_DIR, data_file_name(file_name)))
 
     # --------------------------------------------------------------- context
     def context(self, project_name: str) -> dict[str, str]:
         """The project's context: the ``.md`` files of ``context/``, name -> content."""
         prefix = f"{project_slug(self._project(project_name))}/{CONTEXT_DIR}"
         return {
-            stored.file_id.rsplit("/", 1)[-1]: self._store.read_file(stored.file_id).decode("utf-8")
-            for stored in sorted(self._store.list_files(prefix), key=lambda item: item.file_id.lower())
+            stored.file_id.rsplit("/", 1)[-1]: self._files.read(stored.file_id).decode("utf-8")
+            for stored in sorted(self._files.list(prefix), key=lambda item: item.file_id.lower())
             if stored.file_id.endswith(NOTE_SUFFIX)
         }
 
@@ -271,7 +271,7 @@ class ProjectDataService:
     def _list(self, project_name: str, folder: str, kind: ProjectDataKind) -> list[ProjectDataFile]:
         prefix = f"{project_slug(self._project(project_name))}/{folder}"
         return sorted(
-            (_to_data_file(stored, kind) for stored in self._store.list_files(prefix)),
+            (_to_data_file(stored, kind) for stored in self._files.list(prefix)),
             key=lambda item: item.name.lower(),
         )
 

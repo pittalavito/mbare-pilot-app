@@ -185,7 +185,7 @@ def test_cancelling_stops_a_queued_or_running_execution(redis_client, project, t
     SQLModel.metadata.create_all(engine)
     store = Stores(engine=engine, redis_client=redis_client)
     store.projects.save(project_store.get("acme"))
-    data = ProjectDataService(store.store_service, store.projects)
+    data = ProjectDataService(store.project_files, store.projects)
     service = _service(store, data)
     queued = service.start("acme", _task(data, "Primo"), "api")
     service.approve(queued.id)

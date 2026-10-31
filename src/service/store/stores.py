@@ -18,6 +18,7 @@ from service.store.chatbot_store import ChatbotStore
 from service.store.copilot_store import CopilotStore
 from service.store.mask_store import MaskStore
 from service.store.pipeline_store import PipelineStore
+from service.store.project_file_store import ProjectFileStore
 from service.store.project_store import ProjectStore
 from service.store.run_store import RunStore
 from service.store.worker_store import WorkerStore
@@ -42,4 +43,5 @@ class Stores:
         self.chatbots = ChatbotStore(self.engine)
         self.pipelines = PipelineStore(self.engine)
         self.copilot = CopilotStore(self.engine)
+        self.project_files = ProjectFileStore(config.project_data_root)
         self.atlassian = AtlassianStore(self.engine, SecretBox(config.secret_key))

@@ -78,7 +78,7 @@ def redis_client():
 
 @pytest.fixture
 def files_repository(config):
-    """A file repository on the same root the StoreService uses."""
+    """A file repository on the same root as the ProjectFileStore."""
     return LocalFileRepository(config.project_data_root)
 
 
@@ -141,6 +141,11 @@ def copilot_store(stores):
 
 
 @pytest.fixture
+def project_file_store(stores):
+    return stores.project_files
+
+
+@pytest.fixture
 def store_service(stores):
     return stores.store_service
 
@@ -168,8 +173,8 @@ def git_service(project_store):
 
 
 @pytest.fixture
-def project_data_service(store_service, project_store):
-    return ProjectDataService(store_service, project_store)
+def project_data_service(project_file_store, project_store):
+    return ProjectDataService(project_file_store, project_store)
 
 
 @pytest.fixture
