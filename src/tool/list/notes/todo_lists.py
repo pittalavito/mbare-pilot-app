@@ -43,8 +43,9 @@ def build_list(context: ToolContext) -> Tool:
     def list_todo_lists() -> ListTodoListsResponse | ToolErrorResponse:
         if not notes_run(context):
             return ToolErrorResponse(error=_ONLY_IN_CHAT)
+        project_data, project_name = context.require_project_data(), context.require_project()
         try:
-            lists = context.project_data.todo_lists(context.project_name)
+            lists = project_data.todo_lists(project_name)
         except AppError as exc:
             return ToolErrorResponse(error=str(exc))
         return ListTodoListsResponse(today=date.today().isoformat(), todo_lists=[
@@ -61,8 +62,9 @@ def build_read(context: ToolContext) -> Tool:
     def read_todo_list(name: ListName) -> TodoListResponse | ToolErrorResponse:
         if not notes_run(context):
             return ToolErrorResponse(error=_ONLY_IN_CHAT)
+        project_data, project_name = context.require_project_data(), context.require_project()
         try:
-            return _response(name, context.project_data.todo_list(context.project_name, name))
+            return _response(name, project_data.todo_list(project_name, name))
         except AppError as exc:
             return ToolErrorResponse(error=str(exc))
 
@@ -75,11 +77,12 @@ def build_create(context: ToolContext) -> Tool:
     def create_todo_list(title: Annotated[str, "The list's title."], items: Items) -> TodoListResponse | ToolErrorResponse:
         if not notes_run(context):
             return ToolErrorResponse(error=_ONLY_IN_CHAT)
+        project_data, project_name = context.require_project_data(), context.require_project()
         if not title.strip():
             return ToolErrorResponse(error="Serve un titolo.")
         try:
             todo = TodoList(title=title.strip(), items=[parse_todo_item(text) for text in items if text.strip()])
-            name = context.project_data.create_todo_list(context.project_name, todo)
+            name = project_data.create_todo_list(project_name, todo)
         except AppError as exc:
             return ToolErrorResponse(error=str(exc))
         return _response(name, todo)
@@ -96,8 +99,9 @@ def build_update(context: ToolContext) -> Tool:
     def update_todo_list(name: ListName, add: Items, check: Numbers, uncheck: Numbers) -> TodoListResponse | ToolErrorResponse:
         if not notes_run(context):
             return ToolErrorResponse(error=_ONLY_IN_CHAT)
+        project_data, project_name = context.require_project_data(), context.require_project()
         try:
-            todo = context.project_data.todo_list(context.project_name, name)
+            todo = project_data.todo_list(project_name, name)
             wrong = [number for number in (*check, *uncheck) if not 1 <= number <= len(todo.items)]
             if wrong:
                 return ToolErrorResponse(error=f"Voci inesistenti: {', '.join(map(str, wrong))} (la lista ne ha {len(todo.items)}).")
@@ -108,7 +112,7 @@ def build_update(context: ToolContext) -> Tool:
             ]
             items += [parse_todo_item(text) for text in add if text.strip()]
             todo = todo.model_copy(update={"items": items})  # its references stay as they are
-            context.project_data.save_todo_list(context.project_name, name, todo)
+            project_data.save_todo_list(project_name, name, todo)
         except AppError as exc:
             return ToolErrorResponse(error=str(exc))
         return _response(name, todo)

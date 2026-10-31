@@ -1,6 +1,7 @@
-"""SQL persistence base for the DB store: the ``Engine`` factory and the
-``SqlRepository`` base every concrete repository extends. Concrete repositories
-live in their own files under domain/store/db/.
+"""SQL persistence base for the DB store: the ``Engine`` factory, the
+``SqlRepository`` base every concrete repository extends and ``transaction``
+(unit of work across repositories). Concrete repositories live in their own
+files under domain/store/db/.
 
 Schema migrations are out of scope (no Alembic): ``create_all`` creates the
 missing tables at startup. A table renamed in code is renamed in place first
@@ -10,12 +11,17 @@ other change recreates the table only while it is empty (with the tables
 referencing it); with rows the app stops and says which table to migrate by hand.
 """
 import json
-from collections.abc import Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any, Generic, TypeVar
 
 from sqlalchemy import func, inspect, literal, text
 from sqlalchemy.engine import Engine as SqlAlchemyEngine
+from sqlalchemy.orm import class_mapper
+from sqlalchemy.sql.schema import ScalarElementColumnDefault
 from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel.sql.expression import SelectOfScalar
 
 # Imported for its side effect: registers every table on SQLModel.metadata.
 import models.store.db  # noqa: F401
@@ -25,6 +31,43 @@ TableT = TypeVar("TableT", bound=SQLModel)
 
 RENAMED_TABLES = {"chat_route": "automation_cache"}
 """Old name → new name: renamed at startup when only the old one exists."""
+
+
+class _TransactionSession(Session):
+    """The Session of an open ``transaction``: the repositories' ``commit`` only
+    flushes and leaving their ``with`` block keeps it open; ``transaction``
+    commits once at the end."""
+
+    def commit(self) -> None:
+        self.flush()
+
+    def __exit__(self, type_: Any, value: Any, traceback: Any) -> None:
+        pass
+
+
+_current_transaction: ContextVar[_TransactionSession | None] = ContextVar("db_transaction", default=None)
+
+
+@contextmanager
+def transaction(engine: SqlAlchemyEngine) -> Iterator[None]:
+    """Unit of work: the repository calls inside the block share one Session
+    and are committed together at the end, or rolled back together when the
+    block raises. A block opened inside another joins the outer one."""
+    if _current_transaction.get() is not None:
+        yield
+        return
+    # Rows returned inside the block stay readable after the final commit.
+    session = _TransactionSession(engine, expire_on_commit=False)
+    token = _current_transaction.set(session)
+    try:
+        yield
+        Session.commit(session)
+    except BaseException:
+        session.rollback()
+        raise
+    finally:
+        _current_transaction.reset(token)
+        session.close()
 
 
 class Engine:
@@ -77,7 +120,7 @@ class Engine:
                 for column in table.columns:
                     if column.name in present or column.primary_key:
                         continue
-                    default = column.default.arg if column.default is not None and column.default.is_scalar else None
+                    default = column.default.arg if isinstance(column.default, ScalarElementColumnDefault) else None
                     if default is None and not column.nullable:
                         continue  # left to the recreate below
                     ddl = f"ALTER TABLE {table.name} ADD COLUMN {column.name} {column.type.compile(dialect=engine.dialect)}"
@@ -127,8 +170,22 @@ class SqlRepository(Generic[TableT]):
         self._table = table
 
     def _session(self) -> Session:
-        """A new Session bound to the engine: ``with self._session() as session:``."""
+        """A new Session bound to the engine, or the open ``transaction``'s:
+        ``with self._session() as session:``."""
+        current = _current_transaction.get()
+        if current is not None and current.get_bind() is self._engine:
+            return current
         return Session(self._engine)
+
+    def _grouped(self, statement: SelectOfScalar[TableT], ids: list[int], key: Callable[[TableT], int]) -> dict[int, list[TableT]]:
+        """The rows of ``statement`` grouped by ``key``, every id of ``ids`` present
+        (an empty list when it has no rows); no query when ``ids`` is empty."""
+        grouped: dict[int, list[TableT]] = {id_: [] for id_ in ids}
+        if ids:
+            with self._session() as session:
+                for row in session.exec(statement):
+                    grouped[key(row)].append(row)
+        return grouped
 
     def get(self, pk: Any) -> TableT | None:
         """Row by primary key, or None if absent."""
@@ -152,7 +209,8 @@ class SqlRepository(Generic[TableT]):
         """Insert the rows whose primary key is not in the table yet; existing
         rows are left untouched (seeds never overwrite edits). Returns the
         number of rows inserted."""
-        pk_names = [column.key for column in self._table.__mapper__.primary_key]
+        mapper = class_mapper(self._table)
+        pk_names = [mapper.get_property_by_column(column).key for column in mapper.primary_key]
         with self._session() as session:
             missing = []
             for row in rows:

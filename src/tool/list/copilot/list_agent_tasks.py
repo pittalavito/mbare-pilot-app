@@ -24,9 +24,10 @@ def build(context: ToolContext) -> Tool:
     def list_agent_tasks() -> ListAgentTasksResponse | ToolErrorResponse:
         if not notes_run(context):
             return ToolErrorResponse(error="Agent task disponibili solo nel chatbot di un progetto.")
+        project_name = context.require_project()
         try:
-            tasks = context.project_data.agent_tasks(context.project_name)
-            sessions = context.copilot.sessions(context.project_name) if context.copilot else []
+            tasks = context.require_project_data().agent_tasks(project_name)
+            sessions = context.copilot.sessions(project_name) if context.copilot else []
         except AppError as exc:
             return ToolErrorResponse(error=str(exc))
         latest: dict[str, str] = {}

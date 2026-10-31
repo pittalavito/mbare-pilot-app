@@ -28,18 +28,18 @@ def build(context: ToolContext) -> Tool:
         if not copilot_run(context):
             return ToolErrorResponse(error="Stato di Copilot disponibile solo nel chatbot di un progetto.")
         try:
-            session = context.copilot.session(session_id)
+            session = context.require_copilot().session(session_id)
         except AppError:
             return _not_found(session_id)
         if session.project_name != context.project_name:
             return _not_found(session_id)
         return CopilotStatusResponse(
-            session_id=session.id,
+            session_id=session_id,
             task=session.task_note,
             status=session.status.value,
             changed_files=len(session.changed_files),
             head_moved=session.head_moved,
-            chat=chat_link(session.project_name, session.id),
+            chat=chat_link(session.project_name, session_id),
         )
 
     return copilot_status

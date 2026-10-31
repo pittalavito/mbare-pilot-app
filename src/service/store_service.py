@@ -41,6 +41,7 @@ from domain.store.db.store import (
     DbToolRepository,
     Engine,
     Factory as DbFactory,
+    transaction,
 )
 from domain.store.files.store import LocalFileRepository, StoredFile
 from domain.store.redis.store import (
@@ -71,6 +72,7 @@ class StoreService:
         config = Config.get()
         if engine is None:
             engine = Engine.create_db_engine(config.database_url)
+        self._engine = engine
         if redis_client is None:
             redis_client = RedisClient.create_redis_client(config.redis_url)
 
@@ -288,20 +290,27 @@ class StoreService:
     # ------------------------------------------------------------- pipelines
     def list_pipelines(self, project_name: str) -> list[Pipeline]:
         """With their steps, sorted by name."""
-        return [self._with_steps(row) for row in self._pipeline_repository.list_for_project(project_name)]
+        rows = self._pipeline_repository.list_for_project(project_name)
+        ids = [row.id for row in rows]
+        steps = self._pipeline_step_repository.list_for_pipelines(ids)
+        edges = self._pipeline_edge_repository.list_for_pipelines(ids)
+        return [DbAdapter.to_pipeline(row, steps[row.id], edges[row.id]) for row in rows]
 
     def get_pipeline(self, pipeline_id: int) -> Pipeline | None:
         row = self._pipeline_repository.get(pipeline_id)
         return self._with_steps(row) if row else None
 
     def save_pipeline(self, pipeline: Pipeline) -> Pipeline:
-        """The pipeline and exactly its steps (in their order) and edges."""
-        row = self._pipeline_repository.save(DbFactory.to_pipeline_row(pipeline))
-        step_rows = [DbFactory.to_pipeline_step_row(step, row.id, position) for position, step in enumerate(pipeline.steps)]
-        saved_steps = self._pipeline_step_repository.replace(row.id, step_rows)
-        step_ids = {step_row.name: step_row.id for step_row in saved_steps}
-        edge_rows = [DbFactory.to_pipeline_edge_row(edge, row.id, step_ids) for edge in pipeline.edges]
-        return DbAdapter.to_pipeline(row, saved_steps, self._pipeline_edge_repository.replace(row.id, edge_rows))
+        """The pipeline and exactly its steps (in their order) and edges, all
+        in one transaction: a failure leaves the saved pipeline as it was."""
+        with transaction(self._engine):
+            row = self._pipeline_repository.save(DbFactory.to_pipeline_row(pipeline))
+            step_rows = [DbFactory.to_pipeline_step_row(step, row.id, position) for position, step in enumerate(pipeline.steps)]
+            saved_steps = self._pipeline_step_repository.replace(row.id, step_rows)
+            step_ids = {step_row.name: step_row.id for step_row in saved_steps}
+            edge_rows = [DbFactory.to_pipeline_edge_row(edge, row.id, step_ids) for edge in pipeline.edges]
+            saved_edges = self._pipeline_edge_repository.replace(row.id, edge_rows)
+        return DbAdapter.to_pipeline(row, saved_steps, saved_edges)
 
     def delete_pipeline(self, pipeline_id: int) -> bool:
         """Its steps and runs go with it (DB cascade)."""
@@ -324,10 +333,9 @@ class StoreService:
 
     def list_pipeline_runs(self, pipeline_id: int, limit: int = 20) -> list[PipelineRun]:
         """With their steps, newest first."""
-        return [
-            DbAdapter.to_pipeline_run(row, self._pipeline_step_run_repository.list_for_run(row.id))
-            for row in self._pipeline_run_repository.list_for_pipeline(pipeline_id, limit)
-        ]
+        rows = self._pipeline_run_repository.list_for_pipeline(pipeline_id, limit)
+        step_runs = self._pipeline_step_run_repository.list_for_runs([row.id for row in rows])
+        return [DbAdapter.to_pipeline_run(row, step_runs[row.id]) for row in rows]
 
     def delete_pipeline_run(self, run_id: int) -> bool:
         """Its step runs go with it (DB cascade); the agent runs stay."""

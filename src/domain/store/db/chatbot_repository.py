@@ -1,7 +1,7 @@
 """Chatbots, conversations, messages and the chatbots' cache (tables chatbot,
 conversation, message, automation_cache)."""
 from sqlalchemy.engine import Engine
-from sqlmodel import select
+from sqlmodel import col, select
 
 from domain.store.db.repository import SqlRepository
 from models.store.db import AutomationCacheTable, ChatbotTable, ConversationTable, MessageTable
@@ -29,7 +29,7 @@ class DbConversationRepository(SqlRepository[ConversationTable]):
         statement = (
             select(ConversationTable)
             .where(ConversationTable.chatbot_id == chatbot_id)
-            .order_by(ConversationTable.updated_at.desc(), ConversationTable.id.desc())
+            .order_by(col(ConversationTable.updated_at).desc(), col(ConversationTable.id).desc())
         )
         with self._session() as session:
             return list(session.exec(statement).all())
@@ -42,7 +42,7 @@ class DbMessageRepository(SqlRepository[MessageTable]):
 
     def list_for_conversation(self, conversation_id: int) -> list[MessageTable]:
         """A conversation's messages, oldest first."""
-        statement = select(MessageTable).where(MessageTable.conversation_id == conversation_id).order_by(MessageTable.id)
+        statement = select(MessageTable).where(col(MessageTable.conversation_id) == conversation_id).order_by(col(MessageTable.id))
         with self._session() as session:
             return list(session.exec(statement).all())
 
@@ -54,6 +54,6 @@ class DbAutomationCacheRepository(SqlRepository[AutomationCacheTable]):
 
     def list_for_chatbot(self, chatbot_id: int) -> list[AutomationCacheTable]:
         """A chatbot's cache entries, oldest first."""
-        statement = select(AutomationCacheTable).where(AutomationCacheTable.chatbot_id == chatbot_id).order_by(AutomationCacheTable.id)
+        statement = select(AutomationCacheTable).where(col(AutomationCacheTable.chatbot_id) == chatbot_id).order_by(col(AutomationCacheTable.id))
         with self._session() as session:
             return list(session.exec(statement).all())

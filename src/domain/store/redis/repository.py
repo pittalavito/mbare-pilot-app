@@ -8,7 +8,7 @@ Redis "schema" lives in one place: add a keyspace here (e.g. cache with a
 TTL, RAG index, chat sessions) when a feature needs it.
 """
 from dataclasses import dataclass
-from typing import TypeVar
+from typing import TypeVar, cast
 
 import redis
 from pydantic import BaseModel
@@ -88,7 +88,7 @@ class RedisRepository:
 
     def _get(self, suffix: str) -> str | None:
         """Raw value under this keyspace, or None if absent."""
-        return self._client.get(self._keyspace.key(suffix))
+        return cast(str | None, self._client.get(self._keyspace.key(suffix)))  # decode_responses=True
 
     def _load(self, suffix: str, model_cls: type[_T]) -> _T | None:
         """Read + validate one typed value: None if absent, and None with a
