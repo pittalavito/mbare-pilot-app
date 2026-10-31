@@ -32,6 +32,7 @@ dev = [
     "pytest-cov>=5.0",
     "fakeredis>=2.26",
     "ruff>=0.17.3",
+    "mypy>=2.4.1",
 ]
 
 [tool.pytest.ini_options]
@@ -62,3 +63,59 @@ extend-immutable-calls = ["fastapi.Depends", "fastapi.Body"]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
+
+[tool.mypy]
+python_version = "3.12"
+mypy_path = "src"
+files = ["src"]
+explicit_package_bases = true
+ignore_missing_imports = true
+
+# Type errors not fixed yet: remove a module from the list once it is clean.
+[[tool.mypy.overrides]]
+module = [
+    "config",
+    "domain.agent.masking",
+    "domain.agent.tracing",
+    "domain.chat.mock_client",
+    "domain.client.copilot.cli",
+    "domain.client.copilot.process",
+    "domain.client.git.client",
+    "domain.pipeline.graph",
+    "domain.project.note_templates",
+    "domain.store.db.agent_config_repository",
+    "domain.store.db.atlassian_favorite_repository",
+    "domain.store.db.chat_model_repository",
+    "domain.store.db.chatbot_repository",
+    "domain.store.db.copilot_repository",
+    "domain.store.db.pipeline_repository",
+    "domain.store.db.project_repository",
+    "domain.store.db.prompt_repository",
+    "domain.store.db.repository",
+    "domain.store.db.role_repository",
+    "domain.store.db.run_repository",
+    "domain.store.db.store",
+    "domain.store.redis.mask_repository",
+    "domain.store.redis.repository",
+    "models.domain.agent",
+    "models.domain.definitions",
+    "models.store.db",
+    "service.agent_service",
+    "service.atlassian_service",
+    "service.automation_cache_service",
+    "service.chatbot_service",
+    "service.copilot_service",
+    "service.definition_service",
+    "service.pipeline_runner",
+    "service.pipeline_service",
+    "service.project_data_service",
+    "service.store_service",
+    "tool.list.automation.automation_status",
+    "tool.list.automation.list_automations",
+    "tool.list.automation.run_automation",
+    "tool.list.copilot.copilot_status",
+    "tool.list.copilot.delegate_task",
+    "tool.list.copilot.list_agent_tasks",
+    "tool.list.notes.todo_lists",
+]
+ignore_errors = true

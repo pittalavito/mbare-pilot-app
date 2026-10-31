@@ -13,6 +13,15 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - run: uv run --only-group dev ruff check .
 
+  typecheck:
+    name: Type check (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync
+      - run: uv run mypy
+
   test-backend:
     name: Backend tests (pytest)
     # Windows, like the development machines: some tests check Windows paths
