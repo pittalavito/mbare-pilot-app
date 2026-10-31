@@ -5,14 +5,14 @@ before saving or running an agent."""
 from core.error import ConflictError, ValidationError
 from core.observability import LogPrefix, observed
 from models.domain.chat import ChatModel, ModelProvider
-from service.store_service import StoreService
+from service.store.catalog_store import CatalogStore
 
 _PROVIDER_ORDER = list(ModelProvider)
 
 
-def require_usable_model(store: StoreService, key: str) -> ChatModel:
+def require_usable_model(catalog: CatalogStore, key: str) -> ChatModel:
     """The catalog model ``key``; ValidationError when missing or inactive."""
-    chat_model = store.get_chat_model(key)
+    chat_model = catalog.get_model(key)
     if chat_model is None:
         raise ValidationError(f"Il modello {key} non è nel catalogo: aggiungilo in Admin → Modelli.")
     if not chat_model.active:
@@ -22,12 +22,12 @@ def require_usable_model(store: StoreService, key: str) -> ChatModel:
 
 class ModelService:
 
-    def __init__(self, store_service: StoreService):
-        self._store = store_service
+    def __init__(self, catalog: CatalogStore):
+        self._catalog = catalog
 
     def list_models(self, *, active_only: bool = False) -> list[ChatModel]:
         """OpenRouter first (main provider), then OpenAI, then Ollama."""
-        models = [model for model in self._store.list_chat_models() if model.active or not active_only]
+        models = [model for model in self._catalog.list_models() if model.active or not active_only]
         return sorted(models, key=lambda model: (_PROVIDER_ORDER.index(model.provider), model.model))
 
     def choices(self, current: str | None = None) -> list[str]:
@@ -39,7 +39,11 @@ class ModelService:
         return keys
 
     def seed_defaults(self, seeds: list[ChatModel]) -> int:
-        return self._store.seed_chat_models(seeds)
+        return self._catalog.seed_models(seeds)
+
+    def keys_in_use(self) -> set[str]:
+        """Models used by an agent, chatbot or pipeline step: they cannot be deleted."""
+        return self._catalog.model_keys_in_use()
 
     @observed(LogPrefix.MODEL_SERVICE)
     def save_catalog(self, models: list[ChatModel]) -> list[ChatModel]:
@@ -50,14 +54,14 @@ class ModelService:
         duplicates = sorted({key for key in keys if keys.count(key) > 1})
         if duplicates:
             raise ValidationError(f"Modelli ripetuti: {', '.join(duplicates)}")
-        removed = {model.key for model in self._store.list_chat_models()} - set(keys)
-        in_use = sorted(removed & self._store.chat_model_keys_in_use())
+        removed = {model.key for model in self._catalog.list_models()} - set(keys)
+        in_use = sorted(removed & self.keys_in_use())
         if in_use:
             raise ConflictError(
                 f"Non puoi eliminare {', '.join(in_use)}: sono usati da agenti, chatbot o automation. Disattivali invece."
             )
         for model in models:
-            self._store.save_chat_model(model)
+            self._catalog.save_model(model)
         for key in removed:
-            self._store.delete_chat_model(key)
+            self._catalog.delete_model(key)
         return self.list_models()

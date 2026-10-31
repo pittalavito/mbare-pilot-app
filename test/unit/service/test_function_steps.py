@@ -13,10 +13,7 @@ from models.domain.pipeline import PipelineStep, RunStatus, StepAgent, StepKind
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
 from service.chat_service import ChatService
-from service.git_service import GitService
-from service.masking_service import MaskingService
 from service.pipeline_runner import PipelineRunner
-from service.pipeline_service import PipelineService
 from service.project_data_service import ProjectDataService
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
@@ -43,34 +40,34 @@ def project(store_service, tmp_path):
 
 
 @pytest.fixture
-def service(store_service, agent_config_service, project, monkeypatch, worker_store):
+def service(project, monkeypatch, pipeline_service):
     monkeypatch.setattr(agent_service_module.AgentFactory, "create_agent",
                         staticmethod(lambda definition, client, tools: FakeAgent()))
-    return PipelineService(store_service, agent_config_service, worker_store)
+    return pipeline_service
 
 
 @pytest.fixture
-def runner(store_service, monkeypatch, make_agent_service):
+def runner(store_service, monkeypatch, make_agent_service, git_service, project_data_service):
     chat = ChatService()
     monkeypatch.setattr(chat, "get_client", lambda model: object())
-    git = GitService(store_service)
+    git = git_service
     agents = make_agent_service(chat, git_service=git)
-    return PipelineRunner(store_service, agents, git, ProjectDataService(store_service))
+    return PipelineRunner(store_service, agents, git, project_data_service)
 
 
 @pytest.fixture
-def masking(store_service, mask_store):
-    return MaskingService(store_service, mask_store)
+def masking(masking_service):
+    return masking_service
 
 
 @pytest.fixture
-def masked_runner(store_service, masking, monkeypatch, make_agent_service):
+def masked_runner(store_service, masking, monkeypatch, make_agent_service, git_service, project_data_service):
     """A runner that registers what the function steps declare sensitive."""
     chat = ChatService()
     monkeypatch.setattr(chat, "get_client", lambda model: object())
-    git = GitService(store_service)
+    git = git_service
     agents = make_agent_service(chat, git_service=git)
-    return PipelineRunner(store_service, agents, git, ProjectDataService(store_service), masking_service=masking)
+    return PipelineRunner(store_service, agents, git, project_data_service, masking_service=masking)
 
 
 def _function(name="F", function="git_status", template="{input}", **params) -> PipelineStep:

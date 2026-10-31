@@ -14,21 +14,21 @@ from service.model_service import ModelService, require_usable_model
 
 
 @pytest.fixture
-def service(store_service):
-    return ModelService(store_service)
+def service(catalog_store):
+    return ModelService(catalog_store)
 
 
 def _model(provider, model, **values):
     return ChatModel(provider=provider, model=model, **values)
 
 
-def test_seeds_are_inserted_once_and_edits_win(service, store_service):
+def test_seeds_are_inserted_once_and_edits_win(service, catalog_store):
     assert {model.key for model in service.list_models()} == {model.key for model in DEFAULT_CHAT_MODELS}
-    edited = store_service.get_chat_model("openai/gpt-4o").model_copy(update={"input_per_1m": 1.0})
-    store_service.save_chat_model(edited)
+    edited = catalog_store.get_model("openai/gpt-4o").model_copy(update={"input_per_1m": 1.0})
+    catalog_store.save_model(edited)
 
     assert service.seed_defaults(DEFAULT_CHAT_MODELS) == 0
-    assert store_service.get_chat_model("openai/gpt-4o").input_per_1m == 1.0
+    assert catalog_store.get_model("openai/gpt-4o").input_per_1m == 1.0
 
 
 def test_openrouter_first_then_openai_then_ollama(service):
@@ -38,8 +38,8 @@ def test_openrouter_first_then_openai_then_ollama(service):
     assert providers[0] is ModelProvider.OPENROUTER
 
 
-def test_price_list_is_keyed_by_model_id(store_service):
-    prices = store_service.get_price_list()
+def test_price_list_is_keyed_by_model_id(catalog_store):
+    prices = catalog_store.price_list()
 
     assert prices["google/gemini-2.5-pro"].provider is ModelProvider.OPENROUTER
     assert prices["gpt-4o"].input_per_1m == 3.5
@@ -77,13 +77,13 @@ def test_model_in_use_cannot_be_deleted_only_deactivated(service, store_service)
     assert service.choices(current="ollama/mistral:7b")[-1] == "ollama/mistral:7b"
 
 
-def test_require_usable_model(store_service):
-    assert require_usable_model(store_service, "openai/gpt-4o").model == "gpt-4o"
+def test_require_usable_model(catalog_store):
+    assert require_usable_model(catalog_store, "openai/gpt-4o").model == "gpt-4o"
     with pytest.raises(ValidationError, match="non è nel catalogo"):
-        require_usable_model(store_service, "openrouter/x/unknown")
-    store_service.save_chat_model(_model("openai", "gpt-4o", active=False))
+        require_usable_model(catalog_store, "openrouter/x/unknown")
+    catalog_store.save_model(_model("openai", "gpt-4o", active=False))
     with pytest.raises(ValidationError, match="disattivato"):
-        require_usable_model(store_service, "openai/gpt-4o")
+        require_usable_model(catalog_store, "openai/gpt-4o")
 
 
 # ----------------------------------------------------------------- clients

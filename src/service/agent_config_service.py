@@ -10,25 +10,27 @@ Names are unique across all scopes."""
 from core.error import ConflictError, NotFoundError, ValidationError
 from models.domain.agent import AgentConfig, AgentRole, AgentSpec, SystemPrompt, ToolInfo
 from service.model_service import require_usable_model
+from service.store.catalog_store import CatalogStore
 from service.store_service import StoreService
 from tool.registry import TOOL_REGISTRY
 
 
 class AgentConfigService:
 
-    def __init__(self, store_service: StoreService):
+    def __init__(self, store_service: StoreService, catalog: CatalogStore):
         self._store = store_service
+        self._catalog = catalog
 
     # ----------------------------------------------------------------- tools
     def sync_tools(self) -> None:
         """Register every tool implemented in code into the DB catalog."""
-        self._store.sync_tools([ToolInfo(name=spec.name, description=spec.description) for spec in TOOL_REGISTRY.values()])
+        self._catalog.sync_tools([ToolInfo(name=spec.name, description=spec.description) for spec in TOOL_REGISTRY.values()])
 
     def list_tools(self) -> list[ToolInfo]:
         """The catalog, with ``chatbot_only`` from the code."""
         return [
             tool.model_copy(update={"chatbot_only": tool.name in TOOL_REGISTRY and TOOL_REGISTRY[tool.name].chatbot_only})
-            for tool in self._store.list_tools(implemented=set(TOOL_REGISTRY))
+            for tool in self._catalog.list_tools(implemented=set(TOOL_REGISTRY))
         ]
 
     # ----------------------------------------------------------------- roles
@@ -116,7 +118,7 @@ class AgentConfigService:
         if prompt is None or prompt.role_name != config.role_name:
             raise ValidationError(f"Il prompt scelto non appartiene al ruolo {config.role_name}.")
         self._require_active(role, prompt)
-        require_usable_model(self._store, config.model)
+        require_usable_model(self._catalog, config.model)
         usable = {tool.name for tool in self.list_tools() if tool.available}
         unusable = [name for name in config.tool_names if name not in usable]
         if unusable:

@@ -10,6 +10,7 @@ from sqlalchemy.engine import Engine as SqlAlchemyEngine
 from config import Config
 from domain.store.db.repository import Engine
 from domain.store.redis.repository import Client as RedisClient
+from service.store.catalog_store import CatalogStore
 from service.store.mask_store import MaskStore
 from service.store.run_store import RunStore
 from service.store.worker_store import WorkerStore
@@ -28,3 +29,4 @@ class Stores:
         self.workers = WorkerStore(self.redis_client)
         self.masks = MaskStore(self.redis_client)
         self.runs = RunStore(self.engine, self.redis_client)
+        self.catalog = CatalogStore(self.engine)

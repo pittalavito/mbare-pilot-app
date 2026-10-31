@@ -5,7 +5,6 @@ from domain.project.folder_browser import FolderBrowser
 from models.domain.project import ProjectSource
 from service.chatbot_service import ChatbotService
 from service.definition_service import DefinitionService
-from service.pipeline_service import PipelineService
 from service.project_service import ProjectService
 
 
@@ -85,9 +84,9 @@ def test_remove_does_not_delete_folder(project_service, root):
     assert (root / "existing-app" / "main.py").exists()
 
 
-def test_a_new_project_gets_the_default_chatbots(store_service, root, agent_config_service, worker_store, mask_store, make_agent_service):
-    chatbots = ChatbotService(store_service, agent_config_service, make_agent_service())
-    definitions = DefinitionService(store_service, agent_config_service, chatbots, PipelineService(store_service, agent_config_service, worker_store))
+def test_a_new_project_gets_the_default_chatbots(store_service, root, agent_config_service, mask_store, make_agent_service, catalog_store, pipeline_service):
+    chatbots = ChatbotService(store_service, catalog_store, agent_config_service, make_agent_service())
+    definitions = DefinitionService(store_service, agent_config_service, chatbots, pipeline_service)
     projects = ProjectService(store_service, mask_store, FolderBrowser([root]), definition_service=definitions)
 
     projects.open_folder("App", "", root / "existing-app")

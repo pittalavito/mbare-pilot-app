@@ -15,10 +15,7 @@ from models.domain.project import Project, ProjectSource
 from models.domain.worker import WorkerStatus
 from service import agent_service as agent_service_module
 from service.chat_service import ChatService
-from service.git_service import GitService
 from service.pipeline_runner import PipelineRunner
-from service.pipeline_service import PipelineService
-from service.project_data_service import ProjectDataService
 
 MODEL = "openai/gpt-4o"
 
@@ -49,15 +46,15 @@ def agent_service(monkeypatch, make_agent_service):
 
 
 @pytest.fixture
-def service(store_service, agent_config_service, agents, worker_store):
+def service(store_service, agents, pipeline_service):
     for name in ("acme", "other"):
         store_service.save_project(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/code/{name}"))
-    return PipelineService(store_service, agent_config_service, worker_store)
+    return pipeline_service
 
 
 @pytest.fixture
-def runner(store_service, agent_service):
-    return PipelineRunner(store_service, agent_service, GitService(store_service), ProjectDataService(store_service))
+def runner(store_service, agent_service, git_service, project_data_service):
+    return PipelineRunner(store_service, agent_service, git_service, project_data_service)
 
 
 def _own(name="Riassumi", prompt="Riassumi.", template="{input}", **agent) -> PipelineStep:

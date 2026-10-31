@@ -81,8 +81,8 @@ def test_delete_config(agent_config_service):
 
 
 # --------------------------------------------------------------------- tools
-def test_tool_removed_from_code_is_unavailable(agent_config_service, store_service):
-    store_service.sync_tools([ToolInfo(name="legacy_tool", description="old")])
+def test_tool_removed_from_code_is_unavailable(agent_config_service, catalog_store):
+    catalog_store.sync_tools([ToolInfo(name="legacy_tool", description="old")])
 
     tools = {t.name: t for t in agent_config_service.list_tools()}
     assert tools["legacy_tool"].available is False

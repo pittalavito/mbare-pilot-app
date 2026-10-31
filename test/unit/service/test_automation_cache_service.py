@@ -16,8 +16,6 @@ from service import agent_service as agent_service_module
 from service.automation_cache_service import AutomationCacheService
 from service.chat_service import ChatService
 from service.chatbot_service import ChatbotService
-from service.masking_service import MaskingService
-from service.pipeline_service import PipelineService
 
 MODEL = "openai/gpt-4o"
 
@@ -71,10 +69,10 @@ def agent_runs(monkeypatch):
 
 
 @pytest.fixture
-def pipelines(store_service, agent_config_service, worker_store):
+def pipelines(store_service, pipeline_service):
     for name in ("acme", "other"):
         store_service.save_project(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/code/{name}"))
-    return PipelineService(store_service, agent_config_service, worker_store)
+    return pipeline_service
 
 
 @pytest.fixture
@@ -83,11 +81,11 @@ def cache(store_service, pipelines):
 
 
 @pytest.fixture
-def chat(store_service, agent_config_service, cache, agent_runs, monkeypatch, make_agent_service):
+def chat(store_service, agent_config_service, cache, agent_runs, monkeypatch, make_agent_service, catalog_store):
     llm = ChatService()
     monkeypatch.setattr(llm, "get_client", lambda model: object())
     agents = make_agent_service(llm)
-    return ChatbotService(store_service, agent_config_service, agents, cache)
+    return ChatbotService(store_service, catalog_store, agent_config_service, agents, cache)
 
 
 @pytest.fixture
@@ -177,8 +175,8 @@ def test_entries_survive_their_conversation(chat, cache, pipelines, conversation
 
 # ------------------------------------------------- real embedders, logs
 
-def test_a_remote_embedder_only_gets_masked_text(store_service, pipelines, chat, conversation, mask_store):
-    masking = MaskingService(store_service, mask_store)
+def test_a_remote_embedder_only_gets_masked_text(store_service, pipelines, chat, conversation, masking_service):
+    masking = masking_service
     masking.add_term("acme", MaskCategory.PERSON, "Mario Rossi")
     remote = _RemoteEmbedder()
     cache = AutomationCacheService(store_service, pipelines, remote, threshold=0.9, masking_service=masking)

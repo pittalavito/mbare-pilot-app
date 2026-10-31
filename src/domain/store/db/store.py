@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 from domain.store.db.agent_config_repository import DbAgentConfigRepository
 from domain.store.db.atlassian_favorite_repository import DbAtlassianFavoriteRepository
 from domain.store.db.atlassian_repository import DbAtlassianRepository
-from domain.store.db.chat_model_repository import DbChatModelRepository
 from domain.store.db.chatbot_repository import (
     DbAutomationCacheRepository,
     DbChatbotRepository,
@@ -28,15 +27,13 @@ from domain.store.db.project_repository import DbProjectRepository
 from domain.store.db.prompt_repository import DbPromptRepository
 from domain.store.db.repository import Engine, transaction
 from domain.store.db.role_repository import DbRoleRepository
-from domain.store.db.tool_repository import DbToolRepository
 from models.domain.agent import (
     AgentConfig,
     AgentRole,
     SystemPrompt,
-    ToolInfo,
 )
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
-from models.domain.chat import ChatModel, EmbeddingModelName
+from models.domain.chat import EmbeddingModelName
 from models.domain.chatbot import AutomationCacheEntry, Chatbot, ChatMessage, Conversation, MessageRole
 from models.domain.copilot import (
     CopilotMessage,
@@ -68,7 +65,6 @@ from models.store.db import (
     AtlassianFavoriteTable,
     AutomationCacheTable,
     ChatbotTable,
-    ChatModelTable,
     ConversationTable,
     CopilotMessageTable,
     CopilotSessionTable,
@@ -82,7 +78,6 @@ from models.store.db import (
     ProjectAtlassianTable,
     ProjectTable,
     SystemPromptTable,
-    ToolTable,
 )
 
 __all__ = [
@@ -100,14 +95,12 @@ __all__ = [
     "DbPipelineRunRepository",
     "DbPipelineStepRepository",
     "DbPipelineStepRunRepository",
-    "DbChatModelRepository",
     "DbCopilotMessageRepository",
     "DbCopilotSessionRepository",
     "DbCopilotTurnRepository",
     "DbProjectRepository",
     "DbPromptRepository",
     "DbRoleRepository",
-    "DbToolRepository",
     "Adapter",
     "Factory",
 ]
@@ -150,10 +143,6 @@ class Adapter:
 
 
     @staticmethod
-    def to_chat_model(row: ChatModelTable) -> ChatModel:
-        return ChatModel.model_validate(row.model_dump())
-
-    @staticmethod
     def to_role(row: AgentRoleTable) -> AgentRole:
         return AgentRole.model_validate(row.model_dump())
 
@@ -162,10 +151,6 @@ class Adapter:
         prompt = SystemPrompt.model_validate(row.model_dump())
         prompt.created_at = _as_utc(prompt.created_at)
         return prompt
-
-    @staticmethod
-    def to_tool(row: ToolTable, available: bool) -> ToolInfo:
-        return ToolInfo(name=row.name, description=row.description, available=available)
 
     @staticmethod
     def to_agent_config(row: AgentConfigTable) -> AgentConfig:
@@ -415,16 +400,8 @@ class Factory:
         )
 
     @staticmethod
-    def to_chat_model_row(chat_model: ChatModel) -> ChatModelTable:
-        return ChatModelTable(**{**chat_model.model_dump(), "provider": chat_model.provider.value})
-
-    @staticmethod
     def to_role_row(role: AgentRole) -> AgentRoleTable:
         return AgentRoleTable(**role.model_dump())
-
-    @staticmethod
-    def to_tool_row(tool: ToolInfo) -> ToolTable:
-        return ToolTable(name=tool.name, description=tool.description)
 
     @staticmethod
     def to_agent_config_row(config: AgentConfig) -> AgentConfigTable:

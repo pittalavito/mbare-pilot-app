@@ -50,8 +50,8 @@ def project(store_service, tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def data(store_service):
-    return ProjectDataService(store_service)
+def data(project_data_service):
+    return project_data_service
 
 
 def _service(store_service, data, command=None, execution_timeout=30.0) -> CopilotService:

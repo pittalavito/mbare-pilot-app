@@ -19,6 +19,7 @@ from service.masking_service import MaskingService
 from service.model_service import require_usable_model
 from service.pipeline_service import PipelineService
 from service.project_data_service import ProjectDataService
+from service.store.catalog_store import CatalogStore
 from service.store.run_store import RunStore
 from service.store_service import StoreService
 from tool.context import ToolContext
@@ -33,6 +34,7 @@ class AgentService:
         agent_config_service: AgentConfigService,
         store_service: StoreService,
         runs: RunStore,
+        catalog: CatalogStore,
         git_service: GitService,
         pipeline_service: PipelineService,
         masking_service: MaskingService,
@@ -50,6 +52,7 @@ class AgentService:
         self._agent_config_service = agent_config_service
         self._store_service = store_service
         self._runs = runs
+        self._catalog = catalog
         self._git_service = git_service
         self._pipeline_service = pipeline_service
         self._masking_service = masking_service
@@ -73,7 +76,7 @@ class AgentService:
         masking, the LLM sees aliases instead of the sensitive values: input,
         history and tool output are masked, the answer is unmasked."""
         project_name = project_name or definition.project_name
-        require_usable_model(self._store_service, definition.model)
+        require_usable_model(self._catalog, definition.model)
         client = self._chat_service.get_client(definition.model)
         session = self._masking_service.session(project_name) if project_name else None
         mask = AgentMask(session, self._repository_paths(project_name) if session else [])
@@ -87,7 +90,7 @@ class AgentService:
         )
         tools = mask.wrap(build_tools(definition.tool_names, context))
         agent = AgentFactory.create_agent(definition, client, tools)
-        prices = self._store_service.get_price_list()
+        prices = self._catalog.price_list()
 
         output, error = "", None
         start = perf_counter()

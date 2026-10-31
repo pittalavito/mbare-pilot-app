@@ -13,10 +13,7 @@ from models.domain.pipeline import PipelineStep, RunStatus, StepAgent, StepKind
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
 from service.chat_service import ChatService
-from service.git_service import GitService
 from service.pipeline_runner import PipelineRunner
-from service.pipeline_service import PipelineService
-from service.project_data_service import ProjectDataService
 from tool.context import ToolContext
 from tool.list.automation.list_automations import LIST_AUTOMATIONS
 from tool.list.automation.run_automation import RUN_AUTOMATION
@@ -36,9 +33,9 @@ class _Launching:
 
 
 @pytest.fixture
-def pipelines(store_service, agent_config_service, worker_store):
+def pipelines(store_service, pipeline_service):
     store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
-    return PipelineService(store_service, agent_config_service, worker_store)
+    return pipeline_service
 
 
 @pytest.fixture
@@ -108,12 +105,12 @@ def test_only_in_a_chatbots_run_of_a_project(pipelines, context):
     assert "non disponibili" in as_dict(built.func(automation="Report", input=""))["error"]
 
 
-def test_an_automation_cannot_start_automations(service, store_service, pipelines, monkeypatch):
+def test_an_automation_cannot_start_automations(service, store_service, pipelines, monkeypatch, git_service, project_data_service):
     """A step agent with run_automation, run by the worker: the tool refuses, nothing new is queued."""
     loop = pipelines.create_pipeline("acme", "Loop", steps=[_own_step(tools=["run_automation"])])
     _agents(monkeypatch, {"pipeline/": "Loop"})
     pipelines.enqueue(loop.id)
-    runner = PipelineRunner(store_service, service, GitService(store_service), ProjectDataService(store_service))
+    runner = PipelineRunner(store_service, service, git_service, project_data_service)
 
     run = runner.run_next()
 

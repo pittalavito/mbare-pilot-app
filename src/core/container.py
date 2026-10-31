@@ -44,14 +44,15 @@ class Container:
         self.store_service = stores.store_service
         self.chat_service = ChatService()
         self.run_service = RunService(stores.runs)
-        self.model_service = ModelService(store_service=self.store_service)
-        self.agent_config_service = AgentConfigService(store_service=self.store_service)
+        self.model_service = ModelService(catalog=stores.catalog)
+        self.agent_config_service = AgentConfigService(store_service=self.store_service, catalog=stores.catalog)
         self.project_data_service = ProjectDataService(store_service=self.store_service)
         self.atlassian_service = AtlassianService(store_service=self.store_service, project_data_service=self.project_data_service)
         self.git_service = GitService(store_service=self.store_service)
         self.masking_service = MaskingService(store_service=self.store_service, masks=stores.masks)
         self.pipeline_service = PipelineService(
-            store_service=self.store_service, agent_config_service=self.agent_config_service, workers=stores.workers,
+            store_service=self.store_service, workers=stores.workers, catalog=stores.catalog,
+            agent_config_service=self.agent_config_service,
         )
         self.process_service = ProcessService(
             pipeline_service=self.pipeline_service,
@@ -69,6 +70,7 @@ class Container:
             agent_config_service=self.agent_config_service,
             store_service=self.store_service,
             runs=stores.runs,
+            catalog=stores.catalog,
             git_service=self.git_service,
             pipeline_service=self.pipeline_service,
             masking_service=self.masking_service,
@@ -84,6 +86,7 @@ class Container:
         )
         self.chatbot_service = ChatbotService(
             store_service=self.store_service,
+            catalog=stores.catalog,
             agent_config_service=self.agent_config_service,
             agent_service=self.agent_service,
             automation_cache=self.automation_cache_service,

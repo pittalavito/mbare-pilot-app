@@ -5,14 +5,13 @@ from domain.project.data_paths import data_file_name, note_file_name, project_sl
 from domain.project.folder_browser import FolderBrowser
 from models.domain.note import AgentTask, ChecklistItem, NoteType, TaskStatus, TodoItem, TodoList, TodoPriority
 from models.domain.project import Project, ProjectDataKind, ProjectSource
-from service.project_data_service import ProjectDataService
 from service.project_service import ProjectService
 
 
 @pytest.fixture
-def data_service(store_service, files_repository):
+def data_service(store_service, files_repository, project_data_service):
     store_service.save_project(Project(name="My App", source=ProjectSource.FOLDER, root_path="/code/my-app"))
-    return ProjectDataService(store_service)
+    return project_data_service
 
 
 # ------------------------------------------------------------------- naming

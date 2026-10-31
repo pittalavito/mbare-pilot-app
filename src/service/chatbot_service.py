@@ -15,6 +15,7 @@ from service.agent_config_service import AgentConfigService
 from service.agent_service import AgentService
 from service.automation_cache_service import CACHE_BYPASS, AutomationCacheService
 from service.model_service import require_usable_model
+from service.store.catalog_store import CatalogStore
 from service.store_service import StoreService
 
 _TITLE_LENGTH = 60
@@ -26,10 +27,11 @@ _CACHE_MARK = "⚡"
 
 class ChatbotService:
 
-    def __init__(self, store_service: StoreService, agent_config_service: AgentConfigService, agent_service: AgentService,
+    def __init__(self, store_service: StoreService, catalog: CatalogStore, agent_config_service: AgentConfigService, agent_service: AgentService,
                  automation_cache: AutomationCacheService | None = None):
         """``automation_cache`` is the cache; None = every message goes to the agent."""
         self._store = store_service
+        self._catalog = catalog
         self._agent_configs = agent_config_service
         self._agents = agent_service
         self._cache = automation_cache
@@ -195,7 +197,7 @@ class ChatbotService:
 
     def _validate(self, chatbot: Chatbot) -> None:
         """The model is usable, the tools are available, the name is unique within the project."""
-        require_usable_model(self._store, chatbot.model)
+        require_usable_model(self._catalog, chatbot.model)
         available = {tool.name for tool in self.available_tools()}
         unavailable = [name for name in chatbot.tool_names if name not in available]
         if unavailable:

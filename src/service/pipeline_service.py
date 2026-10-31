@@ -14,15 +14,17 @@ from models.domain.pipeline import Pipeline, PipelineEdge, PipelineRun, Pipeline
 from models.domain.worker import WorkerStatus
 from service.agent_config_service import AgentConfigService
 from service.model_service import require_usable_model
+from service.store.catalog_store import CatalogStore
 from service.store.worker_store import WorkerStore
 from service.store_service import StoreService
 
 
 class PipelineService:
 
-    def __init__(self, store_service: StoreService, agent_config_service: AgentConfigService, workers: WorkerStore):
+    def __init__(self, store_service: StoreService, workers: WorkerStore, catalog: CatalogStore, agent_config_service: AgentConfigService):
         self._store = store_service
         self._workers = workers
+        self._catalog = catalog
         self._agent_configs = agent_config_service
 
     # ------------------------------------------------------------- pipelines
@@ -165,7 +167,7 @@ class PipelineService:
                 if step.agent is None:
                     raise ValidationError(f"{label}: configura il suo agente.")
                 try:
-                    require_usable_model(self._store, step.agent.model)
+                    require_usable_model(self._catalog, step.agent.model)
                 except ValidationError as exc:
                     raise ValidationError(f"{label}: {exc}") from exc
                 unavailable = [name for name in step.agent.tool_names if name not in tools]

@@ -5,15 +5,14 @@ import pytest
 
 from fakes import as_dict
 from models.domain.project import Project, ProjectSource
-from service.project_data_service import ProjectDataService
 from tool.context import ToolContext
 from tool.list.project.read_context import READ_CONTEXT
 
 
 @pytest.fixture
-def project_data(store_service):
+def project_data(store_service, project_data_service):
     store_service.save_project(Project(name="My App", source=ProjectSource.FOLDER, root_path="/code/app"))
-    return ProjectDataService(store_service)
+    return project_data_service
 
 
 def _read(project_data, project="My App"):

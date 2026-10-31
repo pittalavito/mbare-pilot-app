@@ -14,8 +14,6 @@ from models.domain.agent import RunOrigin
 from models.domain.note import AgentTask
 from models.domain.project import Project, ProjectSource
 from service.copilot_service import CopilotService
-from service.git_service import GitService
-from service.project_data_service import ProjectDataService
 from tool.context import ToolContext
 from tool.list.copilot.copilot_status import COPILOT_STATUS
 from tool.list.copilot.delegate_task import DELEGATE_TASK
@@ -27,7 +25,7 @@ FAKE = [sys.executable, str(Path(__file__).parents[2] / "fake_copilot.py")]
 
 
 @pytest.fixture
-def context(store_service, tmp_path, monkeypatch) -> ToolContext:
+def context(store_service, tmp_path, monkeypatch, git_service, project_data_service) -> ToolContext:
     """Chatbot run of project ``acme`` (repository ``api``) with the task «Fix porto»."""
     monkeypatch.setenv("FAKE_COPILOT_STATE", str(tmp_path / "state"))
     repo = tmp_path / "acme" / "api"
@@ -35,9 +33,9 @@ def context(store_service, tmp_path, monkeypatch) -> ToolContext:
     for args in (["init", "-q"], ["-c", "user.name=A", "-c", "user.email=a@b.it", "commit", "-q", "--allow-empty", "-m", "init"]):
         subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
     store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(tmp_path / "acme")))
-    data = ProjectDataService(store_service)
+    data = project_data_service
     data.create_agent_task("acme", AgentTask(title="Fix porto"))
-    git = GitService(store_service)
+    git = git_service
     copilot = CopilotService(store_service, git, data, CopilotClient(FAKE), planning_timeout_seconds=30, execution_timeout_seconds=30)
     return ToolContext(project_name="acme", git=git, origin=RunOrigin.CHAT, project_data=data, copilot=copilot)
 

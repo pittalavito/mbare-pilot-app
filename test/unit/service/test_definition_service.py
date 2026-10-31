@@ -9,7 +9,6 @@ from models.domain.definitions import DefinitionKey, DefinitionKind
 from models.domain.project import Project, ProjectSource
 from service.chatbot_service import ChatbotService
 from service.definition_service import DefinitionService
-from service.pipeline_service import PipelineService
 
 MODEL = "openai/gpt-4o"
 PROJECT_DIR = "project/acme"
@@ -40,12 +39,12 @@ CONTROLLO = """
 
 
 @pytest.fixture
-def services(store_service, agent_config_service, worker_store, make_agent_service):
+def services(store_service, agent_config_service, make_agent_service, catalog_store, pipeline_service):
     store_service.save_definition("global-agent.yml", "")  # each test writes what it needs
     store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
     agents = make_agent_service()
-    pipelines = PipelineService(store_service, agent_config_service, worker_store)
-    chatbots = ChatbotService(store_service, agent_config_service, agents)
+    pipelines = pipeline_service
+    chatbots = ChatbotService(store_service, catalog_store, agent_config_service, agents)
     return DefinitionService(store_service, agent_config_service, chatbots, pipelines), chatbots, pipelines
 
 
@@ -323,7 +322,7 @@ def test_an_automation_chatbot_from_the_files_gets_its_fixed_tools(services, sto
     assert "togli tools" in definitions.preview("acme")[1].message
 
 
-def test_the_default_chatbots_are_created_where_missing_and_never_changed(services, store_service, caplog):
+def test_the_default_chatbots_are_created_where_missing_and_never_changed(services, store_service, caplog, catalog_store):
     definitions, chatbots, _ = services
     mine = chatbots.create_chatbot("acme", "segretario", system_prompt="Mio.", model=MODEL)  # same name: left as it is
 
@@ -335,8 +334,8 @@ def test_the_default_chatbots_are_created_where_missing_and_never_changed(servic
     assert definitions.seed_default_chatbots(["acme"]) == 0  # already there
 
     store_service.save_project(Project(name="beta", source=ProjectSource.FOLDER, root_path="/code/beta"))
-    default_model = store_service.get_chat_model("openrouter/google/gemini-3.1-flash-lite-preview")
-    store_service.save_chat_model(default_model.model_copy(update={"active": False}))
+    default_model = catalog_store.get_model("openrouter/google/gemini-3.1-flash-lite-preview")
+    catalog_store.save_model(default_model.model_copy(update={"active": False}))
 
     assert definitions.seed_default_chatbots(["beta"]) == 0  # logged, not raised: the app starts anyway
     assert chatbots.list_chatbots("beta") == [] and "è disattivato" in caplog.text

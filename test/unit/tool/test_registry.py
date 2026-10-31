@@ -1,14 +1,13 @@
 import pytest
 
 from core.error import ValidationError
-from service.git_service import GitService
 from tool.context import ToolContext
 from tool.registry import TOOL_REGISTRY, build_tools
 
 
 @pytest.fixture
-def context(store_service):
-    return ToolContext(project_name=None, git=GitService(store_service))
+def context(git_service):
+    return ToolContext(project_name=None, git=git_service)
 
 
 def test_registry_is_keyed_by_tool_name():

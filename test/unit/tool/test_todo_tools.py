@@ -9,7 +9,6 @@ from fakes import as_dict
 from models.domain.agent import RunOrigin
 from models.domain.note import AgentTask, TaskStatus, TodoItem, TodoList
 from models.domain.project import Project, ProjectSource
-from service.project_data_service import ProjectDataService
 from tool.context import ToolContext
 from tool.list.copilot.list_agent_tasks import LIST_AGENT_TASKS
 from tool.list.notes.todo_lists import CREATE_TODO_LIST, LIST_TODO_LISTS, READ_TODO_LIST, UPDATE_TODO_LIST
@@ -18,10 +17,10 @@ REFERENCE = "context-reference-procedura.md"
 
 
 @pytest.fixture
-def context(store_service) -> ToolContext:
+def context(store_service, project_data_service) -> ToolContext:
     """Chatbot run of ``acme`` (no Copilot) with the list «Rilascio», linked to a reference."""
     store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
-    data = ProjectDataService(store_service)
+    data = project_data_service
     store_service.save_file(f"acme/notes/{REFERENCE}", b"# Procedura\n\n## Contenuto\nsegreto\n")
     data.create_todo_list("acme", TodoList(title="Rilascio", references=[REFERENCE], items=[
         TodoItem(text="Aggiornare le dipendenze", done=True), TodoItem(text="Taggare il commit"),

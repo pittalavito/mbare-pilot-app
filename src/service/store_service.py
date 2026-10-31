@@ -15,7 +15,6 @@ from sqlalchemy.engine import Engine as SqlAlchemyEngine
 from config import Config
 from core.observability import LogPrefix, log_warning
 from core.secret_box import SecretBox
-from domain.chat.pricing import PriceList
 from domain.store.db.store import (
     Adapter as DbAdapter,
     DbAgentConfigRepository,
@@ -23,7 +22,6 @@ from domain.store.db.store import (
     DbAtlassianRepository,
     DbAutomationCacheRepository,
     DbChatbotRepository,
-    DbChatModelRepository,
     DbConversationRepository,
     DbCopilotMessageRepository,
     DbCopilotSessionRepository,
@@ -37,16 +35,14 @@ from domain.store.db.store import (
     DbProjectRepository,
     DbPromptRepository,
     DbRoleRepository,
-    DbToolRepository,
     Engine,
     Factory as DbFactory,
     transaction,
 )
 from domain.store.files.store import LocalFileRepository, StoredFile
 from domain.store.redis.repository import Client as RedisClient
-from models.domain.agent import AgentConfig, AgentRole, SystemPrompt, ToolInfo
+from models.domain.agent import AgentConfig, AgentRole, SystemPrompt
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
-from models.domain.chat import ChatModel
 from models.domain.chatbot import AutomationCacheEntry, Chatbot, ChatMessage, Conversation
 from models.domain.copilot import CopilotMessage, CopilotModelUsage, CopilotSession, CopilotSessionStatus, CopilotTurnRecord
 from models.domain.pipeline import Pipeline, PipelineRun, PipelineStepRun, RunStatus
@@ -65,10 +61,8 @@ class StoreService:
         if redis_client is None:
             redis_client = RedisClient.create_redis_client(config.redis_url)
 
-        self._chat_model_repository = DbChatModelRepository(engine)
         self._role_repository = DbRoleRepository(engine)
         self._prompt_repository = DbPromptRepository(engine)
-        self._tool_repository = DbToolRepository(engine)
         self._agent_config_repository = DbAgentConfigRepository(engine)
         self._project_repository = DbProjectRepository(engine)
         self._atlassian_repository = DbAtlassianRepository(engine)
@@ -88,36 +82,6 @@ class StoreService:
         self._files_repository = LocalFileRepository(config.project_data_root)
         self._definitions_repository = LocalFileRepository(config.definitions_root)
         self._secret_box = SecretBox(config.secret_key)
-
-    # ----------------------------------------------------------- chat models
-    def seed_chat_models(self, seeds: list[ChatModel]) -> int:
-        """Insert the seed models not in the catalog yet. Returns how many."""
-        return self._chat_model_repository.insert_missing([DbFactory.to_chat_model_row(seed) for seed in seeds])
-
-    def list_chat_models(self) -> list[ChatModel]:
-        """Sorted by provider and model id."""
-        return [DbAdapter.to_chat_model(row) for row in self._chat_model_repository.list_sorted()]
-
-    def get_chat_model(self, key: str) -> ChatModel | None:
-        """By ``<provider>/<model>`` key; None when not in the catalog."""
-        provider, _, model = key.partition("/")
-        row = self._chat_model_repository.get((provider, model))
-        return DbAdapter.to_chat_model(row) if row else None
-
-    def get_price_list(self) -> PriceList:
-        """Keyed by model id, as datapizza names models in its spans."""
-        return {chat_model.model: chat_model for chat_model in self.list_chat_models()}
-
-    def save_chat_model(self, chat_model: ChatModel) -> ChatModel:
-        return DbAdapter.to_chat_model(self._chat_model_repository.save(DbFactory.to_chat_model_row(chat_model)))
-
-    def delete_chat_model(self, key: str) -> bool:
-        provider, _, model = key.partition("/")
-        return self._chat_model_repository.delete((provider, model))
-
-    def chat_model_keys_in_use(self) -> set[str]:
-        """Models referenced by agent configs, chatbots or pipeline steps."""
-        return self._chat_model_repository.keys_in_use()
 
     # ----------------------------------------------------------------- roles
     def list_roles(self, project_name: str | None = None, include_global: bool = True) -> list[AgentRole]:
@@ -158,17 +122,6 @@ class StoreService:
             return None
         row.active = active
         return DbAdapter.to_prompt(self._prompt_repository.save(row))
-
-    # ----------------------------------------------------------------- tools
-    def list_tools(self, implemented: set[str]) -> list[ToolInfo]:
-        """The catalog; ``available`` tells whether each tool is in ``implemented``."""
-        return [DbAdapter.to_tool(row, available=row.name in implemented) for row in self._tool_repository.list_sorted()]
-
-    def sync_tools(self, tools: list[ToolInfo]) -> None:
-        """Upsert the tools implemented in code (name + description). Catalog
-        rows of tools no longer in code are kept, so old configs stay readable."""
-        for tool in tools:
-            self._tool_repository.save(DbFactory.to_tool_row(tool))
 
     # ---------------------------------------------------------- agent config
     def list_agent_configs(self, project_name: str | None = None, include_global: bool = True) -> list[AgentConfig]:

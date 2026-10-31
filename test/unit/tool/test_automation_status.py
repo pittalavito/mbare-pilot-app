@@ -10,10 +10,7 @@ from models.domain.pipeline import PipelineStep, StepAgent, StepKind
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
 from service.chat_service import ChatService
-from service.git_service import GitService
 from service.pipeline_runner import PipelineRunner
-from service.pipeline_service import PipelineService
-from service.project_data_service import ProjectDataService
 from tool.context import ToolContext
 from tool.list.automation.automation_status import AUTOMATION_STATUS
 
@@ -21,20 +18,20 @@ MODEL = "openai/gpt-4o"
 
 
 @pytest.fixture
-def pipelines(store_service, agent_config_service, worker_store):
+def pipelines(store_service, pipeline_service):
     for name in ("acme", "other"):
         store_service.save_project(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/code/{name}"))
-    return PipelineService(store_service, agent_config_service, worker_store)
+    return pipeline_service
 
 
 @pytest.fixture
-def runner(store_service, pipelines, monkeypatch, make_agent_service):
+def runner(store_service, pipelines, monkeypatch, make_agent_service, git_service, project_data_service):
     chat = ChatService()
     monkeypatch.setattr(chat, "get_client", lambda model: object())
     monkeypatch.setattr(agent_service_module.AgentFactory, "create_agent",
                         staticmethod(lambda definition, client, tools: FakeAgent()))
     agents = make_agent_service(chat, pipeline_service=pipelines)
-    return PipelineRunner(store_service, agents, GitService(store_service), ProjectDataService(store_service))
+    return PipelineRunner(store_service, agents, git_service, project_data_service)
 
 
 def _automation(pipelines, project="acme"):

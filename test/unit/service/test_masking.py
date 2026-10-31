@@ -16,7 +16,6 @@ from models.domain.masking import MaskCategory, MaskEntry
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
 from service.chat_service import ChatService
-from service.masking_service import MaskingService
 from service.project_service import ProjectService
 
 # ------------------------------------------------------------------ Masker
@@ -52,10 +51,10 @@ def test_empty_map_changes_nothing():
 # ------------------------------------------------------------ map on Redis
 
 @pytest.fixture
-def masking(store_service, mask_store):
+def masking(store_service, masking_service):
     for name in ("acme", "other"):
         store_service.save_project(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/code/{name}"))
-    return MaskingService(store_service, mask_store)
+    return masking_service
 
 
 def test_aliases_per_category_per_project_never_reused(masking):
