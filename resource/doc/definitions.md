@@ -166,7 +166,7 @@ models:                            # facoltativo: i modelli tra cui scegliere qu
 | `models/domain/definitions.py` | i modelli degli elementi (`AgentFile`, `ChatbotFile`, `AutomationFile`, `StepFile`, `EdgeFile`) e del report (`SyncReport`, `SyncItem`) |
 | `service/definition_service.py` | `DefinitionService.sync(progetto)`: legge, valida, applica con i servizi di agenti, chatbot e automation |
 | `domain/project/coding_agent.py` | `load(read, progetto)`: il coding agent di Copilot, globale più override del progetto (usato da `CopilotService`) |
-| `service/store_service.py` | `read_definition`, `save_definition`: i file di `definition/` |
+| `service/store/definition_store.py` | `DefinitionStore`: `read_definition`, `list_definitions`, `save_definition`, i file di `definition/` |
 | `controller/definition_controller.py` | `GET /projects/{p}/definitions` (anteprima), `POST /projects/{p}/definitions/sync` (tutto o `only`) |
 | `web/src/pages/settings/DefinitionsSection.tsx` | la sezione nelle Impostazioni del progetto: anteprima e scelta (frontend) |
 | `test/unit/service/test_definition_service.py` | agenti di progetto e globali, più chatbot per progetto trovati per nome, globali non ridefiniti e formato vecchio, automation con grafo, posizioni e globali sostituite, file ed elementi rotti, anteprima senza effetti e sincronizzazione dei soli elementi scelti (API: `test/unit/api/test_definitions_api.py`) |

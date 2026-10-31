@@ -9,7 +9,7 @@ src/domain/store/files/
   store.py             punto unico di import (LocalFileRepository, StoredFile)
 ```
 
-`StoreService` ne usa due: una con radice `Config.project_data_root`, cioè `<MBARE_PILOT_HOME>/project` (note, file e contesto dei progetti), e una con radice `Config.definitions_root`, cioè `<MBARE_PILOT_HOME>/definition` (i file YAML delle definizioni). Chi lo usa è `StoreService`; i percorsi dentro la radice li decide [`domain/project/data_paths`](../../project/README.md) (`<slug>/notes/…`, `<slug>/files/…`).
+Ne usano una ciascuno due [store](../../../service/README.md#gli-store-servicestore): `ProjectFileStore`, con radice `Config.project_data_root`, cioè `<MBARE_PILOT_HOME>/project` (note, file e contesto dei progetti), e `DefinitionStore`, con radice `Config.definitions_root`, cioè `<MBARE_PILOT_HOME>/definition` (i file YAML delle definizioni). I percorsi dentro la radice li decide [`domain/project/data_paths`](../../project/README.md) (`<slug>/notes/…`, `<slug>/files/…`).
 
 ## Indirizzare un file: `file_id`
 

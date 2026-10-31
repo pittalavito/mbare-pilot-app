@@ -28,10 +28,10 @@ Ognuno costruisce il suo `Container`.
 
 ## Container (`container.py`)
 
-L'unico posto che crea i service e li collega: ognuno riceve nel costruttore quelli che usa. Nient'altro crea service.
+L'unico posto che crea i service e li collega: ognuno riceve nel costruttore gli store e i service che usa, e solo quelli. Nient'altro crea service.
 
-- **All'avvio**: si connette a Postgres e Redis (`StoreService`), prepara lo schema e inserisce quello che manca: prima i modelli del catalogo, poi il catalogo dei tool, poi gli agenti globali di `definition/global-agent.yml` (`DefinitionService.seed_global_agents`). Quello che è stato modificato da UI non viene mai sovrascritto; un file rotto viene segnalato nel log, l'app parte lo stesso.
-- **Nei test**: `Container(store_service=...)` con gli store in memoria.
+- **All'avvio**: si connette a Postgres e Redis e costruisce gli store (`Stores`, in `service/store/stores.py`), prepara lo schema e inserisce quello che manca: prima i modelli del catalogo, poi il catalogo dei tool, poi gli agenti globali di `definition/global-agent.yml` (`DefinitionService.seed_global_agents`). Quello che è stato modificato da UI non viene mai sovrascritto; un file rotto viene segnalato nel log, l'app parte lo stesso.
+- **Nei test**: `Container(stores=...)` con gli store in memoria (la fixture `stores` di `test/conftest.py`).
 - `DATAPIZZA_TRACE_SUMMARY=true` stampa in console il riepilogo di datapizza dopo ogni run.
 
 ## App FastAPI (`app.py`)

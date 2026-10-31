@@ -47,7 +47,7 @@ Tipi condivisi: `Name` (`agent.py`: stringa obbligatoria, ripulita, max 100) e `
 | `redis.py` | `AgentTraceRecord` (trace completo di una run), `WorkerHeartbeatRecord` (scade se il worker smette di battere) |
 | `files.py` | `StoredFile`: chi chiama vede solo il `file_id`, il percorso resta dentro lo store |
 
-Le righe non escono mai dallo store: le conversioni stanno in `domain/store/*/store.py` (`Factory` per scrivere, `Adapter` per leggere).
+Le righe non escono mai dallo store: le conversioni stanno nel mapper di ogni aggregato, `domain/store/db/<aggregato>_mapper.py` e `domain/store/redis/<x>_mapper.py` (`Factory` per scrivere, `Adapter` per leggere), e le usa solo lo store di quell'aggregato (`service/store/`).
 
 ## `controller/`
 
@@ -60,7 +60,7 @@ Un file per ambito dell'API: `project`, `agent`, `chatbot`, `project_data`, `git
 ## Aggiungere un modello
 
 1. **Dominio**: `domain/<ambito>.py`, con validazioni e default.
-2. **Salvataggio**: la tabella in `store/db.py` (o il record in `store/redis.py`) + Factory/Adapter in `domain/store/`.
+2. **Salvataggio**: la tabella in `store/db.py` (o il record in `store/redis.py`) + Factory/Adapter nel mapper del suo aggregato in `domain/store/` + i metodi nel suo store in `service/store/`.
 3. **API**: request/response in `controller/<ambito>.py`, e la copia lato UI.
 
 ## Dipendenze
