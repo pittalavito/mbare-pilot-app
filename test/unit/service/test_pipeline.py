@@ -53,8 +53,8 @@ def service(agents, pipeline_service, project_store):
 
 
 @pytest.fixture
-def runner(store_service, agent_service, git_service, project_data_service):
-    return PipelineRunner(store_service, agent_service, git_service, project_data_service)
+def runner(agent_service, git_service, project_data_service, pipeline_store):
+    return PipelineRunner(pipeline_store, agent_service, git_service, project_data_service)
 
 
 def _own(name="Riassumi", prompt="Riassumi.", template="{input}", **agent) -> PipelineStep:
@@ -287,19 +287,19 @@ def test_delete_finished_or_queued_runs(service, runner):
         service.delete_run(done.id)
 
 
-def test_running_run_cannot_be_deleted(service, store_service):
+def test_running_run_cannot_be_deleted(service, pipeline_store):
     pipeline = service.create_pipeline("acme", "P", steps=[_own()])
     service.enqueue(pipeline.id, "x")
-    running = store_service.claim_next_pipeline_run()
+    running = pipeline_store.claim_next_pipeline_run()
 
     with pytest.raises(ValidationError, match="in corso"):
         service.delete_run(running.id)
 
 
-def test_interrupted_runs_fail_at_worker_start(service, runner, store_service):
+def test_interrupted_runs_fail_at_worker_start(service, runner, pipeline_store):
     pipeline = service.create_pipeline("acme", "P", steps=[_own()])
     service.enqueue(pipeline.id, "x")
-    store_service.claim_next_pipeline_run()  # a worker took it, then died
+    pipeline_store.claim_next_pipeline_run()  # a worker took it, then died
 
     assert runner.fail_interrupted() == 1
     [run] = service.list_runs(pipeline.id)

@@ -46,12 +46,12 @@ def service(project, monkeypatch, pipeline_service):
 
 
 @pytest.fixture
-def runner(store_service, monkeypatch, make_agent_service, git_service, project_data_service):
+def runner(monkeypatch, make_agent_service, git_service, project_data_service, pipeline_store):
     chat = ChatService()
     monkeypatch.setattr(chat, "get_client", lambda model: object())
     git = git_service
     agents = make_agent_service(chat, git_service=git)
-    return PipelineRunner(store_service, agents, git, project_data_service)
+    return PipelineRunner(pipeline_store, agents, git, project_data_service)
 
 
 @pytest.fixture
@@ -60,13 +60,13 @@ def masking(masking_service):
 
 
 @pytest.fixture
-def masked_runner(store_service, masking, monkeypatch, make_agent_service, git_service, project_data_service):
+def masked_runner(masking, monkeypatch, make_agent_service, git_service, project_data_service, pipeline_store):
     """A runner that registers what the function steps declare sensitive."""
     chat = ChatService()
     monkeypatch.setattr(chat, "get_client", lambda model: object())
     git = git_service
     agents = make_agent_service(chat, git_service=git)
-    return PipelineRunner(store_service, agents, git, project_data_service, masking_service=masking)
+    return PipelineRunner(pipeline_store, agents, git, project_data_service, masking_service=masking)
 
 
 def _function(name="F", function="git_status", template="{input}", **params) -> PipelineStep:

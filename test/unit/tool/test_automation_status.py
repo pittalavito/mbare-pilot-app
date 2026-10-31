@@ -25,13 +25,13 @@ def pipelines(pipeline_service, project_store):
 
 
 @pytest.fixture
-def runner(store_service, pipelines, monkeypatch, make_agent_service, git_service, project_data_service):
+def runner(pipelines, monkeypatch, make_agent_service, git_service, project_data_service, pipeline_store):
     chat = ChatService()
     monkeypatch.setattr(chat, "get_client", lambda model: object())
     monkeypatch.setattr(agent_service_module.AgentFactory, "create_agent",
                         staticmethod(lambda definition, client, tools: FakeAgent()))
     agents = make_agent_service(chat, pipeline_service=pipelines)
-    return PipelineRunner(store_service, agents, git_service, project_data_service)
+    return PipelineRunner(pipeline_store, agents, git_service, project_data_service)
 
 
 def _automation(pipelines, project="acme"):

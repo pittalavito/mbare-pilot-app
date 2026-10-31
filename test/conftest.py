@@ -126,6 +126,11 @@ def chatbot_store(stores):
 
 
 @pytest.fixture
+def pipeline_store(stores):
+    return stores.pipelines
+
+
+@pytest.fixture
 def store_service(stores):
     return stores.store_service
 
@@ -163,8 +168,8 @@ def masking_service(project_store, mask_store):
 
 
 @pytest.fixture
-def pipeline_service(store_service, project_store, worker_store, catalog_store, agent_store, agent_config_service):
-    return PipelineService(store_service, project_store, worker_store, catalog_store, agent_store, agent_config_service)
+def pipeline_service(pipeline_store, project_store, worker_store, catalog_store, agent_store, agent_config_service):
+    return PipelineService(pipeline_store, project_store, worker_store, catalog_store, agent_store, agent_config_service)
 
 
 @pytest.fixture

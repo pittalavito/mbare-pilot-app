@@ -14,6 +14,7 @@ from service.store.agent_store import AgentStore
 from service.store.catalog_store import CatalogStore
 from service.store.chatbot_store import ChatbotStore
 from service.store.mask_store import MaskStore
+from service.store.pipeline_store import PipelineStore
 from service.store.project_store import ProjectStore
 from service.store.run_store import RunStore
 from service.store.worker_store import WorkerStore
@@ -36,3 +37,4 @@ class Stores:
         self.agents = AgentStore(self.engine)
         self.projects = ProjectStore(self.engine)
         self.chatbots = ChatbotStore(self.engine)
+        self.pipelines = PipelineStore(self.engine)

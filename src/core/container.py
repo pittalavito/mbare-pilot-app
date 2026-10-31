@@ -51,7 +51,7 @@ class Container:
         self.git_service = GitService(projects=stores.projects)
         self.masking_service = MaskingService(projects=stores.projects, masks=stores.masks)
         self.pipeline_service = PipelineService(
-            store_service=self.store_service, projects=stores.projects, workers=stores.workers, catalog=stores.catalog, agent_store=stores.agents,
+            pipelines=stores.pipelines, projects=stores.projects, workers=stores.workers, catalog=stores.catalog, agent_store=stores.agents,
             agent_config_service=self.agent_config_service,
         )
         self.process_service = ProcessService(
@@ -99,7 +99,7 @@ class Container:
             pipeline_service=self.pipeline_service,
         )
         self.pipeline_runner = PipelineRunner(
-            store_service=self.store_service,
+            pipelines=stores.pipelines,
             agent_service=self.agent_service,
             git_service=self.git_service,
             project_data_service=self.project_data_service,

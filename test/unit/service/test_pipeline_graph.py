@@ -100,7 +100,7 @@ def test_invalid_graph_is_not_saved(service):
 # Fake agents echo their input ("echo: <input>"); the steps in ``runner.failing`` raise.
 
 @pytest.fixture
-def runner(store_service, monkeypatch, make_agent_service, git_service, project_data_service):
+def runner(monkeypatch, make_agent_service, git_service, project_data_service, pipeline_store):
     failing: set[str] = set()
 
     def create_agent(definition, client, tools):
@@ -111,7 +111,7 @@ def runner(store_service, monkeypatch, make_agent_service, git_service, project_
     monkeypatch.setattr(chat, "get_client", lambda model: object())
     git = git_service
     agents = make_agent_service(chat, git_service=git)
-    runner = PipelineRunner(store_service, agents, git, project_data_service)
+    runner = PipelineRunner(pipeline_store, agents, git, project_data_service)
     runner.failing = failing
     return runner
 

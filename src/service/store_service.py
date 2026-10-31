@@ -22,20 +22,13 @@ from domain.store.db.store import (
     DbCopilotMessageRepository,
     DbCopilotSessionRepository,
     DbCopilotTurnRepository,
-    DbPipelineEdgeRepository,
-    DbPipelineRepository,
-    DbPipelineRunRepository,
-    DbPipelineStepRepository,
-    DbPipelineStepRunRepository,
     Engine,
     Factory as DbFactory,
-    transaction,
 )
 from domain.store.files.store import LocalFileRepository, StoredFile
 from domain.store.redis.repository import Client as RedisClient
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
 from models.domain.copilot import CopilotMessage, CopilotModelUsage, CopilotSession, CopilotSessionStatus, CopilotTurnRecord
-from models.domain.pipeline import Pipeline, PipelineRun, PipelineStepRun, RunStatus
 
 
 class StoreService:
@@ -52,83 +45,12 @@ class StoreService:
 
         self._atlassian_repository = DbAtlassianRepository(engine)
         self._atlassian_favorite_repository = DbAtlassianFavoriteRepository(engine)
-        self._pipeline_repository = DbPipelineRepository(engine)
-        self._pipeline_step_repository = DbPipelineStepRepository(engine)
-        self._pipeline_edge_repository = DbPipelineEdgeRepository(engine)
-        self._pipeline_run_repository = DbPipelineRunRepository(engine)
-        self._pipeline_step_run_repository = DbPipelineStepRunRepository(engine)
         self._copilot_session_repository = DbCopilotSessionRepository(engine)
         self._copilot_message_repository = DbCopilotMessageRepository(engine)
         self._copilot_turn_repository = DbCopilotTurnRepository(engine)
         self._files_repository = LocalFileRepository(config.project_data_root)
         self._definitions_repository = LocalFileRepository(config.definitions_root)
         self._secret_box = SecretBox(config.secret_key)
-
-    # ------------------------------------------------------------- pipelines
-    def list_pipelines(self, project_name: str) -> list[Pipeline]:
-        """With their steps, sorted by name."""
-        rows = self._pipeline_repository.list_for_project(project_name)
-        ids = [row.id for row in rows]
-        steps = self._pipeline_step_repository.list_for_pipelines(ids)
-        edges = self._pipeline_edge_repository.list_for_pipelines(ids)
-        return [DbAdapter.to_pipeline(row, steps[row.id], edges[row.id]) for row in rows]
-
-    def get_pipeline(self, pipeline_id: int) -> Pipeline | None:
-        row = self._pipeline_repository.get(pipeline_id)
-        return self._with_steps(row) if row else None
-
-    def save_pipeline(self, pipeline: Pipeline) -> Pipeline:
-        """The pipeline and exactly its steps (in their order) and edges, all
-        in one transaction: a failure leaves the saved pipeline as it was."""
-        with transaction(self._engine):
-            row = self._pipeline_repository.save(DbFactory.to_pipeline_row(pipeline))
-            step_rows = [DbFactory.to_pipeline_step_row(step, row.id, position) for position, step in enumerate(pipeline.steps)]
-            saved_steps = self._pipeline_step_repository.replace(row.id, step_rows)
-            step_ids = {step_row.name: step_row.id for step_row in saved_steps}
-            edge_rows = [DbFactory.to_pipeline_edge_row(edge, row.id, step_ids) for edge in pipeline.edges]
-            saved_edges = self._pipeline_edge_repository.replace(row.id, edge_rows)
-        return DbAdapter.to_pipeline(row, saved_steps, saved_edges)
-
-    def delete_pipeline(self, pipeline_id: int) -> bool:
-        """Its steps and runs go with it (DB cascade)."""
-        return self._pipeline_repository.delete(pipeline_id)
-
-    def _with_steps(self, row) -> Pipeline:
-        return DbAdapter.to_pipeline(
-            row, self._pipeline_step_repository.list_for_pipeline(row.id),
-            self._pipeline_edge_repository.list_for_pipeline(row.id),
-        )
-
-    def save_pipeline_run(self, run: PipelineRun) -> PipelineRun:
-        """The run only (its steps are saved one by one with ``save_pipeline_step_run``)."""
-        return DbAdapter.to_pipeline_run(self._pipeline_run_repository.save(DbFactory.to_pipeline_run_row(run)))
-
-    def get_pipeline_run(self, run_id: int) -> PipelineRun | None:
-        """With its steps."""
-        row = self._pipeline_run_repository.get(run_id)
-        return DbAdapter.to_pipeline_run(row, self._pipeline_step_run_repository.list_for_run(row.id)) if row else None
-
-    def list_pipeline_runs(self, pipeline_id: int, limit: int = 20) -> list[PipelineRun]:
-        """With their steps, newest first."""
-        rows = self._pipeline_run_repository.list_for_pipeline(pipeline_id, limit)
-        step_runs = self._pipeline_step_run_repository.list_for_runs([row.id for row in rows])
-        return [DbAdapter.to_pipeline_run(row, step_runs[row.id]) for row in rows]
-
-    def delete_pipeline_run(self, run_id: int) -> bool:
-        """Its step runs go with it (DB cascade); the agent runs stay."""
-        return self._pipeline_run_repository.delete(run_id)
-
-    def list_pipeline_runs_by_status(self, status: RunStatus) -> list[PipelineRun]:
-        return [DbAdapter.to_pipeline_run(row) for row in self._pipeline_run_repository.list_by_status(status.value)]
-
-    def claim_next_pipeline_run(self) -> PipelineRun | None:
-        """The oldest queued run, already switched to RUNNING (worker queue)."""
-        row = self._pipeline_run_repository.claim_next()
-        return DbAdapter.to_pipeline_run(row) if row else None
-
-    def save_pipeline_step_run(self, step_run: PipelineStepRun) -> PipelineStepRun:
-        row = self._pipeline_step_run_repository.save(DbFactory.to_pipeline_step_run_row(step_run))
-        return DbAdapter.to_pipeline_step_run(row)
 
     # ------------------------------------------------------------- atlassian
     def get_atlassian_settings(self, project_name: str) -> AtlassianSettings | None:

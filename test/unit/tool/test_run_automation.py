@@ -105,12 +105,12 @@ def test_only_in_a_chatbots_run_of_a_project(pipelines, context):
     assert "non disponibili" in as_dict(built.func(automation="Report", input=""))["error"]
 
 
-def test_an_automation_cannot_start_automations(service, store_service, pipelines, monkeypatch, git_service, project_data_service):
+def test_an_automation_cannot_start_automations(service, pipelines, monkeypatch, git_service, project_data_service, pipeline_store):
     """A step agent with run_automation, run by the worker: the tool refuses, nothing new is queued."""
     loop = pipelines.create_pipeline("acme", "Loop", steps=[_own_step(tools=["run_automation"])])
     _agents(monkeypatch, {"pipeline/": "Loop"})
     pipelines.enqueue(loop.id)
-    runner = PipelineRunner(store_service, service, git_service, project_data_service)
+    runner = PipelineRunner(pipeline_store, service, git_service, project_data_service)
 
     run = runner.run_next()
 
