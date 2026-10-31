@@ -17,7 +17,6 @@ from core.observability import LogPrefix, log_warning
 from core.secret_box import SecretBox
 from domain.store.db.store import (
     Adapter as DbAdapter,
-    DbAgentConfigRepository,
     DbAtlassianFavoriteRepository,
     DbAtlassianRepository,
     DbAutomationCacheRepository,
@@ -33,15 +32,12 @@ from domain.store.db.store import (
     DbPipelineStepRepository,
     DbPipelineStepRunRepository,
     DbProjectRepository,
-    DbPromptRepository,
-    DbRoleRepository,
     Engine,
     Factory as DbFactory,
     transaction,
 )
 from domain.store.files.store import LocalFileRepository, StoredFile
 from domain.store.redis.repository import Client as RedisClient
-from models.domain.agent import AgentConfig, AgentRole, SystemPrompt
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
 from models.domain.chatbot import AutomationCacheEntry, Chatbot, ChatMessage, Conversation
 from models.domain.copilot import CopilotMessage, CopilotModelUsage, CopilotSession, CopilotSessionStatus, CopilotTurnRecord
@@ -61,9 +57,6 @@ class StoreService:
         if redis_client is None:
             redis_client = RedisClient.create_redis_client(config.redis_url)
 
-        self._role_repository = DbRoleRepository(engine)
-        self._prompt_repository = DbPromptRepository(engine)
-        self._agent_config_repository = DbAgentConfigRepository(engine)
         self._project_repository = DbProjectRepository(engine)
         self._atlassian_repository = DbAtlassianRepository(engine)
         self._atlassian_favorite_repository = DbAtlassianFavoriteRepository(engine)
@@ -82,62 +75,6 @@ class StoreService:
         self._files_repository = LocalFileRepository(config.project_data_root)
         self._definitions_repository = LocalFileRepository(config.definitions_root)
         self._secret_box = SecretBox(config.secret_key)
-
-    # ----------------------------------------------------------------- roles
-    def list_roles(self, project_name: str | None = None, include_global: bool = True) -> list[AgentRole]:
-        """Global roles (``project_name`` None) or a project's, optionally with the global ones."""
-        return [DbAdapter.to_role(row) for row in self._role_repository.list_scoped(project_name, include_global)]
-
-    def get_role(self, name: str) -> AgentRole | None:
-        row = self._role_repository.get(name)
-        return DbAdapter.to_role(row) if row else None
-
-    def save_role(self, role: AgentRole) -> AgentRole:
-        return DbAdapter.to_role(self._role_repository.save(DbFactory.to_role_row(role)))
-
-    def set_role_active(self, name: str, active: bool) -> AgentRole | None:
-        """None when the role does not exist."""
-        row = self._role_repository.get(name)
-        if row is None:
-            return None
-        row.active = active
-        return DbAdapter.to_role(self._role_repository.save(row))
-
-    # --------------------------------------------------------------- prompts
-    def list_prompts(self, role_name: str | None = None) -> list[SystemPrompt]:
-        """Prompt versions, newest first."""
-        return [DbAdapter.to_prompt(row) for row in self._prompt_repository.list_versions(role_name)]
-
-    def get_prompt(self, prompt_id: int) -> SystemPrompt | None:
-        row = self._prompt_repository.get(prompt_id)
-        return DbAdapter.to_prompt(row) if row else None
-
-    def create_prompt_version(self, role_name: str, text: str) -> SystemPrompt:
-        return DbAdapter.to_prompt(self._prompt_repository.create_version(role_name, text))
-
-    def set_prompt_active(self, prompt_id: int, active: bool) -> SystemPrompt | None:
-        """Toggle a version on/off (its text stays untouched). None when absent."""
-        row = self._prompt_repository.get(prompt_id)
-        if row is None:
-            return None
-        row.active = active
-        return DbAdapter.to_prompt(self._prompt_repository.save(row))
-
-    # ---------------------------------------------------------- agent config
-    def list_agent_configs(self, project_name: str | None = None, include_global: bool = True) -> list[AgentConfig]:
-        """Global configs (``project_name`` None) or a project's, optionally with the global ones."""
-        rows = self._agent_config_repository.list_scoped(project_name, include_global)
-        return [DbAdapter.to_agent_config(row) for row in rows]
-
-    def get_agent_config(self, name: str) -> AgentConfig | None:
-        row = self._agent_config_repository.get(name)
-        return DbAdapter.to_agent_config(row) if row else None
-
-    def save_agent_config(self, config: AgentConfig) -> AgentConfig:
-        return DbAdapter.to_agent_config(self._agent_config_repository.save(DbFactory.to_agent_config_row(config)))
-
-    def delete_agent_config(self, name: str) -> bool:
-        return self._agent_config_repository.delete(name)
 
     # -------------------------------------------------------------- projects
     def list_projects(self, source: ProjectSource | None = None) -> list[Project]:

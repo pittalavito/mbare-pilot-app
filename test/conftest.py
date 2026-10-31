@@ -111,18 +111,23 @@ def catalog_store(stores):
 
 
 @pytest.fixture
+def agent_store(stores):
+    return stores.agents
+
+
+@pytest.fixture
 def store_service(stores):
     return stores.store_service
 
 
 @pytest.fixture
-def agent_config_service(store_service, catalog_store):
+def agent_config_service(store_service, agent_store, catalog_store):
     """AgentConfigService on the in-memory store with the tool catalog and the
     example agent the tests build on: global role ``hello``, prompt v1, agent
     ``hello`` with ``hello_world`` (in the app it comes from global-agent.yml)."""
-    service = AgentConfigService(store_service, catalog_store)
+    service = AgentConfigService(store_service, agent_store, catalog_store)
     service.sync_tools()
-    if store_service.get_agent_config("hello") is None:  # a Container may have created it already
+    if agent_store.get_config("hello") is None:  # a Container may have created it already
         service.save_role(AgentRole(name="hello", description="Assistente di esempio che saluta e conta parole."), create=True)
         prompt = service.create_prompt_version("hello", "Sei un assistente. Usa i tool a disposizione quando servono.")
         service.save_config(AgentConfig(
@@ -148,8 +153,8 @@ def masking_service(store_service, mask_store):
 
 
 @pytest.fixture
-def pipeline_service(store_service, worker_store, catalog_store, agent_config_service):
-    return PipelineService(store_service, worker_store, catalog_store, agent_config_service)
+def pipeline_service(store_service, worker_store, catalog_store, agent_store, agent_config_service):
+    return PipelineService(store_service, worker_store, catalog_store, agent_store, agent_config_service)
 
 
 @pytest.fixture

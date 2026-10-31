@@ -6,7 +6,6 @@ static-method classes: ``Adapter`` (rows -> domain models, reads) and
 """
 from datetime import datetime, timezone
 
-from domain.store.db.agent_config_repository import DbAgentConfigRepository
 from domain.store.db.atlassian_favorite_repository import DbAtlassianFavoriteRepository
 from domain.store.db.atlassian_repository import DbAtlassianRepository
 from domain.store.db.chatbot_repository import (
@@ -24,14 +23,7 @@ from domain.store.db.pipeline_repository import (
     DbPipelineStepRunRepository,
 )
 from domain.store.db.project_repository import DbProjectRepository
-from domain.store.db.prompt_repository import DbPromptRepository
 from domain.store.db.repository import Engine, transaction
-from domain.store.db.role_repository import DbRoleRepository
-from models.domain.agent import (
-    AgentConfig,
-    AgentRole,
-    SystemPrompt,
-)
 from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
 from models.domain.chat import EmbeddingModelName
 from models.domain.chatbot import AutomationCacheEntry, Chatbot, ChatMessage, Conversation, MessageRole
@@ -60,8 +52,6 @@ from models.domain.pipeline import (
 )
 from models.domain.project import Project, ProjectSource
 from models.store.db import (
-    AgentConfigTable,
-    AgentRoleTable,
     AtlassianFavoriteTable,
     AutomationCacheTable,
     ChatbotTable,
@@ -77,13 +67,11 @@ from models.store.db import (
     PipelineTable,
     ProjectAtlassianTable,
     ProjectTable,
-    SystemPromptTable,
 )
 
 __all__ = [
     "Engine",
     "transaction",
-    "DbAgentConfigRepository",
     "DbAtlassianFavoriteRepository",
     "DbAtlassianRepository",
     "DbChatbotRepository",
@@ -99,8 +87,6 @@ __all__ = [
     "DbCopilotSessionRepository",
     "DbCopilotTurnRepository",
     "DbProjectRepository",
-    "DbPromptRepository",
-    "DbRoleRepository",
     "Adapter",
     "Factory",
 ]
@@ -140,30 +126,6 @@ class Adapter:
     def to_copilot_message(row: CopilotMessageTable) -> CopilotMessage:
         return CopilotMessage(**{**row.model_dump(), "role": CopilotMessageRole(row.role), "created_at": _as_utc(row.created_at)})
 
-
-
-    @staticmethod
-    def to_role(row: AgentRoleTable) -> AgentRole:
-        return AgentRole.model_validate(row.model_dump())
-
-    @staticmethod
-    def to_prompt(row: SystemPromptTable) -> SystemPrompt:
-        prompt = SystemPrompt.model_validate(row.model_dump())
-        prompt.created_at = _as_utc(prompt.created_at)
-        return prompt
-
-    @staticmethod
-    def to_agent_config(row: AgentConfigTable) -> AgentConfig:
-        return AgentConfig(
-            name=row.name,
-            project_name=row.project_name,
-            description=row.description,
-            role_name=row.role_name,
-            prompt_id=row.prompt_id,
-            model=row.model,
-            max_steps=row.max_steps,
-            tool_names=list(row.tool_names),
-        )
 
 
     @staticmethod
@@ -397,21 +359,4 @@ class Factory:
             embedding_model=project.embedding_model.value,
             visible_note_types=[kind.value for kind in project.visible_note_types] if project.visible_note_types is not None else None,
             created_at=project.created_at,
-        )
-
-    @staticmethod
-    def to_role_row(role: AgentRole) -> AgentRoleTable:
-        return AgentRoleTable(**role.model_dump())
-
-    @staticmethod
-    def to_agent_config_row(config: AgentConfig) -> AgentConfigTable:
-        return AgentConfigTable(
-            name=config.name,
-            project_name=config.project_name,
-            description=config.description,
-            role_name=config.role_name,
-            prompt_id=config.prompt_id,
-            model=config.model,
-            max_steps=config.max_steps,
-            tool_names=list(config.tool_names),
         )

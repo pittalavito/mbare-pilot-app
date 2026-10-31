@@ -14,6 +14,7 @@ from models.domain.pipeline import Pipeline, PipelineEdge, PipelineRun, Pipeline
 from models.domain.worker import WorkerStatus
 from service.agent_config_service import AgentConfigService
 from service.model_service import require_usable_model
+from service.store.agent_store import AgentStore
 from service.store.catalog_store import CatalogStore
 from service.store.worker_store import WorkerStore
 from service.store_service import StoreService
@@ -21,10 +22,12 @@ from service.store_service import StoreService
 
 class PipelineService:
 
-    def __init__(self, store_service: StoreService, workers: WorkerStore, catalog: CatalogStore, agent_config_service: AgentConfigService):
+    def __init__(self, store_service: StoreService, workers: WorkerStore, catalog: CatalogStore, agent_store: AgentStore,
+                 agent_config_service: AgentConfigService):
         self._store = store_service
         self._workers = workers
         self._catalog = catalog
+        self._agent_store = agent_store
         self._agent_configs = agent_config_service
 
     # ------------------------------------------------------------- pipelines
@@ -176,7 +179,7 @@ class PipelineService:
             elif step.kind is StepKind.AGENT_CONFIG:
                 if not step.agent_config_name:
                     raise ValidationError(f"{label}: scegli l'agente della Libreria.")
-                agent = self._store.get_agent_config(step.agent_config_name)
+                agent = self._agent_store.get_config(step.agent_config_name)
                 if agent is None:
                     raise ValidationError(f"{label}: l'agente {step.agent_config_name} non esiste più.")
                 if agent.project_name not in (None, pipeline.project_name):

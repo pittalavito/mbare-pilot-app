@@ -67,6 +67,7 @@ from models.domain.pipeline import Pipeline, PipelineEdge, PipelineStep, StepAge
 from service.agent_config_service import AgentConfigService
 from service.chatbot_service import ChatbotService
 from service.pipeline_service import PipelineService
+from service.store.agent_store import AgentStore
 from service.store_service import StoreService
 
 _AGENTS_KEY = "agents"
@@ -76,9 +77,10 @@ _CHATBOTS_KEY = "chatbots"
 
 class DefinitionService:
 
-    def __init__(self, store_service: StoreService, agent_config_service: AgentConfigService, chatbot_service: ChatbotService,
-                 pipeline_service: PipelineService):
+    def __init__(self, store_service: StoreService, agent_store: AgentStore, agent_config_service: AgentConfigService,
+                 chatbot_service: ChatbotService, pipeline_service: PipelineService):
         self._store = store_service
+        self._agent_store = agent_store
         self._agents = agent_config_service
         self._chatbots = chatbot_service
         self._pipelines = pipeline_service
@@ -116,7 +118,7 @@ class DefinitionService:
         except AppError as exc:
             return DefinitionEntry(**common, state=DefinitionState.ERROR, message=str(exc))
         if element.kind is DefinitionKind.AGENT:
-            exists = self._store.get_agent_config(element.name) is not None
+            exists = self._agent_store.get_config(element.name) is not None
         elif element.kind is DefinitionKind.CHATBOT:
             exists = any(bot.name.lower() == element.name.lower() for bot in self._chatbots.list_chatbots(project_name))
         else:
@@ -136,7 +138,7 @@ class DefinitionService:
         return items
 
     def _create_missing_global_agent(self, spec: AgentFile) -> SyncOutcome:
-        if self._store.get_agent_config(spec.name) is not None:
+        if self._agent_store.get_config(spec.name) is not None:
             return SyncOutcome.UNCHANGED
         return self._sync_agent(None, spec)
 
@@ -199,12 +201,12 @@ class DefinitionService:
         missing, in the same scope) and its prompt (a new version when the text
         changed)."""
         scope = f"del progetto {project_name}" if project_name else "globale"
-        role = self._store.get_role(spec.role)
+        role = self._agent_store.get_role(spec.role)
         if role is None:
             self._agents.save_role(AgentRole(name=spec.role, project_name=project_name), create=True)
         elif role.project_name != project_name:
             raise ValidationError(f"Il ruolo {spec.role} esiste già ma non è {scope}: usa un altro nome.")
-        existing = self._store.get_agent_config(spec.name)
+        existing = self._agent_store.get_config(spec.name)
         if existing is not None and existing.project_name != project_name:
             raise ValidationError(f"Esiste già un agente {spec.name} che non è {scope}: usa un altro nome.")
         prompt = self._agents.create_prompt_version(spec.role, spec.system_prompt)  # same text = same version

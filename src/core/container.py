@@ -45,13 +45,13 @@ class Container:
         self.chat_service = ChatService()
         self.run_service = RunService(stores.runs)
         self.model_service = ModelService(catalog=stores.catalog)
-        self.agent_config_service = AgentConfigService(store_service=self.store_service, catalog=stores.catalog)
+        self.agent_config_service = AgentConfigService(store_service=self.store_service, agents=stores.agents, catalog=stores.catalog)
         self.project_data_service = ProjectDataService(store_service=self.store_service)
         self.atlassian_service = AtlassianService(store_service=self.store_service, project_data_service=self.project_data_service)
         self.git_service = GitService(store_service=self.store_service)
         self.masking_service = MaskingService(store_service=self.store_service, masks=stores.masks)
         self.pipeline_service = PipelineService(
-            store_service=self.store_service, workers=stores.workers, catalog=stores.catalog,
+            store_service=self.store_service, workers=stores.workers, catalog=stores.catalog, agent_store=stores.agents,
             agent_config_service=self.agent_config_service,
         )
         self.process_service = ProcessService(
@@ -93,6 +93,7 @@ class Container:
         )
         self.definition_service = DefinitionService(
             store_service=self.store_service,
+            agent_store=stores.agents,
             agent_config_service=self.agent_config_service,
             chatbot_service=self.chatbot_service,
             pipeline_service=self.pipeline_service,
