@@ -3,12 +3,8 @@ import pytest
 from core.error import ConflictError, NotFoundError, ValidationError
 from domain.project.folder_browser import FolderBrowser
 from models.domain.project import ProjectSource
-from service.agent_service import AgentService
-from service.chat_service import ChatService
 from service.chatbot_service import ChatbotService
 from service.definition_service import DefinitionService
-from service.git_service import GitService
-from service.pipeline_service import PipelineService
 from service.project_service import ProjectService
 
 
@@ -21,8 +17,8 @@ def root(tmp_path):
 
 
 @pytest.fixture
-def project_service(store_service, root):
-    return ProjectService(store_service, FolderBrowser([root]))
+def project_service(root, mask_store, project_store):
+    return ProjectService(project_store, mask_store, FolderBrowser([root]))
 
 
 def test_open_existing_folder(project_service, root):
@@ -88,10 +84,11 @@ def test_remove_does_not_delete_folder(project_service, root):
     assert (root / "existing-app" / "main.py").exists()
 
 
-def test_a_new_project_gets_the_default_chatbots(store_service, root, agent_config_service):
-    chatbots = ChatbotService(store_service, agent_config_service, AgentService(ChatService(), agent_config_service, store_service, GitService(store_service)))
-    definitions = DefinitionService(store_service, agent_config_service, chatbots, PipelineService(store_service, agent_config_service))
-    projects = ProjectService(store_service, FolderBrowser([root]), definition_service=definitions)
+def test_a_new_project_gets_the_default_chatbots(root, agent_config_service, mask_store, make_agent_service, catalog_store, pipeline_service,
+                                                 agent_store, project_store, chatbot_store, definition_store):
+    chatbots = ChatbotService(chatbot_store, project_store, catalog_store, agent_config_service, make_agent_service())
+    definitions = DefinitionService(definition_store, project_store, agent_store, agent_config_service, chatbots, pipeline_service)
+    projects = ProjectService(project_store, mask_store, FolderBrowser([root]), definition_service=definitions)
 
     projects.open_folder("App", "", root / "existing-app")
     projects.create_from_scratch("Nuovo", "", root, "nuovo")

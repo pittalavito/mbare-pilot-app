@@ -25,7 +25,7 @@ _OPTIONAL_PROMPTS = ("references_prompt",)
 
 
 class DefinitionFiles(Protocol):
-    """The files under ``definition/`` (StoreService)."""
+    """The files under ``definition/`` (DefinitionStore)."""
 
     def read_definition(self, path: str) -> str | None: ...
 

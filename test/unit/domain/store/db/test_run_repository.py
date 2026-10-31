@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
-from domain.store.db.store import DbRunRepository, Factory
+from domain.store.db.run_mapper import Factory
+from domain.store.db.run_repository import DbRunRepository
 from fakes import make_run_record
 
 

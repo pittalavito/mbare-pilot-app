@@ -22,7 +22,7 @@ from service.agent_service import AgentService
 from service.git_service import GitService
 from service.masking_service import MaskingService
 from service.project_data_service import ProjectDataService
-from service.store_service import StoreService
+from service.store.pipeline_store import PipelineStore
 
 _ROLE_NAME = "pipeline"
 """Recorded as the role of the runs of a step's own agent (it has no AgentRole)."""
@@ -41,11 +41,11 @@ class StepFailed(Exception):
 
 class PipelineRunner:
 
-    def __init__(self, store_service: StoreService, agent_service: AgentService, git_service: GitService,
+    def __init__(self, pipelines: PipelineStore, agent_service: AgentService, git_service: GitService,
                  project_data_service: ProjectDataService, masking_service: MaskingService | None = None):
         """``masking_service`` registers the sensitive values the function steps
         declare (FunctionResult), so the agent steps after them see aliases."""
-        self._store = store_service
+        self._pipelines = pipelines
         self._agents = agent_service
         self._git = git_service
         self._project_data = project_data_service
@@ -55,7 +55,7 @@ class PipelineRunner:
     def run_next(self, on_claim: Callable[[PipelineRun], None] | None = None) -> PipelineRun | None:
         """Claim and execute the oldest queued run; None when the queue is empty.
         ``on_claim`` is told the run before it executes (the worker's heartbeat)."""
-        run = self._store.claim_next_pipeline_run()
+        run = self._pipelines.claim_next_pipeline_run()
         if run is None:
             return None
         if on_claim:
@@ -65,7 +65,7 @@ class PipelineRunner:
     def fail_interrupted(self) -> int:
         """Mark as failed the runs left RUNNING by a worker that stopped (call
         at worker startup, before claiming). Returns how many."""
-        interrupted = self._store.list_pipeline_runs_by_status(RunStatus.RUNNING)
+        interrupted = self._pipelines.list_pipeline_runs_by_status(RunStatus.RUNNING)
         for run in interrupted:
             self._finish(run, RunStatus.FAILED, error=_INTERRUPTED)
         return len(interrupted)
@@ -73,7 +73,7 @@ class PipelineRunner:
     @observed(LogPrefix.PIPELINE_RUNNER)
     def execute(self, run: PipelineRun) -> PipelineRun:
         """Run every step of ``run`` (already RUNNING) and finish it DONE or FAILED."""
-        pipeline = self._store.get_pipeline(run.pipeline_id)
+        pipeline = self._pipelines.get_pipeline(run.pipeline_id)
         if pipeline is None:
             return self._finish(run, RunStatus.FAILED, error="L'automation è stata eliminata.")
 
@@ -94,7 +94,7 @@ class PipelineRunner:
                 self._skip(run, step, position)
                 continue
             previous = join_outputs([(source, outputs[source]) for source in sources])
-            step_run = self._store.save_pipeline_step_run(PipelineStepRun(
+            step_run = self._pipelines.save_pipeline_step_run(PipelineStepRun(
                 pipeline_run_id=run.id,
                 step_id=step.id,
                 position=position,
@@ -139,14 +139,14 @@ class PipelineRunner:
     # ------------------------------------------------------------ records
     def _skip(self, run: PipelineRun, step: PipelineStep, position: int) -> None:
         """No edge into ``step`` let anything through: recorded as SKIPPED."""
-        self._store.save_pipeline_step_run(PipelineStepRun(
+        self._pipelines.save_pipeline_step_run(PipelineStepRun(
             pipeline_run_id=run.id, step_id=step.id, position=position, name=step.name, kind=step.kind,
             status=RunStatus.SKIPPED, finished_at=_now(),
         ))
 
     def _finish_step(self, step_run: PipelineStepRun, status: RunStatus, *, output: str | None = None,
                      error: str | None = None, agent_run_id: str | None = None) -> None:
-        self._store.save_pipeline_step_run(step_run.model_copy(update={
+        self._pipelines.save_pipeline_step_run(step_run.model_copy(update={
             "status": status, "output": output, "error": error, "agent_run_id": agent_run_id, "finished_at": _now(),
         }))
 
@@ -154,8 +154,8 @@ class PipelineRunner:
                 error: str | None = None) -> PipelineRun:
         if error:
             log_warning(LogPrefix.PIPELINE_RUNNER, "Run %s failed: %s", run.id, error)
-        self._store.save_pipeline_run(run.model_copy(update={"status": status, "output": output, "error": error, "finished_at": _now()}))
-        return self._store.get_pipeline_run(run.id)
+        self._pipelines.save_pipeline_run(run.model_copy(update={"status": status, "output": output, "error": error, "finished_at": _now()}))
+        return self._pipelines.get_pipeline_run(run.id)
 
 
 def _final_output(order: list[str], outputs: dict[str, str], pipeline: Pipeline) -> str:

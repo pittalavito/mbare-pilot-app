@@ -19,7 +19,8 @@ from service.masking_service import MaskingService
 from service.model_service import require_usable_model
 from service.pipeline_service import PipelineService
 from service.project_data_service import ProjectDataService
-from service.store_service import StoreService
+from service.store.catalog_store import CatalogStore
+from service.store.run_store import RunStore
 from tool.context import ToolContext
 from tool.registry import build_tools
 
@@ -30,20 +31,25 @@ class AgentService:
         self,
         chat_service: ChatService,
         agent_config_service: AgentConfigService,
-        store_service: StoreService,
+        runs: RunStore,
+        catalog: CatalogStore,
         git_service: GitService,
-        pipeline_service: PipelineService | None = None,
-        masking_service: MaskingService | None = None,
-        project_data_service: ProjectDataService | None = None,
-        copilot_service: CopilotService | None = None,
+        pipeline_service: PipelineService,
+        masking_service: MaskingService,
+        project_data_service: ProjectDataService,
+        copilot_service: CopilotService,
     ):
         """``pipeline_service`` lets the agents start automations (tool run_automation);
-        ``masking_service`` hides the project's sensitive values from the LLM;
+        ``masking_service`` hides the project's sensitive values from the LLM (a
+        project without a map is left as it is);
         ``project_data_service`` lets them read the project's context (tool read_context);
-        ``copilot_service`` lets the chatbot delegate agent tasks to Copilot (tool delegate_task)."""
+        ``copilot_service`` lets the chatbot delegate agent tasks to Copilot (tool delegate_task).
+        All are required: whether a tool may use one in a run is decided by the
+        tool (``ToolContext.require_*``, the run's origin), not by leaving it out."""
         self._chat_service = chat_service
         self._agent_config_service = agent_config_service
-        self._store_service = store_service
+        self._runs = runs
+        self._catalog = catalog
         self._git_service = git_service
         self._pipeline_service = pipeline_service
         self._masking_service = masking_service
@@ -67,10 +73,13 @@ class AgentService:
         masking, the LLM sees aliases instead of the sensitive values: input,
         history and tool output are masked, the answer is unmasked."""
         project_name = project_name or definition.project_name
-        require_usable_model(self._store_service, definition.model)
+        require_usable_model(self._catalog, definition.model)
         client = self._chat_service.get_client(definition.model)
-        session = self._masking_service.session(project_name) if self._masking_service and project_name else None
-        mask = AgentMask(session, self._repository_paths(project_name) if session else [])
+        session, repository_paths = None, []
+        if project_name:
+            session = self._masking_service.session(project_name)
+            repository_paths = self._repository_paths(project_name)
+        mask = AgentMask(session, repository_paths)
         context = ToolContext(
             project_name=project_name,
             git=self._git_service,
@@ -81,7 +90,7 @@ class AgentService:
         )
         tools = mask.wrap(build_tools(definition.tool_names, context))
         agent = AgentFactory.create_agent(definition, client, tools)
-        prices = self._store_service.get_price_list()
+        prices = self._catalog.price_list()
 
         output, error = "", None
         start = perf_counter()
@@ -114,7 +123,7 @@ class AgentService:
             output=output,
             telemetry=telemetry,
         )
-        self._store_service.save_run(record)
+        self._runs.save(record)
         return record
 
 

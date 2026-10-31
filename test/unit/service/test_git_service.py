@@ -53,9 +53,9 @@ def workspace(tmp_path_factory):
 
 
 @pytest.fixture
-def git_service(store_service, workspace):
-    store_service.save_project(Project(name="Shop", source=ProjectSource.FOLDER, root_path=str(workspace)))
-    return GitService(store_service)
+def git_service(workspace, project_store):
+    project_store.save(Project(name="Shop", source=ProjectSource.FOLDER, root_path=str(workspace)))
+    return GitService(project_store)
 
 
 def test_repositories_found_in_subfolders(git_service):
@@ -64,11 +64,11 @@ def test_repositories_found_in_subfolders(git_service):
     assert [(repo.path, repo.name) for repo in repos] == [("api", "api"), ("libs/core", "core")]
 
 
-def test_project_folder_itself_a_repository(store_service, tmp_path):
+def test_project_folder_itself_a_repository(tmp_path, project_store):
     _repo(tmp_path / "single", ("a.txt", "one"))
-    store_service.save_project(Project(name="Single", source=ProjectSource.FOLDER, root_path=str(tmp_path / "single")))
+    project_store.save(Project(name="Single", source=ProjectSource.FOLDER, root_path=str(tmp_path / "single")))
 
-    service = GitService(store_service)
+    service = GitService(project_store)
 
     assert [repo.path for repo in service.repositories("Single")] == [""]
     assert [commit.subject for commit in service.log("Single")] == ["one"]
@@ -173,12 +173,12 @@ def test_unknown_project(git_service):
 # ------------------------------------------------------------------- status
 
 @pytest.fixture
-def dirty(store_service, tmp_path):
+def dirty(tmp_path, project_store):
     """A fresh repository (project "Dirty") the test can change."""
     root = tmp_path / "dirty"
     _repo(root, ("keep.txt", "keep"), ("edit.txt", "edit"), ("gone.txt", "gone"), ("old.txt", "old"),
           ("src/app.py", "app"))
-    store_service.save_project(Project(name="Dirty", source=ProjectSource.FOLDER, root_path=str(root)))
+    project_store.save(Project(name="Dirty", source=ProjectSource.FOLDER, root_path=str(root)))
     return root
 
 
@@ -186,15 +186,15 @@ def _changes(status):
     return {change.path: (change.kind, change.staged, change.unstaged, change.original_path) for change in status.changes}
 
 
-def test_status_clean_repository(dirty, store_service):
-    status = GitService(store_service).status("Dirty")
+def test_status_clean_repository(dirty, project_store):
+    status = GitService(project_store).status("Dirty")
 
     assert status.is_clean
     assert status.branch in {"main", "master"}
     assert (status.upstream, status.ahead, status.behind) == (None, 0, 0)
 
 
-def test_status_lists_every_kind_of_change(dirty, store_service):
+def test_status_lists_every_kind_of_change(dirty, project_store):
     (dirty / "edit.txt").write_text("changed", encoding="utf-8")
     (dirty / "gone.txt").unlink()
     (dirty / "new file.txt").write_text("untracked", encoding="utf-8")
@@ -202,7 +202,7 @@ def test_status_lists_every_kind_of_change(dirty, store_service):
     _git(dirty, "add", "added.txt")
     _git(dirty, "mv", "old.txt", "renamed.txt")
 
-    status = GitService(store_service).status("Dirty")
+    status = GitService(project_store).status("Dirty")
 
     assert not status.is_clean
     assert _changes(status) == {
@@ -214,16 +214,16 @@ def test_status_lists_every_kind_of_change(dirty, store_service):
     }
 
 
-def test_status_of_a_subfolder_keeps_only_its_files(dirty, store_service):
+def test_status_of_a_subfolder_keeps_only_its_files(dirty, project_store):
     (dirty / "edit.txt").write_text("changed", encoding="utf-8")
     (dirty / "src" / "app.py").write_text("changed", encoding="utf-8")
 
-    status = GitService(store_service).status("Dirty", "src")
+    status = GitService(project_store).status("Dirty", "src")
 
     assert list(_changes(status)) == ["src/app.py"]
 
 
-def test_status_ahead_and_behind_upstream(dirty, store_service, tmp_path):
+def test_status_ahead_and_behind_upstream(dirty, tmp_path, project_store):
     clone = tmp_path / "clone"
     _git(tmp_path, "clone", "-q", str(dirty), str(clone))
     _git(clone, "config", "user.name", "Ada")
@@ -235,9 +235,9 @@ def test_status_ahead_and_behind_upstream(dirty, store_service, tmp_path):
     _git(dirty, "add", "remote.txt")
     _git(dirty, "commit", "-q", "-m", "remote")
     _git(clone, "fetch", "-q")
-    store_service.save_project(Project(name="Clone", source=ProjectSource.FOLDER, root_path=str(clone)))
+    project_store.save(Project(name="Clone", source=ProjectSource.FOLDER, root_path=str(clone)))
 
-    status = GitService(store_service).status("Clone")
+    status = GitService(project_store).status("Clone")
 
     assert status.upstream and status.upstream.startswith("origin/")
     assert (status.ahead, status.behind) == (1, 1)

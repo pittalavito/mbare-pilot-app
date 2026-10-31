@@ -27,27 +27,39 @@ from service.pipeline_service import PipelineService
 from service.process_service import ProcessService
 from service.project_data_service import ProjectDataService
 from service.project_service import ProjectService
-from service.store_service import StoreService
+from service.run_service import RunService
+from service.store.stores import Stores
 
 
 class Container:
 
     @observed(LogPrefix.CONTAINER)
-    def __init__(self, store_service: StoreService | None = None):
-        """``store_service`` is for tests (in-memory backends); by default it
-        connects to Postgres and Redis from the Config."""
+    def __init__(self, stores: Stores | None = None):
+        """Each service gets only the stores it uses. ``stores`` is for tests
+        (in-memory backends); by default they connect to Postgres and Redis
+        from the Config."""
         config = Config.get()
         datapizza.tracing.console.quiet = not config.datapizza_trace_summary
 
-        self.store_service = store_service or StoreService()
+        stores = stores or Stores()
         self.chat_service = ChatService()
-        self.model_service = ModelService(store_service=self.store_service)
-        self.agent_config_service = AgentConfigService(store_service=self.store_service)
-        self.project_data_service = ProjectDataService(store_service=self.store_service)
-        self.atlassian_service = AtlassianService(store_service=self.store_service, project_data_service=self.project_data_service)
-        self.git_service = GitService(store_service=self.store_service)
-        self.masking_service = MaskingService(store_service=self.store_service)
-        self.pipeline_service = PipelineService(store_service=self.store_service, agent_config_service=self.agent_config_service)
+        self.run_service = RunService(stores.runs)
+        self.model_service = ModelService(catalog=stores.catalog)
+        self.agent_config_service = AgentConfigService(projects=stores.projects, agents=stores.agents, catalog=stores.catalog)
+        self.project_data_service = ProjectDataService(files=stores.project_files, projects=stores.projects)
+        self.atlassian_service = AtlassianService(
+            atlassian=stores.atlassian, projects=stores.projects, project_data_service=self.project_data_service,
+        )
+        self.git_service = GitService(projects=stores.projects)
+        self.masking_service = MaskingService(projects=stores.projects, masks=stores.masks)
+        self.pipeline_service = PipelineService(
+            pipelines=stores.pipelines,
+            projects=stores.projects,
+            workers=stores.workers,
+            catalog=stores.catalog,
+            agent_store=stores.agents,
+            agent_config_service=self.agent_config_service,
+        )
         self.process_service = ProcessService(
             pipeline_service=self.pipeline_service,
             manager=ProcessManager(cwd=config.app_root, run_dir=config.run_dir, log_dir=config.logs_dir),
@@ -55,14 +67,16 @@ class Container:
         )
         self.backup_service = BackupService.from_config()
         self.copilot_service = CopilotService.from_config(
-            store_service=self.store_service,
+            definitions=stores.definitions,
+            copilot=stores.copilot,
             git_service=self.git_service,
             project_data_service=self.project_data_service,
         )
         self.agent_service = AgentService(
             chat_service=self.chat_service,
             agent_config_service=self.agent_config_service,
-            store_service=self.store_service,
+            runs=stores.runs,
+            catalog=stores.catalog,
             git_service=self.git_service,
             pipeline_service=self.pipeline_service,
             masking_service=self.masking_service,
@@ -70,33 +84,38 @@ class Container:
             copilot_service=self.copilot_service,
         )
         self.automation_cache_service = AutomationCacheService(
-            store_service=self.store_service,
+            chatbots=stores.chatbots,
             pipeline_service=self.pipeline_service,
             embedder=EmbedderFactory.create(config.automation_cache_embedder),
             threshold=config.automation_cache_threshold,
             masking_service=self.masking_service,
         )
         self.chatbot_service = ChatbotService(
-            store_service=self.store_service,
+            chatbots=stores.chatbots,
+            projects=stores.projects,
+            catalog=stores.catalog,
             agent_config_service=self.agent_config_service,
             agent_service=self.agent_service,
             automation_cache=self.automation_cache_service,
         )
         self.definition_service = DefinitionService(
-            store_service=self.store_service,
+            definitions=stores.definitions,
+            projects=stores.projects,
+            agent_store=stores.agents,
             agent_config_service=self.agent_config_service,
             chatbot_service=self.chatbot_service,
             pipeline_service=self.pipeline_service,
         )
         self.pipeline_runner = PipelineRunner(
-            store_service=self.store_service,
+            pipelines=stores.pipelines,
             agent_service=self.agent_service,
             git_service=self.git_service,
             project_data_service=self.project_data_service,
             masking_service=self.masking_service,
         )
         self.project_service = ProjectService(
-            store_service=self.store_service,
+            projects=stores.projects,
+            masks=stores.masks,
             folder_browser=FolderBrowser(config.project_root_paths),
             definition_service=self.definition_service,
         )
@@ -111,4 +130,4 @@ class Container:
         self.model_service.seed_defaults(DEFAULT_CHAT_MODELS)
         self.agent_config_service.sync_tools()
         self.definition_service.seed_global_agents()
-        self.definition_service.seed_default_chatbots([project.name for project in self.store_service.list_projects()])
+        self.definition_service.seed_default_chatbots([project.name for project in self.project_service.list_projects()])

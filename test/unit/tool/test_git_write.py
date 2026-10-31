@@ -11,8 +11,6 @@ from core.error import NotFoundError, ValidationError
 from domain.agent.masking import AgentMask
 from fakes import as_dict
 from models.domain.project import Project, ProjectSource
-from service.git_service import GitService
-from service.masking_service import MaskingService
 from tool.context import ToolContext
 from tool.list.git.git_pull_fast_forward import GIT_PULL_FAST_FORWARD
 
@@ -35,7 +33,7 @@ def _commit(repo, message, file="main.py"):
 
 
 @pytest.fixture
-def repos(store_service, tmp_path):
+def repos(tmp_path, project_store):
     seed = tmp_path / "seed"
     seed.mkdir()
     _git(seed, "init", "-q")
@@ -47,13 +45,13 @@ def repos(store_service, tmp_path):
     _identity(tmp_path / "shop" / "api")
     _git(tmp_path, "clone", "-q", str(tmp_path / "origin.git"), "pusher")
     _identity(tmp_path / "pusher", "Bob")
-    store_service.save_project(Project(name="Shop", source=ProjectSource.FOLDER, root_path=str(tmp_path / "shop")))
+    project_store.save(Project(name="Shop", source=ProjectSource.FOLDER, root_path=str(tmp_path / "shop")))
     return tmp_path
 
 
 @pytest.fixture
-def git(store_service, repos):
-    return GitService(store_service)
+def git(repos, git_service):
+    return git_service
 
 
 def _push(repos, *messages):
@@ -106,9 +104,9 @@ def test_branch_without_upstream(git, repos):
         git.pull_fast_forward("Shop", "api")
 
 
-def test_tool_masks_the_authors_that_arrive(git, repos, store_service):
+def test_tool_masks_the_authors_that_arrive(git, repos, masking_service):
     _push(repos, "second")
-    masking = MaskingService(store_service)
+    masking = masking_service
     pull = AgentMask(masking.session("Shop")).wrap([GIT_PULL_FAST_FORWARD.build(ToolContext("Shop", git))])[0]
 
     result = as_dict(pull.func(repository="api"))
@@ -162,11 +160,11 @@ def test_nothing_to_stash(git, repos):
     assert not result.stashed and result.ref is None and _stash_list(repos / "shop" / "api") == []
 
 
-def test_stash_tool(git, repos, store_service):
+def test_stash_tool(git, repos, masking_service):
     from tool.list.git.git_stash import GIT_STASH
 
     (repos / "shop" / "api" / "main.py").write_text("mia modifica", encoding="utf-8")
-    masking = MaskingService(store_service)
+    masking = masking_service
     stash = AgentMask(masking.session("Shop")).wrap([GIT_STASH.build(ToolContext("Shop", git))])[0]
 
     result = as_dict(stash.func(repository="api", message=""))

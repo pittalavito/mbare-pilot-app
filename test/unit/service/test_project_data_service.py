@@ -5,14 +5,13 @@ from domain.project.data_paths import data_file_name, note_file_name, project_sl
 from domain.project.folder_browser import FolderBrowser
 from models.domain.note import AgentTask, ChecklistItem, NoteType, TaskStatus, TodoItem, TodoList, TodoPriority
 from models.domain.project import Project, ProjectDataKind, ProjectSource
-from service.project_data_service import ProjectDataService
 from service.project_service import ProjectService
 
 
 @pytest.fixture
-def data_service(store_service, files_repository):
-    store_service.save_project(Project(name="My App", source=ProjectSource.FOLDER, root_path="/code/my-app"))
-    return ProjectDataService(store_service)
+def data_service(files_repository, project_data_service, project_store):
+    project_store.save(Project(name="My App", source=ProjectSource.FOLDER, root_path="/code/my-app"))
+    return project_data_service
 
 
 # ------------------------------------------------------------------- naming
@@ -102,10 +101,10 @@ def test_unknown_project(data_service):
         data_service.list_notes("ghost")
 
 
-def test_projects_with_the_same_slug_conflict(store_service, tmp_path):
+def test_projects_with_the_same_slug_conflict(tmp_path, mask_store, project_store):
     (tmp_path / "a").mkdir()
     (tmp_path / "b").mkdir()
-    projects = ProjectService(store_service, FolderBrowser([tmp_path]))
+    projects = ProjectService(project_store, mask_store, FolderBrowser([tmp_path]))
     projects.open_folder("My App", "", tmp_path / "a")
 
     with pytest.raises(ConflictError):
@@ -150,13 +149,13 @@ def test_only_references_can_be_linked_and_saved_as_references(data_service):
 
 # ----------------------------------------------------------------- settings
 
-def test_the_dati_tab_shows_the_default_types_until_the_project_chooses(data_service, store_service):
+def test_the_dati_tab_shows_the_default_types_until_the_project_chooses(data_service, project_store):
     assert data_service.visible_note_types("My App") == [NoteType.GENERIC, NoteType.AGENT_TASK, NoteType.TODO_LIST]
 
     saved = data_service.save_visible_note_types("My App", [NoteType.CONTEXT_REFERENCE, NoteType.GENERIC, NoteType.GENERIC])
 
     assert saved == [NoteType.GENERIC, NoteType.CONTEXT_REFERENCE] == data_service.visible_note_types("My App")
-    assert store_service.get_project("My App").description == ""  # the rest of the project untouched
+    assert project_store.get("My App").description == ""  # the rest of the project untouched
     assert data_service.save_visible_note_types("My App", []) == []  # nothing shown is a choice too
     with pytest.raises(NotFoundError):
         data_service.visible_note_types("nessuno")

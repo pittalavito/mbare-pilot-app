@@ -8,10 +8,12 @@ src/domain/store/redis/
   trace_repository.py    RedisTraceRepository: trace verbatim delle run
   worker_repository.py   RedisWorkerRepository: heartbeat dei worker
   mask_repository.py     RedisMaskRepository: mappe di mascheramento dei progetti
-  store.py               punto unico di import + Factory (scrittura) e Adapter (lettura)
+  trace_mapper.py        Factory dei trace
+  worker_mapper.py       Factory/Adapter degli heartbeat
+  mask_mapper.py         Adapter delle mappe di mascheramento
 ```
 
-Chi lo usa è `StoreService`. I record salvati (`AgentTraceRecord`, `WorkerHeartbeatRecord`) stanno in [`models/store/redis.py`](../../../models/README.md), come JSON.
+Chi lo usa sono gli [store](../../../service/README.md#gli-store-servicestore) `RunStore` (trace), `WorkerStore` e `MaskStore`. I record salvati (`AgentTraceRecord`, `WorkerHeartbeatRecord`) stanno in [`models/store/redis.py`](../../../models/README.md), come JSON.
 
 ## Keyspace
 
@@ -39,10 +41,12 @@ Divisione con Postgres: i **fatti** di una run (esito, token, costi, tool usati)
 | `RedisWorkerRepository` | `save(record)` (rinnova la scadenza), `list_alive()` (i worker con la chiave ancora valida), `delete(worker_id)` |
 | `RedisMaskRepository` | `list(progetto)`, `find(progetto, valore)`, `add(...)` (alias esistente o nuovo, con il contatore della categoria), `delete(progetto, alias)`, `delete_project(progetto)` |
 
-## Conversioni (`store.py`)
+## Conversioni (`<x>_mapper.py`)
 
-- **`Factory`** (dominio → record): `to_trace_record(AgentRunRecord)`, `to_heartbeat_record(WorkerStatus)`.
-- **`Adapter`** (record → dominio): `to_worker_status(record)`, `to_mask_entry(record)`.
+Un mapper per uso, accanto al suo repository:
+
+- **`Factory`** (dominio → record): `trace_mapper.to_trace_record(AgentRunRecord)`, `worker_mapper.to_heartbeat_record(WorkerStatus)`.
+- **`Adapter`** (record → dominio): `worker_mapper.to_worker_status(record)`, `mask_mapper.to_mask_entry(record)` (i record delle maschere li scrive il repository, che assegna l'alias).
 
 Il trace letto torna come `AgentTraceRecord`: l'API lo restituisce così com'è.
 
@@ -50,9 +54,9 @@ Il trace letto torna come `AgentTraceRecord`: l'API lo restituisce così com'è.
 
 1. Un `RedisKeyspace` in `repository.py` (nome, cosa contiene, scadenza).
 2. Il record in `models/store/redis.py`.
-3. Un repository `<nome>_repository.py` che estende `RedisRepository`, esportato da `store.py`, con Factory/Adapter se il record è diverso dal modello di dominio.
-4. I metodi in `StoreService`.
+3. Un repository `<nome>_repository.py` che estende `RedisRepository`, con Factory/Adapter in `<nome>_mapper.py` se il record è diverso dal modello di dominio.
+4. I metodi nello store dell'aggregato (`service/store/`), o uno store nuovo con il suo attributo in `Stores` e la fixture in `test/conftest.py`.
 
 ## Test
 
-`test/unit/domain/store/redis/test_trace_repository.py`: salvataggio e lettura, trace mancante, valore illeggibile. Usano fakeredis tramite la fixture `redis_client` di `test/conftest.py`. L'heartbeat dei worker è coperto dai test di `PipelineService`.
+`test/unit/domain/store/redis/test_trace_repository.py`: salvataggio e lettura, trace mancante, valore illeggibile. Usano fakeredis tramite la fixture `redis_client` di `test/conftest.py`. L'heartbeat dei worker è coperto dai test di `PipelineService`, `RunStore` da `test/unit/service/store/test_run_store.py`.

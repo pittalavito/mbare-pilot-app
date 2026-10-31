@@ -12,13 +12,8 @@ from function.spec import FunctionSpec, NoParams
 from models.domain.pipeline import PipelineStep, RunStatus, StepAgent, StepKind
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
-from service.agent_service import AgentService
 from service.chat_service import ChatService
-from service.git_service import GitService
-from service.masking_service import MaskingService
 from service.pipeline_runner import PipelineRunner
-from service.pipeline_service import PipelineService
-from service.project_data_service import ProjectDataService
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
 
@@ -28,7 +23,7 @@ def _git(cwd, *args):
 
 
 @pytest.fixture
-def project(store_service, tmp_path):
+def project(tmp_path, project_store):
     """Project "shop" with a repository ``api`` holding two commits."""
     repo = tmp_path / "shop" / "api"
     repo.mkdir(parents=True)
@@ -39,39 +34,39 @@ def project(store_service, tmp_path):
         (repo / "main.py").write_text(message, encoding="utf-8")
         _git(repo, "add", "main.py")
         _git(repo, "commit", "-q", "-m", message)
-    store_service.save_project(Project(name="shop", source=ProjectSource.FOLDER, root_path=str(tmp_path / "shop")))
+    project_store.save(Project(name="shop", source=ProjectSource.FOLDER, root_path=str(tmp_path / "shop")))
     return repo
 
 
 @pytest.fixture
-def service(store_service, agent_config_service, project, monkeypatch):
+def service(project, monkeypatch, pipeline_service):
     monkeypatch.setattr(agent_service_module.AgentFactory, "create_agent",
                         staticmethod(lambda definition, client, tools: FakeAgent()))
-    return PipelineService(store_service, agent_config_service)
+    return pipeline_service
 
 
 @pytest.fixture
-def runner(store_service, agent_config_service, monkeypatch):
+def runner(monkeypatch, make_agent_service, git_service, project_data_service, pipeline_store):
     chat = ChatService()
     monkeypatch.setattr(chat, "get_client", lambda model: object())
-    git = GitService(store_service)
-    agents = AgentService(chat, agent_config_service, store_service, git)
-    return PipelineRunner(store_service, agents, git, ProjectDataService(store_service))
+    git = git_service
+    agents = make_agent_service(chat, git_service=git)
+    return PipelineRunner(pipeline_store, agents, git, project_data_service)
 
 
 @pytest.fixture
-def masking(store_service):
-    return MaskingService(store_service)
+def masking(masking_service):
+    return masking_service
 
 
 @pytest.fixture
-def masked_runner(store_service, agent_config_service, masking, monkeypatch):
+def masked_runner(masking, monkeypatch, make_agent_service, git_service, project_data_service, pipeline_store):
     """A runner that registers what the function steps declare sensitive."""
     chat = ChatService()
     monkeypatch.setattr(chat, "get_client", lambda model: object())
-    git = GitService(store_service)
-    agents = AgentService(chat, agent_config_service, store_service, git)
-    return PipelineRunner(store_service, agents, git, ProjectDataService(store_service), masking_service=masking)
+    git = git_service
+    agents = make_agent_service(chat, git_service=git)
+    return PipelineRunner(pipeline_store, agents, git, project_data_service, masking_service=masking)
 
 
 def _function(name="F", function="git_status", template="{input}", **params) -> PipelineStep:
@@ -157,10 +152,10 @@ def test_git_status_of_every_repository(service, masked_runner, masking, project
     assert sorted(entry.value for entry in masking.entries("shop")) == ["api", "rotto", "web"]
 
 
-def test_git_status_of_every_repository_needs_one(service, runner, store_service, tmp_path):
+def test_git_status_of_every_repository_needs_one(service, runner, tmp_path, project_store):
     empty = tmp_path / "vuoto"
     empty.mkdir()
-    store_service.save_project(Project(name="vuoto", source=ProjectSource.FOLDER, root_path=str(empty)))
+    project_store.save(Project(name="vuoto", source=ProjectSource.FOLDER, root_path=str(empty)))
     pipeline = service.create_pipeline("vuoto", "P", steps=[_function(function="git_status", repository="*")])
     service.enqueue(pipeline.id, "")
 
@@ -169,12 +164,12 @@ def test_git_status_of_every_repository_needs_one(service, runner, store_service
     assert run.status is RunStatus.FAILED and "Nessun repository git" in run.steps[0].error
 
 
-def test_save_note_function(service, runner):
+def test_save_note_function(service, runner, project_data_service):
     run = _run(service, runner, [_function(function="save_note", title="Report {date}")], pipeline_input="Testo")
 
     assert run.status is RunStatus.DONE and run.output.startswith("Nota salvata: Report ")
-    [note] = ProjectDataService(service._store).list_notes("shop")
-    assert note.name.startswith("Report ") and ProjectDataService(service._store).read_note("shop", note.name) == "Testo"
+    [note] = project_data_service.list_notes("shop")
+    assert note.name.startswith("Report ") and project_data_service.read_note("shop", note.name) == "Testo"
 
 
 def test_function_steps_register_the_values_they_declare_sensitive(service, masked_runner, masking):

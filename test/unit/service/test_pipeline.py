@@ -14,12 +14,8 @@ from models.domain.pipeline import PipelineStep, RunStatus, StepAgent, StepKind
 from models.domain.project import Project, ProjectSource
 from models.domain.worker import WorkerStatus
 from service import agent_service as agent_service_module
-from service.agent_service import AgentService
 from service.chat_service import ChatService
-from service.git_service import GitService
 from service.pipeline_runner import PipelineRunner
-from service.pipeline_service import PipelineService
-from service.project_data_service import ProjectDataService
 
 MODEL = "openai/gpt-4o"
 
@@ -43,22 +39,22 @@ def agents(monkeypatch):
 
 
 @pytest.fixture
-def agent_service(store_service, agent_config_service, monkeypatch):
+def agent_service(monkeypatch, make_agent_service):
     chat = ChatService()
     monkeypatch.setattr(chat, "get_client", lambda model: object())
-    return AgentService(chat, agent_config_service, store_service, GitService(store_service))
+    return make_agent_service(chat)
 
 
 @pytest.fixture
-def service(store_service, agent_config_service, agents):
+def service(agents, pipeline_service, project_store):
     for name in ("acme", "other"):
-        store_service.save_project(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/code/{name}"))
-    return PipelineService(store_service, agent_config_service)
+        project_store.save(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/code/{name}"))
+    return pipeline_service
 
 
 @pytest.fixture
-def runner(store_service, agent_service):
-    return PipelineRunner(store_service, agent_service, GitService(store_service), ProjectDataService(store_service))
+def runner(agent_service, git_service, project_data_service, pipeline_store):
+    return PipelineRunner(pipeline_store, agent_service, git_service, project_data_service)
 
 
 def _own(name="Riassumi", prompt="Riassumi.", template="{input}", **agent) -> PipelineStep:
@@ -212,7 +208,7 @@ def test_workers_come_and_go_with_their_heartbeat(service, redis_client):
 
 # ---------------------------------------------------------------- execution
 
-def test_run_chains_the_steps(service, runner, agents, store_service):
+def test_run_chains_the_steps(service, runner, agents, run_store):
     pipeline = service.create_pipeline("acme", "Report", steps=[
         _own("A", template="Commit: {input}", max_steps=6),
         _library("B", template="{input} | originale: {pipeline_input}"),
@@ -230,7 +226,7 @@ def test_run_chains_the_steps(service, runner, agents, store_service):
     assert run.output == second.output == "echo: echo: Commit: ciao | originale: ciao"
     assert [definition.name for definition in agents] == ["pipeline/Report/A", "hello"]
     assert agents[0].max_steps == 6
-    runs = {summary.run_id: summary for summary in store_service.list_runs()}
+    runs = {summary.run_id: summary for summary in run_store.list_runs()}
     assert {runs[step.agent_run_id].origin for step in run.steps} == {"pipeline"}
     assert {runs[step.agent_run_id].project_name for step in run.steps} == {"acme"}
     assert runner.run_next() is None
@@ -291,19 +287,19 @@ def test_delete_finished_or_queued_runs(service, runner):
         service.delete_run(done.id)
 
 
-def test_running_run_cannot_be_deleted(service, store_service):
+def test_running_run_cannot_be_deleted(service, pipeline_store):
     pipeline = service.create_pipeline("acme", "P", steps=[_own()])
     service.enqueue(pipeline.id, "x")
-    running = store_service.claim_next_pipeline_run()
+    running = pipeline_store.claim_next_pipeline_run()
 
     with pytest.raises(ValidationError, match="in corso"):
         service.delete_run(running.id)
 
 
-def test_interrupted_runs_fail_at_worker_start(service, runner, store_service):
+def test_interrupted_runs_fail_at_worker_start(service, runner, pipeline_store):
     pipeline = service.create_pipeline("acme", "P", steps=[_own()])
     service.enqueue(pipeline.id, "x")
-    store_service.claim_next_pipeline_run()  # a worker took it, then died
+    pipeline_store.claim_next_pipeline_run()  # a worker took it, then died
 
     assert runner.fail_interrupted() == 1
     [run] = service.list_runs(pipeline.id)

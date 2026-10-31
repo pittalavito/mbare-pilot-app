@@ -10,7 +10,7 @@ from core.error import NotFoundError, UpstreamError, ValidationError
 from core.observability import LogPrefix, observed
 from domain.client.git.client import GitClient
 from models.domain.git import GitChangeKind, GitCommit, GitPullResult, GitRepository, GitStashApplyResult, GitStashResult, GitStatus
-from service.store_service import StoreService
+from service.store.project_store import ProjectStore
 
 _MAX_LOG = 500
 _STASH_REF = re.compile(r"^(?:stash@\{(\d+)\}|(\d+))$")
@@ -20,8 +20,8 @@ _SKIPPED_FOLDERS = {"node_modules", "__pycache__", "target", "build", "dist", "v
 
 class GitService:
 
-    def __init__(self, store_service: StoreService, git: GitClient | None = None):
-        self._store = store_service
+    def __init__(self, projects: ProjectStore, git: GitClient | None = None):
+        self._projects = projects
         self._git = git or GitClient()
 
     def repositories(self, project_name: str, max_depth: int = 2) -> list[GitRepository]:
@@ -191,12 +191,12 @@ class GitService:
     def project_folder(self, project_name: str) -> Path | None:
         """The project's code folder as saved (it may not exist any more); None
         for an unknown project. For hiding it in messages."""
-        project = self._store.get_project(project_name)
+        project = self._projects.get(project_name)
         return Path(project.root_path).resolve() if project else None
 
     # ------------------------------------------------------------- helpers
     def _root(self, project_name: str) -> Path:
-        project = self._store.get_project(project_name)
+        project = self._projects.get(project_name)
         if project is None:
             raise NotFoundError(f"Progetto non trovato: {project_name}")
         root = Path(project.root_path).resolve()

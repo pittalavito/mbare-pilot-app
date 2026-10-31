@@ -15,7 +15,9 @@ from service.agent_config_service import AgentConfigService
 from service.agent_service import AgentService
 from service.automation_cache_service import CACHE_BYPASS, AutomationCacheService
 from service.model_service import require_usable_model
-from service.store_service import StoreService
+from service.store.catalog_store import CatalogStore
+from service.store.chatbot_store import ChatbotStore
+from service.store.project_store import ProjectStore
 
 _TITLE_LENGTH = 60
 _ROLE_NAME = "chatbot"
@@ -26,20 +28,23 @@ _CACHE_MARK = "⚡"
 
 class ChatbotService:
 
-    def __init__(self, store_service: StoreService, agent_config_service: AgentConfigService, agent_service: AgentService,
+    def __init__(self, chatbots: ChatbotStore, projects: ProjectStore, catalog: CatalogStore,
+                 agent_config_service: AgentConfigService, agent_service: AgentService,
                  automation_cache: AutomationCacheService | None = None):
         """``automation_cache`` is the cache; None = every message goes to the agent."""
-        self._store = store_service
+        self._chatbots = chatbots
+        self._projects = projects
+        self._catalog = catalog
         self._agent_configs = agent_config_service
         self._agents = agent_service
         self._cache = automation_cache
 
     # -------------------------------------------------------------- chatbots
     def list_chatbots(self, project_name: str) -> list[Chatbot]:
-        return self._store.list_chatbots(project_name)
+        return self._chatbots.list_chatbots(project_name)
 
     def get_chatbot(self, chatbot_id: int) -> Chatbot:
-        chatbot = self._store.get_chatbot(chatbot_id)
+        chatbot = self._chatbots.get_chatbot(chatbot_id)
         if chatbot is None:
             raise NotFoundError(f"Chatbot non trovato: {chatbot_id}")
         return chatbot
@@ -62,7 +67,7 @@ class ChatbotService:
         kind: ChatbotKind = ChatbotKind.CUSTOM,
     ) -> Chatbot:
         """``kind`` automation: its tools are the fixed ones, whatever ``tool_names`` says."""
-        if self._store.get_project(project_name) is None:
+        if self._projects.get(project_name) is None:
             raise NotFoundError(f"Progetto non trovato: {project_name}")
         chatbot = Chatbot(
             project_name=project_name,
@@ -75,7 +80,7 @@ class ChatbotService:
             tool_names=tool_names or [],
         ).with_kind_tools()
         self._validate(chatbot)
-        return self._store.save_chatbot(chatbot)
+        return self._chatbots.save_chatbot(chatbot)
 
     @observed(LogPrefix.CHATBOT_SERVICE)
     def update_chatbot(
@@ -108,26 +113,26 @@ class ChatbotService:
         if chatbot.system_prompt != current.system_prompt:
             chatbot.prompt_version = current.prompt_version + 1
         self._validate(chatbot)
-        return self._store.save_chatbot(chatbot)
+        return self._chatbots.save_chatbot(chatbot)
 
     def delete_chatbot(self, chatbot_id: int) -> bool:
         """With all its conversations. The agent runs stay in the history."""
-        return self._store.delete_chatbot(chatbot_id)
+        return self._chatbots.delete_chatbot(chatbot_id)
 
     # --------------------------------------------------------- conversations
     def list_conversations(self, chatbot_id: int) -> list[Conversation]:
         """Most recently updated first."""
-        return self._store.list_conversations(chatbot_id)
+        return self._chatbots.list_conversations(chatbot_id)
 
     def new_conversation(self, chatbot_id: int) -> Conversation:
-        return self._store.save_conversation(Conversation(chatbot_id=self.get_chatbot(chatbot_id).id))
+        return self._chatbots.save_conversation(Conversation(chatbot_id=self.get_chatbot(chatbot_id).id))
 
     def delete_conversation(self, conversation_id: int) -> bool:
-        return self._store.delete_conversation(conversation_id)
+        return self._chatbots.delete_conversation(conversation_id)
 
     def messages(self, conversation_id: int) -> list[ChatMessage]:
         """Oldest first."""
-        return self._store.list_messages(conversation_id)
+        return self._chatbots.list_messages(conversation_id)
 
     @observed(LogPrefix.CHATBOT_SERVICE)
     def send(self, conversation_id: int, text: str) -> ChatMessage:
@@ -143,20 +148,20 @@ class ChatbotService:
             raise ValidationError("Il messaggio è vuoto.")
         conversation = self._require_conversation(conversation_id)
         chatbot = self.get_chatbot(conversation.chatbot_id).with_kind_tools()  # its kind's tools, even if the DB says otherwise
-        history = self._store.list_messages(conversation_id)
-        self._store.save_message(ChatMessage(conversation_id=conversation_id, role=MessageRole.USER, content=text))
+        history = self._chatbots.list_messages(conversation_id)
+        self._chatbots.save_message(ChatMessage(conversation_id=conversation_id, role=MessageRole.USER, content=text))
 
         match = None if bypass or self._cache is None or not chatbot.has_automation_cache else self._cache.match(chatbot.id, request)
         if match is not None:
             reply = self._from_cache(conversation_id, match.entry)
         else:
             reply = self._from_agent(conversation_id, chatbot, request, history)
-        reply = self._store.save_message(reply)
+        reply = self._chatbots.save_message(reply)
 
         update = {"updated_at": datetime.now(timezone.utc)}
         if not conversation.title:
             update["title"] = text if len(text) <= _TITLE_LENGTH else text[:_TITLE_LENGTH - 1].rstrip() + "…"
-        self._store.save_conversation(conversation.model_copy(update=update))
+        self._chatbots.save_conversation(conversation.model_copy(update=update))
         return reply
 
     # ------------------------------------------------------------- helpers
@@ -188,19 +193,19 @@ class ChatbotService:
         )
 
     def _require_conversation(self, conversation_id: int) -> Conversation:
-        conversation = self._store.get_conversation(conversation_id)
+        conversation = self._chatbots.get_conversation(conversation_id)
         if conversation is None:
             raise NotFoundError(f"Conversazione non trovata: {conversation_id}")
         return conversation
 
     def _validate(self, chatbot: Chatbot) -> None:
         """The model is usable, the tools are available, the name is unique within the project."""
-        require_usable_model(self._store, chatbot.model)
+        require_usable_model(self._catalog, chatbot.model)
         available = {tool.name for tool in self.available_tools()}
         unavailable = [name for name in chatbot.tool_names if name not in available]
         if unavailable:
             raise ValidationError(f"Tool non disponibili: {', '.join(unavailable)}")
-        for other in self._store.list_chatbots(chatbot.project_name):
+        for other in self._chatbots.list_chatbots(chatbot.project_name):
             if other.name.lower() == chatbot.name.lower() and other.id != chatbot.id:
                 raise ConflictError(f"Esiste già un chatbot chiamato {other.name} in questo progetto.")
 

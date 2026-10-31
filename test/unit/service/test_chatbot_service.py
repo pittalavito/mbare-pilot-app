@@ -6,10 +6,8 @@ from fakes import FakeAgent
 from models.domain.chatbot import MessageRole
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
-from service.agent_service import AgentService
 from service.chat_service import ChatService
 from service.chatbot_service import ChatbotService
-from service.git_service import GitService
 
 MODEL = "openai/gpt-4o"
 
@@ -36,13 +34,13 @@ def agents(monkeypatch):
 
 
 @pytest.fixture
-def service(store_service, agent_config_service, agents, monkeypatch):
+def service(agent_config_service, agents, monkeypatch, make_agent_service, catalog_store, project_store, chatbot_store):
     for name in ("acme", "other"):
-        store_service.save_project(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/code/{name}"))
+        project_store.save(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/code/{name}"))
     chat = ChatService()
     monkeypatch.setattr(chat, "get_client", lambda model: object())
-    agent_service = AgentService(chat, agent_config_service, store_service, GitService(store_service))
-    return ChatbotService(store_service, agent_config_service, agent_service)
+    agent_service = make_agent_service(chat)
+    return ChatbotService(chatbot_store, project_store, catalog_store, agent_config_service, agent_service)
 
 
 def _create(service, project="acme", name="Bot", **overrides):
@@ -117,7 +115,7 @@ def test_chatbots_are_independent_from_the_library_agents(service, agent_config_
 
 # ------------------------------------------------------------ conversations
 
-def test_send_runs_the_chatbots_own_agent_on_its_project(service, agents, store_service):
+def test_send_runs_the_chatbots_own_agent_on_its_project(service, agents, run_store):
     chatbot = _create(service, max_steps=7, tool_names=["git_status"])
     conversation = service.new_conversation(chatbot.id)
 
@@ -126,7 +124,7 @@ def test_send_runs_the_chatbots_own_agent_on_its_project(service, agents, store_
     assert (reply.role, reply.content) == (MessageRole.ASSISTANT, "echo: Ciao bot")
     [(definition, tools)] = agents.definitions
     assert (definition.system_prompt, definition.max_steps, tools) == ("Sei l'assistente del progetto.", 7, ["git_status"])
-    [run] = store_service.list_runs()
+    [run] = run_store.list_runs()
     assert (run.run_id, run.origin, run.project_name) == (reply.run_id, "chat", "acme")
     assert (run.config_name, run.role_name, run.prompt_version) == ("chatbot/Bot", "chatbot", 1)
 

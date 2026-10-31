@@ -13,11 +13,11 @@ AUTOMATIONS = """automations:
 
 
 @pytest.fixture
-def client(store_service, tmp_path):
-    store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(tmp_path)))
-    store_service.save_definition("global-agent.yml", "")
-    store_service.save_definition("project/acme/automation.yml", AUTOMATIONS)
-    with TestClient(create_app(Container(store_service=store_service))) as client:
+def client(stores, tmp_path, project_store, definition_store):
+    project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(tmp_path)))
+    definition_store.save_definition("global-agent.yml", "")
+    definition_store.save_definition("project/acme/automation.yml", AUTOMATIONS)
+    with TestClient(create_app(Container(stores=stores))) as client:
         yield client
 
 

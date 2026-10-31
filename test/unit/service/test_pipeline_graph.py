@@ -17,20 +17,16 @@ from models.domain.pipeline import (
 )
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
-from service.agent_service import AgentService
 from service.chat_service import ChatService
-from service.git_service import GitService
 from service.pipeline_runner import PipelineRunner
-from service.pipeline_service import PipelineService
-from service.project_data_service import ProjectDataService
 
 MODEL = "openai/gpt-4o"
 
 
 @pytest.fixture
-def service(store_service, agent_config_service):
-    store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
-    return PipelineService(store_service, agent_config_service)
+def service(pipeline_service, project_store):
+    project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
+    return pipeline_service
 
 
 def _step(name, x=0.0, y=0.0):
@@ -104,7 +100,7 @@ def test_invalid_graph_is_not_saved(service):
 # Fake agents echo their input ("echo: <input>"); the steps in ``runner.failing`` raise.
 
 @pytest.fixture
-def runner(store_service, agent_config_service, monkeypatch):
+def runner(monkeypatch, make_agent_service, git_service, project_data_service, pipeline_store):
     failing: set[str] = set()
 
     def create_agent(definition, client, tools):
@@ -113,9 +109,9 @@ def runner(store_service, agent_config_service, monkeypatch):
     monkeypatch.setattr(agent_service_module.AgentFactory, "create_agent", staticmethod(create_agent))
     chat = ChatService()
     monkeypatch.setattr(chat, "get_client", lambda model: object())
-    git = GitService(store_service)
-    agents = AgentService(chat, agent_config_service, store_service, git)
-    runner = PipelineRunner(store_service, agents, git, ProjectDataService(store_service))
+    git = git_service
+    agents = make_agent_service(chat, git_service=git)
+    runner = PipelineRunner(pipeline_store, agents, git, project_data_service)
     runner.failing = failing
     return runner
 

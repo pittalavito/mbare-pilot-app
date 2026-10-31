@@ -14,21 +14,30 @@ from models.domain.pipeline import Pipeline, PipelineEdge, PipelineRun, Pipeline
 from models.domain.worker import WorkerStatus
 from service.agent_config_service import AgentConfigService
 from service.model_service import require_usable_model
-from service.store_service import StoreService
+from service.store.agent_store import AgentStore
+from service.store.catalog_store import CatalogStore
+from service.store.pipeline_store import PipelineStore
+from service.store.project_store import ProjectStore
+from service.store.worker_store import WorkerStore
 
 
 class PipelineService:
 
-    def __init__(self, store_service: StoreService, agent_config_service: AgentConfigService):
-        self._store = store_service
+    def __init__(self, pipelines: PipelineStore, projects: ProjectStore, workers: WorkerStore, catalog: CatalogStore, agent_store: AgentStore,
+                 agent_config_service: AgentConfigService):
+        self._pipelines = pipelines
+        self._projects = projects
+        self._workers = workers
+        self._catalog = catalog
+        self._agent_store = agent_store
         self._agent_configs = agent_config_service
 
     # ------------------------------------------------------------- pipelines
     def list_pipelines(self, project_name: str) -> list[Pipeline]:
-        return self._store.list_pipelines(project_name)
+        return self._pipelines.list_pipelines(project_name)
 
     def get_pipeline(self, pipeline_id: int) -> Pipeline:
-        pipeline = self._store.get_pipeline(pipeline_id)
+        pipeline = self._pipelines.get_pipeline(pipeline_id)
         if pipeline is None:
             raise NotFoundError(f"Automation non trovata: {pipeline_id}")
         return pipeline
@@ -57,7 +66,7 @@ class PipelineService:
         edges: list[PipelineEdge] | None = None
     ) -> Pipeline:
         """``edges`` empty = the chain of ``steps`` in their order."""
-        if self._store.get_project(project_name) is None:
+        if self._projects.get(project_name) is None:
             raise NotFoundError(f"Progetto non trovato: {project_name}")
         steps = [step.model_copy(update={"id": None}) for step in steps or []]
         pipeline = Pipeline(
@@ -69,7 +78,7 @@ class PipelineService:
             edges=[edge.model_dump() for edge in edges or linear_edges(steps)]
         )
         self._validate(pipeline)
-        return self._store.save_pipeline(pipeline)
+        return self._pipelines.save_pipeline(pipeline)
 
     @observed(LogPrefix.PIPELINE_SERVICE)
     def update_pipeline(
@@ -98,11 +107,11 @@ class PipelineService:
             "updated_at": datetime.now(timezone.utc),
         })
         self._validate(pipeline)
-        return self._store.save_pipeline(pipeline)
+        return self._pipelines.save_pipeline(pipeline)
 
     def delete_pipeline(self, pipeline_id: int) -> bool:
         """With its runs. The agent runs of its steps stay in the history."""
-        return self._store.delete_pipeline(pipeline_id)
+        return self._pipelines.delete_pipeline(pipeline_id)
 
     def runnable_pipelines(self, project_name: str) -> list[Pipeline]:
         """The project's automations that can be started: active, with steps."""
@@ -118,14 +127,14 @@ class PipelineService:
         if not pipeline.steps:
             raise ValidationError(f"L'automation {pipeline.name} non ha step.")
         self._validate(pipeline)
-        return self._store.save_pipeline_run(PipelineRun(pipeline_id=pipeline.id, input=pipeline_input))
+        return self._pipelines.save_pipeline_run(PipelineRun(pipeline_id=pipeline.id, input=pipeline_input))
 
     def list_runs(self, pipeline_id: int, limit: int = 20) -> list[PipelineRun]:
         """With their steps, newest first."""
-        return self._store.list_pipeline_runs(pipeline_id, limit)
+        return self._pipelines.list_pipeline_runs(pipeline_id, limit)
 
     def get_run(self, run_id: int) -> PipelineRun:
-        run = self._store.get_pipeline_run(run_id)
+        run = self._pipelines.get_pipeline_run(run_id)
         if run is None:
             raise NotFoundError(f"Esecuzione non trovata: {run_id}")
         return run
@@ -136,24 +145,24 @@ class PipelineService:
         run = self.get_run(run_id)
         if run.status is RunStatus.RUNNING:
             raise ValidationError("L'esecuzione è in corso: aspetta che finisca per eliminarla.")
-        return self._store.delete_pipeline_run(run_id)
+        return self._pipelines.delete_pipeline_run(run_id)
 
     # ------------------------------------------------------------ workers
     def heartbeat(self, status: WorkerStatus) -> None:
         """A worker says it is alive (call every few seconds, well under the keyspace TTL)."""
-        self._store.save_worker_heartbeat(status)
+        self._workers.save_heartbeat(status)
 
     def workers(self) -> list[WorkerStatus]:
         """The running workers (their heartbeat has not expired), oldest first."""
-        return sorted(self._store.list_workers(), key=lambda worker: worker.started_at)
+        return sorted(self._workers.list_alive(), key=lambda worker: worker.started_at)
 
     def worker_stopped(self, worker_id: str) -> None:
         """A worker shutting down cleanly: gone at once, without waiting for the TTL."""
-        self._store.delete_worker(worker_id)
+        self._workers.delete(worker_id)
 
     # ------------------------------------------------------------- helpers
     def _validate(self, pipeline: Pipeline) -> None:
-        for other in self._store.list_pipelines(pipeline.project_name):
+        for other in self._pipelines.list_pipelines(pipeline.project_name):
             if other.name.lower() == pipeline.name.lower() and other.id != pipeline.id:
                 raise ConflictError(f"Esiste già un'automation chiamata {other.name} in questo progetto.")
         tools = {tool.name for tool in self.available_tools()}
@@ -163,7 +172,7 @@ class PipelineService:
                 if step.agent is None:
                     raise ValidationError(f"{label}: configura il suo agente.")
                 try:
-                    require_usable_model(self._store, step.agent.model)
+                    require_usable_model(self._catalog, step.agent.model)
                 except ValidationError as exc:
                     raise ValidationError(f"{label}: {exc}") from exc
                 unavailable = [name for name in step.agent.tool_names if name not in tools]
@@ -172,7 +181,7 @@ class PipelineService:
             elif step.kind is StepKind.AGENT_CONFIG:
                 if not step.agent_config_name:
                     raise ValidationError(f"{label}: scegli l'agente della Libreria.")
-                agent = self._store.get_agent_config(step.agent_config_name)
+                agent = self._agent_store.get_config(step.agent_config_name)
                 if agent is None:
                     raise ValidationError(f"{label}: l'agente {step.agent_config_name} non esiste più.")
                 if agent.project_name not in (None, pipeline.project_name):

@@ -15,10 +15,7 @@ from models.domain.chatbot import ChatMessage, MessageRole
 from models.domain.masking import MaskCategory, MaskEntry
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
-from service.agent_service import AgentService
 from service.chat_service import ChatService
-from service.git_service import GitService
-from service.masking_service import MaskingService
 from service.project_service import ProjectService
 
 # ------------------------------------------------------------------ Masker
@@ -54,10 +51,10 @@ def test_empty_map_changes_nothing():
 # ------------------------------------------------------------ map on Redis
 
 @pytest.fixture
-def masking(store_service):
+def masking(masking_service, project_store):
     for name in ("acme", "other"):
-        store_service.save_project(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/code/{name}"))
-    return MaskingService(store_service)
+        project_store.save(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/code/{name}"))
+    return masking_service
 
 
 def test_aliases_per_category_per_project_never_reused(masking):
@@ -85,11 +82,11 @@ def test_short_values_and_unknown_aliases(masking):
         masking.add_term("missing", MaskCategory.TERM, "abc")
 
 
-def test_removing_the_project_removes_its_map(masking, store_service, tmp_path):
+def test_removing_the_project_removes_its_map(masking, tmp_path, mask_store, project_store):
     masking.add_term("acme", MaskCategory.TERM, "Grandi Navi")
     masking.add_term("other", MaskCategory.TERM, "Grandi Navi")
 
-    ProjectService(store_service, FolderBrowser([tmp_path])).remove("acme")
+    ProjectService(project_store, mask_store, FolderBrowser([tmp_path])).remove("acme")
 
     assert masking.entries("acme") == [] and len(masking.entries("other")) == 1
 
@@ -112,20 +109,20 @@ class _Recording:
 
 
 @pytest.fixture
-def agent_service(store_service, agent_config_service, masking, tmp_path, monkeypatch):
+def agent_service(agent_config_service, masking, tmp_path, monkeypatch, make_agent_service, project_store):
     repo = tmp_path / "acme" / "project-be"
     repo.mkdir(parents=True)
     if shutil.which("git") is None:
         pytest.skip("git not installed")
     subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
-    store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(tmp_path / "acme")))
+    project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(tmp_path / "acme")))
     agent_config_service.save_config(AgentConfig(
         name="bot", project_name="acme", role_name="hello", prompt_id=agent_config_service.latest_prompt("hello").id,
         model="openai/gpt-4o", tool_names=["git_status"],
     ), create=True)
     chat = ChatService()
     monkeypatch.setattr(chat, "get_client", lambda model: object())
-    return AgentService(chat, agent_config_service, store_service, GitService(store_service), masking_service=masking)
+    return make_agent_service(chat, masking_service=masking)
 
 
 def test_the_llm_sees_aliases_the_tools_and_the_user_real_values(agent_service, masking, monkeypatch):

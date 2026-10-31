@@ -10,51 +10,55 @@ Names are unique across all scopes."""
 from core.error import ConflictError, NotFoundError, ValidationError
 from models.domain.agent import AgentConfig, AgentRole, AgentSpec, SystemPrompt, ToolInfo
 from service.model_service import require_usable_model
-from service.store_service import StoreService
+from service.store.agent_store import AgentStore
+from service.store.catalog_store import CatalogStore
+from service.store.project_store import ProjectStore
 from tool.registry import TOOL_REGISTRY
 
 
 class AgentConfigService:
 
-    def __init__(self, store_service: StoreService):
-        self._store = store_service
+    def __init__(self, projects: ProjectStore, agents: AgentStore, catalog: CatalogStore):
+        self._projects = projects
+        self._agents = agents
+        self._catalog = catalog
 
     # ----------------------------------------------------------------- tools
     def sync_tools(self) -> None:
         """Register every tool implemented in code into the DB catalog."""
-        self._store.sync_tools([ToolInfo(name=spec.name, description=spec.description) for spec in TOOL_REGISTRY.values()])
+        self._catalog.sync_tools([ToolInfo(name=spec.name, description=spec.description) for spec in TOOL_REGISTRY.values()])
 
     def list_tools(self) -> list[ToolInfo]:
         """The catalog, with ``chatbot_only`` from the code."""
         return [
             tool.model_copy(update={"chatbot_only": tool.name in TOOL_REGISTRY and TOOL_REGISTRY[tool.name].chatbot_only})
-            for tool in self._store.list_tools(implemented=set(TOOL_REGISTRY))
+            for tool in self._catalog.list_tools(implemented=set(TOOL_REGISTRY))
         ]
 
     # ----------------------------------------------------------------- roles
     def list_roles(self, project_name: str | None = None, include_global: bool = True) -> list[AgentRole]:
         """Global roles, or a project's (with the global ones unless ``include_global=False``)."""
-        return self._store.list_roles(project_name, include_global)
+        return self._agents.list_roles(project_name, include_global)
 
     def get_role(self, name: str) -> AgentRole:
-        role = self._store.get_role(name)
+        role = self._agents.get_role(name)
         if role is None:
             raise NotFoundError(f"Ruolo non trovato: {name}")
         return role
 
     def save_role(self, role: AgentRole, *, create: bool = False) -> AgentRole:
         """Persist ``role``. Its scope is fixed at creation: updates keep it."""
-        existing = self._store.get_role(role.name)
+        existing = self._agents.get_role(role.name)
         if existing is not None:
             if create:
                 raise ConflictError(f"Esiste già un ruolo chiamato {role.name}.")
             role = role.model_copy(update={"project_name": existing.project_name})
         else:
             self._require_project(role.project_name)
-        return self._store.save_role(role)
+        return self._agents.save_role(role)
 
     def set_role_active(self, name: str, active: bool) -> AgentRole:
-        role = self._store.set_role_active(name, active)
+        role = self._agents.set_role_active(name, active)
         if role is None:
             raise NotFoundError(f"Ruolo non trovato: {name}")
         return role
@@ -62,7 +66,7 @@ class AgentConfigService:
     # --------------------------------------------------------------- prompts
     def list_prompts(self, role_name: str | None = None) -> list[SystemPrompt]:
         """Prompt versions, newest first."""
-        return self._store.list_prompts(role_name)
+        return self._agents.list_prompts(role_name)
 
     def create_prompt_version(self, role_name: str, text: str) -> SystemPrompt:
         """New version of the role's prompt. Returns the latest version
@@ -74,17 +78,17 @@ class AgentConfigService:
         latest = self.latest_prompt(role_name)
         if latest is not None and latest.text == text:
             return latest
-        return self._store.create_prompt_version(role_name, text)
+        return self._agents.create_prompt_version(role_name, text)
 
     def latest_prompt(self, role_name: str) -> SystemPrompt | None:
-        versions = self._store.list_prompts(role_name)
+        versions = self._agents.list_prompts(role_name)
         return versions[0] if versions else None
 
     def latest_active_prompt(self, role_name: str) -> SystemPrompt | None:
-        return next((prompt for prompt in self._store.list_prompts(role_name) if prompt.active), None)
+        return next((prompt for prompt in self._agents.list_prompts(role_name) if prompt.active), None)
 
     def set_prompt_active(self, prompt_id: int, active: bool) -> SystemPrompt:
-        prompt = self._store.set_prompt_active(prompt_id, active)
+        prompt = self._agents.set_prompt_active(prompt_id, active)
         if prompt is None:
             raise NotFoundError(f"Prompt non trovato: {prompt_id}")
         return prompt
@@ -92,10 +96,10 @@ class AgentConfigService:
     # --------------------------------------------------------------- configs
     def list_configs(self, project_name: str | None = None, include_global: bool = True) -> list[AgentConfig]:
         """Global configs, or a project's (with the global ones unless ``include_global=False``)."""
-        return self._store.list_agent_configs(project_name, include_global)
+        return self._agents.list_configs(project_name, include_global)
 
     def get_config(self, name: str) -> AgentConfig:
-        config = self._store.get_agent_config(name)
+        config = self._agents.get_config(name)
         if config is None:
             raise NotFoundError(f"Configurazione agente non trovata: {name}")
         return config
@@ -103,7 +107,7 @@ class AgentConfigService:
     def save_config(self, config: AgentConfig, *, create: bool = False) -> AgentConfig:
         """Validate and persist ``config``. With ``create=True`` an existing
         name is a ConflictError instead of being overwritten."""
-        existing = self._store.get_agent_config(config.name)
+        existing = self._agents.get_config(config.name)
         if existing is not None and create:
             raise ConflictError(f"Esiste già un agente chiamato {config.name}.")
         if existing is not None and existing.project_name != config.project_name:
@@ -112,25 +116,25 @@ class AgentConfigService:
         role = self._require_role(config.role_name)
         if role.project_name not in (None, config.project_name):
             raise ValidationError(f"Il ruolo {role.name} appartiene al progetto {role.project_name}.")
-        prompt = self._store.get_prompt(config.prompt_id)
+        prompt = self._agents.get_prompt(config.prompt_id)
         if prompt is None or prompt.role_name != config.role_name:
             raise ValidationError(f"Il prompt scelto non appartiene al ruolo {config.role_name}.")
         self._require_active(role, prompt)
-        require_usable_model(self._store, config.model)
+        require_usable_model(self._catalog, config.model)
         usable = {tool.name for tool in self.list_tools() if tool.available}
         unusable = [name for name in config.tool_names if name not in usable]
         if unusable:
             raise ValidationError(f"Tool non disponibili: {', '.join(unusable)}")
-        return self._store.save_agent_config(config)
+        return self._agents.save_config(config)
 
     def delete_config(self, name: str) -> bool:
-        return self._store.delete_agent_config(name)
+        return self._agents.delete_config(name)
 
     def resolve(self, name: str) -> AgentSpec:
         """The configuration plus its pinned prompt version. Raises
         ValidationError when its role or prompt version is inactive."""
         config = self.get_config(name)
-        prompt = self._store.get_prompt(config.prompt_id)
+        prompt = self._agents.get_prompt(config.prompt_id)
         if prompt is None:
             raise NotFoundError(f"Prompt {config.prompt_id} della configurazione {name} non trovato.")
         self._require_active(self._require_role(config.role_name), prompt)
@@ -146,11 +150,11 @@ class AgentConfigService:
 
     # ----------------------------------------------------------------- seeds
     def _require_project(self, project_name: str | None) -> None:
-        if project_name is not None and self._store.get_project(project_name) is None:
+        if project_name is not None and self._projects.get(project_name) is None:
             raise ValidationError(f"Progetto inesistente: {project_name}")
 
     def _require_role(self, role_name: str) -> AgentRole:
-        role = self._store.get_role(role_name)
+        role = self._agents.get_role(role_name)
         if role is None:
             raise ValidationError(f"Ruolo inesistente: {role_name}")
         return role

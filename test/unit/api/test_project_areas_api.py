@@ -26,11 +26,11 @@ def project_root(tmp_path):
 
 
 @pytest.fixture
-def client(store_service, project_root, monkeypatch):
-    store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(project_root)))
+def client(stores, project_root, monkeypatch, project_store):
+    project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(project_root)))
     monkeypatch.setattr(agent_service_module.AgentFactory, "create_agent",
                         staticmethod(lambda definition, client, tools: FakeAgent(None)))
-    container = Container(store_service=store_service)
+    container = Container(stores=stores)
     monkeypatch.setattr(container.chat_service, "get_client", lambda model: object())
     with TestClient(create_app(container)) as client:
         yield client
@@ -358,8 +358,8 @@ def test_config_is_masked(client):
     assert config["redis_dashboard_port"] == 8083
 
 
-def test_observability(client, store_service):
-    store_service.save_run(make_run_record("run-1"))
+def test_observability(client, run_store):
+    run_store.save(make_run_record("run-1"))
 
     [run] = client.get("/observability/runs").json()
     assert (run["run_id"], run["total_tokens"]["input_tokens"]) == ("run-1", 150)

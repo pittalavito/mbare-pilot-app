@@ -17,19 +17,19 @@ def dist(tmp_path):
     return folder
 
 
-def _client(dist, store_service):
-    return TestClient(create_server(dist, Container(store_service=store_service)))
+def _client(dist, stores):
+    return TestClient(create_server(dist, Container(stores=stores)))
 
 
-def test_the_api_answers_under_api_with_its_container(dist, store_service):
-    with _client(dist, store_service) as client:
+def test_the_api_answers_under_api_with_its_container(dist, stores):
+    with _client(dist, stores) as client:
         assert client.get("/api/health").json() == {"status": "ok"}
         assert client.get("/api/projects").status_code == 200  # needs the container of the lifespan
         assert client.get("/api/nope").status_code == 404
 
 
-def test_the_pages_of_the_app_get_index_html_and_files_are_served(dist, store_service):
-    with _client(dist, store_service) as client:
+def test_the_pages_of_the_app_get_index_html_and_files_are_served(dist, stores):
+    with _client(dist, stores) as client:
         page = client.get("/projects/acme/chat")
         assert page.status_code == 200
         assert "id=root" in page.text
@@ -38,8 +38,8 @@ def test_the_pages_of_the_app_get_index_html_and_files_are_served(dist, store_se
         assert "fuori" not in client.get("/../secret.txt").text
 
 
-def test_without_a_build_it_says_how_to_make_one(tmp_path, store_service):
-    with _client(tmp_path / "dist", store_service) as client:
+def test_without_a_build_it_says_how_to_make_one(tmp_path, stores):
+    with _client(tmp_path / "dist", stores) as client:
         response = client.get("/")
         assert response.status_code == 503
         assert "run-app.py" in response.text

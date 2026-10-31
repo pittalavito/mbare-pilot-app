@@ -18,14 +18,14 @@ FAKE = [sys.executable, str(Path(__file__).parents[2] / "fake_copilot.py")]
 
 
 @pytest.fixture
-def client(store_service, tmp_path, monkeypatch):
+def client(stores, tmp_path, monkeypatch, project_store):
     monkeypatch.setenv("FAKE_COPILOT_STATE", str(tmp_path / "state"))
     repo = tmp_path / "acme"
     repo.mkdir()
     for args in (["init", "-q"], ["-c", "user.name=A", "-c", "user.email=a@b.it", "commit", "-q", "--allow-empty", "-m", "init"]):
         subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
-    store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(repo)))
-    container = Container(store_service=store_service)
+    project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(repo)))
+    container = Container(stores=stores)
     container.copilot_service._client = CopilotClient(FAKE)
     with TestClient(create_app(container)) as client:
         yield client

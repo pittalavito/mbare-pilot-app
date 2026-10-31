@@ -12,7 +12,14 @@ from domain.chat.models_default import DEFAULT_CHAT_MODELS
 from domain.store.files.store import LocalFileRepository
 from models.domain.agent import AgentConfig, AgentRole
 from service.agent_config_service import AgentConfigService
-from service.store_service import StoreService
+from service.agent_service import AgentService
+from service.chat_service import ChatService
+from service.copilot_service import CopilotService
+from service.git_service import GitService
+from service.masking_service import MaskingService
+from service.pipeline_service import PipelineService
+from service.project_data_service import ProjectDataService
+from service.store.stores import Stores
 
 HELLO_AGENT = """agents:
   - name: hello
@@ -71,25 +78,88 @@ def redis_client():
 
 @pytest.fixture
 def files_repository(config):
-    """A file repository on the same root the StoreService uses."""
+    """A file repository on the same root as the ProjectFileStore."""
     return LocalFileRepository(config.project_data_root)
 
 
 @pytest.fixture
-def store_service(engine, redis_client):
-    service = StoreService(engine=engine, redis_client=redis_client)
-    service.seed_chat_models(DEFAULT_CHAT_MODELS)
-    return service
+def stores(engine, redis_client):
+    """Every store on the in-memory backends, with the default chat models."""
+    stores = Stores(engine=engine, redis_client=redis_client)
+    stores.catalog.seed_models(DEFAULT_CHAT_MODELS)
+    return stores
+
+
+# One fixture per store: like a service, a test asks for the stores it uses.
+
+@pytest.fixture
+def worker_store(stores):
+    return stores.workers
 
 
 @pytest.fixture
-def agent_config_service(store_service):
-    """AgentConfigService on the in-memory store with the tool catalog and the
+def mask_store(stores):
+    return stores.masks
+
+
+@pytest.fixture
+def run_store(stores):
+    return stores.runs
+
+
+@pytest.fixture
+def catalog_store(stores):
+    return stores.catalog
+
+
+@pytest.fixture
+def agent_store(stores):
+    return stores.agents
+
+
+@pytest.fixture
+def project_store(stores):
+    return stores.projects
+
+
+@pytest.fixture
+def chatbot_store(stores):
+    return stores.chatbots
+
+
+@pytest.fixture
+def pipeline_store(stores):
+    return stores.pipelines
+
+
+@pytest.fixture
+def atlassian_store(stores):
+    return stores.atlassian
+
+
+@pytest.fixture
+def copilot_store(stores):
+    return stores.copilot
+
+
+@pytest.fixture
+def project_file_store(stores):
+    return stores.project_files
+
+
+@pytest.fixture
+def definition_store(stores):
+    return stores.definitions
+
+
+@pytest.fixture
+def agent_config_service(project_store, agent_store, catalog_store):
+    """AgentConfigService on the in-memory stores with the tool catalog and the
     example agent the tests build on: global role ``hello``, prompt v1, agent
     ``hello`` with ``hello_world`` (in the app it comes from global-agent.yml)."""
-    service = AgentConfigService(store_service)
+    service = AgentConfigService(project_store, agent_store, catalog_store)
     service.sync_tools()
-    if store_service.get_agent_config("hello") is None:  # a Container may have created it already
+    if agent_store.get_config("hello") is None:  # a Container may have created it already
         service.save_role(AgentRole(name="hello", description="Assistente di esempio che saluta e conta parole."), create=True)
         prompt = service.create_prompt_version("hello", "Sei un assistente. Usa i tool a disposizione quando servono.")
         service.save_config(AgentConfig(
@@ -97,3 +167,46 @@ def agent_config_service(store_service):
             prompt_id=prompt.id, model="openai/gpt-4o", tool_names=["hello_world"],
         ))
     return service
+
+
+@pytest.fixture
+def git_service(project_store):
+    return GitService(project_store)
+
+
+@pytest.fixture
+def project_data_service(project_file_store, project_store):
+    return ProjectDataService(project_file_store, project_store)
+
+
+@pytest.fixture
+def masking_service(project_store, mask_store):
+    return MaskingService(project_store, mask_store)
+
+
+@pytest.fixture
+def pipeline_service(pipeline_store, project_store, worker_store, catalog_store, agent_store, agent_config_service):
+    return PipelineService(pipeline_store, project_store, worker_store, catalog_store, agent_store, agent_config_service)
+
+
+@pytest.fixture
+def make_agent_service(definition_store, run_store, catalog_store, copilot_store, agent_config_service,
+                       git_service, project_data_service, masking_service, pipeline_service):
+    """Builds an AgentService on the in-memory stores, with every service it
+    needs, as the Container does. A test passes the ones it drives itself (a
+    ChatService with a fake client, its own PipelineService, ...)."""
+
+    def make(chat_service: ChatService | None = None, **services) -> AgentService:
+        git = services.pop("git_service", None) or git_service
+        data = services.pop("project_data_service", None) or project_data_service
+        pipelines = services.pop("pipeline_service", None) or pipeline_service
+        masking = services.pop("masking_service", None) or masking_service
+        copilot = services.pop("copilot_service", None) or CopilotService.from_config(definition_store, copilot_store, git, data)
+        assert not services, f"servizi sconosciuti: {sorted(services)}"
+        return AgentService(
+            chat_service=chat_service or ChatService(), agent_config_service=agent_config_service,
+            runs=run_store, catalog=catalog_store, git_service=git, pipeline_service=pipelines,
+            masking_service=masking, project_data_service=data, copilot_service=copilot,
+        )
+
+    return make

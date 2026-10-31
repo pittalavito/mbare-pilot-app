@@ -1,10 +1,11 @@
 # `src/service`
 
-I servizi applicativi: le regole dell'app (validazioni, permessi tra progetti, versioni, coda) sopra lo store e i client di [`domain`](../domain/README.md). Controller e worker parlano solo con i service.
+I servizi applicativi: le regole dell'app (validazioni, permessi tra progetti, versioni, coda) sopra gli store e i client di [`domain`](../domain/README.md). Controller e worker parlano solo con i service.
 
 ```
 src/service/
-  store_service.py          StoreService: unica porta verso Postgres, Redis e file
+  store/                    gli store per aggregato: unica porta verso Postgres, Redis e file
+  run_service.py            osservabilità: run, tool call e trace (Admin → Osservabilità)
   model_service.py          catalogo dei modelli LLM (Admin → Modelli)
   chat_service.py           client LLM per modello, in cache
   agent_config_service.py   ruoli, prompt versionati, catalogo tool, agenti
@@ -22,13 +23,36 @@ src/service/
   copilot_service.py        agent task delegati a GitHub Copilot CLI: chat di preparazione, esecuzione nel worker
 ```
 
-Chi crea i service e li collega tra loro è il [Container](../core/README.md) (`core/container.py`): ogni service riceve nel costruttore quelli che usa.
+Chi crea i service e li collega tra loro è il [Container](../core/README.md) (`core/container.py`): ogni service riceve nel costruttore **gli store e i service che usa, e solo quelli**. Così la firma dice cosa legge e scrive.
 
-## `StoreService`
+## Gli store (`service/store/`)
 
-La facciata unica della persistenza: crea tutti i repository (Postgres, Redis, file) dalla `Config` e parla solo in **modelli di dominio**, convertendo con gli Adapter/Factory di ogni store. Nei test riceve un engine SQLite in memoria e fakeredis.
+La persistenza è divisa per **aggregato**: uno store per gruppo di dati che vive e muore insieme. Ogni store crea i suoi repository e parla solo in **modelli di dominio**, convertendo con l'`Adapter`/`Factory` del suo aggregato (`domain/store/db/<aggregato>_mapper.py`, `domain/store/redis/<x>_mapper.py`). Fuori da uno store non circolano righe né record.
 
-Fa anche due cose trasversali: cifra e decifra il token Atlassian con `SecretBox`, e calcola i costi delle run dai prezzi del catalogo.
+| Store | Cosa tiene | Backend | Chi lo usa |
+|---|---|---|---|
+| `RunStore` | run degli agenti: fatti (token, costi, tool call) e trace | Postgres + Redis | `AgentService` (scrive), `RunService` (legge) |
+| `CatalogStore` | modelli LLM con i prezzi (`price_list`), modelli in uso, catalogo dei tool | Postgres | `ModelService`, `AgentConfigService`, `AgentService`, `ChatbotService`, `PipelineService` (`require_usable_model`) |
+| `AgentStore` | ruoli, versioni dei prompt, agenti della Libreria e di progetto | Postgres | `AgentConfigService`, `DefinitionService`, `PipelineService` |
+| `ProjectStore` | progetti | Postgres | quasi tutti: chi tocca i dati di un progetto controlla che esista |
+| `ChatbotStore` | chatbot, conversazioni, messaggi, cache delle automation | Postgres | `ChatbotService`, `AutomationCacheService` |
+| `PipelineStore` | automation (step, collegamenti) e run (step delle run); tiene l'engine per `transaction` | Postgres | `PipelineService`, `PipelineRunner` |
+| `CopilotStore` | sessioni, messaggi e turni di Copilot (anche la coda del worker) | Postgres | `CopilotService` |
+| `AtlassianStore` | sito e preferiti Atlassian; cifra e decifra il token con `SecretBox` | Postgres | `AtlassianService` |
+| `WorkerStore` | heartbeat dei worker (con TTL) | Redis | `PipelineService` |
+| `MaskStore` | mappe di mascheramento | Redis | `MaskingService`, `ProjectService` (rimozione) |
+| `ProjectFileStore` | file dei progetti (`<data_home>/project`) | file | `ProjectDataService` |
+| `DefinitionStore` | file delle definizioni (`<data_home>/definition`); rispetta `coding_agent.DefinitionFiles` | file | `DefinitionService`, `CopilotService` |
+
+`Stores` (`store/stores.py`) li costruisce tutti una volta, sullo stesso engine e client Redis. Lo usano solo il Container e i test: nessun service riceve `Stores`.
+
+I metodi che attraversano più aggregati stanno dove sta la domanda: `CatalogStore.model_keys_in_use` legge agenti, chatbot e step ma risponde «quali modelli non si possono eliminare»; i prezzi (`price_list`) per i costi delle run li legge `AgentService` dal catalogo.
+
+**Nuovo store**: un modulo in `service/store/`, il mapper accanto ai repository del suo aggregato, l'attributo in `Stores`, la fixture in `test/conftest.py`, e il Container che lo passa ai service che lo usano.
+
+## `RunService`
+
+L'osservabilità di Admin: elenco delle run e delle tool call (dalla più recente) e trace di una run (`NotFoundError` se manca o è scaduta). Solo lettura: le run le scrive `AgentService` quando finiscono. I controller non usano mai uno store direttamente.
 
 ## Il motore delle automation
 
@@ -48,8 +72,8 @@ worker ──► PipelineRunner.run_next ──► claim (running) ──► ste
 ## Agenti
 
 - **`AgentConfigService`**: ruoli, versioni dei prompt (immutabili; ruoli e versioni si disattivano, non si cancellano), catalogo dei tool sincronizzato dal codice, agenti globali o di progetto. `blocked_reason` dice perché un agente non può partire (ruolo o prompt disattivati, modello non usabile, tool non più implementati).
-- **`AgentService`**: costruisce l'agente (client da `ChatService`, tool con il `ToolContext` della run), lo esegue dentro il tracing di datapizza e salva la run: fatti in Postgres, trace in Redis.
-- **`ModelService`**: il catalogo dei modelli; `require_usable_model` è il controllo che ogni service fa prima di salvare o eseguire un agente.
+- **`AgentService`**: costruisce l'agente (client da `ChatService`, tool con il `ToolContext` della run), lo esegue dentro il tracing di datapizza e salva la run in `RunStore`: fatti in Postgres, trace in Redis. Riceve **sempre** `PipelineService`, `MaskingService`, `ProjectDataService` e `CopilotService`: se un tool può usarli in una run lo decide il tool (`ToolContext.require_*`, origine della run), non un argomento mancante. Un progetto senza mappa di mascheramento resta com'è.
+- **`ModelService`**: il catalogo dei modelli e quelli in uso (`keys_in_use`, per Admin → Modelli); `require_usable_model(catalog, key)` è il controllo che ogni service fa prima di salvare o eseguire un agente.
 
 ## Chatbot
 
@@ -174,8 +198,8 @@ Un progetto nuovo viene rifiutato se il nome contiene `/` o `\` (finisce negli U
 ## Dati e git del progetto
 
 - **`GitService`**: trova i repository nella cartella del progetto (fino a 2 livelli) e ne legge log e status, senza mai uscire dalla cartella.
-- **`ProjectDataService`**: note e file del progetto nello store file, con i nomi validati da `domain/project/data_paths`.
+- **`ProjectDataService`**: note e file del progetto in `ProjectFileStore`, con i nomi validati da `domain/project/data_paths`.
 
 ## Test
 
-In `test/unit/service/`: `test_store_service`, `test_model_service`, `test_agent_config_service`, `test_agent_scope` (globali e di progetto), `test_activation` (disattivazioni), `test_agent_service`, `test_git_service`, `test_pipeline` (definizioni, coda, esecuzione, heartbeat), `test_function_steps`, `test_pipeline_graph` (grafo salvato ed eseguito: rami, unioni, step saltati), `test_project_service`, `test_project_data_service`, `test_chatbot_service`, `test_automation_cache_service` (cache: lancio senza agente, `!`, soglia, embedder, cosa si può mettere in cache), `test_atlassian_service`, `test_backup_service`, `test_masking` (mascheratore, mappa su Redis, giro completo in una run). Gli agenti sono finti (`FakeAgent`), il DB è SQLite in memoria e Redis è fakeredis: le fixture stanno in `test/conftest.py`.
+In `test/unit/service/`: `store/test_run_store`, `store/test_pipeline_store` (transazioni, numero di query), `test_run_service`, `test_model_service`, `test_agent_config_service`, `test_agent_scope` (globali e di progetto), `test_activation` (disattivazioni), `test_agent_service`, `test_git_service`, `test_pipeline` (definizioni, coda, esecuzione, heartbeat), `test_function_steps`, `test_pipeline_graph` (grafo salvato ed eseguito: rami, unioni, step saltati), `test_project_service`, `test_project_data_service`, `test_chatbot_service`, `test_automation_cache_service` (cache: lancio senza agente, `!`, soglia, embedder, cosa si può mettere in cache), `test_atlassian_service`, `test_backup_service`, `test_masking` (mascheratore, mappa su Redis, giro completo in una run). Gli agenti sono finti (`FakeAgent`), il DB è SQLite in memoria e Redis è fakeredis: le fixture stanno in `test/conftest.py`, una per store (`project_store`, `pipeline_store`, …, tutte da `stores`), quelle dei service più usati (`git_service`, `project_data_service`, `masking_service`, `pipeline_service`, `agent_config_service`) e `make_agent_service`, che costruisce un `AgentService` completo come il Container e prende i service che il test vuole guidare (es. un `ChatService` con un client finto).

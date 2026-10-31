@@ -17,9 +17,9 @@ def root(tmp_path):
 
 
 @pytest.fixture
-def client(store_service, root):
-    container = Container(store_service=store_service)
-    container.project_service = ProjectService(store_service, FolderBrowser([root]))
+def client(stores, root, mask_store, project_store):
+    container = Container(stores=stores)
+    container.project_service = ProjectService(project_store, mask_store, FolderBrowser([root]))
     with TestClient(create_app(container)) as client:
         yield client
 
