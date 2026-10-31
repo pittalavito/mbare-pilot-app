@@ -13,12 +13,8 @@ import redis
 from sqlalchemy.engine import Engine as SqlAlchemyEngine
 
 from config import Config
-from core.observability import LogPrefix, log_warning
-from core.secret_box import SecretBox
 from domain.store.db.store import (
     Adapter as DbAdapter,
-    DbAtlassianFavoriteRepository,
-    DbAtlassianRepository,
     DbCopilotMessageRepository,
     DbCopilotSessionRepository,
     DbCopilotTurnRepository,
@@ -27,7 +23,6 @@ from domain.store.db.store import (
 )
 from domain.store.files.store import LocalFileRepository, StoredFile
 from domain.store.redis.repository import Client as RedisClient
-from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
 from models.domain.copilot import CopilotMessage, CopilotModelUsage, CopilotSession, CopilotSessionStatus, CopilotTurnRecord
 
 
@@ -43,56 +38,11 @@ class StoreService:
         if redis_client is None:
             redis_client = RedisClient.create_redis_client(config.redis_url)
 
-        self._atlassian_repository = DbAtlassianRepository(engine)
-        self._atlassian_favorite_repository = DbAtlassianFavoriteRepository(engine)
         self._copilot_session_repository = DbCopilotSessionRepository(engine)
         self._copilot_message_repository = DbCopilotMessageRepository(engine)
         self._copilot_turn_repository = DbCopilotTurnRepository(engine)
         self._files_repository = LocalFileRepository(config.project_data_root)
         self._definitions_repository = LocalFileRepository(config.definitions_root)
-        self._secret_box = SecretBox(config.secret_key)
-
-    # ------------------------------------------------------------- atlassian
-    def get_atlassian_settings(self, project_name: str) -> AtlassianSettings | None:
-        """The API token comes back decrypted; empty when it cannot be (key
-        changed or missing), so the project shows as not configured."""
-        row = self._atlassian_repository.get(project_name)
-        if row is None:
-            return None
-        token = self._secret_box.decrypt(row.api_token) if self._secret_box.is_configured else None
-        if token is None:
-            log_warning(LogPrefix.STORE_SERVICE, "Token Atlassian di %s non decifrabile", project_name)
-        return DbAdapter.to_atlassian_settings(row, api_token=token or "")
-
-    def save_atlassian_settings(self, settings: AtlassianSettings) -> AtlassianSettings:
-        """The API token is saved encrypted."""
-        encrypted = self._secret_box.encrypt(settings.api_token.get_secret_value())
-        self._atlassian_repository.save(DbFactory.to_atlassian_row(settings, encrypted_token=encrypted))
-        return settings
-
-    def delete_atlassian_settings(self, project_name: str) -> bool:
-        return self._atlassian_repository.delete(project_name)
-
-    def list_atlassian_favorites(self, project_name: str) -> list[AtlassianFavorite]:
-        return [DbAdapter.to_atlassian_favorite(row) for row in self._atlassian_favorite_repository.list_for_project(project_name)]
-
-    def find_atlassian_favorite(self, project_name: str, kind: FavoriteKind, ref: str) -> AtlassianFavorite | None:
-        row = self._atlassian_favorite_repository.find(project_name, kind.value, ref)
-        return DbAdapter.to_atlassian_favorite(row) if row else None
-
-    def get_atlassian_favorite(self, favorite_id: int) -> AtlassianFavorite | None:
-        row = self._atlassian_favorite_repository.get(favorite_id)
-        return DbAdapter.to_atlassian_favorite(row) if row else None
-
-    def save_atlassian_favorite(self, favorite: AtlassianFavorite) -> AtlassianFavorite:
-        row = self._atlassian_favorite_repository.save(DbFactory.to_atlassian_favorite_row(favorite))
-        return DbAdapter.to_atlassian_favorite(row)
-
-    def delete_atlassian_favorite(self, favorite_id: int) -> bool:
-        return self._atlassian_favorite_repository.delete(favorite_id)
-
-    def delete_atlassian_favorites_of_other_sites(self, project_name: str, site: str) -> int:
-        return self._atlassian_favorite_repository.delete_other_sites(project_name, site)
 
     # --------------------------------------------------------------- copilot
     def save_copilot_session(self, session: CopilotSession) -> CopilotSession:

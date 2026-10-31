@@ -26,8 +26,8 @@ from models.domain.atlassian import (
 )
 from models.domain.note import NoteType, Reference
 from service.project_data_service import ProjectDataService
+from service.store.atlassian_store import AtlassianStore
 from service.store.project_store import ProjectStore
-from service.store_service import StoreService
 
 _PROJECT_KEY = re.compile(r"^[A-Z][A-Z0-9_]{1,9}$")
 _ISSUE_KEY = re.compile(r"^[A-Z][A-Z0-9_]{1,9}-\d+$")
@@ -36,16 +36,16 @@ _SPACE_KEY = re.compile(r"^~?[A-Za-z0-9_]{1,255}$")
 
 class AtlassianService:
 
-    def __init__(self, store_service: StoreService, projects: ProjectStore, project_data_service: ProjectDataService | None = None):
+    def __init__(self, atlassian: AtlassianStore, projects: ProjectStore, project_data_service: ProjectDataService | None = None):
         """``project_data_service``: to copy issues and pages into the project as references."""
-        self._store = store_service
+        self._atlassian = atlassian
         self._projects = projects
         self._data = project_data_service
         self._sites: dict[str, tuple[AtlassianSettings, AtlassianSite]] = {}
         """Built sites per project, rebuilt when the project's settings change."""
 
     def get_settings(self, project_name: str) -> AtlassianSettings | None:
-        return self._store.get_atlassian_settings(project_name)
+        return self._atlassian.get_settings(project_name)
 
     def is_configured(self, project_name: str) -> bool:
         settings = self.get_settings(project_name)
@@ -80,7 +80,7 @@ class AtlassianService:
             raise ValidationError("L'API token è obbligatorio.")
         jira_key = _project_key(jira_project_key) if jira_project_key.strip() else ""
         space_key = _space_key(confluence_space_key) if confluence_space_key.strip() else ""
-        settings = self._store.save_atlassian_settings(AtlassianSettings(
+        settings = self._atlassian.save_settings(AtlassianSettings(
             project_name=project_name,
             base_url=base_url,
             email=email.strip(),
@@ -88,17 +88,17 @@ class AtlassianService:
             jira_project_key=jira_key,
             confluence_space_key=space_key,
         ))
-        self._store.delete_atlassian_favorites_of_other_sites(project_name, base_url)
+        self._atlassian.delete_favorites_of_other_sites(project_name, base_url)
         return settings
 
     def remove_settings(self, project_name: str) -> bool:
         self._sites.pop(project_name, None)
-        return self._store.delete_atlassian_settings(project_name)
+        return self._atlassian.delete_settings(project_name)
 
     # ------------------------------------------------------------ favorites
     def list_favorites(self, project_name: str) -> list[AtlassianFavorite]:
         """The project's favorite issues and pages, oldest first."""
-        return self._store.list_atlassian_favorites(project_name)
+        return self._atlassian.list_favorites(project_name)
 
     def add_favorite(self, project_name: str, kind: FavoriteKind, ref: str, title: str, url: str) -> AtlassianFavorite:
         """Save an issue or page of the project's site as a favorite; already a
@@ -109,10 +109,10 @@ class AtlassianService:
         ref = ref.strip().upper() if kind is FavoriteKind.JIRA_ISSUE else ref.strip()
         if not ref or not title.strip():
             raise ValidationError("Il preferito deve avere un riferimento e un titolo.")
-        existing = self._store.find_atlassian_favorite(project_name, kind, ref)
+        existing = self._atlassian.find_favorite(project_name, kind, ref)
         if existing is not None:
             return existing
-        return self._store.save_atlassian_favorite(AtlassianFavorite(
+        return self._atlassian.save_favorite(AtlassianFavorite(
             project_name=project_name,
             kind=kind,
             ref=ref,
@@ -122,10 +122,10 @@ class AtlassianService:
         ))
 
     def remove_favorite(self, project_name: str, favorite_id: int) -> None:
-        favorite = self._store.get_atlassian_favorite(favorite_id)
+        favorite = self._atlassian.get_favorite(favorite_id)
         if favorite is None or favorite.project_name != project_name:
             raise NotFoundError(f"Preferito non trovato: {favorite_id}")
-        self._store.delete_atlassian_favorite(favorite_id)
+        self._atlassian.delete_favorite(favorite_id)
 
     # ----------------------------------------------------------- references
     @observed(LogPrefix.ATLASSIAN_SERVICE)

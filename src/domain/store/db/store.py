@@ -6,11 +6,8 @@ static-method classes: ``Adapter`` (rows -> domain models, reads) and
 """
 from datetime import datetime, timezone
 
-from domain.store.db.atlassian_favorite_repository import DbAtlassianFavoriteRepository
-from domain.store.db.atlassian_repository import DbAtlassianRepository
 from domain.store.db.copilot_repository import USAGE_COLUMNS, DbCopilotMessageRepository, DbCopilotSessionRepository, DbCopilotTurnRepository
 from domain.store.db.repository import Engine, transaction
-from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, FavoriteKind
 from models.domain.copilot import (
     CopilotMessage,
     CopilotMessageRole,
@@ -22,18 +19,14 @@ from models.domain.copilot import (
     CopilotUsage,
 )
 from models.store.db import (
-    AtlassianFavoriteTable,
     CopilotMessageTable,
     CopilotSessionTable,
     CopilotTurnTable,
-    ProjectAtlassianTable,
 )
 
 __all__ = [
     "Engine",
     "transaction",
-    "DbAtlassianFavoriteRepository",
-    "DbAtlassianRepository",
     "DbCopilotMessageRepository",
     "DbCopilotSessionRepository",
     "DbCopilotTurnRepository",
@@ -78,16 +71,6 @@ class Adapter:
 
 
 
-    @staticmethod
-    def to_atlassian_settings(row: ProjectAtlassianTable, api_token: str) -> AtlassianSettings:
-        """``api_token`` is the decrypted ``row.api_token``."""
-        return AtlassianSettings.model_validate({**row.model_dump(), "api_token": api_token})
-
-    @staticmethod
-    def to_atlassian_favorite(row: AtlassianFavoriteTable) -> AtlassianFavorite:
-        favorite = AtlassianFavorite.model_validate({**row.model_dump(), "kind": FavoriteKind(row.kind)})
-        favorite.created_at = _as_utc(favorite.created_at)
-        return favorite
 
 
 class Factory:
@@ -105,18 +88,3 @@ class Factory:
     @staticmethod
     def to_copilot_message_row(message: CopilotMessage) -> CopilotMessageTable:
         return CopilotMessageTable(**{**message.model_dump(), "role": message.role.value})
-
-    @staticmethod
-    def to_atlassian_row(settings: AtlassianSettings, encrypted_token: str) -> ProjectAtlassianTable:
-        return ProjectAtlassianTable(
-            project_name=settings.project_name,
-            base_url=settings.base_url,
-            email=settings.email,
-            api_token=encrypted_token,
-            jira_project_key=settings.jira_project_key,
-            confluence_space_key=settings.confluence_space_key,
-        )
-
-    @staticmethod
-    def to_atlassian_favorite_row(favorite: AtlassianFavorite) -> AtlassianFavoriteTable:
-        return AtlassianFavoriteTable(**{**favorite.model_dump(), "kind": favorite.kind.value})

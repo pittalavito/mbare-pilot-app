@@ -131,6 +131,11 @@ def pipeline_store(stores):
 
 
 @pytest.fixture
+def atlassian_store(stores):
+    return stores.atlassian
+
+
+@pytest.fixture
 def store_service(stores):
     return stores.store_service
 

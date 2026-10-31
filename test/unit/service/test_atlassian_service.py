@@ -5,7 +5,7 @@ from cryptography.fernet import Fernet
 from core.error import NotFoundError, ValidationError
 from core.secret_box import SecretBox
 from domain.client.atlassian.client import AtlassianHttp, ConfluenceClient, JiraClient
-from domain.store.db.store import DbAtlassianRepository
+from domain.store.db.atlassian_repository import DbAtlassianRepository
 from models.domain.atlassian import FavoriteKind
 from models.domain.project import Project, ProjectSource
 from service.atlassian_service import AtlassianService, AtlassianSite
@@ -17,10 +17,10 @@ def _site(handler, **defaults) -> AtlassianSite:
 
 
 @pytest.fixture
-def service(store_service, project_store):
+def service(project_store, atlassian_store):
     for name in ("Alpha", "Beta"):
         project_store.save(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/tmp/{name}"))
-    return AtlassianService(store_service, project_store)
+    return AtlassianService(atlassian_store, project_store)
 
 
 def _save(service, project="Alpha", **overrides):
@@ -57,9 +57,9 @@ def test_token_is_stored_encrypted(service, engine):
     assert service.get_settings("Alpha").api_token.get_secret_value() == "tok-a"
 
 
-def test_token_unreadable_with_another_key_means_not_configured(store_service, service, monkeypatch):
+def test_token_unreadable_with_another_key_means_not_configured(service, monkeypatch, atlassian_store):
     _save(service)
-    monkeypatch.setattr(store_service, "_secret_box", SecretBox(Fernet.generate_key().decode()))
+    monkeypatch.setattr(atlassian_store, "_secret_box", SecretBox(Fernet.generate_key().decode()))
 
     assert service.get_settings("Alpha").base_url == "https://alpha.atlassian.net"
     assert service.is_configured("Alpha") is False
