@@ -13,11 +13,9 @@ from models.domain.masking import MaskCategory
 from models.domain.pipeline import PipelineStep, RunStatus, StepAgent, StepKind
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
-from service.agent_service import AgentService
 from service.automation_cache_service import AutomationCacheService
 from service.chat_service import ChatService
 from service.chatbot_service import ChatbotService
-from service.git_service import GitService
 from service.masking_service import MaskingService
 from service.pipeline_service import PipelineService
 
@@ -85,10 +83,10 @@ def cache(store_service, pipelines):
 
 
 @pytest.fixture
-def chat(store_service, agent_config_service, cache, agent_runs, monkeypatch):
+def chat(store_service, agent_config_service, cache, agent_runs, monkeypatch, make_agent_service):
     llm = ChatService()
     monkeypatch.setattr(llm, "get_client", lambda model: object())
-    agents = AgentService(llm, agent_config_service, store_service, GitService(store_service))
+    agents = make_agent_service(llm)
     return ChatbotService(store_service, agent_config_service, agents, cache)
 
 

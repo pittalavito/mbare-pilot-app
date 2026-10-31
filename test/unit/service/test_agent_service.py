@@ -3,19 +3,14 @@ import pytest
 from core.error import NotFoundError
 from fakes import FakeAgent
 from service import agent_service as agent_service_module
-from service.agent_service import AgentService
 from service.chat_service import ChatService
-from service.git_service import GitService
 
 
 @pytest.fixture
-def agent_service(store_service, agent_config_service, monkeypatch):
+def agent_service(monkeypatch, make_agent_service):
     chat_service = ChatService()
     monkeypatch.setattr(chat_service, "get_client", lambda model: object())
-    return AgentService(
-        chat_service=chat_service, agent_config_service=agent_config_service, store_service=store_service,
-        git_service=GitService(store_service),
-    )
+    return make_agent_service(chat_service)
 
 
 def _use_fake_agent(monkeypatch, error: Exception | None = None):

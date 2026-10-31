@@ -77,20 +77,18 @@ def test_unknown_project_and_duplicate_names_rejected(agent_config_service, proj
         agent_config_service.save_role(AgentRole(name="hello"), create=True)
 
 
-def test_run_records_project_of_the_config(agent_config_service, project, store_service, monkeypatch):
+def test_run_records_project_of_the_config(agent_config_service, project, store_service, monkeypatch, make_agent_service):
     from fakes import FakeAgent
     from models.domain.agent import RunOrigin
     from service import agent_service as agent_service_module
-    from service.agent_service import AgentService
     from service.chat_service import ChatService
-    from service.git_service import GitService
 
     chat = ChatService()
     monkeypatch.setattr(chat, "get_client", lambda model: object())
     monkeypatch.setattr(agent_service_module.AgentFactory, "create_agent", staticmethod(lambda spec, c, t: FakeAgent()))
     agent_config_service.save_config(_config(agent_config_service, "acme-hello", "hello", "acme"), create=True)
 
-    record = AgentService(chat, agent_config_service, store_service, GitService(store_service)).run("acme-hello", "ciao", origin=RunOrigin.CHAT)
+    record = make_agent_service(chat).run("acme-hello", "ciao", origin=RunOrigin.CHAT)
 
     [summary] = store_service.list_runs()
     assert (record.project_name, summary.project_name, summary.origin) == ("acme", "acme", "chat")

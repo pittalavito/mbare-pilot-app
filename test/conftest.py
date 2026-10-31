@@ -12,6 +12,13 @@ from domain.chat.models_default import DEFAULT_CHAT_MODELS
 from domain.store.files.store import LocalFileRepository
 from models.domain.agent import AgentConfig, AgentRole
 from service.agent_config_service import AgentConfigService
+from service.agent_service import AgentService
+from service.chat_service import ChatService
+from service.copilot_service import CopilotService
+from service.git_service import GitService
+from service.masking_service import MaskingService
+from service.pipeline_service import PipelineService
+from service.project_data_service import ProjectDataService
 from service.store.stores import Stores
 
 HELLO_AGENT = """agents:
@@ -113,3 +120,25 @@ def agent_config_service(store_service):
             prompt_id=prompt.id, model="openai/gpt-4o", tool_names=["hello_world"],
         ))
     return service
+
+
+@pytest.fixture
+def make_agent_service(store_service, worker_store, mask_store, agent_config_service):
+    """Builds an AgentService on the in-memory stores, with every service it
+    needs, as the Container does. A test passes the ones it drives itself (a
+    ChatService with a fake client, its own PipelineService, ...)."""
+
+    def make(chat_service: ChatService | None = None, **services) -> AgentService:
+        git = services.pop("git_service", None) or GitService(store_service)
+        data = services.pop("project_data_service", None) or ProjectDataService(store_service)
+        pipelines = services.pop("pipeline_service", None) or PipelineService(store_service, agent_config_service, worker_store)
+        masking = services.pop("masking_service", None) or MaskingService(store_service, mask_store)
+        copilot = services.pop("copilot_service", None) or CopilotService.from_config(store_service, git, data)
+        assert not services, f"servizi sconosciuti: {sorted(services)}"
+        return AgentService(
+            chat_service=chat_service or ChatService(), agent_config_service=agent_config_service,
+            store_service=store_service, git_service=git, pipeline_service=pipelines,
+            masking_service=masking, project_data_service=data, copilot_service=copilot,
+        )
+
+    return make

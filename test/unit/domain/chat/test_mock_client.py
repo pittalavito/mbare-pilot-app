@@ -6,20 +6,17 @@ import pytest
 from domain.chat.base import Factory
 from domain.chat.mock_client import MockClient
 from models.domain.agent import AgentConfig
-from service.agent_service import AgentService
-from service.chat_service import ChatService
-from service.git_service import GitService
 
 MOCK = "mock/echo"
 
 
 @pytest.fixture
-def agents(store_service, agent_config_service):
+def agents(agent_config_service, make_agent_service):
     agent_config_service.save_config(AgentConfig(
         name="prova", role_name="hello", prompt_id=agent_config_service.latest_prompt("hello").id,
         model=MOCK, tool_names=["hello_world"],
     ), create=True)
-    return AgentService(ChatService(), agent_config_service, store_service, GitService(store_service))
+    return make_agent_service()
 
 
 def test_the_factory_builds_it_without_keys():

@@ -12,7 +12,6 @@ from function.spec import FunctionSpec, NoParams
 from models.domain.pipeline import PipelineStep, RunStatus, StepAgent, StepKind
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
-from service.agent_service import AgentService
 from service.chat_service import ChatService
 from service.git_service import GitService
 from service.masking_service import MaskingService
@@ -51,11 +50,11 @@ def service(store_service, agent_config_service, project, monkeypatch, worker_st
 
 
 @pytest.fixture
-def runner(store_service, agent_config_service, monkeypatch):
+def runner(store_service, monkeypatch, make_agent_service):
     chat = ChatService()
     monkeypatch.setattr(chat, "get_client", lambda model: object())
     git = GitService(store_service)
-    agents = AgentService(chat, agent_config_service, store_service, git)
+    agents = make_agent_service(chat, git_service=git)
     return PipelineRunner(store_service, agents, git, ProjectDataService(store_service))
 
 
@@ -65,12 +64,12 @@ def masking(store_service, mask_store):
 
 
 @pytest.fixture
-def masked_runner(store_service, agent_config_service, masking, monkeypatch):
+def masked_runner(store_service, masking, monkeypatch, make_agent_service):
     """A runner that registers what the function steps declare sensitive."""
     chat = ChatService()
     monkeypatch.setattr(chat, "get_client", lambda model: object())
     git = GitService(store_service)
-    agents = AgentService(chat, agent_config_service, store_service, git)
+    agents = make_agent_service(chat, git_service=git)
     return PipelineRunner(store_service, agents, git, ProjectDataService(store_service), masking_service=masking)
 
 

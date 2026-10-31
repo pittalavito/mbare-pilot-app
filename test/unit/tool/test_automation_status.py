@@ -9,7 +9,6 @@ from models.domain.agent import RunOrigin
 from models.domain.pipeline import PipelineStep, StepAgent, StepKind
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
-from service.agent_service import AgentService
 from service.chat_service import ChatService
 from service.git_service import GitService
 from service.pipeline_runner import PipelineRunner
@@ -29,12 +28,12 @@ def pipelines(store_service, agent_config_service, worker_store):
 
 
 @pytest.fixture
-def runner(store_service, agent_config_service, pipelines, monkeypatch):
+def runner(store_service, pipelines, monkeypatch, make_agent_service):
     chat = ChatService()
     monkeypatch.setattr(chat, "get_client", lambda model: object())
     monkeypatch.setattr(agent_service_module.AgentFactory, "create_agent",
                         staticmethod(lambda definition, client, tools: FakeAgent()))
-    agents = AgentService(chat, agent_config_service, store_service, GitService(store_service), pipelines)
+    agents = make_agent_service(chat, pipeline_service=pipelines)
     return PipelineRunner(store_service, agents, GitService(store_service), ProjectDataService(store_service))
 
 

@@ -32,15 +32,18 @@ class AgentService:
         agent_config_service: AgentConfigService,
         store_service: StoreService,
         git_service: GitService,
-        pipeline_service: PipelineService | None = None,
-        masking_service: MaskingService | None = None,
-        project_data_service: ProjectDataService | None = None,
-        copilot_service: CopilotService | None = None,
+        pipeline_service: PipelineService,
+        masking_service: MaskingService,
+        project_data_service: ProjectDataService,
+        copilot_service: CopilotService,
     ):
         """``pipeline_service`` lets the agents start automations (tool run_automation);
-        ``masking_service`` hides the project's sensitive values from the LLM;
+        ``masking_service`` hides the project's sensitive values from the LLM (a
+        project without a map is left as it is);
         ``project_data_service`` lets them read the project's context (tool read_context);
-        ``copilot_service`` lets the chatbot delegate agent tasks to Copilot (tool delegate_task)."""
+        ``copilot_service`` lets the chatbot delegate agent tasks to Copilot (tool delegate_task).
+        All are required: whether a tool may use one in a run is decided by the
+        tool (``ToolContext.require_*``, the run's origin), not by leaving it out."""
         self._chat_service = chat_service
         self._agent_config_service = agent_config_service
         self._store_service = store_service
@@ -69,7 +72,7 @@ class AgentService:
         project_name = project_name or definition.project_name
         require_usable_model(self._store_service, definition.model)
         client = self._chat_service.get_client(definition.model)
-        session = self._masking_service.session(project_name) if self._masking_service and project_name else None
+        session = self._masking_service.session(project_name) if project_name else None
         mask = AgentMask(session, self._repository_paths(project_name) if session else [])
         context = ToolContext(
             project_name=project_name,

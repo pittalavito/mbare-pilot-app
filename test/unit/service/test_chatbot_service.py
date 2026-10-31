@@ -6,10 +6,8 @@ from fakes import FakeAgent
 from models.domain.chatbot import MessageRole
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
-from service.agent_service import AgentService
 from service.chat_service import ChatService
 from service.chatbot_service import ChatbotService
-from service.git_service import GitService
 
 MODEL = "openai/gpt-4o"
 
@@ -36,12 +34,12 @@ def agents(monkeypatch):
 
 
 @pytest.fixture
-def service(store_service, agent_config_service, agents, monkeypatch):
+def service(store_service, agent_config_service, agents, monkeypatch, make_agent_service):
     for name in ("acme", "other"):
         store_service.save_project(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/code/{name}"))
     chat = ChatService()
     monkeypatch.setattr(chat, "get_client", lambda model: object())
-    agent_service = AgentService(chat, agent_config_service, store_service, GitService(store_service))
+    agent_service = make_agent_service(chat)
     return ChatbotService(store_service, agent_config_service, agent_service)
 
 

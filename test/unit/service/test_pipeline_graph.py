@@ -17,7 +17,6 @@ from models.domain.pipeline import (
 )
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
-from service.agent_service import AgentService
 from service.chat_service import ChatService
 from service.git_service import GitService
 from service.pipeline_runner import PipelineRunner
@@ -104,7 +103,7 @@ def test_invalid_graph_is_not_saved(service):
 # Fake agents echo their input ("echo: <input>"); the steps in ``runner.failing`` raise.
 
 @pytest.fixture
-def runner(store_service, agent_config_service, monkeypatch):
+def runner(store_service, monkeypatch, make_agent_service):
     failing: set[str] = set()
 
     def create_agent(definition, client, tools):
@@ -114,7 +113,7 @@ def runner(store_service, agent_config_service, monkeypatch):
     chat = ChatService()
     monkeypatch.setattr(chat, "get_client", lambda model: object())
     git = GitService(store_service)
-    agents = AgentService(chat, agent_config_service, store_service, git)
+    agents = make_agent_service(chat, git_service=git)
     runner = PipelineRunner(store_service, agents, git, ProjectDataService(store_service))
     runner.failing = failing
     return runner

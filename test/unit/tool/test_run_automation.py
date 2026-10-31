@@ -12,7 +12,6 @@ from models.domain.agent import AgentConfig, RunOrigin
 from models.domain.pipeline import PipelineStep, RunStatus, StepAgent, StepKind
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
-from service.agent_service import AgentService
 from service.chat_service import ChatService
 from service.git_service import GitService
 from service.pipeline_runner import PipelineRunner
@@ -43,14 +42,14 @@ def pipelines(store_service, agent_config_service, worker_store):
 
 
 @pytest.fixture
-def service(store_service, agent_config_service, pipelines, monkeypatch):
+def service(agent_config_service, pipelines, monkeypatch, make_agent_service):
     agent_config_service.save_config(AgentConfig(
         name="boss", project_name="acme", role_name="hello", prompt_id=agent_config_service.latest_prompt("hello").id,
         model=MODEL, tool_names=["run_automation"],
     ), create=True)
     chat = ChatService()
     monkeypatch.setattr(chat, "get_client", lambda model: object())
-    return AgentService(chat, agent_config_service, store_service, GitService(store_service), pipelines)
+    return make_agent_service(chat, pipeline_service=pipelines)
 
 
 def _own_step(tools=()):

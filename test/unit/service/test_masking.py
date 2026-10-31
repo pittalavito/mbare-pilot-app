@@ -15,9 +15,7 @@ from models.domain.chatbot import ChatMessage, MessageRole
 from models.domain.masking import MaskCategory, MaskEntry
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
-from service.agent_service import AgentService
 from service.chat_service import ChatService
-from service.git_service import GitService
 from service.masking_service import MaskingService
 from service.project_service import ProjectService
 
@@ -112,7 +110,7 @@ class _Recording:
 
 
 @pytest.fixture
-def agent_service(store_service, agent_config_service, masking, tmp_path, monkeypatch):
+def agent_service(store_service, agent_config_service, masking, tmp_path, monkeypatch, make_agent_service):
     repo = tmp_path / "acme" / "project-be"
     repo.mkdir(parents=True)
     if shutil.which("git") is None:
@@ -125,7 +123,7 @@ def agent_service(store_service, agent_config_service, masking, tmp_path, monkey
     ), create=True)
     chat = ChatService()
     monkeypatch.setattr(chat, "get_client", lambda model: object())
-    return AgentService(chat, agent_config_service, store_service, GitService(store_service), masking_service=masking)
+    return make_agent_service(chat, masking_service=masking)
 
 
 def test_the_llm_sees_aliases_the_tools_and_the_user_real_values(agent_service, masking, monkeypatch):

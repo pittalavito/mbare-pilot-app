@@ -7,11 +7,8 @@ import pytest
 from core.error import NotFoundError
 from models.domain.definitions import DefinitionKey, DefinitionKind
 from models.domain.project import Project, ProjectSource
-from service.agent_service import AgentService
-from service.chat_service import ChatService
 from service.chatbot_service import ChatbotService
 from service.definition_service import DefinitionService
-from service.git_service import GitService
 from service.pipeline_service import PipelineService
 
 MODEL = "openai/gpt-4o"
@@ -43,10 +40,10 @@ CONTROLLO = """
 
 
 @pytest.fixture
-def services(store_service, agent_config_service, worker_store):
+def services(store_service, agent_config_service, worker_store, make_agent_service):
     store_service.save_definition("global-agent.yml", "")  # each test writes what it needs
     store_service.save_project(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
-    agents = AgentService(ChatService(), agent_config_service, store_service, GitService(store_service))
+    agents = make_agent_service()
     pipelines = PipelineService(store_service, agent_config_service, worker_store)
     chatbots = ChatbotService(store_service, agent_config_service, agents)
     return DefinitionService(store_service, agent_config_service, chatbots, pipelines), chatbots, pipelines
