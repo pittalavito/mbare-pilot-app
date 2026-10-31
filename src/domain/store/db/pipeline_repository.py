@@ -69,9 +69,10 @@ class DbPipelineRunRepository(SqlRepository[PipelineRunTable]):
         with self._session() as session:
             return list(session.exec(statement).all())
 
-    def claim_next(self) -> PipelineRunTable | None:
-        """The oldest ``queued`` run, switched to ``running`` atomically: with
-        ``FOR UPDATE SKIP LOCKED`` two workers never take the same run."""
+    def claim_next(self, worker_id: str | None = None) -> PipelineRunTable | None:
+        """The oldest ``queued`` run, switched to ``running`` atomically and
+        marked as ``worker_id``'s: with ``FOR UPDATE SKIP LOCKED`` two workers
+        never take the same run."""
         statement = (
             select(PipelineRunTable).where(PipelineRunTable.status == "queued")
             .order_by(col(PipelineRunTable.id)).limit(1).with_for_update(skip_locked=True)
@@ -81,6 +82,7 @@ class DbPipelineRunRepository(SqlRepository[PipelineRunTable]):
             if row is None:
                 return None
             row.status = "running"
+            row.claimed_by = worker_id
             row.started_at = datetime.now(timezone.utc)
             session.add(row)
             session.commit()

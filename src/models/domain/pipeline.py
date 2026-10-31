@@ -142,6 +142,8 @@ class PipelineRun(BaseModel):
     id: int | None = None
     pipeline_id: int
     status: RunStatus = RunStatus.QUEUED
+    claimed_by: str | None = None
+    """The worker that took it; a RUNNING run whose worker stopped beating is orphaned."""
     input: str = ""
     output: str | None = None
     """The last step's output, once DONE."""

@@ -351,9 +351,9 @@ class StoreService:
     def list_pipeline_runs_by_status(self, status: RunStatus) -> list[PipelineRun]:
         return [DbAdapter.to_pipeline_run(row) for row in self._pipeline_run_repository.list_by_status(status.value)]
 
-    def claim_next_pipeline_run(self) -> PipelineRun | None:
-        """The oldest queued run, already switched to RUNNING (worker queue)."""
-        row = self._pipeline_run_repository.claim_next()
+    def claim_next_pipeline_run(self, worker_id: str | None = None) -> PipelineRun | None:
+        """The oldest queued run, already switched to RUNNING and marked as ``worker_id``'s (worker queue)."""
+        row = self._pipeline_run_repository.claim_next(worker_id)
         return DbAdapter.to_pipeline_run(row) if row else None
 
     def save_pipeline_step_run(self, step_run: PipelineStepRun) -> PipelineStepRun:
@@ -452,14 +452,14 @@ class StoreService:
     def list_copilot_sessions_by_planning_turn(self, planning_turn: CopilotPlanningTurn) -> list[CopilotSession]:
         return [DbAdapter.to_copilot_session(row) for row in self._copilot_session_repository.list_by_planning_turn(planning_turn.value)]
 
-    def claim_next_copilot_planning_turn(self) -> CopilotSession | None:
-        """The planning turn that has waited longest, now ``running`` (atomic: two workers never get the same)."""
-        row = self._copilot_session_repository.claim_next_planning_turn()
+    def claim_next_copilot_planning_turn(self, worker_id: str | None = None) -> CopilotSession | None:
+        """The planning turn that has waited longest, now ``running`` and ``worker_id``'s (atomic: two workers never get the same)."""
+        row = self._copilot_session_repository.claim_next_planning_turn(worker_id)
         return DbAdapter.to_copilot_session(row) if row else None
 
-    def claim_next_copilot_session(self) -> CopilotSession | None:
-        """The next queued execution whose repository is free, now ``running``."""
-        row = self._copilot_session_repository.claim_next()
+    def claim_next_copilot_session(self, worker_id: str | None = None) -> CopilotSession | None:
+        """The next queued execution whose repositories are free, now ``running`` and ``worker_id``'s."""
+        row = self._copilot_session_repository.claim_next(worker_id)
         return DbAdapter.to_copilot_session(row) if row else None
 
     def delete_copilot_session(self, session_id: int) -> bool:

@@ -63,7 +63,7 @@ Dentro il blocco tutti i repository usano la stessa sessione: il loro `commit` d
 
 | Dove | Cosa |
 |---|---|
-| `DbPipelineRunRepository.claim_next()` | prende la run `queued` più vecchia e la passa a `running` in modo atomico con `FOR UPDATE SKIP LOCKED`: due worker non prendono mai la stessa run |
+| `DbPipelineRunRepository.claim_next(worker_id)` | prende la run `queued` più vecchia e la passa a `running` in modo atomico con `FOR UPDATE SKIP LOCKED`, segnando chi l'ha presa (`claimed_by`): due worker non prendono mai la stessa run. Vale anche per i due claim di Copilot qui sotto |
 | `DbCopilotSessionRepository.claim_next()` | come sopra per le esecuzioni di Copilot: la più vecchia che non ha repository in comune con quelle `running` (scelti in `repositories`, o `repository` nelle sessioni vecchie). Su Postgres un advisory lock della transazione rende il claim seriale: due claim contemporanei non prendono mai sessioni con un repository in comune |
 | `DbCopilotSessionRepository.claim_next_planning_turn()` | il turno di preparazione in coda da più tempo (`planning_turn` da `queued` a `running`), con `FOR UPDATE SKIP LOCKED`; non guarda il repository (la modalità piano legge e basta) |
 | `DbPipelineStepRepository.replace()` | salva gli step di un'automation in una transazione: aggiorna quelli con id, inserisce i nuovi, cancella quelli tolti |

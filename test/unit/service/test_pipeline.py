@@ -300,12 +300,18 @@ def test_running_run_cannot_be_deleted(service, store_service):
         service.delete_run(running.id)
 
 
-def test_interrupted_runs_fail_at_worker_start(service, runner, store_service):
+def test_only_the_runs_of_dead_workers_fail(service, runner, store_service):
     pipeline = service.create_pipeline("acme", "P", steps=[_own()])
-    service.enqueue(pipeline.id, "x")
-    store_service.claim_next_pipeline_run()  # a worker took it, then died
+    for _ in range(3):
+        service.enqueue(pipeline.id, "x")
+    dead = store_service.claim_next_pipeline_run("pc-1")  # a worker took it, then died
+    alive = store_service.claim_next_pipeline_run("pc-2")
+    unknown = store_service.claim_next_pipeline_run()  # claimed before claimed_by
+    assert alive.claimed_by == "pc-2"
 
-    assert runner.fail_interrupted() == 1
-    [run] = service.list_runs(pipeline.id)
-    assert run.status is RunStatus.FAILED and "interrotta" in run.error
-    assert runner.fail_interrupted() == 0
+    assert runner.fail_orphaned({"pc-2"}) == 2
+    runs = {run.id: run for run in service.list_runs(pipeline.id)}
+    assert runs[dead.id].status is RunStatus.FAILED and "interrotta" in runs[dead.id].error
+    assert runs[unknown.id].status is RunStatus.FAILED
+    assert runs[alive.id].status is RunStatus.RUNNING  # its worker still beats
+    assert runner.fail_orphaned({"pc-2"}) == 0

@@ -28,6 +28,8 @@ Ognuno costruisce il suo `Container`.
 
 Il worker ha **tre corsie indipendenti**, così nessuna aspetta le altre: le **automation** una alla volta (il thread principale), le **esecuzioni di Copilot** ognuna nel suo thread, in parallelo (la coda dà solo esecuzioni i cui repository sono liberi), i **turni di chat di Copilot** ognuno nel suo thread (la modalità piano legge e basta: non aspettano niente). Un'esecuzione di Copilot lunga non ferma le automation, né la chat. L'heartbeat dice la run in corso (`busy_run_id`) e le sessioni di Copilot in lavorazione (`busy_copilot_session_ids`).
 
+**Lavori di un worker morto**: ogni claim salva chi ha preso il lavoro (`claimed_by` = `<host>-<pid>`, su `pipeline_run` e `copilot_session`). All'avvio e poi ogni 30 secondi ogni worker legge da Redis i worker che mandano l'heartbeat (scade dopo 10 secondi; lui conta sempre come vivo) e segna come interrotti i lavori `running` degli altri (`fail_orphaned`): run ed esecuzioni fallite, turni di chat chiusi con l'errore. Così più worker possono girare insieme senza chiudersi i lavori a vicenda, e un worker morto non lascia lavori bloccati anche se nessuno lo riavvia. Se Redis non risponde il controllo salta il giro: non si rischia di chiudere il lavoro di un worker vivo. I lavori presi prima di `claimed_by` (colonna vuota) contano come orfani: dopo l'aggiornamento riavvia anche i worker avviati da terminale.
+
 ## Container (`container.py`)
 
 L'unico posto che crea i service e li collega: ognuno riceve nel costruttore quelli che usa. Nient'altro crea service.

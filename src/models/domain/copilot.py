@@ -71,6 +71,8 @@ class CopilotSession(BaseModel):
     """The planning turn waiting for (or in) the worker; None = Copilot answered. Only while ``planning``."""
     cancel_requested: bool = False
     """Set by the API, read by the worker that is running it (an execution or a planning turn)."""
+    claimed_by: str | None = None
+    """The worker that took the last execution or planning turn; while it beats, a ``running`` one is not orphaned."""
     head_before: str | None = None
     """Sessions made before ``heads_before``: HEAD of ``repository`` when the execution started."""
     head_after: str | None = None

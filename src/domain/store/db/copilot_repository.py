@@ -58,7 +58,7 @@ class DbCopilotSessionRepository(SqlRepository[CopilotSessionTable]):
             session.commit()
             return session.get(CopilotSessionTable, session_id)
 
-    def claim_next(self) -> CopilotSessionTable | None:
+    def claim_next(self, worker_id: str | None = None) -> CopilotSessionTable | None:
         """The oldest ``queued`` session none of whose repositories (``repositories``,
         or ``repository`` for the sessions made before) has an execution running,
         switched to ``running`` atomically: ``FOR UPDATE SKIP LOCKED`` on the queue
@@ -78,13 +78,14 @@ class DbCopilotSessionRepository(SqlRepository[CopilotSessionTable]):
                 session.commit()  # releases the advisory lock
                 return None
             row.status = "running"
+            row.claimed_by = worker_id
             row.started_at = row.updated_at = datetime.now(timezone.utc)
             session.add(row)
             session.commit()
             session.refresh(row)
             return row
 
-    def claim_next_planning_turn(self) -> CopilotSessionTable | None:
+    def claim_next_planning_turn(self, worker_id: str | None = None) -> CopilotSessionTable | None:
         """The session whose planning turn has waited longest, switched from
         ``queued`` to ``running`` atomically (``FOR UPDATE SKIP LOCKED``). The
         repository being busy does not matter: plan mode only reads."""
@@ -97,6 +98,7 @@ class DbCopilotSessionRepository(SqlRepository[CopilotSessionTable]):
             if row is None:
                 return None
             row.planning_turn = "running"
+            row.claimed_by = worker_id
             row.updated_at = datetime.now(timezone.utc)
             session.add(row)
             session.commit()

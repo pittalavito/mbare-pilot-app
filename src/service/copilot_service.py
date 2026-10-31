@@ -291,21 +291,21 @@ class CopilotService:
         return len(sessions)
 
     # ---------------------------------------------------------------- worker
-    def plan_next(self, on_claim: Callable[[CopilotSession], None] | None = None) -> CopilotSession | None:
+    def plan_next(self, on_claim: Callable[[CopilotSession], None] | None = None, worker_id: str | None = None) -> CopilotSession | None:
         """Answer the planning turn that has waited longest (plan mode, read
         only: also while the repository has an execution running); None when
         there is none. Copilot's answer (or the error) becomes the session's
         messages, the turn's usage a row for Observability."""
-        session = self.claim_planning_turn()
+        session = self.claim_planning_turn(worker_id)
         if session is None:
             return None
         if on_claim:
             on_claim(session)
         return self.answer(session)
 
-    def claim_planning_turn(self) -> CopilotSession | None:
-        """The planning turn that has waited longest, now ``running``; None when there is none."""
-        return self._store.claim_next_copilot_planning_turn()
+    def claim_planning_turn(self, worker_id: str | None = None) -> CopilotSession | None:
+        """The planning turn that has waited longest, now ``running`` and ``worker_id``'s; None when there is none."""
+        return self._store.claim_next_copilot_planning_turn(worker_id)
 
     def answer(self, session: CopilotSession) -> CopilotSession:
         """Run a claimed planning turn (``claim_planning_turn``) and save Copilot's answer."""
@@ -325,18 +325,19 @@ class CopilotService:
             self._message(session, CopilotMessageRole.EVENT, "⏹️ Risposta annullata: puoi scrivere un altro messaggio.")
         return self._update(session, planning_turn=None, cancel_requested=False)
 
-    def run_next(self, on_claim: Callable[[CopilotSession], None] | None = None) -> CopilotSession | None:
+    def run_next(self, on_claim: Callable[[CopilotSession], None] | None = None, worker_id: str | None = None) -> CopilotSession | None:
         """Execute the next queued session whose repositories are all free; None when there is none."""
-        session = self.claim_execution()
+        session = self.claim_execution(worker_id)
         if session is None:
             return None
         if on_claim:
             on_claim(session)
         return self.execute(session)
 
-    def claim_execution(self) -> CopilotSession | None:
-        """The oldest queued execution whose repositories are all free, now ``running``; None when there is none."""
-        return self._store.claim_next_copilot_session()
+    def claim_execution(self, worker_id: str | None = None) -> CopilotSession | None:
+        """The oldest queued execution whose repositories are all free, now ``running``
+        and ``worker_id``'s; None when there is none."""
+        return self._store.claim_next_copilot_session(worker_id)
 
     def execute(self, session: CopilotSession) -> CopilotSession:
         """Run a claimed execution (``claim_execution``) to its end: done, failed or cancelled."""
@@ -360,16 +361,19 @@ class CopilotService:
         session = self._record(session, turn)
         return self._finish(session, turn, changes_before)
 
-    def fail_interrupted(self) -> int:
-        """At the worker's start: the executions and the planning turns left
-        ``running`` by a worker that died. An execution fails; a planning turn
-        ends with the error and the chat stays open (the user sends again)."""
-        sessions = self._store.list_copilot_sessions_by_status(CopilotSessionStatus.RUNNING)
+    def fail_orphaned(self, alive_workers: set[str]) -> int:
+        """The executions and the planning turns left ``running`` by a worker
+        that is not among ``alive_workers`` (it stopped beating: it died), or
+        unknown (claimed before ``claimed_by``). The workers check it now and
+        then. An execution fails; a planning turn ends with the error and the
+        chat stays open (the user sends again). Returns how many."""
+        orphaned = lambda session: session.claimed_by not in alive_workers  # noqa: E731
+        sessions = [session for session in self._store.list_copilot_sessions_by_status(CopilotSessionStatus.RUNNING) if orphaned(session)]
         for session in sessions:
             self._message(session, CopilotMessageRole.EVENT, "❌ Interrotta: il worker si è fermato durante l'esecuzione.")
             self._update(session, status=CopilotSessionStatus.FAILED, error="Worker interrotto.", finished_at=_now())
             self._set_task_status(session, TaskStatus.TODO)
-        turns = self._store.list_copilot_sessions_by_planning_turn(CopilotPlanningTurn.RUNNING)
+        turns = [session for session in self._store.list_copilot_sessions_by_planning_turn(CopilotPlanningTurn.RUNNING) if orphaned(session)]
         for session in turns:
             self._message(session, CopilotMessageRole.EVENT,
                           "❌ Interrotta: il worker si è fermato mentre Copilot rispondeva. Manda di nuovo il messaggio.")

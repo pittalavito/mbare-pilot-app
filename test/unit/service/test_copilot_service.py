@@ -205,12 +205,12 @@ def test_a_slow_planning_turn_is_stopped_by_the_timeout(store_service, data, pro
     assert (session.status, session.planning_turn) == (CopilotSessionStatus.PLANNING, None) and "Nessuna risposta" in session.error
 
 
-def test_a_planning_turn_left_running_by_a_dead_worker_ends_at_restart(store_service, data, project):
+def test_a_planning_turn_left_running_by_a_dead_worker_ends(store_service, data, project):
     service = _service(store_service, data)
     session = service.start("acme", _task(data), "api")
-    store_service.claim_next_copilot_planning_turn()  # the worker took it, then died
+    store_service.claim_next_copilot_planning_turn("pc-1")  # the worker took it, then died
 
-    assert service.fail_interrupted() == 1
+    assert service.fail_orphaned({"pc-2"}) == 1
 
     session = service.session(session.id)
     assert (session.status, session.planning_turn, session.error) == (CopilotSessionStatus.PLANNING, None, "Worker interrotto.")
@@ -351,17 +351,34 @@ def test_one_execution_at_a_time_per_repository(store_service, data, project):
     assert store_service.claim_next_copilot_session().id == other.id  # second waits: api is busy
 
 
-def test_executions_left_running_by_a_dead_worker_fail_at_restart(store_service, data, project):
+def test_executions_left_running_by_a_dead_worker_fail(store_service, data, project):
     service = _service(store_service, data)
-    note = _task(data)
-    session = _start(service, "acme", note, "api")
+    session = _start(service, "acme", _task(data), "api")
     service.approve(session.id)
-    store_service.claim_next_copilot_session()
+    store_service.claim_next_copilot_session("pc-1")
 
-    assert service.fail_interrupted() == 1
+    assert service.fail_orphaned({"pc-1"}) == 0  # its worker still beats: untouched
+    assert service.session(session.id).status == CopilotSessionStatus.RUNNING
+    assert service.fail_orphaned({"pc-2"}) == 1  # pc-1 stopped beating
     assert service.session(session.id).status == CopilotSessionStatus.FAILED
     with pytest.raises(ConflictError):
         service.approve(session.id)  # only from planning
+
+
+def test_the_jobs_of_a_live_worker_are_never_failed(store_service, data, project):
+    service = _service(store_service, data)
+    executing = _start(service, "acme", _task(data, "Uno"), "api")
+    service.approve(executing.id)
+    store_service.claim_next_copilot_session("pc-1")
+    chatting = service.start("acme", _task(data, "Due"), "web")
+    store_service.claim_next_copilot_planning_turn("pc-1")
+    old = service.start("acme", _task(data, "Tre"), "web")
+    store_service.claim_next_copilot_planning_turn()  # claimed before claimed_by: nobody owns it
+
+    assert service.fail_orphaned({"pc-1", "pc-2"}) == 1
+    assert service.session(executing.id).status == CopilotSessionStatus.RUNNING
+    assert service.session(chatting.id).planning_turn == CopilotPlanningTurn.RUNNING
+    assert service.session(old.id).planning_turn is None
 
 
 # -------------------------------------------------------------- repositories

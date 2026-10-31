@@ -266,6 +266,8 @@ class PipelineRunTable(SQLModel, table=True):
     pipeline_id: int = Field(foreign_key="pipeline.id", index=True, ondelete="CASCADE")
     status: str = Field(index=True)
     """``queued`` | ``running`` | ``done`` | ``failed``."""
+    claimed_by: str | None = None
+    """The worker that took it (``<host>-<pid>``): while it beats, its run is not orphaned."""
     input: str = Field(default="", sa_type=Text)
     output: str | None = Field(default=None, sa_type=Text)
     error: str | None = Field(default=None, sa_type=Text)
@@ -318,6 +320,8 @@ class CopilotSessionTable(SQLModel, table=True):
     """``planning`` | ``queued`` | ``running`` | ``done`` | ``failed`` | ``cancelled``."""
     planning_turn: str | None = None
     """``queued`` | ``running`` | NULL: the planning turn in the worker's queue (only while ``planning``)."""
+    claimed_by: str | None = None
+    """The worker that took the last execution or planning turn (``<host>-<pid>``)."""
     cancel_requested: bool = False
     head_before: str | None = None
     head_after: str | None = None

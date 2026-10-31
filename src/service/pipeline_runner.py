@@ -52,20 +52,21 @@ class PipelineRunner:
         """The services function steps receive in their FunctionContext."""
         self._masking = masking_service
 
-    def run_next(self, on_claim: Callable[[PipelineRun], None] | None = None) -> PipelineRun | None:
-        """Claim and execute the oldest queued run; None when the queue is empty.
-        ``on_claim`` is told the run before it executes (the worker's heartbeat)."""
-        run = self._store.claim_next_pipeline_run()
+    def run_next(self, on_claim: Callable[[PipelineRun], None] | None = None, worker_id: str | None = None) -> PipelineRun | None:
+        """Claim (as ``worker_id``'s) and execute the oldest queued run; None when the queue
+        is empty. ``on_claim`` is told the run before it executes (the worker's heartbeat)."""
+        run = self._store.claim_next_pipeline_run(worker_id)
         if run is None:
             return None
         if on_claim:
             on_claim(run)
         return self.execute(run)
 
-    def fail_interrupted(self) -> int:
-        """Mark as failed the runs left RUNNING by a worker that stopped (call
-        at worker startup, before claiming). Returns how many."""
-        interrupted = self._store.list_pipeline_runs_by_status(RunStatus.RUNNING)
+    def fail_orphaned(self, alive_workers: set[str]) -> int:
+        """Mark as failed the RUNNING runs whose worker is not among
+        ``alive_workers`` (it stopped beating: it died), or unknown (claimed
+        before ``claimed_by``). The workers check it now and then. Returns how many."""
+        interrupted = [run for run in self._store.list_pipeline_runs_by_status(RunStatus.RUNNING) if run.claimed_by not in alive_workers]
         for run in interrupted:
             self._finish(run, RunStatus.FAILED, error=_INTERRUPTED)
         return len(interrupted)

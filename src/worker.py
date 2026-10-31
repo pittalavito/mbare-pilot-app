@@ -14,14 +14,20 @@ While alive it beats every few seconds in Redis (also during a long run, from
 a background thread), so the API knows which workers are running and what
 they are doing; a worker that dies stops beating and disappears.
 
+Each job remembers the worker that took it (``claimed_by``). At its start and
+then every ``_REAP_SECONDS`` a worker fails the ``running`` jobs whose worker
+is no longer beating: it died, they would stay stuck. Jobs of the workers still
+beating are never touched, so more workers can run together.
+
     python src/worker.py
 """
 import os
 import socket
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import datetime, timezone
+from typing import Protocol
 
 from config import Config
 from core.container import Container
@@ -33,6 +39,8 @@ from service.pipeline_service import PipelineService
 _POLL_SECONDS = 2
 _HEARTBEAT_SECONDS = 3
 """Well under the worker keyspace TTL (10 s)."""
+_REAP_SECONDS = 30
+"""How often a worker looks for the jobs of dead workers."""
 
 
 class _Heartbeat:
@@ -110,25 +118,56 @@ def _copilot_lane(name: str, claim: Callable[[], CopilotSession | None], run: Ca
         threading.Thread(target=work, args=(session, session_id), name=f"copilot-{name}-{session_id}", daemon=True).start()
 
 
+class _Reapable(Protocol):
+    def fail_orphaned(self, alive_workers: set[str]) -> int: ...
+
+
+def _reap(queues: Sequence[_Reapable], pipelines: PipelineService, me: str) -> int:
+    """Fail the ``running`` jobs of the workers that stopped beating; how many.
+    The workers come from Redis (``me`` always counts as alive): when it cannot
+    be read nothing is failed, a live worker's job must never be."""
+    try:
+        alive = {worker.worker_id for worker in pipelines.workers()} | {me}
+    except Exception:  # Redis down: try again next time
+        log_exception(LogPrefix.WORKER, "Worker attivi non letti: controllo dei lavori interrotti rimandato")
+        return 0
+    failed = 0
+    for queue in queues:
+        try:
+            failed += queue.fail_orphaned(alive)
+        except Exception:  # e.g. the DB is down for a moment
+            log_exception(LogPrefix.WORKER, "Lavori interrotti non controllati")
+    if failed:
+        log_info(LogPrefix.WORKER, "%s lavori di worker fermati segnati come interrotti", failed)
+    return failed
+
+
+def _reaper_lane(queues: Sequence[_Reapable], pipelines: PipelineService, me: str) -> None:
+    while True:
+        time.sleep(_REAP_SECONDS)
+        _reap(queues, pipelines, me)
+
+
 def main() -> None:
     configure_logging(Config.get().app_log_level)
     container = Container()
     runner = container.pipeline_runner
     copilot = container.copilot_service
     heartbeat = _Heartbeat(container.pipeline_service)
-    interrupted = runner.fail_interrupted() + copilot.fail_interrupted()
-    if interrupted:
-        log_info(LogPrefix.WORKER, "%s esecuzioni o turni di Copilot interrotti segnati come falliti", interrupted)
-    heartbeat.start()
-    for name, claim, run in (("esecuzioni", copilot.claim_execution, copilot.execute),
-                             ("chat", copilot.claim_planning_turn, copilot.answer)):
+    me = heartbeat.status.worker_id
+    heartbeat.start()  # beating before any claim: the others see this worker's jobs as alive
+    queues = (runner, copilot)
+    _reap(queues, container.pipeline_service, me)
+    threading.Thread(target=_reaper_lane, args=(queues, container.pipeline_service, me), name="worker-reaper", daemon=True).start()
+    for name, claim, run in (("esecuzioni", lambda: copilot.claim_execution(me), copilot.execute),
+                             ("chat", lambda: copilot.claim_planning_turn(me), copilot.answer)):
         threading.Thread(target=_copilot_lane, args=(name, claim, run, heartbeat), name=f"copilot-{name}", daemon=True).start()
     log_info(LogPrefix.WORKER, "Worker %s in attesa di automation e lavori di Copilot (Ctrl+C per fermare)",
              heartbeat.status.worker_id)
     try:
         while True:  # the automation lane
             try:
-                done = runner.run_next(on_claim=lambda claimed: heartbeat.run(claimed.id))
+                done = runner.run_next(on_claim=lambda claimed: heartbeat.run(claimed.id), worker_id=me)
                 if done is None:
                     time.sleep(_POLL_SECONDS)
                 else:

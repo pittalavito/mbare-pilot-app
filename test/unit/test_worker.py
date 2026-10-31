@@ -1,5 +1,6 @@
-"""The worker's Copilot lanes: each claimed job runs in its own thread, so
-jobs run in parallel and the heartbeat lists them while they run."""
+"""The worker's Copilot lanes (each claimed job runs in its own thread, so
+jobs run in parallel and the heartbeat lists them while they run) and the
+check of the jobs left by dead workers."""
 import threading
 
 import pytest
@@ -50,3 +51,38 @@ def test_a_copilot_lane_runs_its_jobs_in_parallel(monkeypatch):
     for thread in [thread for thread in threading.enumerate() if thread.name.startswith("copilot-test-")]:
         thread.join(timeout=10)
     assert heartbeat.status.busy_copilot_session_ids == [] and [1, 2] in pipelines.beats
+
+
+class _Queue:
+    def __init__(self, orphaned=1):
+        self.orphaned = orphaned
+        self.alive = None
+
+    def fail_orphaned(self, alive_workers):
+        self.alive = alive_workers
+        return self.orphaned
+
+
+class _Workers:
+    def __init__(self, ids=(), down=False):
+        self.ids, self.down = ids, down
+
+    def workers(self):
+        if self.down:
+            raise ConnectionError("redis giù")
+        return [type("W", (), {"worker_id": worker_id})() for worker_id in self.ids]
+
+
+def test_the_check_counts_the_beating_workers_and_itself_as_alive():
+    runs, sessions = _Queue(), _Queue(orphaned=2)
+
+    assert worker._reap((runs, sessions), _Workers(["pc-2"]), "pc-1") == 3
+
+    assert runs.alive == sessions.alive == {"pc-1", "pc-2"}
+
+
+def test_without_redis_nothing_is_failed():
+    queue = _Queue()
+
+    assert worker._reap((queue,), _Workers(down=True), "pc-1") == 0
+    assert queue.alive is None  # never asked: a live worker's job must not fail

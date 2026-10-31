@@ -340,6 +340,7 @@ class Adapter:
             id=row.id,
             pipeline_id=row.pipeline_id,
             status=RunStatus(row.status),
+            claimed_by=row.claimed_by,
             input=row.input,
             output=row.output,
             error=row.error,
