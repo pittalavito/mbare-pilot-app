@@ -37,6 +37,11 @@ class ChatbotRequest(BaseModel):
     tool_names: list[str] = Field(default_factory=list)
 
 
+class ChatbotModelRequest(BaseModel):
+    """Change only the model of a chatbot (from the UI)."""
+    model: str
+
+
 class ConversationResponse(BaseModel):
     id: int
     chatbot_id: int

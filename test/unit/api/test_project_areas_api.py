@@ -59,6 +59,18 @@ def test_chatbot_crud_and_prompt_version(client):
     assert client.delete(f"/chatbots/{bot['id']}").status_code == 404
 
 
+def test_only_the_model_of_a_chatbot_changes(client):
+    bot = _chatbot(client)
+
+    changed = client.patch(f"/chatbots/{bot['id']}/model", json={"model": "mock/echo"})
+
+    assert changed.status_code == 200, changed.text
+    assert changed.json() == {**bot, "model": "mock/echo"}  # prompt, its version and tools stay
+    assert client.get("/projects/acme/chatbots").json()[0]["model"] == "mock/echo"
+    assert client.patch(f"/chatbots/{bot['id']}/model", json={"model": "nope"}).status_code == 400
+    assert client.patch("/chatbots/999/model", json={"model": "mock/echo"}).status_code == 404
+
+
 def test_conversation_send_and_messages(client):
     bot = _chatbot(client)
     conversation = client.post(f"/chatbots/{bot['id']}/conversations").json()

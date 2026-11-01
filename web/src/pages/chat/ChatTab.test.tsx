@@ -75,7 +75,7 @@ describe("ChatTab", () => {
     expect(screen.getAllByRole("button", { name: /Metti in cache/ })).toHaveLength(1); // only the message not in cache
   });
 
-  it("a custom chatbot has no automation cache; its details are read-only", async () => {
+  it("a custom chatbot has no automation cache; in its details only the model changes", async () => {
     mockApi({
       ...BASE,
       "GET /projects/acme/chatbots": [{ ...CHATBOT, kind: "custom", tool_names: ["git_status"] }],
@@ -89,8 +89,41 @@ describe("ChatTab", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Dettagli/ }));
     expect(await screen.findByText("Rispondi breve.")).toBeInTheDocument();
-    expect(screen.getByText(/Sola lettura/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Salva|Elimina chatbot/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/Il resto è in sola lettura/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Salva" })).toBeDisabled(); // nothing changed yet
+    expect(screen.queryByRole("button", { name: /Elimina chatbot/ })).not.toBeInTheDocument();
+  });
+
+  it("changes the model of a chatbot from its details", async () => {
+    let saved: unknown;
+    let chatbot = CHATBOT;
+    mockApi({
+      ...BASE,
+      "GET /projects/acme/chatbots": () => [chatbot],
+      "GET /models/choices": { choices: ["mock/echo", "openai/gpt-4o", "ollama/gemma3:4b"], usable: ["mock/echo", "openai/gpt-4o"] },
+      "PATCH /chatbots/5/model": async (request: Request) => {
+        saved = await request.json();
+        chatbot = { ...chatbot, model: "openai/gpt-4o" };
+        return chatbot;
+      },
+    });
+    renderChat();
+    fireEvent.click(await screen.findByRole("button", { name: /Dettagli/ }));
+    const save = await screen.findByRole("button", { name: "Salva" });
+
+    fireEvent.click(screen.getByRole("textbox", { name: "Modello" }));
+    fireEvent.click(await screen.findByRole("option", { name: "ollama/gemma3:4b" }));
+    expect(await screen.findByText("Manca la chiave del provider")).toBeInTheDocument();
+    expect(save).toBeDisabled(); // a model without its provider's key is not saved
+
+    fireEvent.click(screen.getByRole("textbox", { name: "Modello" }));
+    fireEvent.click(await screen.findByRole("option", { name: "openai/gpt-4o" }));
+    await waitFor(() => expect(save).toBeEnabled());
+    fireEvent.click(save);
+
+    expect(await screen.findByText(/Modello salvato/)).toBeInTheDocument();
+    expect(saved).toEqual({ model: "openai/gpt-4o" });
+    expect(save).toBeDisabled();
   });
 
   it("creates the conversation on the first message and opens it", async () => {
