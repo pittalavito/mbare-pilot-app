@@ -145,11 +145,41 @@ def test_git_status_of_every_repository(service, masked_runner, masking, project
 
     run = _run(service, masked_runner, [_function(function="git_status", repository="*")])
 
-    assert run.status is RunStatus.DONE and run.output.startswith("3 repository nel progetto.")
+    assert run.status is RunStatus.DONE and run.output.startswith("3 repository nel progetto: 2 da guardare, 1 a posto.")
+    # first the ones with something to report (path order), then the clean ones
+    order = [run.output.index(f"Repository {name} ·") for name in ("rotto", "web", "api")]
+    assert order == sorted(order)
     assert "Repository api · branch" in run.output and "Nessun file modificato." in run.output
     assert "Repository web · branch" in run.output and "- app.js: untracked" in run.output
     assert "Repository rotto · stato non letto:" in run.output  # the others are still there
     assert sorted(entry.value for entry in masking.entries("shop")) == ["api", "rotto", "web"]
+
+
+def test_git_status_of_every_clean_repository(service, runner, project):
+    run = _run(service, runner, [_function(function="git_status", repository="*")])
+
+    assert run.output.startswith("1 repository nel progetto: tutti a posto.\n\nRepository api ·")
+
+
+@pytest.mark.parametrize("change", ["file", "commit", "detached"])
+def test_git_status_counts_what_needs_a_look(service, runner, project, change):
+    if change == "file":
+        (project / "main.py").write_text("changed", encoding="utf-8")
+    elif change == "detached":
+        _git(project, "checkout", "-q", "--detach")
+    else:  # a commit to push: a clone of api with one more commit
+        clone = project.parent / "clone"
+        _git(project.parent, "clone", "-q", str(project), str(clone))
+        _git(clone, "config", "user.name", "Ada")
+        _git(clone, "config", "user.email", "ada@example.com")
+        (clone / "new.py").write_text("x", encoding="utf-8")
+        _git(clone, "add", "new.py")
+        _git(clone, "commit", "-q", "-m", "local")
+
+    run = _run(service, runner, [_function(function="git_status", repository="*")])
+
+    expected = "2 repository nel progetto: 1 da guardare, 1 a posto." if change == "commit" else "1 repository nel progetto: 1 da guardare, 0 a posto."
+    assert run.output.startswith(expected)
 
 
 def test_git_status_of_every_repository_needs_one(service, runner, tmp_path, project_store):
