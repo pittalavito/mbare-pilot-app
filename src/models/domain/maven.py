@@ -63,9 +63,17 @@ class PomAlignment(BaseModel):
     """At least one repository has a ``pom.xml`` (readable or not)."""
     reference_repository: MaskRepositoryName | None = None
     """The repository whose POM is the parent; None when the project has none."""
+    reference_pom: str = ""
+    """That POM, relative to its repository: ``pom.xml``, or a module's (``parent-lib/pom.xml``)."""
     reference_version: str = ""
     checks: list[PomCheck] = []
     unreadable: list[RepositoryPom] = []
     without_pom: MaskRepositoryNames = []
     not_relevant: MaskRepositoryNames = []
     """With a POM but neither the parent nor the property."""
+    named_parents: dict[str, int] = {}
+    """The ``<parent>`` artifactIds of the root POMs, with how many name each:
+    to say what was seen when no reference is found."""
+    version_properties: list[str] = []
+    """The properties with ``version`` in their name, when ``property_pattern``
+    matched none: to show which names the POMs really use."""

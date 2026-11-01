@@ -45,17 +45,24 @@ def _text(alignment: PomAlignment) -> str:
     to_align = [check for check in alignment.checks if not check.aligned]
     aligned = [check for check in alignment.checks if check.aligned]
     recognised = ", riconosciuto" if alignment.detected else ""
+    where = alignment.reference_repository or "progetto"
+    if alignment.reference_pom and alignment.reference_pom != "pom.xml":
+        where += f"/{alignment.reference_pom}"
     if not alignment.parent_artifact_id:
         header = "POM: nessun parent riconosciuto (nessun repository del progetto fa da <parent> agli altri), niente versione di riferimento."
     elif alignment.reference_repository is None:
         header = f"POM: nessun repository del progetto ha artifactId {alignment.parent_artifact_id}, niente versione di riferimento."
     elif not alignment.reference_version:
-        header = f"POM: il parent {alignment.parent_artifact_id} ({alignment.reference_repository}{recognised}) non ha una version."
+        header = f"POM: il parent {alignment.parent_artifact_id} ({where}{recognised}) non ha una version."
     else:
         summary = f"{len(to_align)} da allineare, {len(aligned)} allineati" if to_align else f"tutti allineati ({len(aligned)})"
         header = (f"POM: allineamento al parent {alignment.parent_artifact_id} {alignment.reference_version} "
-                  f"({alignment.reference_repository}{recognised}): {summary}.")
+                  f"({where}{recognised}): {summary}.")
     sections = [header]
+    if alignment.reference_repository is None and alignment.named_parents:
+        named = ", ".join(f"{artifact} ({count})" for artifact, count in alignment.named_parents.items())
+        sections.append(f"Parent dichiarati dai pom.xml del progetto: {named}. Nessuno è un pom.xml dei repository del progetto "
+                        "(cercato alla radice e nei moduli).")
     if to_align:
         expected = alignment.reference_version or "?"
         sections.append("Da allineare\n" + "\n".join(f"- {_label(check)}: {check.value} → {expected}" for check in to_align))
@@ -63,6 +70,9 @@ def _text(alignment: PomAlignment) -> str:
         sections.append("Allineati\n" + "\n".join(f"- {_label(check)}: {check.value}" for check in aligned))
     if alignment.unreadable:
         sections.append("Non letti\n" + "\n".join(f"- {item.repository or 'progetto'}: {item.error}" for item in alignment.unreadable))
+    if alignment.property_pattern and alignment.version_properties:
+        shown = ", ".join(alignment.version_properties[:15]) + (" …" if len(alignment.version_properties) > 15 else "")
+        sections.append(f"Nessuna proprietà corrisponde a {alignment.property_pattern}. Proprietà con «version» nei pom.xml: {shown}.")
     others = [*alignment.not_relevant, *(f"{name} (senza pom.xml)" for name in alignment.without_pom)]
     if others:
         sections.append("Senza questi campi: " + ", ".join(name or "progetto" for name in others) + ".")

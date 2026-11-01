@@ -271,3 +271,68 @@ def test_function_without_a_reference_still_lists_the_values(maven, git_service,
 
     assert text.startswith("POM: nessun repository del progetto ha artifactId nope, niente versione di riferimento.")
     assert "- orders · acme.libraries.version: 2.678.0 → ?" in text
+
+
+# --------------------------------------------- parent in a module, diagnostics
+
+def _write(folder, pom):
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "pom.xml").write_text(pom, encoding="utf-8")
+
+
+@pytest.fixture
+def multi_module(tmp_path, project_store, git_service):
+    """The parent POM is a module of the "parent" repository, whose root is an
+    aggregator with another artifactId."""
+    root = tmp_path / "multi"
+    _repo(root, "parent", _pom("<artifactId>acme-parent</artifactId><version>1</version><packaging>pom</packaging>"))
+    _write(root / "parent" / "parent-lib", _pom("<artifactId>acme-parent-lib</artifactId><version>2.679.0</version>"))
+    # copies under target/ and src/ are never the parent
+    _write(root / "parent" / "target" / "x", _pom("<artifactId>acme-parent-lib</artifactId><version>0.0.1</version>"))
+    _repo(root, "core-lib", _pom("<artifactId>core-lib</artifactId>" + _parent("2.678.0")))
+    _repo(root, "orders", _pom("<artifactId>orders</artifactId><version>1</version>"
+                               "<properties><acme.libraries.version>2.679.0</acme.libraries.version></properties>"))
+    project_store.save(Project(name="Multi", source=ProjectSource.FOLDER, root_path=str(root)))
+    return MavenService(git_service)
+
+
+@pytestmark_git
+def test_parent_kept_in_a_module_is_recognised(multi_module):
+    result = multi_module.parent_alignment("Multi", "", "*.libraries.version")
+
+    assert (result.parent_artifact_id, result.reference_repository, result.reference_pom, result.reference_version) == (
+        "acme-parent-lib", "parent", "parent-lib/pom.xml", "2.679.0")
+    assert [(c.repository, c.value, c.aligned) for c in result.checks] == [("core-lib", "2.678.0", False), ("orders", "2.679.0", True)]
+    assert result.not_relevant == []  # the aggregator holding the parent is not listed
+
+
+@pytestmark_git
+def test_parent_kept_in_a_module_given_by_name(multi_module):
+    assert multi_module.parent_alignment("Multi", "acme-parent-lib").reference_pom == "parent-lib/pom.xml"
+
+
+@pytestmark_git
+def test_report_names_the_module_of_the_parent(multi_module, git_service, project_data_service):
+    context = FunctionContext(project_name="Multi", pipeline_input="", git=git_service, project_data=project_data_service)
+
+    text = FUNCTION_REGISTRY["maven_parent_alignment"].execute(context, "", {"property": "*.libraries.version"}).text
+
+    assert text.startswith("POM: allineamento al parent acme-parent-lib 2.679.0 (parent/parent-lib/pom.xml, riconosciuto): 1 da allineare")
+
+
+@pytestmark_git
+def test_report_says_which_parents_and_properties_it_saw(tmp_path, project_store, git_service, project_data_service):
+    root = tmp_path / "unknown"
+    _repo(root, "a", _pom("<artifactId>a</artifactId>" + _parent("2.678.0") + "<properties><java.version>21</java.version></properties>"))
+    _repo(root, "b", _pom("<artifactId>b</artifactId>" + _parent("2.678.0")
+                          + "<properties><acme-libs.version>2.678.0</acme-libs.version></properties>"))
+    _repo(root, "c", _pom("<artifactId>c</artifactId>" + _parent("3.3.2", "spring-boot-starter-parent")))
+    project_store.save(Project(name="Unknown", source=ProjectSource.FOLDER, root_path=str(root)))
+    context = FunctionContext(project_name="Unknown", pipeline_input="", git=git_service, project_data=project_data_service)
+
+    text = FUNCTION_REGISTRY["maven_parent_alignment"].execute(context, "", {"property": "*.libraries.version"}).text
+
+    assert text.startswith("POM: nessun parent riconosciuto")
+    assert ("Parent dichiarati dai pom.xml del progetto: acme-parent-lib (2), spring-boot-starter-parent (1). "
+            "Nessuno è un pom.xml dei repository del progetto (cercato alla radice e nei moduli).") in text
+    assert "Nessuna proprietà corrisponde a *.libraries.version. Proprietà con «version» nei pom.xml: acme-libs.version, java.version." in text
