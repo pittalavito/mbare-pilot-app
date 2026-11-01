@@ -32,14 +32,15 @@ def run(context: FunctionContext, step_input: str, params: Params) -> Result:
         raise ValidationError("Indica il branch: nel parametro o come input dello step.")
     outcomes = context.git.pull_all_by_branch(context.project_name, branch)
     if all(outcome.status is GitBulkStatus.FAILED for outcome in outcomes):
-        raise UpstreamError("Nessun repository aggiornato:\n" + "\n".join(_line(outcome) for outcome in outcomes))
+        raise UpstreamError("Nessun repository aggiornato:\n" + "\n".join(outcome_line(outcome) for outcome in outcomes))
     counts = {status: sum(outcome.status is status for outcome in outcomes) for status in GitBulkStatus}
     summary = ", ".join(f"{count} {_LABELS[status]}" for status, count in counts.items() if count)
-    lines = "\n".join(_line(outcome) for outcome in outcomes)
+    lines = "\n".join(outcome_line(outcome) for outcome in outcomes)
     return Result(text=f"Branch {branch} su {len(outcomes)} repository: {summary}.\n{lines}", outcomes=outcomes)
 
 
-def _line(outcome: GitBranchPullOutcome) -> str:
+def outcome_line(outcome: GitBranchPullOutcome) -> str:
+    """One line of the outcome of a repository (also used by git_pull_repo_by_branch)."""
     name = outcome.repository or "progetto"
     switched = f" (era su {outcome.previous or 'HEAD staccato'})" if outcome.switched else ""
     if outcome.status is GitBulkStatus.UPDATED:

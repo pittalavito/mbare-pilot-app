@@ -8,6 +8,7 @@ Le **funzioni** delle automation: codice Python che uno step esegue **senza LLM*
 | `git_fetch` | `git fetch --all --prune` di un repository o di tutti con `*`: per ognuno branch e commit da pushare/pullare dopo il fetch (un fetch fallito lo dice nel testo, gli altri restano) | `repository` (vuoto = usa l'input dello step; `*` = tutti) |
 | `git_log` | ultimi commit di un repository come testo (hash, data, autore, oggetto), es. da passare a un agente che scrive le note di rilascio; gli autori sono dichiarati sensibili | `repository` (vuoto = input dello step), `limit` (1-500, default 20), `author`, `message` (vuoti = nessun filtro) |
 | `git_pull_all_repo_by_branch` | porta tutti i repository del progetto su un branch e li aggiorna in fast-forward (come il tool `git_pull_all_by_branch`): un riepilogo e una riga per repository; quelli con modifiche locali o senza il branch vengono saltati. Lo step fallisce solo se falliscono tutti | `branch` (vuoto = usa l'input dello step) |
+| `git_pull_repo_by_branch` | lo stesso per **un solo** repository: lo porta sul branch e lo aggiorna in fast-forward. Saltato (modifiche locali, branch che non c'è, nessun upstream) = testo con il motivo; un errore (es. remoto irraggiungibile) fa fallire lo step | `repository` (vuoto = la prima parola dell'input), `branch` (default `develop`: vale quando l'input non indica il branch). L'input dello step è `<repository> [<branch>]` (es. `api` o `api feature/login`); con `repository` nel parametro è solo `[<branch>]` |
 | `save_note` | salva l'input dello step come nota del progetto (tab Dati → Note) | `title` (`{date}` e `{time}` diventano data e ora; stesso nome = nota sovrascritta) |
 
 ```
@@ -20,6 +21,7 @@ src/function/
     git_fetch.py
     git_log.py
     git_pull_all_repo_by_branch.py
+    git_pull_repo_by_branch.py
     save_note.py
 ```
 
@@ -84,6 +86,6 @@ Poi la spec in `FUNCTION_REGISTRY` (`registry.py`). Per una funzione senza param
 
 ## Test
 
-`test/unit/tool/test_git_workflow.py`: `git_pull_all_repo_by_branch` (branch dall'input dello step, step fallito se falliscono tutti), `git_fetch` con `*`, `git_log` con gli autori dichiarati.
+`test/unit/tool/test_git_workflow.py`: `git_pull_all_repo_by_branch` (branch dall'input dello step, step fallito se falliscono tutti), `git_pull_repo_by_branch` (repository e branch dall'input o dai parametri, input sbagliati, saltato come testo ed errore che fa fallire lo step), `git_fetch` con `*`, `git_log` con gli autori dichiarati.
 
 `test/unit/service/test_function_steps.py`: ogni funzione ha descrizione e default per tutti i parametri, parametri sbagliati che nominano il campo, step non validi rifiutati al salvataggio, esecuzione dal runner (`git_status` su un repository vero che passa l'output a un agente e con `*` su tutti, anche con un repository illeggibile, `save_note`), errori attesi e imprevisti.
