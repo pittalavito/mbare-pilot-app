@@ -1,12 +1,14 @@
 """git_status function: branch, push/pull state and changed files of a
 repository of the project, as plain text (no LLM). Empty ``repository`` =
-the step input; ``*`` = every repository of the project, one after the other."""
+the step input; ``*`` = every repository of the project: first the ones with
+something to report (changed files, commits to push or pull, detached HEAD,
+status not read), then the others, each group in path order."""
 from pydantic import BaseModel, Field
 
 from core.error import AppError, ValidationError
 from function.context import FunctionContext
 from function.spec import FunctionResult, FunctionSpec
-from models.domain.git import GitChange
+from models.domain.git import GitChange, GitStatus
 from models.domain.masking import MaskRepositoryNames
 
 ALL = "*"
@@ -27,12 +29,25 @@ def run(context: FunctionContext, step_input: str, params: Params) -> Result:
     found = [repo.path for repo in context.git.repositories(context.project_name)]
     if not found:
         raise ValidationError("Nessun repository git nella cartella del progetto.")
-    texts = [_status_or_error(context, path) for path in found]
-    return Result(text=f"{len(found)} repository nel progetto.\n\n" + "\n\n".join(texts), repositories=found)
+    reports = [_report_or_error(context, path) for path in found]
+    to_check = [text for text, attention in reports if attention]
+    fine = [text for text, attention in reports if not attention]
+    summary = f"{len(to_check)} da guardare, {len(fine)} a posto" if to_check else "tutti a posto"
+    return Result(text=f"{len(found)} repository nel progetto: {summary}.\n\n" + "\n\n".join(to_check + fine), repositories=found)
 
 
 def _status(context: FunctionContext, repository: str) -> str:
+    return _report(context, repository)[0]
+
+
+def _report(context: FunctionContext, repository: str) -> tuple[str, bool]:
+    """The status as text, and whether it has something to report."""
     status = context.git.status(context.project_name, repository)
+    attention = not status.is_clean or status.ahead > 0 or status.behind > 0 or status.branch is None
+    return _text(repository, status), attention
+
+
+def _text(repository: str, status: GitStatus) -> str:
     header = f"Repository {repository or 'progetto'} · branch {status.branch or '(HEAD staccato)'}"
     if status.upstream:
         header += f" · {status.upstream}: {status.ahead} da pushare, {status.behind} da pullare"
@@ -42,11 +57,11 @@ def _status(context: FunctionContext, repository: str) -> str:
     return f"{header}\n{len(status.changes)} file modificati:\n{lines}"
 
 
-def _status_or_error(context: FunctionContext, repository: str) -> str:
+def _report_or_error(context: FunctionContext, repository: str) -> tuple[str, bool]:
     try:
-        return _status(context, repository)
+        return _report(context, repository)
     except AppError as exc:
-        return f"Repository {repository or 'progetto'} · stato non letto: {exc}"
+        return f"Repository {repository or 'progetto'} · stato non letto: {exc}", True
 
 
 def _line(change: GitChange) -> str:
