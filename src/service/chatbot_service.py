@@ -115,6 +115,15 @@ class ChatbotService:
         self._validate(chatbot)
         return self._chatbots.save_chatbot(chatbot)
 
+    def set_model(self, chatbot_id: int, model: str) -> Chatbot:
+        """Only the model, the rest as it is (the prompt keeps its version).
+        ValidationError when the model is not usable. A sync of the
+        definition files that defines this chatbot sets its model again."""
+        current = self.get_chatbot(chatbot_id)
+        chatbot = current.model_copy(update={"model": model.strip(), "updated_at": datetime.now(timezone.utc)})
+        require_usable_model(self._catalog, chatbot.model)
+        return self._chatbots.save_chatbot(chatbot)
+
     def delete_chatbot(self, chatbot_id: int) -> bool:
         """With all its conversations. The agent runs stay in the history."""
         return self._chatbots.delete_chatbot(chatbot_id)

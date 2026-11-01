@@ -41,6 +41,16 @@ export function useChatbots(project: string) {
 }
 
 /** Most recently updated first. */
+/** Change only the model of a chatbot; the list of the project's chatbots reloads. */
+export function useSetChatbotModel(chatbot: Chatbot) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (model: string) =>
+      unwrap(api.PATCH("/chatbots/{chatbot_id}/model", { params: { path: { chatbot_id: chatbot.id } }, body: { model } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: chatKeys.chatbots(chatbot.project_name) }),
+  });
+}
+
 export function useConversations(chatbotId: number) {
   return useQuery({
     queryKey: chatKeys.conversations(chatbotId),

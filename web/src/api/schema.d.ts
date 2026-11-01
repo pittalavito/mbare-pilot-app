@@ -384,6 +384,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/chatbots/{chatbot_id}/model": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Set Chatbot Model
+         * @description Only the model (the UI changes nothing else); 400 when it is not usable.
+         *     A sync of the definition files that defines the chatbot sets it again.
+         */
+        patch: operations["set_chatbot_model_chatbots__chatbot_id__model_patch"];
+        trace?: never;
+    };
     "/chatbots/{chatbot_id}/conversations": {
         parameters: {
             query?: never;
@@ -1873,6 +1894,14 @@ export interface components {
          * @enum {string}
          */
         ChatbotKind: "automation" | "secretary" | "custom";
+        /**
+         * ChatbotModelRequest
+         * @description Change only the model of a chatbot (from the UI).
+         */
+        ChatbotModelRequest: {
+            /** Model */
+            model: string;
+        };
         /**
          * ChatbotRequest
          * @description Create and update: the project comes from the URL and never changes.
@@ -3991,6 +4020,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_chatbot_model_chatbots__chatbot_id__model_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chatbot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatbotModelRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatbotResponse"];
+                };
             };
             /** @description Validation Error */
             422: {

@@ -10,6 +10,7 @@ from core.error import NotFoundError
 from models.controller.chatbot import (
     AutomationCacheEntryRequest,
     AutomationCacheEntryResponse,
+    ChatbotModelRequest,
     ChatbotRequest,
     ChatbotResponse,
     ConversationResponse,
@@ -38,6 +39,13 @@ def create_chatbot(project: str, request: ChatbotRequest, service: ChatbotServic
 def update_chatbot(chatbot_id: int, request: ChatbotRequest, service: ChatbotService = Depends(chatbot_service)) -> ChatbotResponse:
     """A changed system prompt gets the next ``prompt_version``."""
     return ChatbotResponse.from_chatbot(service.update_chatbot(chatbot_id, **request.model_dump()))
+
+
+@router.patch("/chatbots/{chatbot_id}/model")
+def set_chatbot_model(chatbot_id: int, request: ChatbotModelRequest, service: ChatbotService = Depends(chatbot_service)) -> ChatbotResponse:
+    """Only the model (the UI changes nothing else); 400 when it is not usable.
+    A sync of the definition files that defines the chatbot sets it again."""
+    return ChatbotResponse.from_chatbot(service.set_model(chatbot_id, request.model))
 
 
 @router.delete("/chatbots/{chatbot_id}", status_code=status.HTTP_204_NO_CONTENT)
