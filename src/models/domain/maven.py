@@ -45,6 +45,8 @@ class PomCheck(BaseModel):
     """One value compared with the reference version."""
     repository: MaskRepositoryName
     kind: PomCheckKind
+    name: str
+    """``parent``, or the property's name."""
     value: str
     aligned: bool
     """False also when the value is not resolved (``${...}``)."""
@@ -53,7 +55,12 @@ class PomCheck(BaseModel):
 class PomAlignment(BaseModel):
     """Every root POM of the project compared with the version of a parent POM."""
     parent_artifact_id: str
-    property_name: str = ""
+    """The one asked for, or the one recognised; ``""`` = none recognised."""
+    detected: bool = False
+    """The parent was not given: it is the project's repository the others name as ``<parent>``."""
+    property_pattern: str = ""
+    any_pom: bool = False
+    """At least one repository has a ``pom.xml`` (readable or not)."""
     reference_repository: MaskRepositoryName | None = None
     """The repository whose POM is the parent; None when the project has none."""
     reference_version: str = ""

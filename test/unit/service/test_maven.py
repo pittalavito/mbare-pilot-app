@@ -142,8 +142,64 @@ def test_unknown_parent_has_no_reference(maven):
     result = maven.parent_alignment("Shop", "nope-parent")
 
     assert result.reference_repository is None and result.checks == []
-    with pytest.raises(ValidationError, match="artifactId del parent"):
-        maven.parent_alignment("Shop", " ")
+
+
+@pytestmark_git
+def test_empty_parent_is_recognised(maven):
+    result = maven.parent_alignment("Shop", "", "acme.libraries.version")
+
+    assert (result.parent_artifact_id, result.detected) == ("acme-parent-lib", True)
+    assert (result.reference_repository, result.reference_version) == ("parent-lib", "2.679.0")
+    assert {(c.repository, c.aligned) for c in result.checks} == {
+        ("billing", True), ("core-lib", True), ("old-lib", False), ("orders", False),
+    }
+
+
+@pytestmark_git
+def test_the_parent_named_by_the_most_repositories_wins(tmp_path, project_store, git_service):
+    root = tmp_path / "two-parents"
+    _repo(root, "a-parent", _pom("<artifactId>a-parent</artifactId><version>1</version>"))
+    _repo(root, "b-parent", _pom("<artifactId>b-parent</artifactId><version>2</version>"))
+    _repo(root, "lib1", _pom("<artifactId>lib1</artifactId>" + _parent("2", "b-parent")))
+    _repo(root, "lib2", _pom("<artifactId>lib2</artifactId>" + _parent("2", "b-parent")))
+    _repo(root, "lib3", _pom("<artifactId>lib3</artifactId>" + _parent("1", "a-parent")))
+    _repo(root, "boot", _pom("<artifactId>boot</artifactId>" + _parent("3.3.2", "spring-boot-starter-parent")))  # not in the project
+    project_store.save(Project(name="Two", source=ProjectSource.FOLDER, root_path=str(root)))
+
+    assert MavenService(git_service).parent_alignment("Two").parent_artifact_id == "b-parent"
+
+
+@pytestmark_git
+def test_no_repository_is_a_parent(tmp_path, project_store, git_service):
+    root = tmp_path / "flat"
+    _repo(root, "boot", _pom("<artifactId>boot</artifactId>" + _parent("3.3.2", "spring-boot-starter-parent")))
+    project_store.save(Project(name="Flat", source=ProjectSource.FOLDER, root_path=str(root)))
+
+    result = MavenService(git_service).parent_alignment("Flat")
+
+    assert (result.parent_artifact_id, result.reference_repository, result.checks) == ("", None, [])
+    assert result.not_relevant == ["boot"]
+
+
+@pytestmark_git
+def test_property_pattern(tmp_path, project_store, git_service):
+    root = tmp_path / "pattern"
+    _repo(root, "parent-lib", _pom("<artifactId>p</artifactId><version>2.0</version>"))
+    _repo(root, "svc", _pom(
+        "<artifactId>svc</artifactId><version>1</version>"
+        "<properties><one.libraries.version>2.0</one.libraries.version><two.libraries.version>1.9</two.libraries.version>"
+        "<java.version>21</java.version></properties>"
+    ))
+    _repo(root, "lib", _pom("<artifactId>lib</artifactId>" + _parent("2.0", "p")))
+    project_store.save(Project(name="Pattern", source=ProjectSource.FOLDER, root_path=str(root)))
+
+    result = MavenService(git_service).parent_alignment("Pattern", "", "*.libraries.version")
+
+    assert [(c.repository, c.name, c.value, c.aligned) for c in result.checks] == [
+        ("lib", "parent", "2.0", True),
+        ("svc", "one.libraries.version", "2.0", True),
+        ("svc", "two.libraries.version", "1.9", False),
+    ]
 
 
 def _function(git_service, project_data_service, **params):
@@ -177,6 +233,36 @@ def test_function_all_aligned_and_unresolved(tmp_path, project_store, git_servic
     (root / "lib" / "pom.xml").write_text(_pom("<artifactId>lib</artifactId>" + _parent("${from.nexus}")), encoding="utf-8")
     text = _function(git_service, project_data_service, parent_artifact_id="acme-parent-lib").text
     assert "- lib · parent (non risolto): ${from.nexus} → 2.0.0" in text
+
+
+@pytestmark_git
+def test_function_recognised_parent_and_pattern(maven, git_service, project_data_service):
+    text = _function(git_service, project_data_service, property="*.libraries.version").text
+
+    assert text.startswith("POM: allineamento al parent acme-parent-lib 2.679.0 (parent-lib, riconosciuto): 2 da allineare, 2 allineati.")
+    assert "- orders · acme.libraries.version: 2.678.0 → 2.679.0" in text
+
+
+@pytestmark_git
+def test_function_in_a_project_without_poms(tmp_path, project_store, git_service, project_data_service):
+    root = tmp_path / "web-only"
+    _repo(root, "frontend", None)
+    _repo(root, "site", None)
+    project_store.save(Project(name="Shop", source=ProjectSource.FOLDER, root_path=str(root)))
+
+    assert _function(git_service, project_data_service).text == "POM: nessun pom.xml nei repository del progetto."
+
+
+@pytestmark_git
+def test_function_without_a_parent_recognised(tmp_path, project_store, git_service, project_data_service):
+    root = tmp_path / "flat"
+    _repo(root, "svc", _pom("<artifactId>svc</artifactId><version>1</version><properties><x.libraries.version>1</x.libraries.version></properties>"))
+    project_store.save(Project(name="Shop", source=ProjectSource.FOLDER, root_path=str(root)))
+
+    text = _function(git_service, project_data_service, property="*.libraries.version").text
+
+    assert text.startswith("POM: nessun parent riconosciuto")
+    assert "- svc · x.libraries.version: 1 → ?" in text
 
 
 @pytestmark_git
