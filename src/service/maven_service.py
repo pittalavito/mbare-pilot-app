@@ -3,6 +3,9 @@ working tree (the branch each repository is on, uncommitted changes
 included) and compared with a parent POM. Read-only; it finds the
 repositories and their folders through GitService, so it never leaves the
 project folder."""
+from collections import Counter
+from fnmatch import fnmatchcase
+
 from core.error import AppError, ValidationError
 from core.observability import LogPrefix, observed
 from domain.maven.pom import parse_pom
@@ -27,19 +30,27 @@ class MavenService:
             raise ValidationError("Nessun repository git nella cartella del progetto.")
         return [self._root_pom(project_name, repository.path) for repository in repositories]
 
-    def parent_alignment(self, project_name: str, parent_artifact_id: str, property_name: str = "") -> PomAlignment:
-        """Every root POM compared with the version of the parent POM (the
-        repository whose ``artifactId`` is ``parent_artifact_id``): a library
-        by its ``<parent>`` version, a microservice by ``property_name`` in
-        its ``<properties>`` (``""`` = libraries only)."""
-        parent_artifact_id, property_name = parent_artifact_id.strip(), property_name.strip()
-        if not parent_artifact_id:
-            raise ValidationError("Indica l'artifactId del parent con cui confrontare i POM.")
+    def parent_alignment(self, project_name: str, parent_artifact_id: str = "", property_pattern: str = "") -> PomAlignment:
+        """Every root POM compared with the version of the parent POM.
+
+        The parent is the repository whose ``artifactId`` is
+        ``parent_artifact_id``; ``""`` = recognised: the repository of the
+        project that the most others name as their ``<parent>`` (ties: the
+        first by name). A library is checked by its ``<parent>`` version, a
+        microservice by the properties matching ``property_pattern`` (a name,
+        or a pattern with ``*``, e.g. ``*.libraries.version``; ``""`` =
+        libraries only)."""
+        parent_artifact_id, property_pattern = parent_artifact_id.strip(), property_pattern.strip()
         poms = self.root_poms(project_name)
-        reference = next((item for item in poms if item.pom and item.pom.artifact_id == parent_artifact_id), None)
+        detected = not parent_artifact_id
+        if detected:
+            parent_artifact_id = _recognised_parent(poms)
+        reference = next((item for item in poms if item.pom and parent_artifact_id and item.pom.artifact_id == parent_artifact_id), None)
         alignment = PomAlignment(
             parent_artifact_id=parent_artifact_id,
-            property_name=property_name,
+            detected=detected,
+            property_pattern=property_pattern,
+            any_pom=any(item.pom or item.error for item in poms),
             reference_repository=reference.repository if reference else None,
             reference_version=reference.pom.version if reference and reference.pom else "",
         )
@@ -53,16 +64,17 @@ class MavenService:
                 alignment.without_pom.append(item.repository)
                 continue
             checks = []
-            if item.pom.parent and item.pom.parent.artifact_id == parent_artifact_id:
-                checks.append((PomCheckKind.PARENT, item.pom.parent.version))
-            if property_name and property_name in item.pom.properties:
-                checks.append((PomCheckKind.PROPERTY, item.pom.properties[property_name]))
+            if parent_artifact_id and item.pom.parent and item.pom.parent.artifact_id == parent_artifact_id:
+                checks.append((PomCheckKind.PARENT, "parent", item.pom.parent.version))
+            if property_pattern:
+                checks += [(PomCheckKind.PROPERTY, name, value) for name, value in sorted(item.pom.properties.items())
+                           if fnmatchcase(name, property_pattern)]
             if not checks:
                 alignment.not_relevant.append(item.repository)
             alignment.checks += [
-                PomCheck(repository=item.repository, kind=kind, value=value,
+                PomCheck(repository=item.repository, kind=kind, name=name, value=value,
                          aligned=bool(alignment.reference_version) and value == alignment.reference_version)
-                for kind, value in checks
+                for kind, name, value in checks
             ]
         return alignment
 
@@ -76,3 +88,16 @@ class MavenService:
             return RepositoryPom(repository=path, pom=parse_pom(file.read_bytes()))
         except (AppError, OSError) as exc:
             return RepositoryPom(repository=path, error=str(exc))
+
+
+def _recognised_parent(poms: list[RepositoryPom]) -> str:
+    """The ``artifactId`` of the project's repository that the most others
+    name as ``<parent>``; ``""`` when no repository is the parent of another."""
+    own = {item.pom.artifact_id for item in poms if item.pom and item.pom.artifact_id}
+    named = Counter(
+        item.pom.parent.artifact_id for item in poms
+        if item.pom and item.pom.parent and item.pom.parent.artifact_id in own and item.pom.parent.artifact_id != item.pom.artifact_id
+    )
+    if not named:
+        return ""
+    return min(named, key=lambda artifact: (-named[artifact], artifact))
