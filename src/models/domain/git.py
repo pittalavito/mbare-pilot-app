@@ -199,3 +199,13 @@ class GitBranchPullOutcome(BaseModel):
     switched: bool = False
     commits: list[GitCommit] = []
     reason: str = ""
+
+
+class GitUnpushedChanges(BaseModel):
+    """What HEAD has that no remote branch has: the commits and the lines they add."""
+    commits: int
+    added_lines: dict[str, list[int]] = {}
+    """Path relative to the repository → the lines added or changed (ascending)
+    that no remote commit has; only the files matching the pathspec asked for."""
+    head_timestamp: float = 0.0
+    """The committer date of HEAD (seconds since the epoch)."""

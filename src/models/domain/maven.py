@@ -1,5 +1,6 @@
-"""Maven domain models: what is read from a ``pom.xml`` and the alignment of
-the project's repositories to a parent POM."""
+"""Maven domain models: what is read from a ``pom.xml``, the alignment of
+the project's repositories to a parent POM and the JaCoCo coverage of the
+code not pushed yet."""
 from enum import StrEnum
 
 from pydantic import BaseModel
@@ -77,3 +78,63 @@ class PomAlignment(BaseModel):
     version_properties: list[str] = []
     """The properties with ``version`` in their name, when ``property_pattern``
     matched none: to show which names the POMs really use."""
+
+
+class CoverageStatus(StrEnum):
+    """The outcome of the new-code coverage of one repository."""
+    BELOW = "below"
+    """Measured, under the threshold."""
+    ABOVE = "above"
+    """Measured, at or over the threshold."""
+    NO_REPORT = "no_report"
+    """Lines to measure, but no usable JaCoCo report (no ``jacoco.exec``, ``mvn`` failed, files not in it)."""
+    NOTHING_TO_PUSH = "nothing_to_push"
+    NOTHING_TO_MEASURE = "nothing_to_measure"
+    """Commits to push, but no executable line of ``src/main/java`` in them."""
+    NOT_ALIGNED = "not_aligned"
+    """Skipped: not on the parent's version (JaCoCo comes from the parent): ``mvn`` never runs."""
+    NOT_VERIFIABLE = "not_verifiable"
+    """Skipped: the alignment to the parent cannot be confirmed: ``mvn`` never runs."""
+    UNREADABLE = "unreadable"
+    """Git could not say what is not pushed."""
+
+
+class UncoveredFile(BaseModel):
+    path: str
+    """Relative to the repository."""
+    lines: list[int]
+    """The new executable lines JaCoCo saw not covered, ascending."""
+
+
+class CoverageCheck(BaseModel):
+    """The coverage of the lines a repository has not pushed yet."""
+    repository: MaskRepositoryName
+    status: CoverageStatus
+    reason: str = ""
+    """Why it was skipped or has no report; the misalignment for NOT_ALIGNED."""
+    unpushed: int = 0
+    """Commits of HEAD that no remote branch has."""
+    covered: int = 0
+    total: int = 0
+    """New executable lines JaCoCo knows (covered + not covered)."""
+    uncovered: list[UncoveredFile] = []
+    not_measured: list[str] = []
+    """Changed files of ``src/main/java`` that the report does not know (excluded, or a module without ``jacoco.exec``)."""
+    stale: bool = False
+    """A ``jacoco.exec`` is older than the last commit: the tests ran before it."""
+    report_generated: bool = False
+    """``mvn jacoco:report`` ran to write the XML."""
+
+    @property
+    def percent(self) -> float:
+        return 100.0 * self.covered / self.total if self.total else 100.0
+
+
+class NewCodeCoverage(BaseModel):
+    """The new-code coverage of the project's repositories, after their alignment to the parent."""
+    threshold: int
+    any_pom: bool = False
+    parent_artifact_id: str = ""
+    reference_version: str = ""
+    checks: list[CoverageCheck] = []
+    without_pom: MaskRepositoryNames = []

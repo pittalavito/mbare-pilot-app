@@ -37,6 +37,9 @@ I modelli (`GitCommit`, `GitStatus`, `GitChange`, `GitChangeKind`) stanno in [`m
 | `commit(cwd, message)` | `commit -m` | committa lo stage (gli hook girano) |
 | `config_value(cwd, key)` | `config --get` | un valore di configurazione, `None` se non c'è |
 | `unpushed_commits(cwd, limit)` | `log HEAD --not --remotes` | i commit che nessun branch remoto ha |
+| `unpushed_range(cwd)` | `rev-list --boundary HEAD --not --remotes` | quanti commit nessun branch remoto ha e i commit di confine da cui partono (nessuno = niente di HEAD è su un remoto) |
+| `added_lines(cwd, base, pathspec)` | `diff -U0 base HEAD -- pathspec` | per file, le righe aggiunte o cambiate da `base` (`None` = l'albero vuoto: tutte); file cancellati esclusi |
+| `commit_timestamp(cwd, revision)` | `log -1 --format=%ct` | la data del commit, in secondi |
 | `push(cwd, remote, refspec, set_upstream)` | `push [-u]` | push mai forzato (timeout 120 s) |
 
 - **`only_here`**: limita il risultato a `cwd` e sottocartelle (`-- .`). Serve quando la cartella scelta è dentro un repository ma non ne è la radice.

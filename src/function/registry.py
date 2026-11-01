@@ -5,6 +5,7 @@ A function file under function/list/ declares its ``Params`` (pydantic), a
 spec here to make it selectable in the step editor.
 """
 from core.error import ValidationError
+from function.list.coverage_new_code import COVERAGE_NEW_CODE
 from function.list.git_fetch import GIT_FETCH
 from function.list.git_log import GIT_LOG
 from function.list.git_pull_all_repo_by_branch import GIT_PULL_ALL_REPO_BY_BRANCH
@@ -23,6 +24,7 @@ FUNCTION_REGISTRY: dict[str, FunctionSpec] = {
         GIT_PULL_ALL_REPO_BY_BRANCH,
         GIT_PULL_REPO_BY_BRANCH,
         MAVEN_PARENT_ALIGNMENT,
+        COVERAGE_NEW_CODE,
         SAVE_NOTE,
     )
 }

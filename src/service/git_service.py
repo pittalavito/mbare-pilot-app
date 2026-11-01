@@ -28,6 +28,7 @@ from models.domain.git import (
     GitStashApplyResult,
     GitStashResult,
     GitStatus,
+    GitUnpushedChanges,
 )
 from service.store.project_store import ProjectStore
 
@@ -394,6 +395,26 @@ class GitService:
         outcome.commits = result.commits
         outcome.status = GitBulkStatus.UP_TO_DATE if result.up_to_date else GitBulkStatus.UPDATED
         return outcome
+
+    def unpushed_changes(self, project_name: str, subpath: str = "", pathspec: str = ".") -> GitUnpushedChanges:
+        """The commits of HEAD no remote branch has and the lines they add to
+        the files matching ``pathspec``. After merging a remote branch a line
+        counts only when no remote commit has it (added against every boundary).
+        Read-only: no fetch, the remote branches are the ones last fetched."""
+        _, toplevel = self._repository(project_name, subpath)
+        commits, boundaries = self._git.unpushed_range(toplevel)
+        if not commits:
+            return GitUnpushedChanges(commits=0)
+        added: dict[str, set[int]] | None = None
+        bases: list[str | None] = [*boundaries] or [None]
+        for base in bases:
+            lines = self._git.added_lines(toplevel, base, pathspec)
+            added = lines if added is None else {path: added[path] & lines[path] for path in added.keys() & lines.keys()}
+        return GitUnpushedChanges(
+            commits=commits,
+            added_lines={path: sorted(lines) for path, lines in sorted((added or {}).items()) if lines},
+            head_timestamp=self._git.commit_timestamp(toplevel),
+        )
 
     def repository_folder(self, project_name: str, subpath: str = "") -> Path:
         """``subpath`` (``""`` = the project folder) as an absolute folder,
