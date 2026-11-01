@@ -353,6 +353,15 @@ class GitService:
             raise ValidationError("Nessun repository git nella cartella del progetto.")
         return [self._pull_branch(project_name, repository.path, branch) for repository in repositories]
 
+    @observed(LogPrefix.GIT_SERVICE)
+    def pull_repository_by_branch(self, project_name: str, subpath: str, branch: str) -> GitBranchPullOutcome:
+        """``pull_all_by_branch`` for the one repository containing ``subpath``:
+        same steps, same reasons to skip. A folder that is not in the project or
+        not in a repository is an error, not a skip."""
+        _, toplevel = self._repository(project_name, subpath)
+        branch = self._branch_name(toplevel, branch)
+        return self._pull_branch(project_name, subpath.strip().strip("/\\"), branch)
+
     def _pull_branch(self, project_name: str, path: str, branch: str) -> GitBranchPullOutcome:
         outcome = GitBranchPullOutcome(repository=path, status=GitBulkStatus.SKIPPED)
         try:

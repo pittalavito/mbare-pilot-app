@@ -448,3 +448,58 @@ def test_log_function_declares_the_authors(git, repos, project_data_service):
     assert [c.author for c in result.commits] == ["Bob"]
     with pytest.raises(ValidationError, match="limit"):
         _function("git_log", git, project_data_service, repository="api", limit=0)
+
+
+# ----------------------------------------------- one repository on a branch
+
+def test_pull_one_repository_by_branch(git, repos):
+    _local_develop(git, "api", "web")
+    _push(repos, "on develop", branch="develop")
+
+    outcome = git.pull_repository_by_branch("Shop", "api", "develop")
+
+    assert (outcome.repository, outcome.status, outcome.switched) == ("api", GitBulkStatus.UPDATED, True)
+    assert [c.subject for c in outcome.commits] == ["on develop"]
+    assert git.status("Shop", "web").branch == "main"  # the others are not touched
+
+
+def test_pull_one_repository_errors_are_not_skips(git):
+    with pytest.raises(ValidationError, match="inesistente"):
+        git.pull_repository_by_branch("Shop", "nope", "develop")
+    with pytest.raises(ValidationError, match="branch non valido"):
+        git.pull_repository_by_branch("Shop", "api", "-x")
+    assert git.pull_repository_by_branch("Shop", "api", "release").status is GitBulkStatus.SKIPPED
+
+
+@pytest.mark.parametrize("step_input, params, branch", [
+    ("api", {}, "develop"),                          # default branch of the param
+    ("api main", {}, "main"),                        # the branch from the input
+    ("  api  \n", {"branch": "main"}, "main"),
+    ("", {"repository": "api"}, "develop"),          # repository fixed in the param
+    ("main", {"repository": "api"}, "main"),
+])
+def test_pull_repo_function_reads_repository_and_branch(git, repos, project_data_service, step_input, params, branch):
+    result = _function("git_pull_repo_by_branch", git, project_data_service, step_input=step_input, **params)
+
+    assert result.text.startswith(f"Branch {branch}:\n- api")
+    assert result.outcome.repository == "api"
+    assert git.status("Shop", "api").branch == branch
+
+
+@pytest.mark.parametrize("step_input, params, message", [
+    ("", {}, "Indica il repository"),
+    ("api develop altro", {}, "Input non valido"),
+    ("api", {"branch": ""}, "Indica il branch"),
+])
+def test_pull_repo_function_input_errors(git, repos, project_data_service, step_input, params, message):
+    with pytest.raises(ValidationError, match=message):
+        _function("git_pull_repo_by_branch", git, project_data_service, step_input=step_input, **params)
+
+
+def test_pull_repo_function_skip_is_text_failure_fails_the_step(git, repos, project_data_service):
+    result = _function("git_pull_repo_by_branch", git, project_data_service, step_input="api release")
+    assert "saltato, il branch release non c'è" in result.text
+
+    _git(repos / "shop" / "api", "remote", "set-url", "origin", str(repos / "missing.git"))
+    with pytest.raises(UpstreamError, match="Repository api non aggiornato"):
+        _function("git_pull_repo_by_branch", git, project_data_service, step_input="api main")
