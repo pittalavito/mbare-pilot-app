@@ -15,6 +15,9 @@ from service.git_service import GitService
 
 _POM = "pom.xml"
 _MAX_POM_BYTES = 2_000_000
+_PREFERRED_PARENT_SUFFIX = "-parent-lib"
+"""A recognised parent ending like this wins over one named more often: the
+libraries' parent, which the microservices' parent may outnumber."""
 _MODULE_DEPTH = 3
 """How deep inside a repository the modules' POMs are looked for (parent candidates)."""
 _SKIPPED_FOLDERS = {"target", "build", "src", "node_modules", "dist", "out", "bin", "venv"}
@@ -148,7 +151,8 @@ class MavenService:
 
 def _recognised_parent(poms: list[RepositoryPom], candidates: dict[str, tuple[str, str, MavenPom]]) -> str:
     """The ``artifactId`` of the project's POM (root or module) that the most
-    root POMs name as ``<parent>``; ``""`` when no POM of the project is the
+    root POMs name as ``<parent>``, preferring one that ends with
+    ``_PREFERRED_PARENT_SUFFIX``; ``""`` when no POM of the project is the
     parent of another."""
     named = Counter(
         item.pom.parent.artifact_id for item in poms
@@ -157,4 +161,5 @@ def _recognised_parent(poms: list[RepositoryPom], candidates: dict[str, tuple[st
     )
     if not named:
         return ""
-    return min(named, key=lambda artifact: (-named[artifact], artifact))
+    preferred = [artifact for artifact in named if artifact.endswith(_PREFERRED_PARENT_SUFFIX)]
+    return min(preferred or named, key=lambda artifact: (-named[artifact], artifact))
