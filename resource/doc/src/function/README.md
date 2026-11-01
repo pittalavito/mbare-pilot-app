@@ -9,6 +9,7 @@ Le **funzioni** delle automation: codice Python che uno step esegue **senza LLM*
 | `git_log` | ultimi commit di un repository come testo (hash, data, autore, oggetto), es. da passare a un agente che scrive le note di rilascio; gli autori sono dichiarati sensibili | `repository` (vuoto = input dello step), `limit` (1-500, default 20), `author`, `message` (vuoti = nessun filtro) |
 | `git_pull_all_repo_by_branch` | porta tutti i repository del progetto su un branch e li aggiorna in fast-forward (come il tool `git_pull_all_by_branch`): un riepilogo e una riga per repository; quelli con modifiche locali o senza il branch vengono saltati. Lo step fallisce solo se falliscono tutti | `branch` (vuoto = usa l'input dello step) |
 | `git_pull_repo_by_branch` | lo stesso per **un solo** repository: lo porta sul branch e lo aggiorna in fast-forward. Saltato (modifiche locali, branch che non c'è, nessun upstream) = testo con il motivo; un errore (es. remoto irraggiungibile) fa fallire lo step | `repository` (vuoto = la prima parola dell'input), `branch` (default `develop`: vale quando l'input non indica il branch). L'input dello step è `<repository> [<branch>]` (es. `api` o `api feature/login`); con `repository` nel parametro è solo `[<branch>]` |
+| `maven_parent_alignment` | confronta il `pom.xml` alla radice di ogni repository (dalla cartella di lavoro) con la `version` del POM parent, cioè del repository con `artifactId` = `parent_artifact_id`: una **libreria** per la versione del suo `<parent>` (se è quel parent), un **microservizio** per `property` nelle sue `<properties>`. In cima il riepilogo, poi «Da allineare» (valore attuale → atteso; `(non risolto)` se resta un `${...}` che il POM non definisce), «Allineati», «Non letti» (POM illeggibile) e i repository senza questi campi o senza `pom.xml` | `parent_artifact_id` (obbligatorio), `property` (vuoto = solo le librerie) |
 | `save_note` | salva l'input dello step come nota del progetto (tab Dati → Note) | `title` (`{date}` e `{time}` diventano data e ora; stesso nome = nota sovrascritta) |
 
 ```
@@ -22,6 +23,7 @@ src/function/
     git_log.py
     git_pull_all_repo_by_branch.py
     git_pull_repo_by_branch.py
+    maven_parent_alignment.py
     save_note.py
 ```
 
@@ -58,7 +60,7 @@ Creato dal runner per ogni step funzione:
 
 - `project_name`: il progetto dell'automation; le funzioni lavorano solo su quello;
 - `pipeline_input`: l'input della run (l'input dello step arriva a parte, come argomento di `run`);
-- i service: `git` (`GitService`), `project_data` (`ProjectDataService`).
+- i service: `git` (`GitService`), `project_data` (`ProjectDataService`) e `maven` (`MavenService`: non ha stato, è costruito da `git`).
 
 ## Aggiungere una funzione
 
@@ -87,5 +89,7 @@ Poi la spec in `FUNCTION_REGISTRY` (`registry.py`). Per una funzione senza param
 ## Test
 
 `test/unit/tool/test_git_workflow.py`: `git_pull_all_repo_by_branch` (branch dall'input dello step, step fallito se falliscono tutti), `git_pull_repo_by_branch` (repository e branch dall'input o dai parametri, input sbagliati, saltato come testo ed errore che fa fallire lo step), `git_fetch` con `*`, `git_log` con gli autori dichiarati.
+
+`test/unit/service/test_maven.py`: lettura del POM (namespace, ereditati dal parent, `${...}` risolti anche a catena, encoding, POM non valido) e `maven_parent_alignment` su repository veri: parent, librerie e microservizi allineati o no, senza POM, non pertinenti, illeggibili, senza riferimento, valori non risolti.
 
 `test/unit/service/test_function_steps.py`: ogni funzione ha descrizione e default per tutti i parametri, parametri sbagliati che nominano il campo, step non validi rifiutati al salvataggio, esecuzione dal runner (`git_status` su un repository vero che passa l'output a un agente e con `*` su tutti, anche con un repository illeggibile, con quelli da guardare prima degli altri e il riepilogo, `save_note`), errori attesi e imprevisti.
