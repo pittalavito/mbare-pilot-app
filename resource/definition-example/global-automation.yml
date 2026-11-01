@@ -17,3 +17,18 @@ automations:
       - name: Nota
         function: save_note
         params: {title: "stato-del-mattino-{date}"}
+
+  - name: Coverage prima del push
+    description: >-
+      Coverage JaCoCo delle righe nei commit non ancora pushati (solo src/main/java), soglia 80%. Lancia
+      mvn jacoco:report (non i test) solo nei repository allineati al POM parent. Nota solo se qualcuno è sotto soglia.
+    steps:
+      - name: Coverage
+        function: coverage_new_code
+        params: {repository: "*", threshold: 80, parent_artifact_id: "", property: "*.libraries.version"}
+      - name: Nota
+        function: save_note
+        params: {title: "coverage-nuovo-codice-{date}"}
+    edges:
+      - {from: input, to: Coverage}
+      - {from: Coverage, to: Nota, if: contains, value: "sotto soglia"}

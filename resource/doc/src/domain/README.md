@@ -6,7 +6,8 @@ La logica che non è un servizio applicativo: come si parla con l'esterno (LLM, 
 src/domain/
   chat/       client LLM per modello del catalogo, costi, catalogo di default
   agent/      costruzione degli agenti, tracing di token e costi
-  client/     client git, Atlassian, Copilot CLI ed embedding
+  client/     client git, Maven, Atlassian, Copilot CLI ed embedding
+  maven/      lettura di pom.xml e del report JaCoCo
   pipeline/   regole del grafo delle automation (validazione, ordine di esecuzione)
   project/    percorsi dei dati e navigazione delle cartelle
   store/      repository su Postgres, Redis e file
@@ -18,6 +19,7 @@ src/domain/
 | [agent](agent/README.md) | costruire un agente, memoria, chi paga i token, agenti di default |
 | [project](project/README.md) | dove stanno codice e dati di un progetto, nomi validi, cartelle consentite |
 | [client/git](client/git/README.md) | comandi git in sola lettura e come vengono eseguiti |
+| [client/maven](client/maven/README.md) | Maven come sottoprocesso, solo `jacoco:report`: `mvnw` o `mvn`, timeout, errori |
 | [client/atlassian](client/atlassian/README.md) | Jira e Confluence Cloud: connessione, errori, conversione in testo |
 | [client/copilot](client/copilot/README.md) | GitHub Copilot CLI: un turno per chiamata nella stessa sessione, preparazione in sola lettura, esecuzione senza commit |
 | `client/embedding` | `Embedder` (interfaccia, con `local`: falso se il testo esce dal PC), `HashingEmbedder` (finto: parole → posizioni del vettore), `OpenRouterEmbedder` (modello vero, API compatibile OpenAI), `Factory`, `cosine_similarity`: per la cache dei chatbot (vedi [service](../service/README.md#cache-chatrouteservice)) |

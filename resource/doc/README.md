@@ -13,6 +13,7 @@ src/
     agent/              → src/domain/agent/README.md  costruzione agenti, token e costi delle run
     project/            → src/domain/project/README.md  dati del progetto, cartelle del PC
     client/git/         → src/domain/client/git/README.md  comandi git in sola lettura
+    client/maven/       → src/domain/client/maven/README.md  Maven come sottoprocesso (jacoco:report)
     client/atlassian/   → src/domain/client/atlassian/README.md  Jira e Confluence Cloud
     client/copilot/     → src/domain/client/copilot/README.md  GitHub Copilot CLI come sottoprocesso
     store/files/        → src/domain/store/files/README.md  file su disco sotto una radice
@@ -36,6 +37,7 @@ src/
 | [src/domain/agent](src/domain/agent/README.md) | `Factory` dell'agente, memoria, tracing di token e costi, mascheramento, dove stanno gli agenti di default |
 | [src/domain/project](src/domain/project/README.md) | codice vs dati del progetto, nomi di note e file, `FolderBrowser` |
 | [src/domain/client/git](src/domain/client/git/README.md) | `GitClient`: log, status, come esegue git, errori |
+| [src/domain/client/maven](src/domain/client/maven/README.md) | `MavenClient`: `jacoco:report`, wrapper `mvnw`, timeout, errori |
 | [src/domain/client/atlassian](src/domain/client/atlassian/README.md) | client Jira e Confluence, autenticazione, errori, paginazione |
 | [src/domain/client/copilot](src/domain/client/copilot/README.md) | Copilot CLI: turni in una sessione, modalità piano ed esecuzione, divieti git, timeout e annullamento |
 | [src/domain/store/files](src/domain/store/files/README.md) | `file_id`, percorsi sicuri, metodi di `LocalFileRepository` |

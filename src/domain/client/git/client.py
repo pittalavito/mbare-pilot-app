@@ -19,6 +19,9 @@ _REMOTE_TIMEOUT_SECONDS = 120
 _FIELD = "\x1f"
 _RECORD = "\x1e"
 _LOG_FORMAT = _FIELD.join(["%H", "%h", "%an", "%ae", "%aI", "%s"]) + _RECORD
+_EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+"""The empty tree: the base of a diff when no commit of HEAD is on a remote."""
+_HUNK = re.compile(r"^@@ -\S+ \+(\d+)(?:,(\d+))? @@")
 _ENV = {"GIT_PAGER": "cat", "GIT_TERMINAL_PROMPT": "0", "GIT_OPTIONAL_LOCKS": "0", "LC_ALL": "C"}
 
 
@@ -167,6 +170,34 @@ class GitClient:
         output = self._run(cwd, ["log", f"--max-count={limit}", f"--format={_LOG_FORMAT}", "HEAD", "--not", "--remotes"])
         return [_parse_commit(record) for record in output.split(_RECORD) if record.strip()]
 
+    def unpushed_range(self, cwd: Path) -> tuple[int, list[str]]:
+        """How many commits of HEAD no remote branch has, and the boundary: the
+        commits they start from that a remote has (none = nothing of HEAD is
+        on a remote; several after merging a remote branch)."""
+        output = self._run(cwd, ["rev-list", "--boundary", "HEAD", "--not", "--remotes"])
+        lines = [line.strip() for line in output.splitlines() if line.strip()]
+        return sum(1 for line in lines if not line.startswith("-")), [line[1:] for line in lines if line.startswith("-")]
+
+    def added_lines(self, cwd: Path, base: str | None, pathspec: str = ".") -> dict[str, set[int]]:
+        """The lines HEAD adds or changes since ``base`` (None = the empty tree:
+        every line), by path relative to the repository, for the files matching
+        ``pathspec`` (``*.java`` matches in every folder). Deleted files are left out."""
+        output = self._run(cwd, ["diff", "-U0", "--no-color", "--no-ext-diff", "--find-renames", base or _EMPTY_TREE, "HEAD", "--", pathspec])
+        added: dict[str, set[int]] = {}
+        current: set[int] | None = None
+        for line in output.splitlines():
+            if line.startswith("+++ "):
+                path = line[4:].rstrip("\t")
+                current = None if path == "/dev/null" else added.setdefault(path.removeprefix("b/"), set())
+            elif current is not None and (match := _HUNK.match(line)):
+                start, count = int(match.group(1)), int(match.group(2) or "1")
+                current.update(range(start, start + count))
+        return {path: lines for path, lines in added.items() if lines}
+
+    def commit_timestamp(self, cwd: Path, revision: str = "HEAD") -> float:
+        """The committer date of ``revision``, as seconds since the epoch."""
+        return float(self._run(cwd, ["log", "-1", "--format=%ct", revision]).strip())
+
     def push(self, cwd: Path, remote: str, refspec: str, set_upstream: bool = False) -> None:
         """``git push [-u] <remote> <refspec>``: never forced."""
         self._run(cwd, ["push", "--quiet", *(["-u"] if set_upstream else []), remote, refspec], timeout=_REMOTE_TIMEOUT_SECONDS)
@@ -182,7 +213,7 @@ class GitClient:
     def _run(self, cwd: Path, args: list[str], timeout: int = _TIMEOUT_SECONDS) -> str:
         if not self._executable:
             raise UpstreamError("git non trovato: installalo e mettilo nel PATH.")
-        command = [self._executable, "-c", "core.fsmonitor=false", "-c", "i18n.logOutputEncoding=UTF-8", *args]
+        command = [self._executable, "-c", "core.fsmonitor=false", "-c", "core.quotepath=false", "-c", "i18n.logOutputEncoding=UTF-8", *args]
         try:
             result = subprocess.run(
                 command, cwd=cwd, env={**os.environ, **_ENV}, capture_output=True,
