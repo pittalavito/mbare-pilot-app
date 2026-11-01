@@ -43,6 +43,8 @@ Test con coverage (il frontend ha i suoi: `npm test` in `web/`):
 python resource/scripts/run-test.py
 ```
 
+   Se il coverage di `src/` scende sotto la soglia (`fail_under` in `[tool.coverage.report]` di `pyproject.toml`, oggi 95%) i test falliscono, anche in CI (`uv run pytest -q --cov=src`). La soglia si alza quando il coverage cresce, non si abbassa per far passare la CI.
+
 Lint (lo stesso controllo della CI, `.github/workflows/ci.yml`; `--fix` corregge da solo import e spazi):
 
 ```bash

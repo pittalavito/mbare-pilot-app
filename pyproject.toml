@@ -47,6 +47,13 @@ omit = [
     "*/api.py",
 ]
 
+[tool.coverage.report]
+# The tests fail when the coverage of src/ goes under this (CI and run-test.py).
+# It was 97% when set: raise it as the coverage grows, never lower it to get green.
+fail_under = 95
+show_missing = true
+skip_covered = true
+
 [tool.ruff]
 line-length = 160
 src = ["src", "test", "resource/scripts"]

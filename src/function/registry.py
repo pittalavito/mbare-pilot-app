@@ -10,6 +10,7 @@ from function.list.git_log import GIT_LOG
 from function.list.git_pull_all_repo_by_branch import GIT_PULL_ALL_REPO_BY_BRANCH
 from function.list.git_pull_repo_by_branch import GIT_PULL_REPO_BY_BRANCH
 from function.list.git_status import GIT_STATUS
+from function.list.maven_parent_alignment import MAVEN_PARENT_ALIGNMENT
 from function.list.save_note import SAVE_NOTE
 from function.spec import FunctionSpec
 
@@ -21,6 +22,7 @@ FUNCTION_REGISTRY: dict[str, FunctionSpec] = {
         GIT_LOG,
         GIT_PULL_ALL_REPO_BY_BRANCH,
         GIT_PULL_REPO_BY_BRANCH,
+        MAVEN_PARENT_ALIGNMENT,
         SAVE_NOTE,
     )
 }
