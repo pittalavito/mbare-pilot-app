@@ -336,3 +336,22 @@ def test_report_says_which_parents_and_properties_it_saw(tmp_path, project_store
     assert ("Parent dichiarati dai pom.xml del progetto: acme-parent-lib (2), spring-boot-starter-parent (1). "
             "Nessuno è un pom.xml dei repository del progetto (cercato alla radice e nei moduli).") in text
     assert "Nessuna proprietà corrisponde a *.libraries.version. Proprietà con «version» nei pom.xml: acme-libs.version, java.version." in text
+
+
+@pytestmark_git
+def test_the_parent_lib_wins_over_a_parent_named_more_often(tmp_path, project_store, git_service):
+    """The microservices' parent (acme-parent) is named by more POMs than the
+    libraries' one (acme-parent-lib): the reference is still the libraries'."""
+    root = tmp_path / "both-parents"
+    _repo(root, "parent", _pom("<artifactId>acme-parent</artifactId><version>5.0.0</version>"))
+    _repo(root, "parent-lib", _pom("<artifactId>acme-parent-lib</artifactId><version>2.679.0</version>"))
+    for name in ("orders", "billing", "users"):
+        _repo(root, name, _pom(f"<artifactId>{name}</artifactId>" + _parent("5.0.0", "acme-parent")
+                               + "<properties><acme.libraries.version>2.679.0</acme.libraries.version></properties>"))
+    _repo(root, "core-lib", _pom("<artifactId>core-lib</artifactId>" + _parent("2.678.0")))
+    project_store.save(Project(name="Both", source=ProjectSource.FOLDER, root_path=str(root)))
+
+    result = MavenService(git_service).parent_alignment("Both", "", "*.libraries.version")
+
+    assert (result.parent_artifact_id, result.reference_repository, result.reference_version) == ("acme-parent-lib", "parent-lib", "2.679.0")
+    assert {(c.repository, c.aligned) for c in result.checks} == {("core-lib", False), ("orders", True), ("billing", True), ("users", True)}
