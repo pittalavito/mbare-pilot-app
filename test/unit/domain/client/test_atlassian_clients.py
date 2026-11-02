@@ -6,8 +6,8 @@ import pytest
 
 from core.error import NotFoundError, UpstreamError, ValidationError
 from domain.client.atlassian.client import AtlassianHttp, ConfluenceClient, JiraClient
-from domain.client.atlassian.confluence import storage_to_text
-from domain.client.atlassian.jira import adf_to_text
+from domain.client.atlassian.confluence import storage_to_markdown
+from domain.client.atlassian.jira import adf_to_markdown
 
 BASE = "https://acme.atlassian.net"
 
@@ -110,7 +110,7 @@ def test_search_issues_respects_limit():
     assert len(JiraClient(_http(handler)).search_issues("x", limit=3)) == 3
 
 
-def test_adf_to_text_handles_lists_breaks_and_mentions():
+def test_adf_to_markdown_handles_lists_breaks_and_mentions():
     doc = {"type": "doc", "content": [
         {"type": "heading", "content": [{"type": "text", "text": "Titolo"}]},
         {"type": "bulletList", "content": [
@@ -121,8 +121,8 @@ def test_adf_to_text_handles_lists_breaks_and_mentions():
         ]},
     ]}
 
-    assert adf_to_text(doc) == "Titolo\n- uno\n- @Mario\ndue"
-    assert adf_to_text(None) == ""
+    assert adf_to_markdown(doc) == "# Titolo\n\n- uno\n- @Mario\\\n  due"
+    assert adf_to_markdown(None) == ""
 
 
 # ------------------------------------------------------------- Confluence
@@ -142,7 +142,7 @@ def test_list_spaces_follows_cursor_links():
     assert spaces[0].url == f"{BASE}/wiki/spaces/DOC"
 
 
-def test_get_page_returns_plain_text_body():
+def test_get_page_returns_the_body_as_markdown():
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.params["body-format"] == "storage"
         return httpx.Response(200, json={
@@ -153,7 +153,7 @@ def test_get_page_returns_plain_text_body():
 
     page = ConfluenceClient(_http(handler)).get_page("42")
 
-    assert page.body == "Setup\nInstalla uv.\n- uno\n- due"
+    assert page.body == "# Setup\n\nInstalla **uv**.\n\n- uno\n- due"
     assert page.space_id == "7" and page.url == f"{BASE}/wiki/spaces/DOC/pages/42"
 
 
@@ -169,8 +169,8 @@ def test_search_pages_builds_escaped_cql():
     hits = ConfluenceClient(_http(handler)).search_pages('come "fare"', space_key="DOC")
 
     assert seen["cql"] == 'type = page AND text ~ "come \\"fare\\"" AND space = "DOC"'
-    assert hits[0].title == "FAQ" and hits[0].excerpt == "una risposta"
+    assert hits[0].title == "FAQ" and hits[0].excerpt == "una **risposta**"
 
 
-def test_storage_to_text_empty():
-    assert storage_to_text("") == ""
+def test_storage_to_markdown_empty():
+    assert storage_to_markdown("") == ""

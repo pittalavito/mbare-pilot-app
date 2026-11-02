@@ -148,13 +148,13 @@ def _blocks(children: list["_Node | str"]) -> str:
     for child in children:
         if isinstance(child, _Node) and child.tag in _BLOCK_TAGS:
             if run:
-                blocks.append(_inlines(run))
+                blocks.append(_inlines(run).strip())
                 run = []
             blocks.append(_block(child))
         else:
             run.append(child)
     if run:
-        blocks.append(_inlines(run))
+        blocks.append(_inlines(run).strip())
     return join_blocks(blocks)
 
 
@@ -241,9 +241,9 @@ def _inlines(children: list["_Node | str"]) -> str:
 
 
 def _squash(text: str) -> str:
-    """HTML whitespace: runs collapse to one space; hard breaks (``\\`` + newline) stay."""
-    lines = text.split("\\\n")
-    return "\\\n".join(" ".join(line.split()) for line in lines)
+    """HTML whitespace: runs collapse to one space (edges included: ``<b>a
+    </b>b`` keeps its space); hard breaks (``\\`` + newline) stay."""
+    return "\\\n".join(re.sub(r"\s+", " ", line) for line in text.split("\\\n"))
 
 
 def _inline(node: "_Node | str") -> str:

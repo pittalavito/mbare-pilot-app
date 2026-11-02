@@ -24,11 +24,38 @@ def test_an_agent_task_is_readable_markdown_and_comes_back_the_same():
 
 
 def test_an_agent_task_edited_by_hand_keeps_what_the_template_knows():
-    text = "Appunto libero\n\n## vincoli\nNiente fretta\n## Altro\nignorato\n## Criteri di accettazione\n* [X] fatto\nriga qualsiasi\n"
+    text = "Appunto libero\n\n## vincoli\nNiente fretta\n## Altro\nresta\n## Criteri di accettazione\n* [X] fatto\nriga qualsiasi\n"
 
     task = parse_agent_task(text, "fix porto")
 
-    assert task == AgentTask(title="fix porto", constraints="Niente fretta", criteria=[ChecklistItem(text="fatto", done=True)])
+    # an unknown heading is text of the section above it: nothing is lost on the next save
+    assert task == AgentTask(title="fix porto", constraints="Niente fretta\n## Altro\nresta", criteria=[ChecklistItem(text="fatto", done=True)])
+
+
+def test_markdown_headings_inside_a_section_do_not_cut_it():
+    context = "Dalla issue NAV-7.\n\n## Passi\n\n1. apri\n\n## Atteso\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n\n# Titolo grande\nfine"
+    task = AgentTask(title="Da Jira", context=context, constraints="Nessuno", references=["context-reference-nav-7.md"])
+
+    assert parse_agent_task(render_agent_task(task), "x") == task
+
+
+def test_reference_content_with_its_own_headings_comes_back_whole():
+    from domain.project.note_templates import parse_reference, render_reference
+    from models.domain.note import Reference
+
+    content = "Tipo: Bug\n\n## Passi\n\n1. apri\n\n## Riferimenti\n- non è una sezione qui\n\n```bash\n## commento\n```"
+    reference = Reference(title="NAV-7 · Login", source="jira", source_url="https://acme.atlassian.net/browse/NAV-7", content=content)
+
+    assert parse_reference(render_reference(reference, code=False), "x") == reference
+
+
+def test_a_todo_list_reads_its_items_also_under_other_headings():
+    text = "# Rilascio\n\n- [ ] uno\n## Fase 2\n- [x] due\n## Riferimenti\n- context-reference-procedura.md\n"
+
+    todo = parse_todo_list(text, "x")
+
+    assert [(item.text, item.done) for item in todo.items] == [("uno", False), ("due", True)]
+    assert todo.references == ["context-reference-procedura.md"]
 
 
 def test_a_todo_list_with_priorities_and_dates_comes_back_the_same():

@@ -1,7 +1,13 @@
 """The templates of the typed notes: the markdown written to the note's file
 (readable by a person and by an agent) and back. The file may be edited by
-hand: parsing is tolerant (unknown lines are ignored, a missing section is
-empty), so only what the template knows survives the next save.
+hand: parsing is tolerant (unknown lines before the first section are
+ignored, a missing section is empty), so only what the template knows
+survives the next save.
+
+Only the template's own headings open a section (``## Contesto``, ``##
+Contenuto``...): any other ``## `` line, with what follows it, is text of the
+section it is in, so markdown with its own headings (a Jira issue, a
+Confluence page) stays whole.
 
 Agent task::
 
@@ -77,7 +83,7 @@ def render_agent_task(task: AgentTask) -> str:
 
 
 def parse_agent_task(text: str, fallback_title: str) -> AgentTask:
-    title, head, sections = _split(text, fallback_title)
+    title, head, sections = _split(text, fallback_title, {*_SECTIONS.values(), _REFERENCES})
     status = next((line[len(_STATUS):].strip().lower() for line in head if line.startswith(_STATUS)), "")
     by_heading = {heading.lower(): field for field, heading in _SECTIONS.items()}
     fields = {by_heading[heading]: body for heading, body in sections.items() if heading in by_heading}
@@ -104,7 +110,7 @@ def render_todo_list(todo: TodoList) -> str:
 
 
 def parse_todo_list(text: str, fallback_title: str) -> TodoList:
-    title, head, sections = _split(text, fallback_title)
+    title, head, sections = _split(text, fallback_title, {_REFERENCES})
     references = sections.pop(_REFERENCES.lower(), [])
     lines = head + [line for body in sections.values() for line in body]
     return TodoList(title=title, items=[_todo_item(text, done) for done, text in _checks(lines)], references=_bullets(references))
@@ -138,7 +144,7 @@ def render_reference(reference: Reference, code: bool) -> str:
 
 
 def parse_reference(text: str, fallback_title: str) -> Reference:
-    title, head, sections = _split(text, fallback_title)
+    title, head, sections = _split(text, fallback_title, {_CONTENT})
     values = {field: _value(head, label) for field, label in _CODE_FIELDS.items()}
     source, source_url = _value(head, _SOURCE), ""
     if _SOURCE_SEPARATOR in source:
@@ -150,11 +156,14 @@ def parse_reference(text: str, fallback_title: str) -> Reference:
 
 # ------------------------------------------------------------------ helpers
 
-def _split(text: str, fallback_title: str) -> tuple[str, list[str], dict[str, list[str]]]:
-    """The ``# title``, the lines before the first ``## section``, and each section's lines by lowercase heading."""
+def _split(text: str, fallback_title: str, headings: set[str]) -> tuple[str, list[str], dict[str, list[str]]]:
+    """The ``# title``, the lines before the first section, and each section's
+    lines by lowercase heading. Only ``headings`` (the template's) open a
+    section: another ``## `` line stays in the lines of the current one."""
+    known = {heading.lower() for heading in headings}
     title, head, sections, current = "", [], {}, None
     for line in text.splitlines():
-        if line.startswith("## "):
+        if line.startswith("## ") and line[3:].strip().lower() in known:
             current = sections.setdefault(line[3:].strip().lower(), [])
         elif line.startswith("# ") and not title and current is None:
             title = line[2:].strip()
