@@ -6,6 +6,7 @@ import {
   type AtlassianSettings, type ConfluencePage, type Favorite, type FavoriteKind, type JiraIssue, isConfigured,
   useAddFavorite, useAtlassianSettings, useConfluencePage, useConfluencePages, useFavorites, useJiraIssue, useRemoveFavorite,
 } from "../../api/atlassian";
+import { Markdown } from "../../components/Markdown";
 import { CopyToReference } from "./CopyToReference";
 
 /** The Atlassian tab of a project (shown only when the site is configured): a
@@ -97,7 +98,7 @@ function IssueCard({ project, issue }: { project: string; issue: JiraIssue }) {
         <Text size="xs" c="dimmed">
           {facts.filter(([, value]) => value).map(([label, value]) => <span key={label}>{label}: <b>{value}</b> · </span>)}
         </Text>
-        {issue.description ? <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>{issue.description}</Text> : <Text size="sm" c="dimmed">Nessuna descrizione.</Text>}
+        {issue.description ? <Markdown>{issue.description}</Markdown> : <Text size="sm" c="dimmed">Nessuna descrizione.</Text>}
       </Stack>
     </Card>
   );
@@ -159,7 +160,7 @@ function PageView({ project, page }: { project: string; page: ConfluencePage }) 
             <Star project={project} kind="confluence_page" refId={page.id} title={page.title} url={page.url} />
           </Group>
         </Group>
-        {page.body ? <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>{page.body}</Text> : <Text size="sm" c="dimmed">Pagina vuota.</Text>}
+        {page.body ? <Markdown>{page.body}</Markdown> : <Text size="sm" c="dimmed">Pagina vuota.</Text>}
       </Stack>
     </Card>
   );

@@ -57,7 +57,7 @@ def check_connection(project: str, service: AtlassianService = Depends(atlassian
 @router.get("/jira/issues/{issue_key}")
 def get_issue(project: str, issue_key: str,
               service: AtlassianService = Depends(atlassian_service)) -> JiraIssueResponse:
-    """One issue by key (``PROJ-123``), with its description as plain text."""
+    """One issue by key (``PROJ-123``), with its description as Markdown."""
     return JiraIssueResponse.from_issue(service.site(project).get_issue(issue_key))
 
 
@@ -83,7 +83,7 @@ def list_pages(project: str, space: str | None = None, limit: int = 100,
 @router.get("/confluence/pages/{page_id}")
 def get_page(project: str, page_id: str,
              service: AtlassianService = Depends(atlassian_service)) -> ConfluencePageResponse:
-    """One page with its body as plain text."""
+    """One page with its body as Markdown."""
     return ConfluencePageResponse.from_page(service.site(project).get_page(page_id))
 
 

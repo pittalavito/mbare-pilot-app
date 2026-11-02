@@ -1,5 +1,5 @@
 """Atlassian Cloud domain models (Jira projects/issues, Confluence spaces/pages),
-already flattened from the REST payloads: rich text comes as plain text."""
+already flattened from the REST payloads: rich text comes as Markdown."""
 from datetime import datetime, timezone
 from enum import StrEnum
 
