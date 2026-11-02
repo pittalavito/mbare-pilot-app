@@ -206,3 +206,13 @@ class TodoListResponse(BaseModel):
     title: str
     today: str = Field(..., description="Today's date (YYYY-MM-DD).")
     items: list[TodoItemInfo]
+
+
+class CreateCodeReferenceResponse(BaseModel):
+    """What the scan of the todoMbarePilot comments did: counts and the note,
+    never the comments nor the code (the user reads them in the note)."""
+    note: str | None = Field(..., description="The code reference written; null = no comment found and no note to update.")
+    created: bool = Field(..., description="True = a new note, false = the existing one rewritten.")
+    files: int = Field(..., description="How many files have comments.")
+    comments: int = Field(..., description="How many comments were found.")
+    link: str | None = Field(None, description="Link to the note in the app: give it to the user as a markdown link.")

@@ -14,15 +14,17 @@ import { MessageItem } from "./MessageItem";
  * every project has the default ones (from the code), the others come from
  * Impostazioni → Definizioni da file. A reply arrives whole (no streaming yet). An
  * automation chatbot has the automation cache: «Metti in cache» on a message,
- * and a message starting with ``!`` skips it. */
+ * and a message starting with ``!`` skips it. A refiner is not here: it sits
+ * next to the agent tasks (RefinerPanel). */
 export function ChatTab() {
   const { project = "" } = useParams();
-  const chatbots = useChatbots(project);
+  const all = useChatbots(project);
+  const chatbots = { ...all, data: all.data?.filter((bot) => bot.kind !== "refiner") };
   const [botId, , openBot] = useChatParams();
   const [details, setDetails] = useState(false);
 
-  if (chatbots.isPending) return <Loader size="sm" />;
-  if (chatbots.error) return <Alert color="red">{chatbots.error.message}</Alert>;
+  if (all.isPending) return <Loader size="sm" />;
+  if (all.error || !chatbots.data) return <Alert color="red">{all.error?.message}</Alert>;
   const chatbot = chatbots.data.find((bot) => bot.id === botId) ?? chatbots.data[0]; // unknown or none: the first by name
   if (!chatbot) {
     return (
@@ -41,7 +43,7 @@ export function ChatTab() {
         </Stack>
       </Grid.Col>
       <Grid.Col span={{ base: 12, md: 9 }}>
-        <ConversationView key={chatbot.id} chatbot={chatbot} />
+        <RoutedConversation key={chatbot.id} chatbot={chatbot} />
       </Grid.Col>
       <ChatbotDetails chatbot={chatbot} opened={details} onClose={() => setDetails(false)} />
     </Grid>
@@ -113,15 +115,30 @@ function Sidebar({ chatbot, onDetails }: { chatbot: Chatbot; onDetails: () => vo
   );
 }
 
-function ConversationView({ chatbot }: { chatbot: Chatbot }) {
+/** The conversation of ``?c=``. */
+function RoutedConversation({ chatbot }: { chatbot: Chatbot }) {
   const [conversationId, open] = useOpenConversation();
+  return <ConversationView chatbot={chatbot} conversationId={conversationId} onOpen={open} />;
+}
+
+/** One conversation with a chatbot (``conversationId`` undefined = a new one,
+ * created on the first message: ``onOpen`` gets its id). ``height``: of the
+ * messages; ``onLinkClick``: a click on a link of a message, before the
+ * browser follows it (``event.preventDefault()`` to handle it in place). */
+export function ConversationView({ chatbot, conversationId, onOpen: open, height = 520, onLinkClick }: {
+  chatbot: Chatbot;
+  conversationId: number | undefined;
+  onOpen: (id: number | undefined) => void;
+  height?: number;
+  onLinkClick?: (event: React.MouseEvent, href: string) => void;
+}) {
   const conversations = useConversations(chatbot.id);
   const known = conversations.data?.some((conversation) => conversation.id === conversationId);
   const current = known ? conversationId : undefined; // a deleted or foreign id: a new conversation
   const messages = useMessages(current);
   const cache = useAutomationCache(chatbot.id);
   const pipelines = usePipelines(chatbot.project_name);
-  const send = useSendMessage(chatbot.id);
+  const send = useSendMessage(chatbot.id, chatbot.project_name);
   const [text, setText] = useState("");
   const [pending, setPending] = useState<string>();
   const bottom = useRef<HTMLDivElement>(null);
@@ -152,8 +169,16 @@ function ConversationView({ chatbot }: { chatbot: Chatbot }) {
 
   return (
     <Stack gap="sm">
-      <Card withBorder p={0}>
-        <ScrollArea h={520} p="md">
+      <Card
+        withBorder
+        p={0}
+        onClickCapture={onLinkClick && ((event: React.MouseEvent) => {
+          const link = (event.target as HTMLElement).closest("a");
+          const href = link?.getAttribute("href");
+          if (href) onLinkClick(event, href);
+        })}
+      >
+        <ScrollArea h={height} p="md">
           <Stack gap="md">
             {!list.length && !pending && (
               <Text size="sm" c="dimmed">Scrivi per iniziare una conversazione con <b>{chatbot.name}</b>.</Text>

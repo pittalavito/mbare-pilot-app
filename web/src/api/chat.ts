@@ -23,6 +23,10 @@ export const CHATBOT_KINDS: Record<ChatbotKind, { label: string; description: st
     label: "Segretario",
     description: "Ti aiuta con le note: legge, crea e spunta le todo list, ti dice lo stato degli agent task; non legge i riferimenti.",
   },
+  refiner: {
+    label: "Refiner",
+    description: "Ti aiuta a rifinire gli agent task: sta accanto a loro (Dati → Agent task); i suoi tool non gli fanno vedere il codice.",
+  },
   custom: { label: "Custom", description: "Tool scelti nella sua definizione; niente cache." },
 };
 
@@ -77,7 +81,8 @@ export function useMessages(conversationId: number | undefined) {
 
 /** Send a message, creating the conversation first when there is none; the
  * reply arrives whole. Resolves to the conversation the message went to. */
-export function useSendMessage(chatbotId: number) {
+/** ``project``: its notes are refreshed after the reply too (the chatbot's tools may write them). */
+export function useSendMessage(chatbotId: number, project?: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ conversationId, text }: { conversationId?: number; text: string }) => {
@@ -92,6 +97,7 @@ export function useSendMessage(chatbotId: number) {
         queryClient.invalidateQueries({ queryKey: chatKeys.conversations(chatbotId) }), // new one, title, order
         id !== undefined && queryClient.invalidateQueries({ queryKey: chatKeys.messages(id) }),
         queryClient.invalidateQueries({ queryKey: chatKeys.automationCache(chatbotId) }), // hits
+        project !== undefined && queryClient.invalidateQueries({ queryKey: ["projects", project, "notes"] }), // written by its tools
       ]),
   });
 }

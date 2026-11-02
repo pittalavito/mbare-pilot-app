@@ -35,6 +35,7 @@ from tool.list.git.git_status import GIT_STATUS
 from tool.list.hello_world import hello_world
 from tool.list.notes.todo_lists import CREATE_TODO_LIST, LIST_TODO_LISTS, READ_TODO_LIST, UPDATE_TODO_LIST
 from tool.list.project.read_context import READ_CONTEXT
+from tool.list.refiner.create_code_reference import CREATE_CODE_REFERENCE
 from tool.spec import ToolSpec, static
 
 TOOL_REGISTRY: dict[str, ToolSpec] = {
@@ -49,6 +50,7 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         CREATE_TODO_LIST,
         UPDATE_TODO_LIST,
         LIST_AGENT_TASKS,
+        CREATE_CODE_REFERENCE,
         DELEGATE_TASK,
         COPILOT_STATUS,
         READ_CONTEXT,

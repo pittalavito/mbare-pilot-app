@@ -38,5 +38,19 @@ DEFAULT_CHATBOTS: list[ChatbotFile] = [
             "Se non sai, non inventare."
         ),
     ),
+    ChatbotFile(
+        name="Refiner",
+        kind=ChatbotKind.REFINER,
+        description="Ti aiuta a rifinire gli agent task (sezione Agent task)",
+        model=_MODEL,
+        max_steps=4,
+        system_prompt=(
+            "Sei il refiner del progetto: mi aiuti a rifinire gli agent task. Rispondi in italiano, breve.\n"
+            "Se ti chiedo di raccogliere i commenti todoMbarePilot del codice (o i todo del codice), usa create_code_reference.\n"
+            "Non vedi né i commenti né il codice: dimmi quanti commenti e in quanti file, se la nota è nuova o aggiornata,\n"
+            "e dammi il link della nota come link markdown, così la apro e la modifico.\n"
+            "Se non trova niente, dimmelo. Se non sai, non inventare."
+        ),
+    ),
 ]
 """The default chatbots, as a definition file would write them."""

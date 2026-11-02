@@ -14,6 +14,7 @@ from models.domain.agent import AgentConfig, AgentRole
 from service.agent_config_service import AgentConfigService
 from service.agent_service import AgentService
 from service.chat_service import ChatService
+from service.code_todo_service import CodeTodoService
 from service.copilot_service import CopilotService
 from service.git_service import GitService
 from service.masking_service import MaskingService
@@ -201,11 +202,12 @@ def make_agent_service(definition_store, run_store, catalog_store, copilot_store
         pipelines = services.pop("pipeline_service", None) or pipeline_service
         masking = services.pop("masking_service", None) or masking_service
         copilot = services.pop("copilot_service", None) or CopilotService.from_config(definition_store, copilot_store, git, data)
+        code_todos = services.pop("code_todo_service", None) or CodeTodoService(git, data)
         assert not services, f"servizi sconosciuti: {sorted(services)}"
         return AgentService(
             chat_service=chat_service or ChatService(), agent_config_service=agent_config_service,
             runs=run_store, catalog=catalog_store, git_service=git, pipeline_service=pipelines,
-            masking_service=masking, project_data_service=data, copilot_service=copilot,
+            masking_service=masking, project_data_service=data, copilot_service=copilot, code_todo_service=code_todos,
         )
 
     return make

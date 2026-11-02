@@ -10,6 +10,7 @@ from models.domain.agent import RunOrigin
 from service.git_service import GitService
 
 if TYPE_CHECKING:  # services imported only for the type
+    from service.code_todo_service import CodeTodoService
     from service.copilot_service import CopilotService
     from service.pipeline_service import PipelineService
     from service.project_data_service import ProjectDataService
@@ -28,6 +29,8 @@ class ToolContext:
     """For reading the project's context files (tool read_context); None = not possible."""
     copilot: "CopilotService | None" = None
     """For delegating agent tasks to Copilot (tools delegate_task, copilot_status); None = not possible."""
+    code_todos: "CodeTodoService | None" = None
+    """For the todoMbarePilot comments of the code (tool create_code_reference); None = not possible."""
 
     def require_project(self) -> str:
         """The run's project; ValidationError for tools that need one."""
@@ -42,6 +45,10 @@ class ToolContext:
     def require_project_data(self) -> "ProjectDataService":
         """The project data's service; ValidationError when the run has none."""
         return _required(self.project_data, "dati del progetto")
+
+    def require_code_todos(self) -> "CodeTodoService":
+        """The code comments' service; ValidationError when the run has none."""
+        return _required(self.code_todos, "commenti del codice")
 
     def require_copilot(self) -> "CopilotService":
         """The Copilot service; ValidationError when the run has none."""

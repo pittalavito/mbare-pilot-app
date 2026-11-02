@@ -1,8 +1,9 @@
 # Chatbot di ogni progetto (salvo che il progetto ne abbia uno con lo stesso nome nel suo chat-bots.yml).
-# «Chat bot» e «Segretario» ogni progetto li ha già di default (dal codice): scriverli qui ne cambia prompt e modello
+# «Chat bot», «Refiner» e «Segretario» ogni progetto li ha già di default (dal codice): scriverli qui ne cambia prompt e modello
 # alla sincronizzazione. Dalla UI i chatbot non si creano: quelli in più si scrivono qui.
 # Un progetto può averne più di uno: ognuno ha il suo agente (prompt, modello, tool).
-# kind: automation (tool fissi e cache delle automation), secretary (tool fissi sulle note) oppure custom (tool a scelta, il default).
+# kind: automation (tool fissi e cache delle automation), secretary (tool fissi sulle note), refiner (tool fissi per
+# rifinire gli agent task, accanto a loro nella UI) oppure custom (tool a scelta, il default).
 chatbots:
   - name: Chat bot
     # automation: i suoi tool sono fissi (list_automations, run_automation, automation_status) e ha la cache delle automation
