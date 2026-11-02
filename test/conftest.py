@@ -33,9 +33,8 @@ HELLO_AGENT = """agents:
 has it: a Container creates it at startup, as in the app."""
 
 CODING_AGENT = """plan_prompt: |
-  Ti affido il task qui sotto. Leggi il codice, fai le tue domande e aspetta il mio ok.
-
-  {task}
+  Ti affido il task in {task_folder}/task.md, con i suoi riferimenti nella stessa cartella.
+  Leggi il codice, fai le tue domande e aspetta il mio ok.
 execute_prompt: Ok, procedi con il piano concordato, senza commit.
 denied_tools: ["shell(git commit)", "shell(git push)", "shell(git reset)"]
 """

@@ -24,11 +24,10 @@ Sempre: `--add-dir <repository>`, `--output-format json`, `--no-color`; `--model
 
 I divieti **non sono nel codice**: li passa il servizio, dal file `global-coding-agent.yml` della cartella dei dati ([definizioni](../../../../definitions.md#coding-agent-global-coding-agentyml-coding-agentyml)). Bloccano i comandi per nome (anche dentro un comando composto), non uno script che faccia un commit da sé: per questo il servizio controlla l'HEAD prima e dopo (vedi [service](../../../service/README.md#copilot)).
 
-## `turn(cwd, session_id, prompt, mode, timeout_seconds, denied_tools, should_cancel, model, extra_dirs)`
+## `turn(cwd, session_id, prompt, mode, timeout_seconds, denied_tools, should_cancel, model)`
 
 - Restituisce un `CopilotTurn`: l'ultimo `assistant.message` con testo, l'exit code e le richieste premium usate dalla sessione (dall'evento `result`). Non solleva per gli errori di Copilot: finiscono in `error`.
 - `denied_tools` vale solo in `EXECUTE`.
-- `extra_dirs`: altre cartelle che Copilot può usare, un `--add-dir` ciascuna (il servizio ci passa la cartella del task con i suoi riferimenti).
 - **Uso** (`usage.py`): ogni turno passa `--usage-output-file` (in una cartella temporanea, cancellata subito dopo) e mette il contenuto in `CopilotTurn.usage`: richieste premium, crediti AI (`totalNanoAiu`, in miliardesimi), token di input (cache compresa), output, cache letta e scritta, reasoning, la somma su `modelMetrics`, più il modello usato per ultimo (`currentModel`). Sono i **totali della sessione di Copilot**, cumulativi tra un turno e l'altro (come l'`accountingSnapshot` del suo session state): la differenza la calcola il servizio. Un file che manca (Copilot fermato prima di scriverlo) o illeggibile dà `None`.
 - **Timeout e annullamento** (`process.py`): ogni mezzo secondo controlla `should_cancel()` e la scadenza; se serve, chiude Copilot e tutto quello che ha avviato (`psutil`).
 - **Windows** (`cli.py`): npm installa un lanciatore `.cmd`, che taglierebbe il prompt al primo a capo. Il client lo riconosce e chiama `node …/@github/copilot/npm-loader.js` direttamente. Nessuna finestra di console (`CREATE_NO_WINDOW`).
@@ -36,4 +35,4 @@ I divieti **non sono nel codice**: li passa il servizio, dal file `global-coding
 
 ## Test
 
-`test/fake_copilot.py` imita il CLI (stesso output JSONL, memoria dei turni per sessione, niente scritture in modalità piano). Lo usano `test/unit/service/test_copilot_service.py` e `test/unit/api/test_copilot_api.py`, su repository git veri in una cartella temporanea. La definizione di prova (`CODING_AGENT`) la scrive `test/conftest.py`. Il CLI vero non parte mai nei test, perché consuma crediti AI: la Config dei test ha `copilot_command` su un comando che non esiste, quindi un Container non trova Copilot finché un test non gli dà il finto (`test/unit/core/test_container.py` lo verifica).
+`test/fake_copilot.py` imita il CLI (stesso output JSONL, memoria dei turni per sessione, niente scritture in modalità piano). Come farebbe il vero, legge il `task.md` della cartella `mbare-pilot/<task>` che il primo prompt nomina: lì cerca le parole che decidono cosa fa (`COMMIT`, `SLEEP`, `FAIL`). Lo usano `test/unit/service/test_copilot_service.py` e `test/unit/api/test_copilot_api.py`, su repository git veri in una cartella temporanea. La definizione di prova (`CODING_AGENT`) la scrive `test/conftest.py`. Il CLI vero non parte mai nei test, perché consuma crediti AI: la Config dei test ha `copilot_command` su un comando che non esiste, quindi un Container non trova Copilot finché un test non gli dà il finto (`test/unit/core/test_container.py` lo verifica).

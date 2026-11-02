@@ -100,8 +100,8 @@ class ModelFile(ModelPriceFile):
 class CodingAgentFile(_File):
     """``global-coding-agent.yml`` (and ``project/<slug>/coding-agent.yml``,
     whose fields replace the global ones): what the app tells Copilot.
-    ``plan_prompt`` is the first planning turn (``{task}`` = the task's
-    markdown), ``execute_prompt`` the turn that starts the execution,
+    ``plan_prompt`` is the first planning turn (``{task_folder}`` = the
+    repository folder with the task and its references), ``execute_prompt`` the turn that starts the execution,
     ``denied_tools`` the ``--deny-tool`` of the execution (e.g. ``shell(git
     commit)``): the whole list, nothing is added by the code. A prompt can be
     in a file next to this one (``*_prompt_file``), used as it is."""
@@ -109,10 +109,6 @@ class CodingAgentFile(_File):
     plan_prompt_file: str | None = None
     execute_prompt: Prompt | None = None
     execute_prompt_file: str | None = None
-    references_prompt: Prompt | None = None
-    """Added to the first planning turn when the task links references:
-    ``{task_folder}`` = the folder with the task and its references as files."""
-    references_prompt_file: str | None = None
     denied_tools: list[Prompt] | None = None
     models: list[ModelFile] | None = None
     """Copilot models to choose from when delegating (``--model``): a name, or
@@ -124,9 +120,18 @@ class CodingAgentFile(_File):
         """A plain name is a model without a price (errors then name the right fields)."""
         return [{"name": item} if isinstance(item, str) else item for item in value] if isinstance(value, list) else value
 
+    @model_validator(mode="before")
+    @classmethod
+    def _no_references_prompt(cls, value: Any) -> Any:
+        """Gone since the references sit next to the task, in ``{task_folder}``."""
+        if isinstance(value, dict) and ({"references_prompt", "references_prompt_file"} & value.keys()):
+            raise ValueError("references_prompt non serve più: task e riferimenti sono tutti in {task_folder}, "
+                             "dillo nel plan_prompt e togli references_prompt")
+        return value
+
     @model_validator(mode="after")
     def _one_source(self) -> "CodingAgentFile":
-        for name in ("plan_prompt", "execute_prompt", "references_prompt"):
+        for name in ("plan_prompt", "execute_prompt"):
             if getattr(self, name) is not None and getattr(self, f"{name}_file") is not None:
                 raise ValueError(f"scrivi {name} oppure {name}_file (uno dei due)")
         return self

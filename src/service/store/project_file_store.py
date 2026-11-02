@@ -1,5 +1,5 @@
 """The projects' files on disk (``<data_home>/project``): notes, context
-files, Copilot's tasks, ... by id (a path relative to that folder). The files
+files, ... by id (a path relative to that folder). The files
 are already the domain shape (``StoredFile``): no mapper."""
 from pathlib import Path
 
@@ -25,11 +25,3 @@ class ProjectFileStore:
 
     def delete(self, file_id: str) -> bool:
         return self._files.delete(file_id)
-
-    def path(self, file_id: str) -> Path:
-        """Where ``file_id`` is on disk: for a program that reads it itself (Copilot's --add-dir)."""
-        return self._files.path(file_id)
-
-    def delete_folder(self, prefix: str) -> bool:
-        """A folder of the file store with everything in it."""
-        return self._files.delete_tree(prefix)
