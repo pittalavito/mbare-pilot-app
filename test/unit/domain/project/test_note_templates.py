@@ -6,7 +6,7 @@ import pytest
 
 from domain.project.data_paths import note_type, typed_note_file_name
 from domain.project.note_templates import parse_agent_task, parse_todo_list, render_agent_task, render_todo_list
-from models.domain.note import AgentTask, ChecklistItem, NoteType, TaskStatus, TodoItem, TodoList, TodoPriority
+from models.domain.note import AgentTask, ChecklistItem, NoteType, TaskStatus, TaskType, TodoItem, TodoList, TodoPriority
 
 TASK = AgentTask(
     title="Refactor del login", status=TaskStatus.IN_PROGRESS, objective="Spostare l'auth nel service.\nSenza fretta.",
@@ -18,7 +18,7 @@ TASK = AgentTask(
 def test_an_agent_task_is_readable_markdown_and_comes_back_the_same():
     text = render_agent_task(TASK)
 
-    assert text.startswith("# Refactor del login\n\nStato: in corso\n\n## Obiettivo\nSpostare l'auth nel service.\nSenza fretta.\n")
+    assert text.startswith("# Refactor del login\n\nStato: in corso\nTipo: sviluppo\n\n## Obiettivo\nSpostare l'auth nel service.\nSenza fretta.\n")
     assert "## Criteri di accettazione\n- [ ] I test passano\n- [x] Nessuna API cambiata\n" in text
     assert parse_agent_task(text, "x") == TASK
 
@@ -30,6 +30,25 @@ def test_an_agent_task_edited_by_hand_keeps_what_the_template_knows():
 
     # an unknown heading is text of the section above it: nothing is lost on the next save
     assert task == AgentTask(title="fix porto", constraints="Niente fretta\n## Altro\nresta", criteria=[ChecklistItem(text="fatto", done=True)])
+
+
+@pytest.mark.parametrize("status", list(TaskStatus))
+@pytest.mark.parametrize("kind", list(TaskType))
+def test_every_status_and_type_comes_back_the_same(status, kind):
+    task = AgentTask(title="Giro", status=status, type=kind)
+
+    assert parse_agent_task(render_agent_task(task), "x") == task
+
+
+def test_status_and_type_written_by_hand():
+    task = parse_agent_task("# Analisi\n\nStato: In Rifinitura\nTipo: ANALISI\n", "x")
+    assert (task.status, task.type) == (TaskStatus.REFINEMENT, TaskType.ANALYSIS)
+
+    # missing or unknown: a task not refined yet, to develop
+    assert parse_agent_task("# Senza\n", "x").status == TaskStatus.CREATED
+    task = parse_agent_task("# Strano\n\nStato: boh\nTipo: boh\n", "x")
+    assert (task.status, task.type) == (TaskStatus.CREATED, TaskType.DEVELOPMENT)
+    assert [status.is_refined for status in TaskStatus] == [False, False, True, True, True]
 
 
 def test_markdown_headings_inside_a_section_do_not_cut_it():

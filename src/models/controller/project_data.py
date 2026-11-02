@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from models.domain.note import AgentTask, ChecklistItem, NoteType, Reference, TaskStatus, TodoItem, TodoList, TodoPriority
+from models.domain.note import AgentTask, ChecklistItem, NoteType, Reference, TaskStatus, TaskType, TodoItem, TodoList, TodoPriority
 from models.domain.project import ProjectDataFile
 
 
@@ -41,7 +41,8 @@ class ChecklistItemBody(BaseModel):
 
 class AgentTaskBody(BaseModel):
     title: str = Field(min_length=1)
-    status: TaskStatus = TaskStatus.TODO
+    status: TaskStatus = TaskStatus.CREATED
+    type: TaskType = TaskType.DEVELOPMENT
     objective: str = ""
     context: str = ""
     criteria: list[ChecklistItemBody] = []

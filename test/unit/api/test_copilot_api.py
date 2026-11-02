@@ -32,7 +32,9 @@ def client(stores, tmp_path, monkeypatch, project_store):
 
 
 def test_delegate_chat_approve_cancel_and_delete(client):
-    task = client.post("/projects/acme/agent-tasks", json={"title": "Prova"}).json()["name"]
+    created = client.post("/projects/acme/agent-tasks", json={"title": "Prova"}).json()
+    assert (created["status"], created["type"]) == ("created", "development")  # the defaults of a new task
+    task = created["name"]
 
     session = client.post("/projects/acme/copilot-sessions", json={"task_note": task})
     assert session.status_code == 201
@@ -41,7 +43,8 @@ def test_delegate_chat_approve_cancel_and_delete(client):
     sid = session["id"]
 
     assert client.post(f"/copilot-sessions/{sid}/messages", json={"text": "ok così"}).json()["premium_requests"] == 2
-    assert [m["role"] for m in client.get(f"/copilot-sessions/{sid}/messages").json()] == ["user", "copilot", "user", "copilot"]
+    roles = [m["role"] for m in client.get(f"/copilot-sessions/{sid}/messages").json()]
+    assert roles == ["event", "user", "copilot", "user", "copilot"]  # event: the task is not refined yet
     assert client.post(f"/copilot-sessions/{sid}/messages", json={"text": "  "}).status_code == 400
 
     usage = client.get(f"/copilot-sessions/{sid}/turns").json()
@@ -64,10 +67,21 @@ def test_delegate_chat_approve_cancel_and_delete(client):
 
 def test_status_and_validation(client):
     assert client.get("/copilot/status").json() == {  # the fake has no --version
-        "installed": False, "version": None, "definition_error": None, "prompts": [], "models": [], "default_model": "",
+        "installed": False, "version": None, "definition_error": None, "prompts": [], "type_prompts": {}, "models": [], "default_model": "",
     }
     assert client.get("/copilot/status", params={"project": "acme"}).json()["definition_error"] is None
     assert client.post("/projects/acme/copilot-sessions", json={"task_note": "agent-task-manca.md"}).status_code == 404
+
+
+def test_the_status_says_which_prompt_each_task_type_uses(client, config):
+    (config.definitions_root / "coding-agent").mkdir()
+    (config.definitions_root / "coding-agent" / "analisi.md").write_text("Analizza.\n{task_folder}", encoding="utf-8")
+    path = config.definitions_root / "global-coding-agent.yml"
+    path.write_text(path.read_text(encoding="utf-8") + "type_prompts: {analysis: analisi}\n", encoding="utf-8")
+
+    status = client.get("/copilot/status").json()
+
+    assert (status["prompts"], status["type_prompts"]) == (["analisi"], {"analysis": "analisi"})
 
 
 def test_deleting_the_sessions_of_a_task(client):

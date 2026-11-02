@@ -1661,8 +1661,10 @@ export interface components {
         AgentTaskBody: {
             /** Title */
             title: string;
-            /** @default todo */
+            /** @default created */
             status: components["schemas"]["TaskStatus"];
+            /** @default development */
+            type: components["schemas"]["TaskType"];
             /**
              * Objective
              * @default
@@ -1693,8 +1695,10 @@ export interface components {
         AgentTaskResponse: {
             /** Title */
             title: string;
-            /** @default todo */
+            /** @default created */
             status: components["schemas"]["TaskStatus"];
+            /** @default development */
+            type: components["schemas"]["TaskType"];
             /**
              * Objective
              * @default
@@ -2182,6 +2186,13 @@ export interface components {
              * @default []
              */
             prompts: string[];
+            /**
+             * Type Prompts
+             * @default {}
+             */
+            type_prompts: {
+                [key: string]: string;
+            };
             /**
              * Models
              * @default []
@@ -3007,9 +3018,18 @@ export interface components {
         };
         /**
          * TaskStatus
+         * @description In this order: created (by hand) and refinement (being refined with an
+         *     agent, or created by the secretary) come before todo, ready to delegate;
+         *     Copilot moves it to in_progress, then done (or back to todo).
          * @enum {string}
          */
-        TaskStatus: "todo" | "in_progress" | "done";
+        TaskStatus: "created" | "refinement" | "todo" | "in_progress" | "done";
+        /**
+         * TaskType
+         * @description What the task asks for; it picks Copilot's planning prompt (type_prompts).
+         * @enum {string}
+         */
+        TaskType: "refinement" | "development" | "analysis";
         /** TodoItemBody */
         TodoItemBody: {
             /** Text */

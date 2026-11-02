@@ -34,6 +34,7 @@ from core.observability import LogPrefix, log_exception, observed
 from domain.client.copilot.client import NOT_FOUND, CopilotClient, CopilotMode
 from domain.project import coding_agent, task_folder
 from domain.project.data_paths import note_file_name
+from domain.project.note_templates import STATUS_LABELS
 from models.domain.copilot import (
     CodingAgentSettings,
     CopilotMessage,
@@ -62,6 +63,14 @@ def _short(commit: str) -> str:
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def not_refined_warning(status: TaskStatus) -> str | None:
+    """For a task delegated before it is ready (created, refinement); None when it is."""
+    if status.is_refined:
+        return None
+    return (f"⚠️ Il task è «{STATUS_LABELS[status]}», non ancora «{STATUS_LABELS[TaskStatus.TODO]}»: "
+            "Copilot lo legge com'è, magari ancora da rifinire.")
 
 
 class CopilotService:
@@ -164,24 +173,29 @@ class CopilotService:
     def start(self, project_name: str, task_note: str, repository: str = "", prompt: str = "", model: str = "") -> CopilotSession:
         """A new session on an agent task: the first planning turn runs now,
         so the session comes back with Copilot's questions (or the error).
-        ``prompt``: one of the definition's prompts (``""`` = ``plan_prompt``);
-        ``model``: one of its models (``""`` = the default), for every turn."""
+        ``prompt``: one of the definition's prompts (``""`` = the one of the
+        task's type in ``type_prompts``, else ``plan_prompt``); ``model``: one
+        of its models (``""`` = the default), for every turn. A task not
+        refined yet (created, refinement) can be delegated: the chat says so."""
         if not self._client.available:
             raise UpstreamError(NOT_FOUND)
         settings = self.coding_agent(project_name)
         model = coding_agent.check_model(settings, model)
-        self._data.agent_task(project_name, task_note)  # exists and is an agent task
+        task = self._data.agent_task(project_name, task_note)  # exists and is an agent task
         folder = self._git.repository_folder(project_name, repository)
-        first_turn = coding_agent.plan_prompt(settings, task_folder.relative_folder(task_note), prompt.strip())
+        prompt = coding_agent.task_prompt(settings, task.type, prompt)
+        first_turn = coding_agent.plan_prompt(settings, task_folder.relative_folder(task_note), prompt)
         task_folder.write(folder, task_note, self._data.copilot_files(project_name, task_note))  # before the session: errors stop here
         session = self._copilot.save_session(CopilotSession(
             project_name=project_name,
             task_note=task_note,
             repository=repository.strip().strip("/\\"),
             copilot_session_id=str(uuid4()),
-            prompt=prompt.strip(),
+            prompt=prompt,
             model=model,
         ))
+        if (warning := not_refined_warning(task.status)):
+            self._message(session, CopilotMessageRole.EVENT, warning)
         return self._plan_turn(session, folder, first_turn, refresh=False)
 
     @observed(LogPrefix.COPILOT_SERVICE)

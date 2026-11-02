@@ -74,7 +74,7 @@ def test_typed_notes_are_notes_named_by_type(data_service, files_repository):
     data_service.save_note("My App", "decisioni", "# Decisioni")
 
     assert name == "agent-task-refactor-login.md"
-    assert (files_repository.root / "my-app" / "notes" / name).read_text(encoding="utf-8").startswith("# Refactor login\n\nStato: da fare")
+    assert (files_repository.root / "my-app" / "notes" / name).read_text(encoding="utf-8").startswith("# Refactor login\n\nStato: creato\nTipo: sviluppo\n")
     assert {note.name: note.note_type for note in data_service.list_notes("My App")} == {
         "agent-task-refactor-login.md": NoteType.AGENT_TASK, "decisioni.md": NoteType.GENERIC, "todo-list-rilascio.md": NoteType.TODO_LIST,
     }

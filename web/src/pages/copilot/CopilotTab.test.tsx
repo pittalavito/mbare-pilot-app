@@ -132,4 +132,23 @@ describe("CopilotTab", () => {
     expect(await started.mock.results[0].value).toMatchObject({ task_note: "agent-task-fix-porto.md", repository: "api", prompt: "", model: "claude-haiku-5.5" });
     expect(await screen.findByText("Domanda")).toBeInTheDocument(); // now on the Copilot tab, its chat open
   });
+
+  it("proposes the prompt of the task's type and warns about a task not ready", async () => {
+    const TASK = { name: "agent-task-capire.md", title: "Capire", status: "refinement", type: "analysis", objective: "", context: "", criteria: [], constraints: "" };
+    mockApi({
+      "GET /copilot/status": { installed: true, version: "x", prompts: ["analisi"], type_prompts: { analysis: "analisi" }, default_model: "", models: [] },
+      "GET /projects/acme/notes": [],
+      "GET /projects/acme/agent-tasks": [TASK],
+      "GET /projects/acme/git/repositories": [{ path: "api", name: "api" }],
+      "GET /projects/acme/copilot-sessions": [],
+    });
+    renderTab("/projects/acme/data");
+
+    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Delega a Copilot/ }));
+    const dialog = await screen.findByRole("dialog");
+
+    expect(await within(dialog).findByDisplayValue("Predefinito del tipo (analisi)")).toBeInTheDocument();
+    expect(within(dialog).getByText(/non è ancora «Da fare»/)).toBeInTheDocument();
+  });
 });

@@ -12,7 +12,7 @@ from tool.list.notes.todo_lists import notes_run
 from tool.spec import ToolSpec
 
 _DESCRIPTION = (
-    "The project's agent tasks (name, title, status: todo, in_progress, done) with the status of their latest "
+    "The project's agent tasks (name, title, type, status: created, refinement, todo, in_progress, done) with the status of their latest "
     "Copilot session: the ones delegate_task can delegate to Copilot. Use it to find the task the user means "
     "or to tell how the tasks are going."
 )
@@ -34,7 +34,7 @@ def build(context: ToolContext) -> Tool:
         for session in sessions:  # newest first
             latest.setdefault(session.task_note, session.status.value)
         return ListAgentTasksResponse(tasks=[
-            AgentTaskInfo(task=name, title=task.title, status=task.status.value, copilot_status=latest.get(name))
+            AgentTaskInfo(task=name, title=task.title, status=task.status.value, type=task.type.value, copilot_status=latest.get(name))
             for name, task in tasks
         ])
 

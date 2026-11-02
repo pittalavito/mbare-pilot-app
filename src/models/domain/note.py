@@ -30,9 +30,29 @@ class NoteType(StrEnum):
 
 
 class TaskStatus(StrEnum):
+    """In this order: created (by hand) and refinement (being refined with an
+    agent, or created by the secretary) come before todo, ready to delegate;
+    Copilot moves it to in_progress, then done (or back to todo)."""
+    CREATED = "created"
+    REFINEMENT = "refinement"
     TODO = "todo"
     IN_PROGRESS = "in_progress"
     DONE = "done"
+
+    @property
+    def is_refined(self) -> bool:
+        """Ready for an agent: past created and refinement."""
+        return self not in (TaskStatus.CREATED, TaskStatus.REFINEMENT)
+
+
+class TaskType(StrEnum):
+    """What the task asks for; it picks Copilot's planning prompt (type_prompts)."""
+    REFINEMENT = "refinement"
+    """Refine a story: make it clear and complete."""
+    DEVELOPMENT = "development"
+    """Develop something: change the code."""
+    ANALYSIS = "analysis"
+    """Analyse: read the code and answer."""
 
 
 class ChecklistItem(BaseModel):
@@ -42,7 +62,8 @@ class ChecklistItem(BaseModel):
 
 class AgentTask(BaseModel):
     title: str = Field(min_length=1)
-    status: TaskStatus = TaskStatus.TODO
+    status: TaskStatus = TaskStatus.CREATED
+    type: TaskType = TaskType.DEVELOPMENT
     objective: str = ""
     context: str = ""
     criteria: list[ChecklistItem] = []

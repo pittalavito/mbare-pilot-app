@@ -32,6 +32,7 @@ def copilot_status(project: str | None = None, service: CopilotService = Depends
     return CopilotStatusResponse(
         installed=version is not None, version=version, definition_error=error, default_model=service.default_model,
         prompts=list(settings.prompts) if settings else [],
+        type_prompts={kind.value: name for kind, name in settings.type_prompts.items()} if settings else {},
         models=[CopilotModelOptionResponse.from_option(model, usage) for model, usage in service.model_options(settings)] if settings else [],
     )
 

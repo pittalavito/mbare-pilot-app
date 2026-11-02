@@ -43,6 +43,9 @@ export function DelegateModal({ project, task, opened, onClose }: { project: str
   }, [repositories.data, repository]);
 
   const models = status.data?.models ?? [];
+  const chosen = tasks.data?.find((item) => item.name === chosenTask);
+  const typePrompt = chosen ? status.data?.type_prompts?.[chosen.type ?? "development"] : undefined;
+  const defaultLabel = typePrompt ? `Predefinito del tipo (${typePrompt})` : "Predefinito (plan_prompt)";
   const chosenModel = models.find((option) => option.name === model);
 
   const delegate = () =>
@@ -88,7 +91,7 @@ export function DelegateModal({ project, task, opened, onClose }: { project: str
           <Select
             label="Prompt"
             description="I file .md di definition/coding-agent/ (e del progetto)"
-            data={[{ value: DEFAULT, label: "Predefinito (plan_prompt)" }, ...(status.data?.prompts ?? []).map((name) => ({ value: name, label: name }))]}
+            data={[{ value: DEFAULT, label: defaultLabel }, ...(status.data?.prompts ?? []).map((name) => ({ value: name, label: name }))]}
             value={prompt}
             onChange={setPrompt}
             allowDeselect={false}
@@ -106,6 +109,9 @@ export function DelegateModal({ project, task, opened, onClose }: { project: str
           />
         </Group>
         {chosenModel && <ModelDetail option={chosenModel} />}
+        {chosen && (chosen.status === "created" || chosen.status === "refinement") && (
+          <Alert color="yellow">Il task non è ancora «Da fare»: Copilot lo legge com'è, magari ancora da rifinire.</Alert>
+        )}
         {status.data?.definition_error && <Alert color="orange">Prompt e divieti di Copilot: {status.data.definition_error}</Alert>}
         {start.error && <Alert color="red">{start.error.message}</Alert>}
         {start.isPending && (
