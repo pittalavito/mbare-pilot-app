@@ -16,7 +16,7 @@ from sqlmodel import SQLModel, create_engine
 from core.error import ConflictError, UpstreamError, ValidationError
 from domain.client.copilot.client import CopilotClient, CopilotMode
 from models.domain.copilot import CopilotMessageRole, CopilotSessionStatus
-from models.domain.note import AgentTask, TaskStatus
+from models.domain.note import AgentTask, TaskStatus, TaskType
 from models.domain.project import Project, ProjectSource
 from service.copilot_service import CopilotService
 from service.git_service import GitService
@@ -60,8 +60,9 @@ def _service(stores, data, command=None, execution_timeout=30.0) -> CopilotServi
                           planning_timeout_seconds=30, execution_timeout_seconds=execution_timeout)
 
 
-def _task(data, title="Aggiungi copilot.txt") -> str:
-    return data.create_agent_task("acme", AgentTask(title=title, objective="Un file di prova."))
+def _task(data, title="Aggiungi copilot.txt", **fields) -> str:
+    """A task ready to delegate (todo), unless ``fields`` say otherwise."""
+    return data.create_agent_task("acme", AgentTask(title=title, objective="Un file di prova.", **{"status": TaskStatus.TODO, **fields}))
 
 
 def _turns(tmp_path, session) -> list[dict]:
@@ -301,6 +302,49 @@ def test_delegating_with_a_chosen_prompt_and_model_uses_them_for_every_turn(data
     with pytest.raises(ValidationError, match="Prompt non trovato"):
         service.start("acme", _task(data, "Altro ancora"), "api", prompt="manca")
     assert "--model" not in _turns(tmp_path, service.start("acme", _task(data, "Default"), "api"))[0]["args"]
+
+
+def test_a_task_not_refined_yet_can_be_delegated_with_a_warning(data, project, tmp_path, stores):
+    service = _service(stores, data)
+
+    for status, label in ((TaskStatus.CREATED, "creato"), (TaskStatus.REFINEMENT, "in rifinitura")):
+        session = service.start("acme", _task(data, f"Grezzo {label}", status=status), "api")
+        first = service.messages(session.id)[0]
+        assert first.role == CopilotMessageRole.EVENT and f"«{label}», non ancora «da fare»" in first.content
+        assert session.status == CopilotSessionStatus.PLANNING  # delegated anyway
+
+    ready = service.start("acme", _task(data, "Pronto"), "api")
+    assert _roles(service, ready) == ["user", "copilot"]  # todo: no warning
+
+
+def test_the_task_type_picks_the_planning_prompt_unless_one_is_chosen(data, project, config, tmp_path, stores):
+    root = config.definitions_root
+    (root / "coding-agent").mkdir()
+    (root / "coding-agent" / "analisi.md").write_text("Solo analisi, non cambiare il codice.\n{task_folder}", encoding="utf-8")
+    (root / "coding-agent" / "bug.md").write_text("Trova il bug.\n{task_folder}", encoding="utf-8")
+    path = root / "global-coding-agent.yml"
+    path.write_text(path.read_text(encoding="utf-8") + "type_prompts:\n  analysis: analisi\n  development: ''\n", encoding="utf-8")
+    service = _service(stores, data)
+    assert service.coding_agent().type_prompts == {TaskType.ANALYSIS: "analisi", TaskType.DEVELOPMENT: ""}
+
+    analysis = service.start("acme", _task(data, "Capire il login", type=TaskType.ANALYSIS), "api")
+    chosen = service.start("acme", _task(data, "Capire il bug", type=TaskType.ANALYSIS), "api", prompt="bug")
+    development = service.start("acme", _task(data, "Sviluppa", type=TaskType.DEVELOPMENT), "api")
+    refinement = service.start("acme", _task(data, "Rifinisci", type=TaskType.REFINEMENT), "api")  # not in type_prompts
+
+    assert analysis.prompt == "analisi" and service.messages(analysis.id)[0].content.startswith("Solo analisi")
+    assert chosen.prompt == "bug" and service.messages(chosen.id)[0].content.startswith("Trova il bug")  # the choice wins
+    for session in (development, refinement):
+        assert session.prompt == "" and service.messages(session.id)[0].content.startswith("Ti affido il task")  # plan_prompt
+
+
+def test_type_prompts_must_name_existing_prompts(data, project, config, stores):
+    path = config.definitions_root / "global-coding-agent.yml"
+    path.write_text(path.read_text(encoding="utf-8") + "type_prompts:\n  analysis: manca\n", encoding="utf-8")
+    assert "type_prompts: prompt non trovati: manca" in _service(stores, data).coding_agent_or_error()[1]
+
+    path.write_text(path.read_text(encoding="utf-8").replace("analysis: manca", "studio: ''"), encoding="utf-8")
+    assert "type_prompts.studio" in _service(stores, data).coding_agent_or_error()[1]  # not a task type
 
 
 def test_a_prompt_file_without_the_task_placeholder_is_an_error(data, project, config, stores):

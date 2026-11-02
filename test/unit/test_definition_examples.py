@@ -39,6 +39,6 @@ def test_copying_the_examples_never_overwrites(tmp_path):
     copied = copy_missing(target)
 
     assert "global-coding-agent.yml" not in copied and (target / "global-coding-agent.yml").read_text(encoding="utf-8") == "il mio"
-    assert copied == ["coding-agent/bugfix.md", "global-agent.yml", "global-automation.yml", "global-chat-bots.yml"]
+    assert copied == ["coding-agent/analisi.md", "coding-agent/bugfix.md", "global-agent.yml", "global-automation.yml", "global-chat-bots.yml"]
     assert not (target / "README.md").exists()
     assert copy_missing(target) == []

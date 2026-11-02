@@ -23,6 +23,67 @@ const NOTES = [
 const renderData = () =>
   renderPage(<Routes><Route path="/projects/:project/data" element={<DataTab />} /></Routes>, { route: "/projects/acme/data" });
 
+describe("agent task status and type", () => {
+  const task = (name: string, title: string, status: string, type: string) => ({
+    name, title, status, type, objective: "", context: "", criteria: [], constraints: "", references: [],
+  });
+  const TASKS = [
+    task("agent-task-login.md", "Login", "refinement", "analysis"),
+    task("agent-task-export.md", "Export", "todo", "development"),
+  ];
+
+  it("shows type and status, filters by type and creates a task in the filtered type", async () => {
+    const created = vi.fn(async (request: Request) => ({ name: "agent-task-nuovo.md", ...(await request.json()) }));
+    mockApi({
+      "GET /projects/acme/notes": NOTES,
+      "GET /projects/acme/agent-tasks": TASKS,
+      "GET /projects/acme/copilot-sessions": [],
+      "POST /projects/acme/agent-tasks": created,
+    });
+    renderData();
+
+    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    const item = (title: string) => screen.queryByText(title, { selector: ".mantine-NavLink-label" })?.closest(".mantine-NavLink-root") ?? null;
+    await screen.findByText("Login", { selector: ".mantine-NavLink-label" });
+    const login = item("Login") as HTMLElement;
+    expect(within(login).getByText("Analisi")).toBeInTheDocument();
+    expect(within(login).getByText("In rifinitura")).toBeInTheDocument();
+    expect(screen.getByText(/Non ancora pronto/)).toBeInTheDocument(); // the open one (Login) is in refinement
+
+    fireEvent.click(within(screen.getByRole("radiogroup", { name: "Filtra per tipo" })).getByRole("radio", { name: "Sviluppo" }));
+    await waitFor(() => expect(item("Login")).toBeNull());
+    expect(item("Export")).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /Nuovo task/ }));
+    fireEvent.change(await screen.findByLabelText("Titolo", { selector: "[data-autofocus]" }), { target: { value: "Nuovo" } });
+    fireEvent.click(screen.getByRole("button", { name: "Crea" }));
+
+    await waitFor(() => expect(created).toHaveBeenCalled());
+    expect(await created.mock.results[0].value).toMatchObject({ title: "Nuovo", status: "created", type: "development" });
+  });
+
+  it("saves the status and the type chosen in the editor", async () => {
+    const saved = vi.fn(async (request: Request) => ({ name: "agent-task-login.md", ...(await request.json()) }));
+    mockApi({
+      "GET /projects/acme/notes": NOTES,
+      "GET /projects/acme/agent-tasks": [TASKS[0]],
+      "GET /projects/acme/copilot-sessions": [],
+      "PUT /projects/acme/agent-tasks/agent-task-login.md": saved,
+    });
+    renderData();
+
+    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    const status = await screen.findByRole("radiogroup", { name: "Stato" });
+    fireEvent.click(within(status).getByRole("radio", { name: "Da fare" }));
+    fireEvent.click(within(screen.getByRole("radiogroup", { name: "Tipo del task" })).getByRole("radio", { name: "Rifinitura" }));
+    expect(screen.queryByText(/Non ancora pronto/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Salva" }));
+
+    await waitFor(() => expect(saved).toHaveBeenCalled());
+    expect(await saved.mock.results[0].value).toMatchObject({ status: "todo", type: "refinement" });
+  });
+});
+
 describe("typed notes", () => {
   it("the generic notes leave out the typed ones", async () => {
     mockApi({ "GET /projects/acme/notes": NOTES, "GET /projects/acme/notes/decisioni.md": { name: "decisioni.md", content: "# Decisioni" } });

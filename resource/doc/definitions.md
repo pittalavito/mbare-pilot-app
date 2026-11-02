@@ -129,6 +129,8 @@ plan_prompt: |                     # primo turno della preparazione; {task_folde
   Ti affido il task descritto in {task_folder}/task.md, con i suoi riferimenti nella stessa cartella...
 # oppure: plan_prompt_file: piano.md   (un file accanto a questo)
 execute_prompt: Ok, procedi con il piano concordato...   # oppure execute_prompt_file
+type_prompts:                      # facoltativo: il prompt di ogni tipo di task se alla delega non se ne sceglie uno
+  analysis: analisi                # coding-agent/analisi.md; "" = plan_prompt; un tipo assente = plan_prompt
 denied_tools:                      # i --deny-tool dell'esecuzione: l'elenco completo
   - shell(git commit)
   - shell(git push)
@@ -146,6 +148,7 @@ models:                            # facoltativo: i modelli tra cui scegliere qu
 **Scelta alla delega**: nella finestra «Delega a Copilot» si scelgono il **prompt** e il **modello**. Restano salvati nella sessione (`prompt`, `model`) e il modello vale per ogni turno, esecuzione compresa.
 
 - **Prompt**: «Predefinito» è `plan_prompt`; le altre opzioni sono i file `<nome>.md` di `definition/coding-agent/` e di `definition/project/<slug>/coding-agent/` (a parità di nome vince quello del progetto). Ognuno deve contenere `{task_folder}`: un file senza è un errore come un yml rotto.
+- **Prompt del tipo**: con `type_prompts` il «Predefinito» dipende dal tipo del task (`refinement`, `development`, `analysis`): la finestra mostra «Predefinito del tipo (analisi)». Vale anche per il chatbot (`delegate_task`), che non sceglie il prompt. Un nome che non è tra i prompt, o un tipo che non esiste, è un errore.
 - **Modello**: «Predefinito» è `COPILOT_MODEL` (vuoto = quello di Copilot); le altre opzioni sono `models:`, **dalla più economica** (prezzo di input + output; quelle senza prezzo in fondo, nell'ordine del file). Per il modello scelto la finestra mostra il prezzo completo, la nota e quanto è costato davvero finora (crediti AI medi per turno, da `copilot_turn`). Un modello fuori elenco viene rifiutato.
 - **Prezzi**: si copiano dalla pagina [Models and pricing for GitHub Copilot](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing) (USD per 1M token; 1 credito AI = 0,01 $): il CLI non li espone fuori dal picker `/model`. `input`, `cached_input` e `output` vanno insieme; `long_context` vale sopra `above` token di input. Un nome ripetuto è un errore. Il chatbot (`delegate_task`) usa sempre i predefiniti.
 

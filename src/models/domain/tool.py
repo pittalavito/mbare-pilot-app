@@ -42,7 +42,8 @@ class AutomationStatusResponse(BaseModel):
 class AgentTaskInfo(BaseModel):
     task: str = Field(..., description="The task's note name (agent-task-<title>.md): what delegate_task wants.")
     title: str
-    status: str = Field(..., description="todo, in_progress or done.")
+    status: str = Field(..., description="created, refinement (not ready yet), todo (ready to delegate), in_progress or done.")
+    type: str = Field(..., description="refinement (refine a story), development or analysis.")
     copilot_status: str | None = Field(
         None, description="Status of the task's latest Copilot session (planning, queued, running, done, failed, cancelled); "
                           "null = never delegated, or Copilot not available.",
@@ -61,6 +62,7 @@ class DelegateTaskResponse(BaseModel):
     copilot_answered: bool = Field(..., description="Copilot read the task and answered (questions or a plan) in its chat.")
     chat: str = Field(..., description="Link to the Copilot chat in the app: give it to the user as a markdown link.")
     next_step: str = Field(..., description="What the user has to do now.")
+    warning: str | None = Field(None, description="The task is not refined yet (created or in refinement): tell the user.")
 
 
 class CopilotStatusResponse(BaseModel):

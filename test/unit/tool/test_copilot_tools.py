@@ -11,7 +11,7 @@ import pytest
 from domain.client.copilot.client import CopilotClient
 from fakes import as_dict
 from models.domain.agent import RunOrigin
-from models.domain.note import AgentTask
+from models.domain.note import AgentTask, TaskStatus
 from models.domain.project import Project, ProjectSource
 from service.copilot_service import CopilotService
 from tool.context import ToolContext
@@ -42,11 +42,14 @@ def context(tmp_path, monkeypatch, git_service, project_data_service, project_st
 
 def test_the_chatbot_lists_the_tasks_and_delegates_one(context):
     tasks = as_dict(LIST_AGENT_TASKS.build(context).func())
-    assert tasks == {"tasks": [{"task": "agent-task-fix-porto.md", "title": "Fix porto", "status": "todo", "copilot_status": None}]}
+    assert tasks == {"tasks": [{"task": "agent-task-fix-porto.md", "title": "Fix porto", "status": "created", "type": "development", "copilot_status": None}]}
 
     delegated = as_dict(DELEGATE_TASK.build(context).func(task="agent-task-fix-porto.md", repository="api"))
 
     assert delegated["copilot_answered"] and delegated["repository"] == "api"
+    assert "«creato», non ancora «da fare»" in delegated["warning"]  # delegated anyway, the chatbot tells the user
+    context.project_data.save_agent_task("acme", "agent-task-fix-porto.md", AgentTask(title="Fix porto", status=TaskStatus.TODO))
+    assert as_dict(DELEGATE_TASK.build(context).func(task="agent-task-fix-porto.md", repository="api"))["warning"] is None
     assert delegated["chat"] == f"/projects/acme/copilot?session={delegated['session_id']}"
     assert "Domanda" not in str(delegated)  # Copilot's answer stays in its chat
     assert as_dict(LIST_AGENT_TASKS.build(context).func())["tasks"][0]["copilot_status"] == "planning"

@@ -27,6 +27,12 @@ execute_prompt: >-
   Ok, procedi con il piano concordato. Non fare commit, push né altre operazioni git che cambiano la storia,
   l'indice o i branch. Alla fine riassumi cosa hai cambiato (file e motivo) e se i criteri di accettazione sono soddisfatti.
 
+# Il prompt di preparazione di ogni tipo di task, quando alla delega non se ne sceglie uno (facoltativo):
+# il nome di un file .md di coding-agent/ ("" = plan_prompt). Tipi: refinement, development, analysis;
+# un tipo assente usa plan_prompt.
+type_prompts:
+  analysis: analisi
+
 # --deny-tool dell'esecuzione: l'elenco completo (il codice non ne aggiunge).
 # L'app controlla comunque l'HEAD prima e dopo e segnala se è cambiato.
 denied_tools:

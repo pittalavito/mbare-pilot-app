@@ -15,6 +15,7 @@ from core.error import AppError
 from models.domain.agent import RunOrigin
 from models.domain.copilot import CopilotMessageRole
 from models.domain.tool import DelegateTaskResponse, ToolErrorResponse
+from service.copilot_service import not_refined_warning
 from tool.context import ToolContext
 from tool.list.git.errors import git_error
 from tool.list.git.params import Repository
@@ -39,6 +40,7 @@ def build(context: ToolContext) -> Tool:
         copilot, project_name = context.require_copilot(), context.require_project()
         try:
             session = copilot.start(project_name, task, repository)
+            warning = not_refined_warning(context.project_data.agent_task(project_name, task).status) if context.project_data else None
         except AppError as exc:
             return git_error(context, exc)
         answered = any(message.role == CopilotMessageRole.COPILOT for message in copilot.messages(session.id))
@@ -52,6 +54,7 @@ def build(context: ToolContext) -> Tool:
                 "Apri la chat di Copilot, rispondi alle sue domande e premi «Ok, parti» quando il piano ti va bene."
                 if answered else "Copilot non ha risposto: apri la chat per vedere l'errore."
             ),
+            warning=warning,
         )
 
     return delegate_task

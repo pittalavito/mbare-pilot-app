@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_vali
 from models.domain.agent import Name
 from models.domain.chat import ModelKey
 from models.domain.chatbot import KIND_TOOLS, ChatbotKind
+from models.domain.note import TaskType
 from models.domain.pipeline import INPUT, EdgeConditionKind
 
 Prompt = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
@@ -110,6 +111,9 @@ class CodingAgentFile(_File):
     execute_prompt: Prompt | None = None
     execute_prompt_file: str | None = None
     denied_tools: list[Prompt] | None = None
+    type_prompts: dict[TaskType, str] | None = None
+    """The planning prompt of each task type when delegating without choosing
+    one: type → name of a ``coding-agent/<name>.md`` (``""`` = ``plan_prompt``)."""
     models: list[ModelFile] | None = None
     """Copilot models to choose from when delegating (``--model``): a name, or
     ``{name, input, cached_input, cache_write, output, note, long_context}``."""

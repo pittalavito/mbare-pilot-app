@@ -3,7 +3,8 @@ from the data folder: ``definition/global-coding-agent.yml``, whose fields
 ``definition/project/<slug>/coding-agent.yml`` replaces for its project.
 The planning prompts to choose from when delegating are the ``<name>.md`` of
 ``definition/coding-agent/`` and ``definition/project/<slug>/coding-agent/``
-(the project's win by name). Every planning prompt says where the task is with
+(the project's win by name); ``type_prompts`` picks one per task type when
+the user does not choose. Every planning prompt says where the task is with
 ``{task_folder}``: the task and its references are files in the repository
 (domain/project/task_folder.py), not text of the prompt.
 
@@ -18,6 +19,7 @@ from core.error import ValidationError
 from domain.project.data_paths import CODING_AGENT_FILE, CODING_AGENT_PROMPTS_DIR, GLOBAL_CODING_AGENT_FILE, NOTE_SUFFIX, data_file_name, project_definitions
 from models.domain.copilot import CodingAgentSettings, CopilotModel, CopilotPrice
 from models.domain.definitions import CodingAgentFile, ModelFile
+from models.domain.note import TaskType
 
 TASK_FOLDER_PLACEHOLDER = "{task_folder}"
 _PROMPTS = ("plan_prompt", "execute_prompt")
@@ -44,7 +46,17 @@ def load(files: DefinitionFiles, project_name: str | None = None) -> CodingAgent
     if missing:
         raise ValidationError(f"definition/{GLOBAL_CODING_AGENT_FILE}: manca {', '.join(missing)}.")
     _check_placeholder("plan_prompt", values["plan_prompt"])
+    unknown = sorted({name for name in values.get("type_prompts", {}).values() if name and name not in prompts})
+    if unknown:
+        raise ValidationError(f"type_prompts: prompt non trovati: {', '.join(unknown)}. "
+                              f"Disponibili: {', '.join(sorted(prompts)) or 'nessuno'} (i file .md di coding-agent/).")
     return CodingAgentSettings(**values, prompts=dict(sorted(prompts.items())))
+
+
+def task_prompt(settings: CodingAgentSettings, task_type: TaskType, prompt: str = "") -> str:
+    """The planning prompt to use: ``prompt`` when chosen, else the one of the
+    task's type (``""`` = ``plan_prompt``)."""
+    return prompt.strip() or settings.type_prompts.get(task_type, "")
 
 
 def plan_prompt(settings: CodingAgentSettings, task_folder: str, prompt: str = "") -> str:
@@ -92,6 +104,8 @@ def _values(files: DefinitionFiles, path: str, folder: str, required: bool) -> d
             values[name] = prompt
     if spec.denied_tools is not None:
         values["denied_tools"] = spec.denied_tools
+    if spec.type_prompts is not None:
+        values["type_prompts"] = {kind: name.strip() for kind, name in spec.type_prompts.items()}
     if spec.models is not None:
         values["models"] = [_model(item) for item in spec.models]
         names = [model.name for model in values["models"]]

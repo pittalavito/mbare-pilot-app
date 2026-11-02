@@ -9,6 +9,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
+from models.domain.note import TaskType
+
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -105,6 +107,9 @@ class CodingAgentSettings(BaseModel):
     execute_prompt: str
     denied_tools: list[str]
     """``--deny-tool`` of the execution, e.g. ``shell(git commit)``."""
+    type_prompts: dict[TaskType, str] = Field(default_factory=dict)
+    """The prompt (a name of ``prompts``, ``""`` = ``plan_prompt``) of each task
+    type, used when delegating without choosing one; a type not here: ``plan_prompt``."""
     models: list[CopilotModel] = Field(default_factory=list)
     """The models to choose from when delegating (besides the default), as written."""
     prompts: dict[str, str] = Field(default_factory=dict)

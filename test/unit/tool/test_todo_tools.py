@@ -77,7 +77,7 @@ def test_the_agent_tasks_status_also_without_copilot(context):
     context.project_data.create_agent_task("acme", AgentTask(title="Fix porto", status=TaskStatus.IN_PROGRESS))
 
     assert _call(LIST_AGENT_TASKS, context) == {"tasks": [
-        {"task": "agent-task-fix-porto.md", "title": "Fix porto", "status": "in_progress", "copilot_status": None},
+        {"task": "agent-task-fix-porto.md", "title": "Fix porto", "status": "in_progress", "type": "development", "copilot_status": None},
     ]}
 
 

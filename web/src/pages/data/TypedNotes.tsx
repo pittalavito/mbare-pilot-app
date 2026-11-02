@@ -17,27 +17,56 @@ import { ReferencesSection } from "./ReferencesSection";
  * their template; here each one is a form of its fields, with the code and
  * context references it links (ReferencesSection). */
 
-const STATUS = [
-  { value: "todo", label: "Da fare", color: "gray" },
+/** In order: created and refinement come before todo, ready to delegate. */
+export const STATUS = [
+  { value: "created", label: "Creato", color: "gray" },
+  { value: "refinement", label: "In rifinitura", color: "yellow" },
+  { value: "todo", label: "Da fare", color: "indigo" },
   { value: "in_progress", label: "In corso", color: "blue" },
   { value: "done", label: "Fatto", color: "green" },
 ] as const;
 
+/** What the task asks for; it picks Copilot's planning prompt (type_prompts). */
+export const TYPES = [
+  { value: "refinement", label: "Rifinitura", color: "grape" },
+  { value: "development", label: "Sviluppo", color: "teal" },
+  { value: "analysis", label: "Analisi", color: "orange" },
+] as const;
+
+const ALL = "all";
+
 export function AgentTasks({ project }: { project: string }) {
   const tasks = useAgentTasks(project);
   const save = useSaveAgentTask(project);
+  const [type, setType] = useState<string>(ALL);
   return (
     <TypedNotes
       project={project}
-      items={tasks.data}
+      items={tasks.data?.filter((task) => type === ALL || task.type === type)}
       error={tasks.error?.message}
       newLabel="Nuovo task"
       intro="Un agent task è un compito per un agente: obiettivo, contesto, criteri di accettazione e vincoli. È una nota agent-task-<titolo>.md."
+      toolbar={
+        <SegmentedControl
+          size="xs" fullWidth aria-label="Filtra per tipo"
+          data={[{ value: ALL, label: "Tutti" }, ...TYPES.map(({ value, label }) => ({ value, label }))]}
+          value={type}
+          onChange={setType}
+        />
+      }
       describe={(task) => {
         const status = STATUS.find((item) => item.value === task.status) ?? STATUS[0];
-        return <Badge size="xs" variant="light" color={status.color}>{status.label}</Badge>;
+        const kind = TYPES.find((item) => item.value === task.type) ?? TYPES[1];
+        return (
+          <Group gap={4} wrap="nowrap">
+            <Badge size="xs" variant="outline" color={kind.color}>{kind.label}</Badge>
+            <Badge size="xs" variant="light" color={status.color}>{status.label}</Badge>
+          </Group>
+        );
       }}
-      create={(title, done) => save.mutate({ body: { title, status: "todo", objective: "", context: "", criteria: [], constraints: "", references: [] } }, done)}
+      create={(title, done) => save.mutate({
+        body: { title, status: "created", type: type === ALL ? "development" : type as AgentTaskBody["type"], objective: "", context: "", criteria: [], constraints: "", references: [] },
+      }, done)}
       creating={save.isPending}
       renderEditor={(task) => <AgentTaskEditor key={task.name} project={project} task={task} />}
     />
@@ -71,12 +100,14 @@ type Named = { name: string; title: string };
 type Done = { onSuccess: (created: Named) => void; onError: (error: Error) => void };
 
 /** The notes of one type on the left (``?note=`` is the open one), its form on the right. */
-function TypedNotes<T extends Named>({ items, error, newLabel, intro, describe, create, creating, renderEditor }: {
+function TypedNotes<T extends Named>({ items, error, newLabel, intro, toolbar, describe, create, creating, renderEditor }: {
   project: string;
   items?: T[];
   error?: string;
   newLabel: string;
   intro: string;
+  /** Under «New»: e.g. a filter of the list. */
+  toolbar?: ReactNode;
   describe: (item: T) => ReactNode;
   create: (title: string, done: Done) => void;
   creating: boolean;
@@ -92,6 +123,7 @@ function TypedNotes<T extends Named>({ items, error, newLabel, intro, describe, 
       <Grid.Col span={{ base: 12, md: 3 }}>
         <Stack gap="xs">
           <Button onClick={() => setAdding(true)}>➕ {newLabel}</Button>
+          {toolbar}
           {!items && !error && <Loader size="sm" />}
           {error && <Alert color="red">{error}</Alert>}
           {items && !items.length && <Text size="sm" c="dimmed">Nessuna, per ora.</Text>}
@@ -234,12 +266,29 @@ function AgentTaskEditor({ project, task }: { project: string; task: AgentTask }
       }
     >
       <TextInput label="Titolo" value={form.title} onChange={(event) => set({ title: event.currentTarget.value })} />
-      <SegmentedControl
-        style={{ alignSelf: "flex-start" }}
-        data={STATUS.map(({ value, label }) => ({ value, label }))}
-        value={form.status ?? "todo"}
-        onChange={(value) => set({ status: value as AgentTaskBody["status"] })}
-      />
+      <Group align="flex-end" gap="md">
+        <div>
+          <Text size="sm" fw={500} mb={4}>Stato</Text>
+          <SegmentedControl
+            aria-label="Stato"
+            data={STATUS.map(({ value, label }) => ({ value, label }))}
+            value={form.status ?? "created"}
+            onChange={(value) => set({ status: value as AgentTaskBody["status"] })}
+          />
+        </div>
+        <div>
+          <Text size="sm" fw={500} mb={4}>Tipo</Text>
+          <SegmentedControl
+            aria-label="Tipo del task"
+            data={TYPES.map(({ value, label }) => ({ value, label }))}
+            value={form.type ?? "development"}
+            onChange={(value) => set({ type: value as AgentTaskBody["type"] })}
+          />
+        </div>
+      </Group>
+      {form.status && !["todo", "in_progress", "done"].includes(form.status) && (
+        <Text size="xs" c="dimmed">Non ancora pronto: quando è rifinito, mettilo «Da fare». Si può delegare comunque, con un avviso.</Text>
+      )}
       <Textarea label="Obiettivo" description="Cosa deve ottenere l'agente." autosize minRows={2} value={form.objective ?? ""} onChange={(event) => set({ objective: event.currentTarget.value })} />
       <Textarea label="Contesto" description="Repository, file, decisioni già prese." autosize minRows={2} value={form.context ?? ""} onChange={(event) => set({ context: event.currentTarget.value })} />
       <div>

@@ -14,6 +14,7 @@ Agent task::
     # Refactor del login
 
     Stato: da fare
+    Tipo: sviluppo
 
     ## Obiettivo
     ...
@@ -53,12 +54,17 @@ Reference, code or context (repository, file and lines only for code)::
 import re
 from datetime import date
 
-from models.domain.note import AgentTask, ChecklistItem, Reference, TaskStatus, TodoItem, TodoList, TodoPriority
+from models.domain.note import AgentTask, ChecklistItem, Reference, TaskStatus, TaskType, TodoItem, TodoList, TodoPriority
 
-STATUS_LABELS = {TaskStatus.TODO: "da fare", TaskStatus.IN_PROGRESS: "in corso", TaskStatus.DONE: "fatto"}
+STATUS_LABELS = {
+    TaskStatus.CREATED: "creato", TaskStatus.REFINEMENT: "in rifinitura",
+    TaskStatus.TODO: "da fare", TaskStatus.IN_PROGRESS: "in corso", TaskStatus.DONE: "fatto",
+}
+TYPE_LABELS = {TaskType.REFINEMENT: "rifinitura", TaskType.DEVELOPMENT: "sviluppo", TaskType.ANALYSIS: "analisi"}
 PRIORITY_LABELS = {TodoPriority.HIGH: "alta", TodoPriority.MEDIUM: "media", TodoPriority.LOW: "bassa"}
 
 _STATUS = "Stato:"
+_TYPE = "Tipo:"
 _SECTIONS = {"objective": "Obiettivo", "context": "Contesto", "criteria": "Criteri di accettazione", "constraints": "Vincoli"}
 _REFERENCES = "Riferimenti"
 _SOURCE, _SOURCE_SEPARATOR = "Fonte:", " · "
@@ -72,7 +78,7 @@ _DETAILS = re.compile(r"^(.*?)\s+\((?:(alta|media|bassa)(?:,\s*)?)?(\d{4}-\d{2}-
 # --------------------------------------------------------------- agent task
 
 def render_agent_task(task: AgentTask) -> str:
-    lines = [f"# {_line(task.title)}", "", f"{_STATUS} {STATUS_LABELS[task.status]}"]
+    lines = [f"# {_line(task.title)}", "", f"{_STATUS} {STATUS_LABELS[task.status]}", f"{_TYPE} {TYPE_LABELS[task.type]}"]
     for field, heading in _SECTIONS.items():
         lines += ["", f"## {heading}"]
         if field == "criteria":
@@ -84,12 +90,13 @@ def render_agent_task(task: AgentTask) -> str:
 
 def parse_agent_task(text: str, fallback_title: str) -> AgentTask:
     title, head, sections = _split(text, fallback_title, {*_SECTIONS.values(), _REFERENCES})
-    status = next((line[len(_STATUS):].strip().lower() for line in head if line.startswith(_STATUS)), "")
+    status, kind = (_value(head, label).lower() for label in (_STATUS, _TYPE))
     by_heading = {heading.lower(): field for field, heading in _SECTIONS.items()}
     fields = {by_heading[heading]: body for heading, body in sections.items() if heading in by_heading}
     return AgentTask(
         title=title,
-        status=next((key for key, label in STATUS_LABELS.items() if label == status), TaskStatus.TODO),
+        status=next((key for key, label in STATUS_LABELS.items() if label == status), TaskStatus.CREATED),
+        type=next((key for key, label in TYPE_LABELS.items() if label == kind), TaskType.DEVELOPMENT),
         objective=_text(fields.get("objective", [])),
         context=_text(fields.get("context", [])),
         criteria=[ChecklistItem(text=text, done=done) for done, text in _checks(fields.get("criteria", []))],
