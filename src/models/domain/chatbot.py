@@ -21,7 +21,8 @@ class ChatbotKind(StrEnum):
     KIND_TOOLS' tools (whatever is saved), and the automation cache."""
     SECRETARY = "secretary"
     """Helps with the notes: reads, creates and ticks the todo lists, reads the
-    agent tasks' status; never the references. Only KIND_TOOLS' tools, no cache."""
+    agent tasks' status and creates agent tasks (in refinement), linking
+    references by their title, never reading them. Only KIND_TOOLS' tools, no cache."""
     REFINER = "refiner"
     """Helps refining the agent tasks; shown next to them (Dati → Agent task),
     not in the Chat tab. Only KIND_TOOLS' tools, no cache. Its tools never
@@ -32,7 +33,10 @@ class ChatbotKind(StrEnum):
 
 KIND_TOOLS: dict[ChatbotKind, list[str]] = {
     ChatbotKind.AUTOMATION: ["list_automations", "run_automation", "automation_status"],
-    ChatbotKind.SECRETARY: ["list_todo_lists", "read_todo_list", "create_todo_list", "update_todo_list", "list_agent_tasks"],
+    ChatbotKind.SECRETARY: [
+        "list_todo_lists", "read_todo_list", "create_todo_list", "update_todo_list",
+        "list_agent_tasks", "list_references", "create_agent_task",
+    ],
     ChatbotKind.REFINER: ["create_code_reference"],
 }
 """The tools a kind imposes on its chatbots; a kind not here lets them be chosen."""

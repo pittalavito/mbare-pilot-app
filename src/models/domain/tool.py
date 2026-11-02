@@ -216,3 +216,23 @@ class CreateCodeReferenceResponse(BaseModel):
     files: int = Field(..., description="How many files have comments.")
     comments: int = Field(..., description="How many comments were found.")
     link: str | None = Field(None, description="Link to the note in the app: give it to the user as a markdown link.")
+
+
+class ReferenceInfo(BaseModel):
+    """A reference by its title only: the secretary never reads the content."""
+    name: str = Field(..., description="The reference's note name: what create_agent_task wants in references.")
+    title: str
+    kind: str = Field(..., description="code (a piece of code) or context (text, e.g. from Jira or Confluence).")
+
+
+class ListReferencesResponse(BaseModel):
+    references: list[ReferenceInfo] = Field(..., description="The project's references (titles only).")
+
+
+class AgentTaskCreatedResponse(BaseModel):
+    task: str = Field(..., description="The new task's note name (agent-task-<title>.md).")
+    title: str
+    type: str = Field(..., description="refinement, development or analysis.")
+    status: str = Field(..., description="Always refinement: the user refines it, then sets it to todo.")
+    references: list[str] = Field(..., description="The linked references, by name.")
+    link: str = Field(..., description="Link to the task in the app: give it to the user as a markdown link.")

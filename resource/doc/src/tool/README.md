@@ -124,6 +124,14 @@ I tool del chatbot `secretary` ([service](../service/README.md)), in `notes/todo
 - **Data di oggi** nelle risposte, per scadenze come «entro venerdì».
 - Solo nel chatbot di un progetto (`notes_run()`: serve `project_data`, non Copilot). Anche `list_agent_tasks` usa questa condizione: senza Copilot dà lo stato delle note e `copilot_status` vuoto.
 
+## Note: gli agent task del segretario
+
+Gli altri tool del chatbot `secretary`, in `notes/agent_tasks.py`:
+
+- **`list_references()`**: i riferimenti del progetto (codice e contesto) con **solo** nome, titolo e tipo (`code` / `context`), mai il contenuto: servono a scegliere quali collegare.
+- **`create_agent_task(title, type, objective, context, criteria, constraints, references)`**: un agent task nuovo, ad esempio da una voce di una todo list. Nasce **in rifinitura** (`refinement`): lo rifinisci tu e lo porti a «da fare». `type` è `refinement`, `development` o `analysis`; `criteria` una voce per stringa (le vuote si saltano). I riferimenti sono nomi di `list_references` (`.md` aggiunto se manca, ripetuti una volta): uno che non esiste è un errore, più severo dell'editor, perché il modello potrebbe inventare un nome. Restituisce il nome del task, i riferimenti collegati e il **link** al task (`/projects/<progetto>/data?note=<task>`), che apre la sotto-scheda Agent task con quel task. La todo list di origine non cambia; un titolo già usato è un errore.
+- Solo nel chatbot di un progetto (`notes_run()`), come i tool delle todo list.
+
 ## Refiner: `create_code_reference()`
 
 Il tool del chatbot `refiner`, in `refiner/create_code_reference.py`. Cerca nel codice del progetto i commenti `todoMbarePilot{descrizione}` e li scrive in **un** riferimento codice (`code-reference-todo-mbare-pilot.md`) con `CodeTodoService` ([service](../service/README.md#commenti-todombarepilot-codetodoservice)).

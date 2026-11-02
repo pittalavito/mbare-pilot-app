@@ -18,6 +18,7 @@ import { AgentTasks, TodoLists } from "./TypedNotes";
  * index). Which note types it shows is a setting of the project (⚙️). */
 export function DataTab() {
   const { project = "" } = useParams();
+  const [search] = useSearchParams();
   const settings = useDataSettings(project);
   const visible = settings.data?.visible_note_types ?? (settings.error ? DEFAULT_VISIBLE : []); // unreadable: the defaults, with the error
   const references = REFERENCE_TYPES.filter((kind) => visible.includes(kind));
@@ -29,7 +30,7 @@ export function DataTab() {
     { value: "files", label: "📎 File", panel: <Files project={project} /> },
     { value: "settings", label: "⚙️ Impostazioni", panel: <DataSettings project={project} /> },
   ].filter((tab) => !!tab);
-  const [tab, setTab] = useState<string | null>(null);
+  const [tab, setTab] = useState<string | null>(() => tabOfNote(search.get("note"))); // a link to a note opens its tab
   const current = tabs.some((item) => item.value === tab) ? tab : tabs[0].value; // a hidden tab falls back to the first one
 
   if (settings.isPending) return <Loader size="sm" />;
@@ -42,6 +43,15 @@ export function DataTab() {
       {tabs.map((item) => <Tabs.Panel key={item.value} value={item.value}>{item.panel}</Tabs.Panel>)}
     </Tabs>
   );
+}
+
+/** The tab of a note by its name (``?note=`` of a link, e.g. from a chatbot); null = the first one. */
+export function tabOfNote(note: string | null): string | null {
+  if (!note) return null;
+  if (note.startsWith(NOTE_PREFIXES.agent_task)) return "agent-tasks";
+  if (note.startsWith(NOTE_PREFIXES.todo_list)) return "todo-lists";
+  if (note.startsWith(NOTE_PREFIXES.code_reference) || note.startsWith(NOTE_PREFIXES.context_reference)) return "references";
+  return "notes";
 }
 
 // -------------------------------------------------------------------- notes
