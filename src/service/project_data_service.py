@@ -7,14 +7,12 @@ written by hand: what read_context gives the chatbot, and the RAG will index)
 and ``copilot/<session>/`` (an agent task and its references, for Copilot)."""
 from collections.abc import Callable
 from datetime import datetime, timezone
-from pathlib import Path
 
 from pydantic import BaseModel
 
 from core.error import ConflictError, NotFoundError, ValidationError
 from domain.project.data_paths import (
     CONTEXT_DIR,
-    COPILOT_DIR,
     FILES_DIR,
     NOTE_SUFFIX,
     NOTES_DIR,
@@ -201,24 +199,19 @@ class ProjectDataService:
         self.save_note(project_name, name, content)
 
     # ---------------------------------------------------------- copilot folder
-    def copilot_folder(self, project_name: str, task_note: str, folder_id: str) -> Path:
+    def copilot_files(self, project_name: str, task_note: str) -> dict[str, bytes]:
         """The agent task (``task.md``) and its linked references (by their
-        names) as files in ``copilot/<folder_id>/``, rebuilt from scratch so
-        they are always current; references that no longer exist are skipped.
-        Returns the folder's absolute path. NotFoundError when the task is gone."""
+        names), as the notes are now: name → content, for the task's folder in
+        the repository (domain/project/task_folder.py). References that no
+        longer exist are skipped. NotFoundError when the task is gone."""
         task_name = note_file_name(task_note)
         task = self.agent_task(project_name, task_name)
-        prefix = self._id(project_name, COPILOT_DIR, data_file_name(folder_id))
-        self._files.delete_folder(prefix)
-        self._files.save(f"{prefix}/{TASK_FILE}", self.read_note(project_name, task_name).encode("utf-8"))
+        files = {TASK_FILE: self.read_note(project_name, task_name).encode("utf-8")}
         for name in task.references:
             reference = self._id(project_name, NOTES_DIR, note_file_name(name))
             if self._files.get(reference) is not None:
-                self._files.save(f"{prefix}/{note_file_name(name)}", self._files.read(reference))
-        return self._files.path(prefix)
-
-    def delete_copilot_folder(self, project_name: str, folder_id: str) -> None:
-        self._files.delete_folder(self._id(project_name, COPILOT_DIR, data_file_name(folder_id)))
+                files[note_file_name(name)] = self._files.read(reference)
+        return files
 
     # -------------------------------------------------------------- settings
     def visible_note_types(self, project_name: str) -> list[NoteType]:

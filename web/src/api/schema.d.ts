@@ -994,7 +994,7 @@ export interface paths {
         };
         /**
          * Get Issue
-         * @description One issue by key (``PROJ-123``), with its description as plain text.
+         * @description One issue by key (``PROJ-123``), with its description as Markdown.
          */
         get: operations["get_issue_projects__project__atlassian_jira_issues__issue_key__get"];
         put?: never;
@@ -1055,7 +1055,7 @@ export interface paths {
         };
         /**
          * Get Page
-         * @description One page with its body as plain text.
+         * @description One page with its body as Markdown.
          */
         get: operations["get_page_projects__project__atlassian_confluence_pages__page_id__get"];
         put?: never;

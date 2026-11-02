@@ -1,7 +1,10 @@
 """A fake GitHub Copilot CLI for the tests: answers ``copilot -p`` like the
 real one (JSONL with ``assistant.message`` and ``result``), remembers the turns
 of each ``--session-id`` (in ``$FAKE_COPILOT_STATE``) and records the
-arguments it got. What it does depends on the task (the session's first prompt):
+arguments it got. What it does depends on the task: the session's first
+prompt and, as the real one would read it, the ``task.md`` of the
+``mbare-pilot/<task>`` folder that prompt names (relative to the working
+directory):
 
 - default: plan turns answer with a question; the execution writes ``copilot.txt``;
 - ``COMMIT``: the execution also commits (a broken rule, for the HEAD check);
@@ -14,6 +17,7 @@ one: each turn adds 1 premium request, 0.1 AI credits, 1000 input and 10 output
 tokens (a turn killed while sleeping writes nothing)."""
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -31,7 +35,7 @@ def main() -> int:
     turns = json.loads(session_file.read_text(encoding="utf-8")) if session_file.exists() else []
     turns.append({"prompt": prompt, "mode": mode, "args": args})
     session_file.write_text(json.dumps(turns), encoding="utf-8")
-    task = turns[0]["prompt"]
+    task = _task(turns[0]["prompt"])
 
     usage_file = args[args.index("--usage-output-file") + 1] if "--usage-output-file" in args else None
     model = args[args.index("--model") + 1] if "--model" in args else "fake-default"
@@ -54,6 +58,13 @@ def main() -> int:
     _answer("Ho creato copilot.txt. Criteri soddisfatti.", len(turns))
     _usage(usage_file, len(turns), model)
     return 0
+
+
+def _task(first_prompt: str) -> str:
+    """The first prompt plus the task file it points to, when there is one."""
+    match = re.search(r"mbare-pilot/[\w.-]+", first_prompt)
+    task_file = Path(match.group(0)) / "task.md" if match else None
+    return first_prompt + ("\n" + task_file.read_text(encoding="utf-8") if task_file and task_file.is_file() else "")
 
 
 def _answer(text: str, premium_requests: int, exit_code: int = 0) -> None:

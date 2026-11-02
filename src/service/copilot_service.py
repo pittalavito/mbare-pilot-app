@@ -13,6 +13,12 @@ A session lives in two phases:
 The prompts and the denied tools come from the coding-agent definition in the
 data folder (domain/project/coding_agent.py), read at every use.
 
+The task and its linked references reach Copilot as files in the repository,
+``mbare-pilot/<task note>/`` (domain/project/task_folder.py), rebuilt before
+every turn and left there afterwards; the prompt only says where they are
+(``{task_folder}``). The app keeps that folder out of its lists of changed
+files (the warning before an execution, the files changed by it).
+
 One execution at a time per repository (the queue waits); after an execution
 the chat can go on and a new ok starts a new one. The task's status follows:
 in progress while it runs, done when it succeeds, back to todo otherwise."""
@@ -26,7 +32,7 @@ from config import Config
 from core.error import AppError, ConflictError, NotFoundError, UpstreamError, ValidationError
 from core.observability import LogPrefix, log_exception, observed
 from domain.client.copilot.client import NOT_FOUND, CopilotClient, CopilotMode
-from domain.project import coding_agent
+from domain.project import coding_agent, task_folder
 from domain.project.data_paths import note_file_name
 from models.domain.copilot import (
     CodingAgentSettings,
@@ -164,21 +170,19 @@ class CopilotService:
             raise UpstreamError(NOT_FOUND)
         settings = self.coding_agent(project_name)
         model = coding_agent.check_model(settings, model)
-        task = self._data.agent_task(project_name, task_note)  # exists and is an agent task
+        self._data.agent_task(project_name, task_note)  # exists and is an agent task
         folder = self._git.repository_folder(project_name, repository)
-        first_turn = coding_agent.plan_prompt(settings, self._data.read_note(project_name, task_note), prompt.strip())
-        session_id = str(uuid4())
-        if task.references and (note := coding_agent.references_note(settings, self._data.copilot_folder(project_name, task_note, session_id))):
-            first_turn += f"\n\n{note}"
+        first_turn = coding_agent.plan_prompt(settings, task_folder.relative_folder(task_note), prompt.strip())
+        task_folder.write(folder, task_note, self._data.copilot_files(project_name, task_note))  # before the session: errors stop here
         session = self._copilot.save_session(CopilotSession(
             project_name=project_name,
             task_note=task_note,
             repository=repository.strip().strip("/\\"),
-            copilot_session_id=session_id,
+            copilot_session_id=str(uuid4()),
             prompt=prompt.strip(),
             model=model,
         ))
-        return self._plan_turn(session, folder, first_turn)
+        return self._plan_turn(session, folder, first_turn, refresh=False)
 
     @observed(LogPrefix.COPILOT_SERVICE)
     def send(self, session_id: int, text: str) -> CopilotSession:
@@ -192,12 +196,14 @@ class CopilotService:
         folder = self._git.repository_folder(session.project_name, session.repository)
         return self._plan_turn(session, folder, text.strip())
 
-    def _plan_turn(self, session: CopilotSession, folder: Path, prompt: str) -> CopilotSession:
+    def _plan_turn(self, session: CopilotSession, folder: Path, prompt: str, refresh: bool = True) -> CopilotSession:
+        """``refresh``: rebuild the task's folder first (``start`` just wrote it)."""
+        if refresh:
+            self._refresh_task_folder(session, folder)
         self._message(session, CopilotMessageRole.USER, prompt)
         session = self._update(session, status=CopilotSessionStatus.PLANNING, error=None)
         started = time.monotonic()
-        turn = self._client.turn(folder, session.copilot_session_id, prompt, CopilotMode.PLAN, self._planning_timeout, model=session.model,
-                                 extra_dirs=self._task_folder(session))
+        turn = self._client.turn(folder, session.copilot_session_id, prompt, CopilotMode.PLAN, self._planning_timeout, model=session.model)
         self._record_usage(session, turn, CopilotPhase.PLAN, started)
         return self._record(session, turn)
 
@@ -232,12 +238,12 @@ class CopilotService:
 
     @observed(LogPrefix.COPILOT_SERVICE)
     def delete(self, session_id: int) -> None:
-        """With its messages; the files Copilot changed stay. Copilot's own session stays in its folder."""
+        """With its messages; the files Copilot changed and the task's folder in
+        the repository stay. Copilot's own session stays in its folder."""
         session = self.session(session_id)
         if session.status in (CopilotSessionStatus.QUEUED, CopilotSessionStatus.RUNNING):
             raise ConflictError("La sessione è in coda o in esecuzione: annullala prima.")
         self._copilot.delete_session(session.id)
-        self._data.delete_copilot_folder(session.project_name, session.copilot_session_id)
 
     @observed(LogPrefix.COPILOT_SERVICE)
     def delete_task_sessions(self, project_name: str, task_note: str) -> int:
@@ -250,7 +256,6 @@ class CopilotService:
             raise ConflictError("Una sessione di questo task è in coda o in esecuzione: annullala prima.")
         for session in sessions:
             self._copilot.delete_session(session.id)
-            self._data.delete_copilot_folder(project_name, session.copilot_session_id)
         return len(sessions)
 
     # ---------------------------------------------------------------- worker
@@ -270,12 +275,12 @@ class CopilotService:
             return self._update(session, status=CopilotSessionStatus.FAILED, error=str(exc), finished_at=_now())
         session = self._update(session, head_before=head_before, head_after=None, changed_files=[], error=None)
         self._message(session, CopilotMessageRole.EVENT, "▶️ Esecuzione partita: Copilot modifica i file, senza commit.")
-        self._set_task_status(session, TaskStatus.IN_PROGRESS)
+        self._set_task_status(session, TaskStatus.IN_PROGRESS)  # before the folder: task.md says «in corso»
+        self._refresh_task_folder(session, folder)
         self._message(session, CopilotMessageRole.USER, settings.execute_prompt)
         started = time.monotonic()
         turn = self._client.turn(folder, session.copilot_session_id, settings.execute_prompt, CopilotMode.EXECUTE,
-                                 self._execution_timeout, settings.denied_tools, self._cancel_check(session.id), model=session.model,
-                                 extra_dirs=self._task_folder(session))
+                                 self._execution_timeout, settings.denied_tools, self._cancel_check(session.id), model=session.model)
         self._record_usage(session, turn, CopilotPhase.EXECUTE, started)
         session = self._record(session, turn)
         return self._finish(session, turn)
@@ -344,14 +349,15 @@ class CopilotService:
         except Exception:  # noqa: BLE001 - observability must not break the session
             log_exception(LogPrefix.COPILOT_SERVICE, "Uso del turno non registrato (sessione %s)", session.id)
 
-    def _task_folder(self, session: CopilotSession) -> list[Path]:
-        """The task and its references as files, rebuilt now (they may have
-        changed since the last turn); none when the task was deleted meanwhile."""
+    def _refresh_task_folder(self, session: CopilotSession, folder: Path) -> None:
+        """The task and its references rewritten in the repository (they may
+        have changed since the last turn). Best effort: when the task was
+        deleted meanwhile (or the folder cannot be written) the last copy
+        stays and the chat goes on."""
         try:
-            return [self._data.copilot_folder(session.project_name, session.task_note, session.copilot_session_id)]
-        except AppError:
-            log_exception(LogPrefix.COPILOT_SERVICE, "Cartella del task %s non preparata", session.task_note)
-            return []
+            task_folder.write(folder, session.task_note, self._data.copilot_files(session.project_name, session.task_note))
+        except (AppError, OSError):
+            log_exception(LogPrefix.COPILOT_SERVICE, "Cartella del task %s non aggiornata", session.task_note)
 
     def _cancel_check(self, session_id: int) -> Callable[[], bool]:
         """Polled by the client while Copilot runs: reads the DB every few seconds."""
@@ -368,8 +374,10 @@ class CopilotService:
         return should_cancel
 
     def _changed_files(self, session: CopilotSession) -> list[str]:
-        """``git status`` of the session's repository: the changed files, untracked ones too."""
-        return [change.path for change in self._git.status(session.project_name, session.repository).changes]
+        """``git status`` of the session's repository: the changed files,
+        untracked ones too, without the task's folder (``mbare-pilot/``)."""
+        changes = self._git.status(session.project_name, session.repository).changes
+        return [change.path for change in changes if not task_folder.is_task_path(change.path)]
 
     def _set_task_status(self, session: CopilotSession, status: TaskStatus) -> None:
         """Best effort: the task may have been deleted or edited by hand meanwhile."""

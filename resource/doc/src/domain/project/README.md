@@ -6,6 +6,7 @@ Le regole sui file di un progetto: dove stanno i suoi dati, come si chiamano not
 src/domain/project/
   data_paths.py       percorsi e nomi dei dati del progetto (funzioni pure, niente disco)
   note_templates.py   i template delle note tipizzate: markdown da e verso i campi
+  task_folder.py      il task e i suoi riferimenti come file nel repository, per Copilot (mbare-pilot/<task>/)
   folder_browser.py   FolderBrowser: navigare e creare cartelle, solo dentro PROJECT_ROOTS
   coding_agent.py     prompt e divieti di Copilot dai file di definition/ (vedi definitions.md)
 ```
@@ -15,7 +16,7 @@ Un progetto ha **due posti** distinti:
 | | Dove | Chi lo gestisce |
 |---|---|---|
 | **Codice** | la sua cartella sul PC (`root_path`), scelta con «Apri cartella» o creata con «Crea da zero» | `FolderBrowser` |
-| **Dati** (note, file caricati, contesto) | `<MBARE_PILOT_HOME>/project/<slug>/{notes,files,context}`, fuori dal codice; `copilot/<sessione>/` è la cartella del task che l'app ricompone per Copilot | `data_paths` + `ProjectDataService` |
+| **Dati** (note, file caricati, contesto) | `<MBARE_PILOT_HOME>/project/<slug>/{notes,files,context}`, fuori dal codice. La cartella del task per Copilot sta invece nel repository: `mbare-pilot/<nome del task>/` (`task_folder.py`) | `data_paths` + `ProjectDataService` |
 | **Definizioni** (agenti, chatbot, automation in YAML) | `<MBARE_PILOT_HOME>/definition/` (globali e `project/<slug>/`) | `data_paths` + `DefinitionService`, vedi [definitions](../../../definitions.md) |
 
 ## Dati del progetto (`data_paths.py`)
@@ -41,7 +42,7 @@ Sul disco sono **note come le altre** (markdown in `notes/`); il tipo sta nel no
 | Riferimento di codice | `code-reference-<titolo>.md` | `# titolo`, `Fonte: jira · <url>`, `Repository:`, `File:`, `Righe:`, sezione `## Contenuto` |
 | Riferimento di contesto | `context-reference-<titolo>.md` | come il precedente, senza repository, file e righe |
 
-- `render_*` scrive il markdown, `parse_*` lo rilegge: lettura tollerante, perché il file si può modificare a mano. Righe sconosciute ignorate, sezioni mancanti vuote, il titolo mancante preso dal nome. Al salvataggio successivo resta solo quello che il template conosce.
+- `render_*` scrive il markdown, `parse_*` lo rilegge: lettura tollerante, perché il file si può modificare a mano. Righe sconosciute prima della prima sezione ignorate, sezioni mancanti vuote, il titolo mancante preso dal nome. Al salvataggio successivo resta solo quello che il template conosce. **Solo i titoli del template aprono una sezione** (`## Obiettivo`, `## Contenuto`…): ogni altro `## `, con quello che segue, è testo della sezione in cui si trova. Così il markdown con i suoi titoli (una issue Jira, una pagina Confluence copiata come riferimento, il contesto di un task) torna intero e non si perde al salvataggio.
 - Il nome si decide alla creazione e non cambia più, anche se cambia il titolo.
 - **Riferimenti e collegamenti**: agent task e todo list collegano i riferimenti per nome nella sezione `## Riferimenti` (`- code-reference-login.md`, scritta solo se ce ne sono), **molti a molti**: uno stesso riferimento può stare in più task e liste. `Fonte` dice da dove è stato copiato (vuota = scritto a mano; `jira`, `confluence`, `dynatrace`… per gli import). I riferimenti non compaiono tra le note generiche: si vedono solo dentro ciò che li collega (sezione «📎 Riferimenti» dell'editor). Si possono collegare solo note `code-reference-…` e `context-reference-…`; un nome che non esiste più (file cancellato a mano) è tollerato e segnato «non trovato».
 - Servizio: `ProjectDataService.agent_tasks / create_agent_task / save_agent_task` e gli stessi per le todo list (409 se il nome esiste già, 400 se la nota è di un altro tipo). Si cancellano come note.

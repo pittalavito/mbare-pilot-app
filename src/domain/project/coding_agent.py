@@ -3,11 +3,12 @@ from the data folder: ``definition/global-coding-agent.yml``, whose fields
 ``definition/project/<slug>/coding-agent.yml`` replaces for its project.
 The planning prompts to choose from when delegating are the ``<name>.md`` of
 ``definition/coding-agent/`` and ``definition/project/<slug>/coding-agent/``
-(the project's win by name).
+(the project's win by name). Every planning prompt says where the task is with
+``{task_folder}``: the task and its references are files in the repository
+(domain/project/task_folder.py), not text of the prompt.
 
 The global file is required: a missing or broken file is an error, never a
 fallback to built-in texts (a wrong file must not loosen the denied tools)."""
-from pathlib import Path
 from typing import Protocol
 
 import yaml
@@ -18,10 +19,8 @@ from domain.project.data_paths import CODING_AGENT_FILE, CODING_AGENT_PROMPTS_DI
 from models.domain.copilot import CodingAgentSettings, CopilotModel, CopilotPrice
 from models.domain.definitions import CodingAgentFile, ModelFile
 
-TASK_PLACEHOLDER = "{task}"
 TASK_FOLDER_PLACEHOLDER = "{task_folder}"
 _PROMPTS = ("plan_prompt", "execute_prompt")
-_OPTIONAL_PROMPTS = ("references_prompt",)
 
 
 class DefinitionFiles(Protocol):
@@ -45,22 +44,16 @@ def load(files: DefinitionFiles, project_name: str | None = None) -> CodingAgent
     if missing:
         raise ValidationError(f"definition/{GLOBAL_CODING_AGENT_FILE}: manca {', '.join(missing)}.")
     _check_placeholder("plan_prompt", values["plan_prompt"])
-    if values.get("references_prompt") and TASK_FOLDER_PLACEHOLDER not in values["references_prompt"]:
-        raise ValidationError(f"references_prompt deve contenere {TASK_FOLDER_PLACEHOLDER}: è dove sono il task e i suoi riferimenti.")
     return CodingAgentSettings(**values, prompts=dict(sorted(prompts.items())))
 
 
-def references_note(settings: CodingAgentSettings, task_folder: Path) -> str:
-    """What the first turn adds when the task links references; ``""`` without a references_prompt."""
-    return settings.references_prompt.replace(TASK_FOLDER_PLACEHOLDER, str(task_folder)) if settings.references_prompt else ""
-
-
-def plan_prompt(settings: CodingAgentSettings, task: str, prompt: str = "") -> str:
-    """The first planning turn with the task's markdown (other braces stay as
-    they are); ``prompt`` = one of ``settings.prompts``, ``""`` = ``plan_prompt``."""
+def plan_prompt(settings: CodingAgentSettings, task_folder: str, prompt: str = "") -> str:
+    """The first planning turn, ``{task_folder}`` = where the task is in the
+    repository (other braces stay as they are); ``prompt`` = one of
+    ``settings.prompts``, ``""`` = ``plan_prompt``."""
     if prompt and prompt not in settings.prompts:
         raise ValidationError(f"Prompt non trovato: {prompt}. Disponibili: {', '.join(settings.prompts) or 'nessuno'}.")
-    return (settings.prompts[prompt] if prompt else settings.plan_prompt).replace(TASK_PLACEHOLDER, task.strip())
+    return (settings.prompts[prompt] if prompt else settings.plan_prompt).replace(TASK_FOLDER_PLACEHOLDER, task_folder)
 
 
 def check_model(settings: CodingAgentSettings, model: str) -> str:
@@ -88,7 +81,7 @@ def _values(files: DefinitionFiles, path: str, folder: str, required: bool) -> d
         field = ".".join(str(part) for part in error["loc"])
         raise ValidationError(f"definition/{path}: {field + ': ' if field else ''}{error['msg'].removeprefix('Value error, ')}") from exc
     values: dict = {}
-    for name in (*_PROMPTS, *_OPTIONAL_PROMPTS):
+    for name in _PROMPTS:
         prompt, prompt_file = getattr(spec, name), getattr(spec, f"{name}_file")
         if prompt_file is not None:
             prompt_path = f"{folder}/{data_file_name(prompt_file)}".lstrip("/")
@@ -139,8 +132,8 @@ def _text(files: DefinitionFiles, path: str) -> str:
 
 
 def _check_placeholder(where: str, prompt: str) -> None:
-    if TASK_PLACEHOLDER not in prompt:
-        raise ValidationError(f"{where} deve contenere {TASK_PLACEHOLDER}: è dove va il testo del task.")
+    if TASK_FOLDER_PLACEHOLDER not in prompt:
+        raise ValidationError(f"{where} deve contenere {TASK_FOLDER_PLACEHOLDER}: è la cartella con il task e i suoi riferimenti.")
 
 
 def _yaml(path: str, text: str) -> dict | None:
