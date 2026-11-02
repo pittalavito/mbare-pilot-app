@@ -20,8 +20,6 @@ from models.domain.copilot import CodingAgentSettings, CopilotModel, CopilotPric
 from models.domain.definitions import CodingAgentFile, ModelFile
 
 TASK_FOLDER_PLACEHOLDER = "{task_folder}"
-OLD_TASK_PLACEHOLDER = "{task}"
-"""The task's markdown inside the prompt, before the task became a file: now an error."""
 _PROMPTS = ("plan_prompt", "execute_prompt")
 
 
@@ -134,9 +132,6 @@ def _text(files: DefinitionFiles, path: str) -> str:
 
 
 def _check_placeholder(where: str, prompt: str) -> None:
-    if OLD_TASK_PLACEHOLDER in prompt:
-        raise ValidationError(f"{where}: {OLD_TASK_PLACEHOLDER} non c'è più, il task non va più nel prompt: è un file nel repository. "
-                              f"Scrivi dove leggerlo con {TASK_FOLDER_PLACEHOLDER} (es. «Il task è in {TASK_FOLDER_PLACEHOLDER}/task.md»).")
     if TASK_FOLDER_PLACEHOLDER not in prompt:
         raise ValidationError(f"{where} deve contenere {TASK_FOLDER_PLACEHOLDER}: è la cartella con il task e i suoi riferimenti.")
 

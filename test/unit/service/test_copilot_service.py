@@ -313,8 +313,7 @@ def test_a_prompt_file_without_the_task_placeholder_is_an_error(data, project, c
 @pytest.mark.parametrize("text, error", [
     (None, "Manca definition/global-coding-agent.yml"),
     ("plan_prompt: senza segnaposto\nexecute_prompt: vai\ndenied_tools: []\n", "deve contenere {task_folder}"),
-    ("plan_prompt: '{task}'\nexecute_prompt: vai\ndenied_tools: []\n", "{task} non c'è più"),
-    ("plan_prompt: '{task} in {task_folder}'\nexecute_prompt: vai\ndenied_tools: []\n", "{task} non c'è più"),
+    ("plan_prompt: '{task}'\nexecute_prompt: vai\ndenied_tools: []\n", "deve contenere {task_folder}"),  # the old placeholder
     ("plan_prompt: '{task_folder}'\nexecute_prompt: vai\ndenied_tools: []\nreferences_prompt: 'in {task_folder}'\n", "references_prompt non serve più"),
     ("plan_prompt: '{task_folder}'\nexecute_prompt: vai\ndenied_tools: []\nreferences_prompt_file: r.md\n", "references_prompt non serve più"),
     ("plan_prompt: '{task_folder}'\ndenied_tools: []\n", "manca execute_prompt"),
