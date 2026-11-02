@@ -32,11 +32,11 @@ Errori HTTP tradotti in errori dell'app:
 
 ## Jira (`jira.py`)
 
-`myself()` (verifica connessione), elenco dei progetti, ricerca di issue con JQL (paginazione con token), singola issue. Le descrizioni in formato ADF (Atlassian Document Format) diventano testo semplice (`adf_to_text`: liste, a capo, menzioni).
+`myself()` (verifica connessione), elenco dei progetti, ricerca di issue con JQL (paginazione con token), singola issue. Le descrizioni in formato ADF (Atlassian Document Format) diventano Markdown (`adf_to_markdown`: titoli, liste, tabelle, blocchi di codice con il linguaggio, citazioni e pannelli, link e formattazione).
 
 ## Confluence (`confluence.py`)
 
-Spazi e pagine con l'API v2; la ricerca di testo usa l'endpoint CQL della v1, perché la v2 non ha ricerca. Il testo cercato viene messo in sicurezza nella query CQL. Il corpo delle pagine (XHTML "storage") diventa testo semplice (`storage_to_text`).
+Spazi e pagine con l'API v2; la ricerca di testo usa l'endpoint CQL della v1, perché la v2 non ha ricerca. Il testo cercato viene messo in sicurezza nella query CQL. Il corpo delle pagine (XHTML "storage") diventa Markdown (`storage_to_markdown`: anche tabelle, macro `code`/`noformat` come blocchi di codice, pannelli `info`/`note`/`warning` come citazioni, task list). I pezzi comuni (tabelle GFM, blocchi di codice) stanno in `markdown.py`.
 
 ## Test
 
