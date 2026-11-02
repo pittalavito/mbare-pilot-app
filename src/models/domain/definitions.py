@@ -120,15 +120,6 @@ class CodingAgentFile(_File):
         """A plain name is a model without a price (errors then name the right fields)."""
         return [{"name": item} if isinstance(item, str) else item for item in value] if isinstance(value, list) else value
 
-    @model_validator(mode="before")
-    @classmethod
-    def _no_references_prompt(cls, value: Any) -> Any:
-        """Gone since the references sit next to the task, in ``{task_folder}``."""
-        if isinstance(value, dict) and ({"references_prompt", "references_prompt_file"} & value.keys()):
-            raise ValueError("references_prompt non serve più: task e riferimenti sono tutti in {task_folder}, "
-                             "dillo nel plan_prompt e togli references_prompt")
-        return value
-
     @model_validator(mode="after")
     def _one_source(self) -> "CodingAgentFile":
         for name in ("plan_prompt", "execute_prompt"):
