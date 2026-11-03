@@ -3,7 +3,7 @@ import { Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { mockApi, renderPage } from "../../test/render";
-import { DataTab } from "./DataTab";
+import { DataTab, tabOfNote } from "./DataTab";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -214,5 +214,25 @@ describe("typed notes", () => {
     expect(screen.queryByRole("tab", { name: /Todo list/ })).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("tab", { name: /Riferimenti/ }));
     expect(await screen.findByText("Non collegato a niente")).toBeInTheDocument();
+  });
+});
+
+describe("links to a note", () => {
+  it("open the note's tab with the note open", async () => {
+    mockApi({
+      "GET /projects/acme/notes": NOTES,
+      "GET /projects/acme/agent-tasks": [{ ...TASK, type: "development", references: [] }, { ...TASK, name: "agent-task-altro.md", title: "Altro", type: "analysis", references: [] }],
+      "GET /projects/acme/copilot-sessions": [],
+      "GET /projects/acme/chatbots": [],
+    });
+    renderPage(<Routes><Route path="/projects/:project/data" element={<DataTab />} /></Routes>, { route: "/projects/acme/data?note=agent-task-altro.md" });
+
+    expect(await screen.findByRole("tab", { name: /Agent task/, selected: true })).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("Altro")).toBeInTheDocument(); // the linked task, not the first one
+  });
+
+  it("know which tab each note is in", () => {
+    expect([null, "agent-task-a.md", "todo-list-b.md", "code-reference-c.md", "context-reference-d.md", "appunti.md"].map(tabOfNote))
+      .toEqual([null, "agent-tasks", "todo-lists", "references", "references", "notes"]);
   });
 });

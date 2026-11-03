@@ -1897,7 +1897,7 @@ export interface components {
          * ChatbotKind
          * @enum {string}
          */
-        ChatbotKind: "automation" | "secretary" | "custom";
+        ChatbotKind: "automation" | "secretary" | "refiner" | "custom";
         /**
          * ChatbotModelRequest
          * @description Change only the model of a chatbot (from the UI).

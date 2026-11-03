@@ -151,6 +151,12 @@ class GitClient:
         """``git add -A -- <paths>``: new, changed and deleted files."""
         self._run(cwd, ["add", "-A", "--", *paths])
 
+    def files(self, cwd: Path) -> list[str]:
+        """The files git knows in ``cwd`` and below: tracked, plus the new ones
+        not ignored (``.gitignore`` respected); paths relative to ``cwd``."""
+        output = self._run(cwd, ["ls-files", "-z", "--cached", "--others", "--exclude-standard"])
+        return list(dict.fromkeys(path for path in output.split("\0") if path))
+
     def staged_files(self, cwd: Path) -> list[str]:
         output = self._run(cwd, ["diff", "--cached", "--name-only", "-z"])
         return [path for path in output.split("\0") if path]

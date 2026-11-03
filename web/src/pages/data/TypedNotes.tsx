@@ -11,6 +11,7 @@ import { ConfirmButton } from "../../components/ConfirmButton";
 import { DelegateModal } from "../copilot/DelegateModal";
 import { ChecklistEditor } from "./ChecklistEditor";
 import { ReferencesSection } from "./ReferencesSection";
+import { RefinerPanel } from "./RefinerPanel";
 
 /** The typed notes of the Dati tab: agent tasks and todo lists. On disk they
  * are notes (``agent-task-<title>.md``, ``todo-list-<title>.md``) written with
@@ -35,7 +36,23 @@ export const TYPES = [
 
 const ALL = "all";
 
+/** The agent tasks, with the Refiner chatbot on the right (it can be hidden). */
 export function AgentTasks({ project }: { project: string }) {
+  const [refiner, setRefiner] = useState(true);
+  return (
+    <Grid gutter="md">
+      <Grid.Col span={{ base: 12, lg: refiner ? 8 : 12 }}>
+        <Group justify="flex-end" mb="xs">
+          <Button size="compact-xs" variant="subtle" onClick={() => setRefiner(!refiner)}>{refiner ? "Nascondi il Refiner" : "🧠 Mostra il Refiner"}</Button>
+        </Group>
+        <AgentTaskList project={project} />
+      </Grid.Col>
+      {refiner && <Grid.Col span={{ base: 12, lg: 4 }}><RefinerPanel project={project} /></Grid.Col>}
+    </Grid>
+  );
+}
+
+function AgentTaskList({ project }: { project: string }) {
   const tasks = useAgentTasks(project);
   const save = useSaveAgentTask(project);
   const [type, setType] = useState<string>(ALL);

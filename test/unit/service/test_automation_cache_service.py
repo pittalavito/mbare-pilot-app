@@ -227,6 +227,8 @@ def test_only_an_automation_chatbot_has_the_cache_and_each_kind_its_fixed_tools(
 
 
     secretary = chat.create_chatbot("acme", "Segretario", system_prompt="Note.", model=MODEL, tool_names=["git_status"], kind=ChatbotKind.SECRETARY)
-    assert secretary.tool_names == ["list_todo_lists", "read_todo_list", "create_todo_list", "update_todo_list", "list_agent_tasks"]
+    assert secretary.tool_names == [
+        "list_todo_lists", "read_todo_list", "create_todo_list", "update_todo_list", "list_agent_tasks", "list_references", "create_agent_task",
+    ]
     with pytest.raises(ValidationError, match="solo dei chatbot di tipo automation"):
         cache.add(_user_message(chat, chat.new_conversation(secretary.id), "lancia il report").id, report.id)

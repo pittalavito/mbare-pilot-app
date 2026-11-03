@@ -416,6 +416,11 @@ class GitService:
             head_timestamp=self._git.commit_timestamp(toplevel),
         )
 
+    def files(self, project_name: str, subpath: str = "") -> list[str]:
+        """The files of the repository in ``subpath`` that git knows (tracked,
+        and new ones not ignored), relative to that folder."""
+        return self._git.files(self.repository_folder(project_name, subpath))
+
     def repository_folder(self, project_name: str, subpath: str = "") -> Path:
         """``subpath`` (``""`` = the project folder) as an absolute folder,
         checked: inside the project and inside a git repository."""

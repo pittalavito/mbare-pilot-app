@@ -326,9 +326,10 @@ def test_the_default_chatbots_are_created_where_missing_and_never_changed(servic
     definitions, chatbots, _ = services
     mine = chatbots.create_chatbot("acme", "segretario", system_prompt="Mio.", model=MODEL)  # same name: left as it is
 
-    assert definitions.seed_default_chatbots(["acme"]) == 1
+    assert definitions.seed_default_chatbots(["acme"]) == 2
     bots = {bot.name: bot for bot in chatbots.list_chatbots("acme")}
-    assert set(bots) == {"Chat bot", "segretario"}
+    assert set(bots) == {"Chat bot", "Refiner", "segretario"}
+    assert bots["Refiner"].kind.value == "refiner" and bots["Refiner"].tool_names == ["create_code_reference"]
     assert bots["Chat bot"].kind.value == "automation" and bots["Chat bot"].tool_names == ["list_automations", "run_automation", "automation_status"]
     assert bots["segretario"] == mine
     assert definitions.seed_default_chatbots(["acme"]) == 0  # already there

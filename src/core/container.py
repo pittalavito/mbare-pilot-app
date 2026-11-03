@@ -17,6 +17,7 @@ from service.automation_cache_service import AutomationCacheService
 from service.backup_service import BackupService
 from service.chat_service import ChatService
 from service.chatbot_service import ChatbotService
+from service.code_todo_service import CodeTodoService
 from service.copilot_service import CopilotService
 from service.definition_service import DefinitionService
 from service.git_service import GitService
@@ -72,6 +73,7 @@ class Container:
             git_service=self.git_service,
             project_data_service=self.project_data_service,
         )
+        self.code_todo_service = CodeTodoService(git_service=self.git_service, project_data_service=self.project_data_service)
         self.agent_service = AgentService(
             chat_service=self.chat_service,
             agent_config_service=self.agent_config_service,
@@ -82,6 +84,7 @@ class Container:
             masking_service=self.masking_service,
             project_data_service=self.project_data_service,
             copilot_service=self.copilot_service,
+            code_todo_service=self.code_todo_service,
         )
         self.automation_cache_service = AutomationCacheService(
             chatbots=stores.chatbots,

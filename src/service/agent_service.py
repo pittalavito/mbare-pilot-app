@@ -13,6 +13,7 @@ from models.domain.chat import split_model_key
 from models.domain.chatbot import ChatMessage
 from service.agent_config_service import AgentConfigService
 from service.chat_service import ChatService
+from service.code_todo_service import CodeTodoService
 from service.copilot_service import CopilotService
 from service.git_service import GitService
 from service.masking_service import MaskingService
@@ -38,12 +39,14 @@ class AgentService:
         masking_service: MaskingService,
         project_data_service: ProjectDataService,
         copilot_service: CopilotService,
+        code_todo_service: CodeTodoService,
     ):
         """``pipeline_service`` lets the agents start automations (tool run_automation);
         ``masking_service`` hides the project's sensitive values from the LLM (a
         project without a map is left as it is);
         ``project_data_service`` lets them read the project's context (tool read_context);
-        ``copilot_service`` lets the chatbot delegate agent tasks to Copilot (tool delegate_task).
+        ``copilot_service`` lets the chatbot delegate agent tasks to Copilot (tool delegate_task);
+        ``code_todo_service`` lets the refiner gather the code's comments (tool create_code_reference).
         All are required: whether a tool may use one in a run is decided by the
         tool (``ToolContext.require_*``, the run's origin), not by leaving it out."""
         self._chat_service = chat_service
@@ -55,6 +58,7 @@ class AgentService:
         self._masking_service = masking_service
         self._project_data_service = project_data_service
         self._copilot_service = copilot_service
+        self._code_todo_service = code_todo_service
 
     def run(self, config_name: str, task_input: str, *, project_name: str | None = None, origin: RunOrigin = RunOrigin.MANUAL,
             history: list[ChatMessage] | None = None) -> AgentRunRecord:
@@ -87,6 +91,7 @@ class AgentService:
             origin=origin,
             project_data=self._project_data_service,
             copilot=self._copilot_service,
+            code_todos=self._code_todo_service,
         )
         tools = mask.wrap(build_tools(definition.tool_names, context))
         agent = AgentFactory.create_agent(definition, client, tools)
