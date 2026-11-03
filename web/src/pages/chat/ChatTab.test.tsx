@@ -147,7 +147,7 @@ describe("ChatTab", () => {
     fireEvent.keyDown(input, { key: "Enter" });
 
     expect(await screen.findByText("eco: ciao")).toBeInTheDocument();
-    expect(sent).toEqual({ text: "ciao" });
+    expect(sent).toEqual({ text: "ciao", open_note: "" }); // no note open next to the Chat tab
     await waitFor(() => expect(screen.getByRole("button", { name: /Elimina conversazione/ })).toBeInTheDocument());
   });
 

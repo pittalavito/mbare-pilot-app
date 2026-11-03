@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 
 from core.error import AppError, ConflictError, NotFoundError, ValidationError
 from core.observability import LogPrefix, observed
+from domain.project.data_paths import note_file_name
 from models.domain.agent import AgentDefinition, RunOrigin, ToolInfo
 from models.domain.chatbot import AutomationCacheEntry, Chatbot, ChatbotKind, ChatMessage, Conversation, MessageRole
 from service.agent_config_service import AgentConfigService
@@ -144,12 +145,14 @@ class ChatbotService:
         return self._chatbots.list_messages(conversation_id)
 
     @observed(LogPrefix.CHATBOT_SERVICE)
-    def send(self, conversation_id: int, text: str) -> ChatMessage:
+    def send(self, conversation_id: int, text: str, open_note: str = "") -> ChatMessage:
         """Save the user's message and answer it: from the cache when it is
         close enough to an entry (its automation is launched, no agent), else
         by running the chatbot's agent with the conversation so far. A message
         starting with ``!`` skips the cache. When the answer fails the reply is
-        an ERROR message (kept in the chat, never sent back to the agent)."""
+        an ERROR message (kept in the chat, never sent back to the agent).
+        ``open_note``: the note open next to the chat; the agent is told with
+        this message (not saved in the conversation, nor used by the cache)."""
         text = text.strip()
         bypass = text.startswith(CACHE_BYPASS)
         request = text.removeprefix(CACHE_BYPASS).strip()
@@ -164,7 +167,7 @@ class ChatbotService:
         if match is not None:
             reply = self._from_cache(conversation_id, match.entry)
         else:
-            reply = self._from_agent(conversation_id, chatbot, request, history)
+            reply = self._from_agent(conversation_id, chatbot, with_open_note(request, open_note), history)
         reply = self._chatbots.save_message(reply)
 
         update = {"updated_at": datetime.now(timezone.utc)}
@@ -217,6 +220,13 @@ class ChatbotService:
         for other in self._chatbots.list_chatbots(chatbot.project_name):
             if other.name.lower() == chatbot.name.lower() and other.id != chatbot.id:
                 raise ConflictError(f"Esiste già un chatbot chiamato {other.name} in questo progetto.")
+
+
+def with_open_note(request: str, open_note: str) -> str:
+    """The message for the agent, with the note open next to the chat, if any."""
+    if not open_note.strip():
+        return request
+    return f"[Accanto alla chat è aperta la nota {note_file_name(open_note.strip())}: «questo task» è quello.]\n\n{request}"
 
 
 def _agent_definition(chatbot: Chatbot) -> AgentDefinition:

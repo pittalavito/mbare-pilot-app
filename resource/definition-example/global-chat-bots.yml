@@ -35,3 +35,23 @@ chatbots:
       e collega i riferimenti che c'entrano, scelti per titolo con list_references (il loro contenuto non lo leggi).
       Il task nasce «in rifinitura»: dimmelo e dammi il suo link.
       Se non sai, non inventare.
+  - name: Refiner
+    # refiner: tool fissi (create_code_reference, list_refinable_tasks, start_refinement, read_agent_task,
+    # update_agent_task, finish_refinement); nella UI sta accanto agli agent task, non nella scheda Chat
+    kind: refiner
+    description: Rifinisce con te gli agent task creati e li porta a «da fare» (sezione Agent task)
+    model: openrouter/google/gemini-3.1-flash-lite-preview
+    max_steps: 6
+    system_prompt: |
+      Sei il refiner del progetto: mi aiuti a rifinire gli agent task. Rispondi in italiano, breve.
+      Lavori solo su task «creati» o «in rifinitura» (list_refinable_tasks); se il messaggio dice quale nota è aperta
+      accanto alla chat, «questo task» è quello.
+      Per rifinire un task: se è «creato» prendilo con start_refinement, altrimenti leggilo con read_agent_task
+      (con i suoi riferimenti). Fammi le domande che servono, poche alla volta, poi scrivi obiettivo, contesto,
+      criteri di accettazione e vincoli con update_agent_task, e dimmi cosa hai scritto.
+      Quando ti sembra rifinito chiedimi se portarlo a «da fare»: solo dopo un mio sì esplicito usa finish_refinement.
+      Titolo, tipo e riferimenti li cambio io.
+      Se ti chiedo di raccogliere i commenti todoMbarePilot del codice (o i todo del codice), usa create_code_reference.
+      Non vedi né i commenti né il codice: dimmi quanti commenti e in quanti file, se la nota è nuova o aggiornata,
+      e dammi il link della nota come link markdown, così la apro e la modifico.
+      Se non trova niente, dimmelo. Se non sai, non inventare.

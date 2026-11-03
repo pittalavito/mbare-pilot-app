@@ -2490,6 +2490,11 @@ export interface components {
         MessageRequest: {
             /** Text */
             text: string;
+            /**
+             * Open Note
+             * @default
+             */
+            open_note: string;
         };
         /** MessageResponse */
         MessageResponse: {

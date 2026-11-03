@@ -141,6 +141,23 @@ Il tool del chatbot `refiner`, in `refiner/create_code_reference.py`. Cerca nel 
 - **Errori**: una nota con quel nome scritta a mano non viene toccata e il tool restituisce l'errore.
 - Solo nel chatbot di un progetto (serve `code_todos` nel contesto).
 
+## Refiner: la rifinitura degli agent task
+
+Gli altri tool del chatbot `refiner`, in `refiner/agent_tasks.py`. **Ogni regola sullo stato sta nel tool**, non nel prompt: qualunque altro passaggio viene rifiutato.
+
+| Tool | Cosa fa | Solo se il task è |
+|---|---|---|
+| `list_refinable_tasks()` | i task che il Refiner può prendere o sta rifinendo (nome, titolo, tipo, stato) | creato o in rifinitura |
+| `start_refinement(task)` | lo prende: creato → **in rifinitura**; restituisce il task con i riferimenti | creato |
+| `read_agent_task(task)` | i campi e il **contenuto** dei riferimenti collegati (quelli cancellati si saltano) | in rifinitura |
+| `update_agent_task(task, objective, context, criteria, constraints)` | scrive i campi; un valore vuoto (`''`, `[]`) lascia il campo com'è; `criteria` dati sostituiscono tutti i criteri (le spunte di quelli uguali restano) | in rifinitura |
+| `finish_refinement(task)` | chiude la rifinitura: in rifinitura → **da fare**. Rifiutato senza obiettivo o senza criteri; la descrizione gli dice di usarlo solo dopo un sì esplicito dell'utente | in rifinitura |
+
+- **Dell'utente**: titolo, tipo e riferimenti; da «da fare» in poi il task non è più del Refiner.
+- **Mascheramento**: il contenuto dei riferimenti arriva all'agente come ogni output dei tool, cioè con i valori sensibili del progetto mascherati.
+- **Il task aperto**: il pannello del Refiner manda con ogni messaggio il nome del task aperto nell'editor (`open_note`, vedi [service](../service/README.md#chatbot)); per l'agente è «questo task».
+- Solo nel chatbot di un progetto (`notes_run()`).
+
 ## Copilot: `delegate_task(task, repository)`
 
 Il chatbot delega un agent task (`agent-task-<titolo>.md`, l'elenco lo dà `list_agent_tasks`) a GitHub Copilot su un repository del progetto ([service](../service/README.md#copilot)).

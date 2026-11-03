@@ -85,11 +85,12 @@ export function useMessages(conversationId: number | undefined) {
 export function useSendMessage(chatbotId: number, project?: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ conversationId, text }: { conversationId?: number; text: string }) => {
+    /** ``openNote``: the note open next to the chat, told to the agent with the message. */
+    mutationFn: async ({ conversationId, text, openNote = "" }: { conversationId?: number; text: string; openNote?: string }) => {
       const id =
         conversationId ??
         (await unwrap(api.POST("/chatbots/{chatbot_id}/conversations", { params: { path: { chatbot_id: chatbotId } } }))).id;
-      await unwrap(api.POST("/conversations/{conversation_id}/messages", { params: { path: { conversation_id: id } }, body: { text } }));
+      await unwrap(api.POST("/conversations/{conversation_id}/messages", { params: { path: { conversation_id: id } }, body: { text, open_note: openNote } }));
       return id;
     },
     onSettled: (id) =>

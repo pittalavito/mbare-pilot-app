@@ -25,6 +25,7 @@ def test_only_the_automation_copilot_and_notes_tools_are_for_chatbots_and_the_ca
         "list_automations", "run_automation", "automation_status", "list_agent_tasks", "delegate_task", "copilot_status",
         "list_todo_lists", "read_todo_list", "create_todo_list", "update_todo_list", "create_code_reference",
         "list_references", "create_agent_task",
+        "list_refinable_tasks", "start_refinement", "read_agent_task", "update_agent_task", "finish_refinement",
     }
 
     agent_config_service.sync_tools()

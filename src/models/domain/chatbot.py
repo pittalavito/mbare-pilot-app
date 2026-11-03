@@ -25,8 +25,9 @@ class ChatbotKind(StrEnum):
     references by their title, never reading them. Only KIND_TOOLS' tools, no cache."""
     REFINER = "refiner"
     """Helps refining the agent tasks; shown next to them (Dati → Agent task),
-    not in the Chat tab. Only KIND_TOOLS' tools, no cache. Its tools never
-    hand it the code: they say what they did."""
+    not in the Chat tab. Only KIND_TOOLS' tools, no cache. It takes a task only
+    while created (→ refinement), writes its fields while in refinement and
+    makes it todo with the user's ok; the code scan hands it counts only."""
     CUSTOM = "custom"
     """Its tools are chosen freely; no automation cache."""
 
@@ -37,7 +38,9 @@ KIND_TOOLS: dict[ChatbotKind, list[str]] = {
         "list_todo_lists", "read_todo_list", "create_todo_list", "update_todo_list",
         "list_agent_tasks", "list_references", "create_agent_task",
     ],
-    ChatbotKind.REFINER: ["create_code_reference"],
+    ChatbotKind.REFINER: [
+        "create_code_reference", "list_refinable_tasks", "start_refinement", "read_agent_task", "update_agent_task", "finish_refinement",
+    ],
 }
 """The tools a kind imposes on its chatbots; a kind not here lets them be chosen."""
 

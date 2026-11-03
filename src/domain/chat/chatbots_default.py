@@ -45,11 +45,18 @@ DEFAULT_CHATBOTS: list[ChatbotFile] = [
     ChatbotFile(
         name="Refiner",
         kind=ChatbotKind.REFINER,
-        description="Ti aiuta a rifinire gli agent task (sezione Agent task)",
+        description="Rifinisce con te gli agent task creati e li porta a «da fare» (sezione Agent task)",
         model=_MODEL,
-        max_steps=4,
+        max_steps=6,
         system_prompt=(
             "Sei il refiner del progetto: mi aiuti a rifinire gli agent task. Rispondi in italiano, breve.\n"
+            "Lavori solo su task «creati» o «in rifinitura» (list_refinable_tasks); se il messaggio dice quale nota è aperta\n"
+            "accanto alla chat, «questo task» è quello.\n"
+            "Per rifinire un task: se è «creato» prendilo con start_refinement, altrimenti leggilo con read_agent_task\n"
+            "(con i suoi riferimenti). Fammi le domande che servono, poche alla volta, poi scrivi obiettivo, contesto,\n"
+            "criteri di accettazione e vincoli con update_agent_task, e dimmi cosa hai scritto.\n"
+            "Quando ti sembra rifinito chiedimi se portarlo a «da fare»: solo dopo un mio sì esplicito usa finish_refinement.\n"
+            "Titolo, tipo e riferimenti li cambio io.\n"
             "Se ti chiedo di raccogliere i commenti todoMbarePilot del codice (o i todo del codice), usa create_code_reference.\n"
             "Non vedi né i commenti né il codice: dimmi quanti commenti e in quanti file, se la nota è nuova o aggiornata,\n"
             "e dammi il link della nota come link markdown, così la apro e la modifico.\n"
