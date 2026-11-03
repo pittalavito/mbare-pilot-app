@@ -603,28 +603,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/projects/{project}/todo-lists": {
+    "/projects/{project}/activities": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List Todo Lists */
-        get: operations["list_todo_lists_projects__project__todo_lists_get"];
+        /** List Activities */
+        get: operations["list_activities_projects__project__activities_get"];
         put?: never;
         /**
-         * Create Todo List
-         * @description A new note ``todo-list-<title>.md``; 409 when one with that name exists.
+         * Create Activity
+         * @description A new note ``attivita-<title>.md``; 409 when one with that name exists.
          */
-        post: operations["create_todo_list_projects__project__todo_lists_post"];
+        post: operations["create_activity_projects__project__activities_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/projects/{project}/todo-lists/{note}": {
+    "/projects/{project}/activities/{note}": {
         parameters: {
             query?: never;
             header?: never;
@@ -632,8 +632,8 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Save Todo List */
-        put: operations["save_todo_list_projects__project__todo_lists__note__put"];
+        /** Save Activity */
+        put: operations["save_activity_projects__project__activities__note__put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -656,7 +656,7 @@ export interface paths {
         put?: never;
         /**
          * Create Reference
-         * @description A new note ``code-reference-<title>.md`` or ``context-reference-<title>.md`` (409 when it exists); link it from a task or todo list.
+         * @description A new note ``code-reference-<title>.md`` or ``context-reference-<title>.md`` (409 when it exists); link it from a task or activity.
          */
         post: operations["create_reference_projects__project__references_post"];
         delete?: never;
@@ -678,7 +678,7 @@ export interface paths {
         post?: never;
         /**
          * Delete Reference
-         * @description The reference and its links from the agent tasks and todo lists.
+         * @description The reference and its links from the agent tasks and activities.
          */
         delete: operations["delete_reference_projects__project__references__note__delete"];
         options?: never;
@@ -1038,7 +1038,7 @@ export interface paths {
         /**
          * Issue Reference
          * @description Copy the issue into the project as a context reference (201), or refresh
-         *     the copy made before (200); linked from ``link_to`` (agent tasks, todo lists).
+         *     the copy made before (200); linked from ``link_to`` (agent tasks, activities).
          */
         post: operations["issue_reference_projects__project__atlassian_jira_issues__issue_key__reference_post"];
         delete?: never;
@@ -1630,6 +1630,68 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ActivityBody */
+        ActivityBody: {
+            /** Title */
+            title: string;
+            /** @default todo */
+            status: components["schemas"]["ActivityStatus"];
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["TodoItemBody"][];
+            /**
+             * Agent Tasks
+             * @default []
+             */
+            agent_tasks: string[];
+            /**
+             * References
+             * @default []
+             */
+            references: string[];
+        };
+        /** ActivityResponse */
+        ActivityResponse: {
+            /** Title */
+            title: string;
+            /** @default todo */
+            status: components["schemas"]["ActivityStatus"];
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["TodoItemBody"][];
+            /**
+             * Agent Tasks
+             * @default []
+             */
+            agent_tasks: string[];
+            /**
+             * References
+             * @default []
+             */
+            references: string[];
+            /** Name */
+            name: string;
+        };
+        /**
+         * ActivityStatus
+         * @description Set by hand (or by the secretary); when every item is done the editor suggests «done».
+         * @enum {string}
+         */
+        ActivityStatus: "todo" | "in_progress" | "done";
         /** AgentCreateRequest */
         AgentCreateRequest: {
             /** Name */
@@ -1998,6 +2060,11 @@ export interface components {
             files: number;
             /** Comments */
             comments: number;
+            /**
+             * Malformed
+             * @default 0
+             */
+            malformed: number;
         };
         /** CommitResponse */
         CommitResponse: {
@@ -2576,7 +2643,7 @@ export interface components {
          * NoteType
          * @enum {string}
          */
-        NoteType: "generic" | "agent_task" | "todo_list" | "code_reference" | "context_reference";
+        NoteType: "generic" | "agent_task" | "activity" | "code_reference" | "context_reference";
         /** OpenFolderRequest */
         OpenFolderRequest: {
             /** Folder */
@@ -3082,38 +3149,6 @@ export interface components {
             priority?: components["schemas"]["TodoPriority"] | null;
             /** Due */
             due?: string | null;
-        };
-        /** TodoListBody */
-        TodoListBody: {
-            /** Title */
-            title: string;
-            /**
-             * Items
-             * @default []
-             */
-            items: components["schemas"]["TodoItemBody"][];
-            /**
-             * References
-             * @default []
-             */
-            references: string[];
-        };
-        /** TodoListResponse */
-        TodoListResponse: {
-            /** Title */
-            title: string;
-            /**
-             * Items
-             * @default []
-             */
-            items: components["schemas"]["TodoItemBody"][];
-            /**
-             * References
-             * @default []
-             */
-            references: string[];
-            /** Name */
-            name: string;
         };
         /**
          * TodoPriority
@@ -4610,7 +4645,7 @@ export interface operations {
             };
         };
     };
-    list_todo_lists_projects__project__todo_lists_get: {
+    list_activities_projects__project__activities_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -4627,7 +4662,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TodoListResponse"][];
+                    "application/json": components["schemas"]["ActivityResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -4641,7 +4676,7 @@ export interface operations {
             };
         };
     };
-    create_todo_list_projects__project__todo_lists_post: {
+    create_activity_projects__project__activities_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -4652,7 +4687,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TodoListBody"];
+                "application/json": components["schemas"]["ActivityBody"];
             };
         };
         responses: {
@@ -4662,7 +4697,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TodoListResponse"];
+                    "application/json": components["schemas"]["ActivityResponse"];
                 };
             };
             /** @description Validation Error */
@@ -4676,7 +4711,7 @@ export interface operations {
             };
         };
     };
-    save_todo_list_projects__project__todo_lists__note__put: {
+    save_activity_projects__project__activities__note__put: {
         parameters: {
             query?: never;
             header?: never;
@@ -4688,7 +4723,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TodoListBody"];
+                "application/json": components["schemas"]["ActivityBody"];
             };
         };
         responses: {
@@ -4698,7 +4733,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TodoListResponse"];
+                    "application/json": components["schemas"]["ActivityResponse"];
                 };
             };
             /** @description Validation Error */

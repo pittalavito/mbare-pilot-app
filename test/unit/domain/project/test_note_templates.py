@@ -5,8 +5,8 @@ from datetime import date
 import pytest
 
 from domain.project.data_paths import note_type, typed_note_file_name
-from domain.project.note_templates import parse_agent_task, parse_todo_list, render_agent_task, render_todo_list
-from models.domain.note import AgentTask, ChecklistItem, NoteType, TaskStatus, TaskType, TodoItem, TodoList, TodoPriority
+from domain.project.note_templates import parse_activity, parse_agent_task, render_activity, render_agent_task
+from models.domain.note import Activity, ActivityStatus, AgentTask, ChecklistItem, NoteType, TaskStatus, TaskType, TodoItem, TodoPriority
 
 TASK = AgentTask(
     title="Refactor del login", status=TaskStatus.IN_PROGRESS, objective="Spostare l'auth nel service.\nSenza fretta.",
@@ -68,40 +68,63 @@ def test_reference_content_with_its_own_headings_comes_back_whole():
     assert parse_reference(render_reference(reference, code=False), "x") == reference
 
 
-def test_a_todo_list_reads_its_items_also_under_other_headings():
-    text = "# Rilascio\n\n- [ ] uno\n## Fase 2\n- [x] due\n## Riferimenti\n- context-reference-procedura.md\n"
+def test_an_activity_is_readable_markdown_and_comes_back_the_same():
+    activity = Activity(
+        title="Rilascio v2", status=ActivityStatus.IN_PROGRESS, description="Preparare la 2.0.\n\n## Note\nentro fine mese",
+        items=[
+            TodoItem(text="Aggiornare le dipendenze", done=True, priority=TodoPriority.HIGH, due=date(2026, 10, 30)),
+            TodoItem(text="Scrivere le note (bozza)", priority=TodoPriority.MEDIUM),
+            TodoItem(text="Taggare il commit", due=date(2026, 11, 2)),
+        ],
+        agent_tasks=["agent-task-note-di-rilascio.md"], references=["context-reference-procedura.md"],
+    )
 
-    todo = parse_todo_list(text, "x")
-
-    assert [(item.text, item.done) for item in todo.items] == [("uno", False), ("due", True)]
-    assert todo.references == ["context-reference-procedura.md"]
-
-
-def test_a_todo_list_with_priorities_and_dates_comes_back_the_same():
-    todo = TodoList(title="Rilascio v2", items=[
-        TodoItem(text="Aggiornare le dipendenze", done=True, priority=TodoPriority.HIGH, due=date(2026, 10, 30)),
-        TodoItem(text="Scrivere le note (bozza)", priority=TodoPriority.MEDIUM),
-        TodoItem(text="Taggare il commit", due=date(2026, 11, 2)),
-        TodoItem(text="Una voce\nsu due righe"),
-    ])
-
-    text = render_todo_list(todo)
+    text = render_activity(activity)
 
     assert text == (
-        "# Rilascio v2\n\n- [x] Aggiornare le dipendenze  (alta, 2026-10-30)\n- [ ] Scrivere le note (bozza)  (media)\n"
-        "- [ ] Taggare il commit  (2026-11-02)\n- [ ] Una voce su due righe\n"
+        "# Rilascio v2\n\nStato: in corso\n\n## Descrizione\nPreparare la 2.0.\n\n## Note\nentro fine mese\n\n"
+        "## Todo\n- [x] Aggiornare le dipendenze  (alta, 2026-10-30)\n- [ ] Scrivere le note (bozza)  (media)\n"
+        "- [ ] Taggare il commit  (2026-11-02)\n\n## Agent task\n- agent-task-note-di-rilascio.md\n\n"
+        "## Riferimenti\n- context-reference-procedura.md\n"
     )
-    assert parse_todo_list(text, "x").items[:3] == todo.items[:3]
+    assert parse_activity(text, "x") == activity
+    empty = render_activity(Activity(title="Vuota"))
+    assert empty == "# Vuota\n\nStato: da fare\n\n## Descrizione\n\n## Todo\n" and parse_activity(empty, "x") == Activity(title="Vuota")
+
+
+@pytest.mark.parametrize("items, status", [
+    ("- [x] uno\n- [x] due\n", ActivityStatus.DONE),
+    ("- [x] uno\n- [ ] due\n", ActivityStatus.TODO),
+    ("", ActivityStatus.TODO),
+])
+def test_an_old_todo_list_reads_as_an_activity(items, status):
+    activity = parse_activity(f"# Rilascio\n\n{items}## Riferimenti\n- context-reference-procedura.md\n", "x")
+
+    assert (activity.title, activity.status, activity.description, activity.agent_tasks) == ("Rilascio", status, "", [])
+    assert [item.text for item in activity.items] == [line[6:] for line in items.splitlines()]
+    assert activity.references == ["context-reference-procedura.md"]
+
+
+def test_an_activity_status_written_by_hand():
+    assert parse_activity("# A\n\nStato: FATTA\n", "x").status == ActivityStatus.DONE
+    assert parse_activity("# A\n\nStato: boh\n\n## Todo\n- [x] uno\n", "x").status == ActivityStatus.DONE  # from the items
+    assert parse_activity("# A\n\nStato: in corso\n\n## Todo\n- [x] uno\n", "x").status == ActivityStatus.IN_PROGRESS  # as written
+
+
+def test_a_todo_item_written_on_two_lines_becomes_one():
+    text = render_activity(Activity(title="A", items=[TodoItem(text="Una voce\nsu due righe")]))
+    assert "- [ ] Una voce su due righe\n" in text
 
 
 def test_parentheses_that_are_not_details_stay_in_the_text():
-    todo = parse_todo_list("# Spesa\n- [ ] Pane (integrale)\n- [ ] Latte (2026-13-40)\n", "x")
+    activity = parse_activity("# Spesa\n\n## Todo\n- [ ] Pane (integrale)\n- [ ] Latte (2026-13-40)\n", "x")
 
-    assert [(item.text, item.priority, item.due) for item in todo.items] == [("Pane (integrale)", None, None), ("Latte", None, None)]
+    assert [(item.text, item.priority, item.due) for item in activity.items] == [("Pane (integrale)", None, None), ("Latte", None, None)]
 
 
 @pytest.mark.parametrize("name, kind", [
-    ("agent-task-refactor.md", NoteType.AGENT_TASK), ("Todo-List-rilascio.md", NoteType.TODO_LIST),
+    ("agent-task-refactor.md", NoteType.AGENT_TASK), ("Attivita-rilascio.md", NoteType.ACTIVITY),
+    ("todo-list-rilascio.md", NoteType.GENERIC),  # an old todo list, before the migration
     ("decisioni.md", NoteType.GENERIC), ("agent-taskforce.md", NoteType.GENERIC),
 ])
 def test_the_type_of_a_note_is_in_its_name(name, kind):
@@ -110,7 +133,7 @@ def test_the_type_of_a_note_is_in_its_name(name, kind):
 
 def test_typed_notes_are_named_after_their_title():
     assert typed_note_file_name(NoteType.AGENT_TASK, "Refactor del Login!") == "agent-task-refactor-del-login.md"
-    assert typed_note_file_name(NoteType.TODO_LIST, "???") == "todo-list-senza-titolo.md"
+    assert typed_note_file_name(NoteType.ACTIVITY, "???") == "attivita-senza-titolo.md"
 
 
 # ---------------------------------------------------------------- references
@@ -128,8 +151,8 @@ def test_references_round_trip_with_their_links():
 
     task = TASK.model_copy(update={"references": ["code-reference-login.md", "context-reference-procedura.md"]})
     assert parse_agent_task(render_agent_task(task), "x") == task
-    todo = TodoList(title="Rilascio", items=[TodoItem(text="tag")], references=["context-reference-procedura.md"])
-    assert parse_todo_list(render_todo_list(todo), "x") == todo
+    activity = Activity(title="Rilascio", items=[TodoItem(text="tag")], references=["context-reference-procedura.md"])
+    assert parse_activity(render_activity(activity), "x") == activity
     assert "## Riferimenti" not in render_agent_task(TASK)  # only when there are some
 
 
@@ -138,5 +161,5 @@ def test_reference_names_and_hand_written_links():
     assert note_type("context-reference-x.md") is NoteType.CONTEXT_REFERENCE and NoteType.CONTEXT_REFERENCE.is_reference
     assert typed_note_file_name(NoteType.CODE_REFERENCE, "Login OK") == "code-reference-login-ok.md"
     text = "# T\n\n- [ ] voce\n\n## Riferimenti\n* code-reference-a.md\n- [x] non un link\n- code-reference-a.md\n"
-    todo = parse_todo_list(text, "x")
-    assert todo.references == ["code-reference-a.md"] and [item.text for item in todo.items] == ["voce"]
+    activity = parse_activity(text, "x")
+    assert activity.references == ["code-reference-a.md"] and [item.text for item in activity.items] == ["voce"]

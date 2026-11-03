@@ -105,7 +105,7 @@ class FavoriteRequest(BaseModel):
 
 class ReferenceImportRequest(BaseModel):
     link_to: list[str] = []
-    """Agent tasks and todo lists (note names) that will link the reference."""
+    """Agent tasks and activities (note names) that will link the reference."""
 
 
 class ReferenceImportResponse(BaseModel):

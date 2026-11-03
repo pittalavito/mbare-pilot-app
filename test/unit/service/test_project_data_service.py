@@ -3,7 +3,7 @@ import pytest
 from core.error import ConflictError, NotFoundError, ValidationError
 from domain.project.data_paths import data_file_name, note_file_name, project_slug
 from domain.project.folder_browser import FolderBrowser
-from models.domain.note import AgentTask, ChecklistItem, NoteType, TaskStatus, TodoItem, TodoList, TodoPriority
+from models.domain.note import Activity, ActivityStatus, AgentTask, ChecklistItem, NoteType, TaskStatus, TodoItem, TodoPriority
 from models.domain.project import Project, ProjectDataKind, ProjectSource
 from service.project_service import ProjectService
 
@@ -70,30 +70,34 @@ def test_files_round_trip(data_service, files_repository):
 
 def test_typed_notes_are_notes_named_by_type(data_service, files_repository):
     name = data_service.create_agent_task("My App", AgentTask(title="Refactor login", criteria=[ChecklistItem(text="test verdi")]))
-    data_service.create_todo_list("My App", TodoList(title="Rilascio", items=[TodoItem(text="tag", priority=TodoPriority.LOW)]))
+    data_service.create_activity("My App", Activity(title="Rilascio", items=[TodoItem(text="tag", priority=TodoPriority.LOW)]))
     data_service.save_note("My App", "decisioni", "# Decisioni")
 
     assert name == "agent-task-refactor-login.md"
     assert (files_repository.root / "my-app" / "notes" / name).read_text(encoding="utf-8").startswith("# Refactor login\n\nStato: creato\nTipo: sviluppo\n")
     assert {note.name: note.note_type for note in data_service.list_notes("My App")} == {
-        "agent-task-refactor-login.md": NoteType.AGENT_TASK, "decisioni.md": NoteType.GENERIC, "todo-list-rilascio.md": NoteType.TODO_LIST,
+        "agent-task-refactor-login.md": NoteType.AGENT_TASK, "decisioni.md": NoteType.GENERIC, "attivita-rilascio.md": NoteType.ACTIVITY,
     }
-    [(_, todo)] = data_service.todo_lists("My App")
-    assert todo.items[0].priority == TodoPriority.LOW
+    [(_, activity)] = data_service.activities("My App")
+    assert activity.items[0].priority == TodoPriority.LOW
 
     data_service.save_agent_task("My App", name, AgentTask(title="Refactor login (v2)", status=TaskStatus.DONE))
     assert data_service.agent_tasks("My App") == [(name, AgentTask(title="Refactor login (v2)", status=TaskStatus.DONE))]
 
 
 def test_typed_notes_refuse_duplicates_other_types_and_missing_ones(data_service):
-    data_service.create_todo_list("My App", TodoList(title="Rilascio"))
+    data_service.create_activity("My App", Activity(title="Rilascio"))
 
     with pytest.raises(ConflictError):
-        data_service.create_todo_list("My App", TodoList(title="rilascio!"))
+        data_service.create_activity("My App", Activity(title="rilascio!"))
     with pytest.raises(ValidationError):
-        data_service.save_agent_task("My App", "todo-list-rilascio.md", AgentTask(title="x"))
+        data_service.save_agent_task("My App", "attivita-rilascio.md", AgentTask(title="x"))
     with pytest.raises(NotFoundError):
-        data_service.save_todo_list("My App", "todo-list-altro.md", TodoList(title="x"))
+        data_service.save_activity("My App", "attivita-altro.md", Activity(title="x"))
+    with pytest.raises(ValidationError, match="non è un'attività"):
+        data_service.activity("My App", "agent-task-x.md")
+    with pytest.raises(ValidationError, match="un'attività collega solo agent-task"):
+        data_service.create_activity("My App", Activity(title="Altra", agent_tasks=["appunti.md"]))
 
 
 def test_unknown_project(data_service):
@@ -113,13 +117,13 @@ def test_projects_with_the_same_slug_conflict(tmp_path, mask_store, project_stor
 
 # ---------------------------------------------------------------- references
 
-def test_references_are_linked_to_tasks_and_todo_lists_many_to_many(data_service):
+def test_references_are_linked_to_tasks_and_activities_many_to_many(data_service):
     from models.domain.note import Reference
 
     code = data_service.create_reference("My App", NoteType.CODE_REFERENCE, Reference(title="Login", repository="api", path="a.py"))
     context = data_service.create_reference("My App", NoteType.CONTEXT_REFERENCE, Reference(title="Procedura", source="jira"))
     task = data_service.create_agent_task("My App", AgentTask(title="Fix", references=[code, context]))
-    todo = data_service.create_todo_list("My App", TodoList(title="Rilascio", references=[context]))
+    todo = data_service.create_activity("My App", Activity(title="Rilascio", references=[context]))
 
     assert (code, context) == ("code-reference-login.md", "context-reference-procedura.md")
     assert [(name, kind) for name, kind, _ in data_service.references("My App")] == [(code, NoteType.CODE_REFERENCE), (context, NoteType.CONTEXT_REFERENCE)]
@@ -130,7 +134,7 @@ def test_references_are_linked_to_tasks_and_todo_lists_many_to_many(data_service
     assert data_service.reference("My App", context)[1].title == "Procedura v2"
     assert data_service.delete_reference("My App", context)
     assert data_service.agent_task("My App", task).references == [code]  # unlinked everywhere
-    assert data_service.todo_lists("My App")[0][1].references == []
+    assert data_service.activities("My App")[0][1].references == []
 
 
 def test_only_references_can_be_linked_and_saved_as_references(data_service):
@@ -147,10 +151,81 @@ def test_only_references_can_be_linked_and_saved_as_references(data_service):
         data_service.save_reference("My App", "code-reference-manca.md", Reference(title="x"))
 
 
+# ------------------------------------------------------------- activities
+
+def test_agent_tasks_born_from_an_activity_are_linked_and_unlinked_when_deleted(data_service):
+    activity = data_service.create_activity("My App", Activity(title="Rilascio"))
+    first = data_service.create_agent_task("My App", AgentTask(title="Note di rilascio"))
+    second = data_service.create_agent_task("My App", AgentTask(title="Tag"))
+
+    data_service.link_agent_task("My App", activity, first)
+    data_service.link_agent_task("My App", activity, "agent-task-tag")  # .md added
+    data_service.link_agent_task("My App", activity, first)  # once
+
+    assert data_service.activity("My App", activity).agent_tasks == [first, second]
+    with pytest.raises(NotFoundError):
+        data_service.link_agent_task("My App", activity, "agent-task-manca.md")
+    with pytest.raises(ValidationError):
+        data_service.link_agent_task("My App", activity, "appunti.md")
+
+    assert data_service.delete_note("My App", first)
+    assert data_service.activity("My App", activity).agent_tasks == [second]  # unlinked
+    assert data_service.delete_note("My App", activity)
+    assert data_service.agent_task("My App", second).title == "Tag"  # the task stays
+
+
+def test_the_old_todo_lists_become_activities(data_service, files_repository):
+    notes = files_repository.root / "my-app" / "notes"
+    notes.mkdir(parents=True)
+    (notes / "todo-list-rilascio.md").write_text(
+        "# Rilascio v2\n\n- [x] Aggiornare  (alta, 2026-10-30)\n- [ ] Taggare\n\n## Riferimenti\n- context-reference-procedura.md\n",
+        encoding="utf-8")
+    (notes / "todo-list-fatta.md").write_text("# Fatta\n\n- [x] uno\n", encoding="utf-8")
+    (notes / "todo-list-doppia.md").write_text("# Doppia vecchia\n", encoding="utf-8")
+    (notes / "attivita-doppia.md").write_text("# Doppia\n\nStato: in corso\n", encoding="utf-8")
+
+    assert data_service.migrate_todo_lists("My App") == 2
+
+    activities = dict(data_service.activities("My App"))
+    assert set(activities) == {"attivita-rilascio.md", "attivita-fatta.md", "attivita-doppia.md"}
+    rilascio = activities["attivita-rilascio.md"]
+    assert (rilascio.title, rilascio.status, rilascio.description) == ("Rilascio v2", ActivityStatus.TODO, "")
+    assert [(item.text, item.done, item.priority) for item in rilascio.items] == [("Aggiornare", True, TodoPriority.HIGH), ("Taggare", False, None)]
+    assert rilascio.references == ["context-reference-procedura.md"]
+    assert activities["attivita-fatta.md"].status == ActivityStatus.DONE  # every item done
+    assert activities["attivita-doppia.md"].title == "Doppia"  # the existing one is not touched...
+    assert (notes / "todo-list-doppia.md").is_file()  # ...and the old one stays, logged
+    assert not (notes / "todo-list-rilascio.md").exists()
+    assert "Stato: da fare" in (notes / "attivita-rilascio.md").read_text(encoding="utf-8")  # written as an activity
+    assert data_service.migrate_todo_lists("My App") == 0  # once
+
+
+def test_a_link_from_jira_can_go_to_an_activity(data_service):
+    from models.domain.note import Reference
+
+    activity = data_service.create_activity("My App", Activity(title="Rilascio"))
+    reference = data_service.create_reference("My App", NoteType.CONTEXT_REFERENCE, Reference(title="NAV-7"))
+
+    data_service.link_reference("My App", reference, [activity])
+
+    assert data_service.activity("My App", activity).references == [reference]
+    with pytest.raises(ValidationError, match="né un'attività"):
+        data_service.link_reference("My App", reference, ["appunti.md"])
+
+
+def test_the_settings_saved_before_the_activities_still_read(project_store):
+    from models.domain.project import Project, ProjectSource
+
+    project = Project.model_validate({"name": "Vecchio", "source": ProjectSource.FOLDER, "root_path": "/x",
+                                      "visible_note_types": ["generic", "todo_list"]})
+
+    assert project.visible_note_types == [NoteType.GENERIC, NoteType.ACTIVITY]
+
+
 # ----------------------------------------------------------------- settings
 
 def test_the_dati_tab_shows_the_default_types_until_the_project_chooses(data_service, project_store):
-    assert data_service.visible_note_types("My App") == [NoteType.GENERIC, NoteType.AGENT_TASK, NoteType.TODO_LIST]
+    assert data_service.visible_note_types("My App") == [NoteType.GENERIC, NoteType.AGENT_TASK, NoteType.ACTIVITY]
 
     saved = data_service.save_visible_note_types("My App", [NoteType.CONTEXT_REFERENCE, NoteType.GENERIC, NoteType.GENERIC])
 

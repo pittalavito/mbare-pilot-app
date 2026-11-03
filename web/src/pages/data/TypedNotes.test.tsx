@@ -12,7 +12,7 @@ const TASK = {
   criteria: [{ text: "test verdi", done: false }], constraints: "",
 };
 const TODO = {
-  name: "todo-list-rilascio.md", title: "Rilascio",
+  name: "attivita-rilascio.md", title: "Rilascio", status: "in_progress", description: "La 2.0", agent_tasks: [] as string[], references: [] as string[],
   items: [{ text: "tag", done: true, priority: "high", due: "2026-11-02" }, { text: "note", done: false, priority: null, due: null }],
 };
 const NOTES = [
@@ -175,28 +175,34 @@ describe("typed notes", () => {
     expect(body.criteria).toEqual([{ text: "test verdi", done: false }]); // the empty criterion is dropped
   });
 
-  it("creates a todo list from its title and shows its progress", async () => {
-    const created = vi.fn(async (request: Request) => ({ name: "todo-list-spesa.md", ...(await request.json()) }));
-    mockApi({ "GET /projects/acme/notes": NOTES, "GET /projects/acme/todo-lists": [TODO], "POST /projects/acme/todo-lists": created });
+  it("creates an activity from its title and shows status and progress", async () => {
+    const created = vi.fn(async (request: Request) => ({ name: "attivita-spesa.md", ...(await request.json()) }));
+    mockApi({ "GET /projects/acme/notes": NOTES, "GET /projects/acme/activities": [TODO], "POST /projects/acme/activities": created,
+      "GET /projects/acme/agent-tasks": [] });
     renderData();
 
-    fireEvent.click(await screen.findByRole("tab", { name: /Todo list/ }));
+    const tabs = (await screen.findAllByRole("tab")).map((tab) => tab.textContent);
+    expect(tabs.indexOf("📋 Attività")).toBeLessThan(tabs.indexOf("🤖 Agent task")); // the activities come first
+    fireEvent.click(screen.getByRole("tab", { name: /Attività/ }));
     expect(await screen.findByText("1/2")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("La 2.0")).toBeInTheDocument();
     expect(screen.getByDisplayValue("2026-11-02")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Nuova todo list/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Nuova attività/ }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText("Titolo"), { target: { value: "Spesa" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Crea" }));
 
     await waitFor(() => expect(created).toHaveBeenCalled());
-    expect(await created.mock.results[0].value).toEqual({ name: "todo-list-spesa.md", title: "Spesa", items: [], references: [] });
+    expect(await created.mock.results[0].value).toEqual({
+      name: "attivita-spesa.md", title: "Spesa", status: "todo", description: "", items: [], agent_tasks: [], references: [],
+    });
   });
 
   it("the settings choose the shown types: references get their own tab, hidden types lose theirs", async () => {
     const saved = vi.fn(async (request: Request) => request.json());
     mockApi({
-      "GET /projects/acme/data-settings": { visible_note_types: ["generic", "agent_task", "todo_list"] },
+      "GET /projects/acme/data-settings": { visible_note_types: ["generic", "agent_task", "activity"] },
       "PUT /projects/acme/data-settings": saved,
       "GET /projects/acme/notes": NOTES,
       "GET /projects/acme/references": [{
@@ -208,13 +214,13 @@ describe("typed notes", () => {
 
     expect(screen.queryByRole("tab", { name: /Riferimenti/ })).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("tab", { name: /Impostazioni/ }));
-    fireEvent.click(await screen.findByRole("checkbox", { name: /Todo list/ }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Attività/ }));
     fireEvent.click(screen.getByRole("checkbox", { name: /Riferimenti di contesto/ }));
     fireEvent.click(screen.getByRole("button", { name: "Salva" }));
 
     await waitFor(() => expect(saved).toHaveBeenCalled());
     expect(await saved.mock.results[0].value).toEqual({ visible_note_types: ["generic", "agent_task", "context_reference"] });
-    expect(screen.queryByRole("tab", { name: /Todo list/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /Attività/ })).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("tab", { name: /Riferimenti/ }));
     expect(await screen.findByText("Non collegato a niente")).toBeInTheDocument();
   });
@@ -235,7 +241,7 @@ describe("links to a note", () => {
   });
 
   it("know which tab each note is in", () => {
-    expect([null, "agent-task-a.md", "todo-list-b.md", "code-reference-c.md", "context-reference-d.md", "appunti.md"].map(tabOfNote))
-      .toEqual([null, "agent-tasks", "todo-lists", "references", "references", "notes"]);
+    expect([null, "agent-task-a.md", "attivita-b.md", "code-reference-c.md", "context-reference-d.md", "appunti.md"].map(tabOfNote))
+      .toEqual([null, "agent-tasks", "activities", "references", "references", "notes"]);
   });
 });

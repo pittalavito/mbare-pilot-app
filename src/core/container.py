@@ -5,7 +5,8 @@ import sys
 import datapizza.tracing
 
 from config import Config
-from core.observability import LogPrefix, observed
+from core.error import AppError
+from core.observability import LogPrefix, log_exception, observed
 from domain.chat.models_default import DEFAULT_CHAT_MODELS
 from domain.client.embedding.embedder import Factory as EmbedderFactory
 from domain.process.manager import ProcessManager
@@ -129,8 +130,15 @@ class Container:
         """At startup, what is missing: the default models, the tool catalog and
         the global agents of definition/global-agent.yml (edits made from the UI
         are never overwritten) and the default chatbots each project misses.
-        Models first: agents and chatbots need them."""
+        Models first: agents and chatbots need them. Then the old todo lists
+        of every project become activities (once: the files are renamed)."""
         self.model_service.seed_defaults(DEFAULT_CHAT_MODELS)
         self.agent_config_service.sync_tools()
         self.definition_service.seed_global_agents()
-        self.definition_service.seed_default_chatbots([project.name for project in self.project_service.list_projects()])
+        projects = [project.name for project in self.project_service.list_projects()]
+        self.definition_service.seed_default_chatbots(projects)
+        for name in projects:  # the todo lists of before become activities
+            try:
+                self.project_data_service.migrate_todo_lists(name)
+            except AppError:
+                log_exception(LogPrefix.PROJECT_SERVICE, "Todo list del progetto %s non migrate", name)

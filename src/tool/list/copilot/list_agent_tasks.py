@@ -8,7 +8,7 @@ from datapizza.tools import Tool, tool
 from core.error import AppError
 from models.domain.tool import AgentTaskInfo, ListAgentTasksResponse, ToolErrorResponse
 from tool.context import ToolContext
-from tool.list.notes.todo_lists import notes_run
+from tool.list.notes.activities import notes_run
 from tool.spec import ToolSpec
 
 _DESCRIPTION = (

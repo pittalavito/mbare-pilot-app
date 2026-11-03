@@ -8,7 +8,7 @@ import pytest
 
 from core.error import ConflictError
 from domain.project import code_todos
-from models.domain.code_todo import CodeTodo
+from models.domain.code_todo import CodeTodo, MalformedTodo
 from models.domain.note import NoteType, Reference
 from models.domain.project import Project, ProjectSource
 from service.code_todo_service import MAX_FILE_BYTES, CodeTodoService
@@ -91,19 +91,23 @@ def test_the_project_folder_itself_can_be_the_repository(tmp_path, project_store
 def test_save_writes_one_note_grouped_by_file_and_rewrites_it(service, project, project_data_service):
     first = service.save("acme")
 
-    assert (first.note, first.created, first.files, first.comments) == (NOTE, True, 3, 6)
+    assert (first.note, first.created, first.files, first.comments, first.malformed) == (NOTE, True, 3, 6, 2)
     kind, note = project_data_service.reference("acme", NOTE)
     assert (kind, note.title, note.source) == (NoteType.CODE_REFERENCE, "TODO Mbare Pilot", "todoMbarePilot")
     assert note.content == (
         "Commenti `todoMbarePilot{…}` trovati nel codice il 2026-11-02 14:30: 6 in 3 file.\n\n"
         "### api/nuovo.py\n- riga 1: File nuovo, non ancora aggiunto\n\n"
         "### api/src/login.py\n- riga 2: Rifattorizza il controllo password\n- riga 3: Gestire il timeout\n\n"
-        "### web/src/App.tsx\n- riga 1: Togliere il mock\n- riga 2: Uno\n- riga 2: Due"
+        "### web/src/App.tsx\n- riga 1: Togliere il mock\n- riga 2: Uno\n- riga 2: Due\n\n"
+        "### ⚠️ Da correggere (2): non raccolti\n"
+        "Il formato giusto è `// todoMbarePilot{descrizione}`, su una riga.\n"
+        "- api/src/vuoto.py riga 1: la descrizione tra le graffe è vuota — `# todoMbarePilot{}`\n"
+        "- api/src/vuoto.py riga 2: la descrizione tra le graffe è vuota — `# todoMbarePilot{ }`"
     )
 
     (project / "api" / "nuovo.py").unlink()
     second = service.save("acme")
-    assert (second.note, second.created, second.files, second.comments) == (NOTE, False, 2, 5)
+    assert (second.note, second.created, second.files, second.comments, second.malformed) == (NOTE, False, 2, 5, 2)
     assert "nuovo.py" not in project_data_service.reference("acme", NOTE)[1].content
 
 
@@ -143,6 +147,42 @@ def test_the_links_to_the_note_survive_a_new_scan(service, project, project_data
     service.save("acme")
 
     assert project_data_service.agent_task("acme", task).references == [NOTE]
+
+
+def test_comments_written_wrong_alone_still_make_the_note(tmp_path, project_store, git_service, project_data_service):
+    _repo(tmp_path / "storto", {"a.py": "# TodoMbarePilot{Quasi}\n"})
+    project_store.save(Project(name="storto", source=ProjectSource.FOLDER, root_path=str(tmp_path / "storto")))
+
+    scan = CodeTodoService(git_service, project_data_service, clock=lambda: WHEN).save("storto")
+
+    assert (scan.note, scan.comments, scan.malformed) == (NOTE, 0, 1)  # created: the user must see what to fix
+    content = project_data_service.reference("storto", NOTE)[1].content
+    assert content.startswith("Nessun commento `todoMbarePilot{…}` trovato") and "a.py riga 1: si scrive todoMbarePilot" in content
+
+
+@pytest.mark.parametrize("line, problem", [
+    ("# TodoMbarePilot{Rifai}", "si scrive todoMbarePilot (maiuscole comprese), non TodoMbarePilot"),
+    ("# todombarepilot{Rifai}", "non todombarepilot"),
+    ("# todo mbare pilot{Rifai}", "non todo mbare pilot"),
+    ("# todoMbarePilot {Rifai}", "niente spazio tra todoMbarePilot e la {"),
+    ("# todoMbarePilot{Rifai", "la } va chiusa sulla stessa riga"),
+    ("# todoMbarePilot{}", "la descrizione tra le graffe è vuota"),
+    ("# todoMbarePilot: Rifai", "manca {descrizione} subito dopo: // todoMbarePilot{descrizione}"),
+])
+def test_what_is_wrong_with_a_lookalike(line, problem):
+    [found] = code_todos.find_malformed(line)
+
+    assert problem in found.problem and found.line == 1 and found.text == line
+    assert code_todos.find(line) == []
+
+
+def test_good_comments_are_not_lookalikes_and_long_lines_are_cut():
+    assert code_todos.find_malformed("# todoMbarePilot{Giusto} e TODOMBAREPILOT{storto}") == [
+        MalformedTodo(line=1, problem="si scrive todoMbarePilot (maiuscole comprese), non TODOMBAREPILOT",
+                                 text="# todoMbarePilot{Giusto} e TODOMBAREPILOT{storto}"),
+    ]
+    [long] = code_todos.find_malformed("x = '`todoMbarePilot'" + " y" * 100)
+    assert len(long.text) == 120 and long.text.endswith("…") and "`" not in long.text
 
 
 @pytest.mark.parametrize("line, found", [

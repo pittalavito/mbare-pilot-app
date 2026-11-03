@@ -180,32 +180,43 @@ class GitPullAllResponse(BaseModel):
     )
 
 
-class TodoListInfo(BaseModel):
-    name: str = Field(..., description="The list's note name (todo-list-<title>.md): what the other todo tools want.")
+class ActivityInfo(BaseModel):
+    name: str = Field(..., description="The activity's note name (attivita-<title>.md): what the other activity tools want.")
     title: str
-    done: int = Field(..., description="Items done.")
-    total: int = Field(..., description="All the items.")
+    status: str = Field(..., description="todo, in_progress or done.")
+    done: int = Field(..., description="Items of its todo list done.")
+    total: int = Field(..., description="All the items of its todo list.")
+    agent_tasks: int = Field(..., description="How many agent tasks were born from it.")
 
 
-class ListTodoListsResponse(BaseModel):
+class ListActivitiesResponse(BaseModel):
     today: str = Field(..., description="Today's date (YYYY-MM-DD), for due dates such as 'by Friday'.")
-    todo_lists: list[TodoListInfo] = Field(..., description="The project's todo lists.")
+    activities: list[ActivityInfo] = Field(..., description="The project's activities.")
 
 
 class TodoItemInfo(BaseModel):
-    number: int = Field(..., description="Position in the list, from 1: what update_todo_list wants.")
+    number: int = Field(..., description="Position in the todo list, from 1: what update_activity wants.")
     text: str
     done: bool
     priority: str | None = Field(None, description="high, medium or low.")
     due: str | None = Field(None, description="Due date, YYYY-MM-DD.")
 
 
-class TodoListResponse(BaseModel):
-    """A todo list without its references: the secretary does not read them."""
-    name: str = Field(..., description="The list's note name.")
+class ActivityTaskInfo(BaseModel):
+    task: str = Field(..., description="The agent task's note name.")
     title: str
+    status: str = Field(..., description="created, refinement, todo, in_progress or done.")
+
+
+class ActivityResponse(BaseModel):
+    """An activity without its references: the secretary does not read them."""
+    name: str = Field(..., description="The activity's note name.")
+    title: str
+    status: str = Field(..., description="todo, in_progress or done.")
+    description: str
     today: str = Field(..., description="Today's date (YYYY-MM-DD).")
-    items: list[TodoItemInfo]
+    items: list[TodoItemInfo] = Field(..., description="Its todo list.")
+    agent_tasks: list[ActivityTaskInfo] = Field(..., description="The agent tasks born from it (missing ones left out).")
 
 
 class CreateCodeReferenceResponse(BaseModel):
@@ -215,6 +226,7 @@ class CreateCodeReferenceResponse(BaseModel):
     created: bool = Field(..., description="True = a new note, false = the existing one rewritten.")
     files: int = Field(..., description="How many files have comments.")
     comments: int = Field(..., description="How many comments were found.")
+    malformed: int = Field(0, description="Comments written wrong, not collected: listed in the note; tell the user to fix them.")
     link: str | None = Field(None, description="Link to the note in the app: give it to the user as a markdown link.")
 
 
@@ -235,6 +247,7 @@ class AgentTaskCreatedResponse(BaseModel):
     type: str = Field(..., description="refinement, development or analysis.")
     status: str = Field(..., description="Always refinement: the user refines it, then sets it to todo.")
     references: list[str] = Field(..., description="The linked references, by name.")
+    activity: str | None = Field(None, description="The activity it is born from, linked to it; null = none.")
     link: str = Field(..., description="Link to the task in the app: give it to the user as a markdown link.")
 
 

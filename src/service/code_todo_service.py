@@ -15,7 +15,7 @@ from core.error import ConflictError, NotFoundError
 from core.observability import LogPrefix, observed
 from domain.project import code_todos, task_folder
 from domain.project.data_paths import typed_note_file_name
-from models.domain.code_todo import CodeTodo, CodeTodoScan
+from models.domain.code_todo import CodeTodo, CodeTodoScan, MalformedTodo
 from models.domain.note import NoteType
 from service.git_service import GitService
 from service.project_data_service import ProjectDataService
@@ -36,24 +36,33 @@ class CodeTodoService:
     def scan(self, project_name: str) -> dict[str, list[CodeTodo]]:
         """The comments by file (path relative to the project folder, ``/``
         separators); files without comments are left out."""
+        return self._collect(project_name)[0]
+
+    def _collect(self, project_name: str) -> tuple[dict[str, list[CodeTodo]], dict[str, list[MalformedTodo]]]:
+        """The comments and the ones written wrong, by file."""
         found: dict[str, list[CodeTodo]] = {}
+        malformed: dict[str, list[MalformedTodo]] = {}
         for repository in self._git.repositories(project_name):
             folder = self._git.repository_folder(project_name, repository.path)
             for path in self._git.files(project_name, repository.path):
                 if task_folder.is_task_path(path):
                     continue
                 text = _read_text(folder / path)
-                todos = code_todos.find(text) if text else []
-                if todos:
-                    found[f"{repository.path}/{path}" if repository.path else path] = todos
-        return found
+                if not text:
+                    continue
+                name = f"{repository.path}/{path}" if repository.path else path
+                if todos := code_todos.find(text):
+                    found[name] = todos
+                if wrong := code_todos.find_malformed(text):
+                    malformed[name] = wrong
+        return found, malformed
 
     @observed(LogPrefix.CODE_TODO_SERVICE)
     def save(self, project_name: str) -> CodeTodoScan:
-        """Scan and write the note. Nothing found: an existing note says so,
-        none is created. ConflictError when a note with that name exists and
+        """Scan and write the note, with the comments written wrong to fix.
+        Nothing found: an existing note says so, none is created. ConflictError when a note with that name exists and
         was not written by the scan (it is left as it is)."""
-        todos = self.scan(project_name)
+        todos, malformed = self._collect(project_name)
         name = typed_note_file_name(NoteType.CODE_REFERENCE, code_todos.TITLE)
         try:
             existing = self._data.reference(project_name, name)[1]
@@ -61,10 +70,11 @@ class CodeTodoService:
             existing = None
         if existing is not None and existing.source != code_todos.SOURCE:
             raise ConflictError(f"Esiste già {name}, scritto a mano: rinominalo o cancellalo per far scrivere lì la scansione.")
-        counts = {"files": len(todos), "comments": sum(len(items) for items in todos.values())}
-        if existing is None and not todos:
+        counts = {"files": len(todos), "comments": sum(len(items) for items in todos.values()),
+                  "malformed": sum(len(items) for items in malformed.values())}
+        if existing is None and not todos and not malformed:
             return CodeTodoScan(note=None, created=False, **counts)
-        reference = code_todos.reference(todos, self._clock())
+        reference = code_todos.reference(todos, self._clock(), malformed)
         if existing is None:
             return CodeTodoScan(note=self._data.create_reference(project_name, NoteType.CODE_REFERENCE, reference), created=True, **counts)
         self._data.save_reference(project_name, name, reference)

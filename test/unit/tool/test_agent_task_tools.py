@@ -31,7 +31,7 @@ def _call(spec, run, **kwargs):
 
 def _create(run, **fields):
     values = {"title": "Rilascio automatico", "type": TaskType.DEVELOPMENT, "objective": "", "context": "", "criteria": [],
-              "constraints": "", "references": [], **fields}
+              "constraints": "", "references": [], "activity": "", **fields}
     return _call(CREATE_AGENT_TASK, run, **values)
 
 
@@ -48,7 +48,7 @@ def test_the_references_by_title_never_their_content(context):
 def test_a_new_task_is_in_refinement_with_its_fields_and_references(context):
     result = _create(
         context, title="  Rilascio automatico ", type=TaskType.ANALYSIS, objective="Capire come rilasciare da solo.",
-        context="Dalla todo list Rilascio, voce 2.", criteria=["Passi documentati", " ", "Rischi elencati"],
+        context="Dall'attività Rilascio, voce 2.", criteria=["Passi documentati", " ", "Rischi elencati"],
         constraints="Non toccare la pipeline.", references=["context-reference-procedura-di-rilascio", "code-reference-login.md",
                                                             "code-reference-login.md"],
     )
@@ -56,11 +56,12 @@ def test_a_new_task_is_in_refinement_with_its_fields_and_references(context):
     assert result == {
         "task": "agent-task-rilascio-automatico.md", "title": "Rilascio automatico", "type": "analysis", "status": "refinement",
         "references": ["context-reference-procedura-di-rilascio.md", "code-reference-login.md"],  # .md added, once each
+        "activity": None,
         "link": "/projects/Acme%20Srl/data?note=agent-task-rilascio-automatico.md",
     }
     task = context.project_data.agent_task("Acme Srl", result["task"])
     assert (task.status, task.type, task.objective, task.context, task.constraints) == (
-        TaskStatus.REFINEMENT, TaskType.ANALYSIS, "Capire come rilasciare da solo.", "Dalla todo list Rilascio, voce 2.", "Non toccare la pipeline.",
+        TaskStatus.REFINEMENT, TaskType.ANALYSIS, "Capire come rilasciare da solo.", "Dall'attività Rilascio, voce 2.", "Non toccare la pipeline.",
     )
     assert [(item.text, item.done) for item in task.criteria] == [("Passi documentati", False), ("Rischi elencati", False)]
 
@@ -79,6 +80,7 @@ def test_wrong_references_titles_and_names_are_refused(context):
 def test_only_in_a_chatbots_run_of_a_project(context, spec):
     kwargs = {} if spec is LIST_REFERENCES else {
         "title": "x", "type": TaskType.DEVELOPMENT, "objective": "", "context": "", "criteria": [], "constraints": "", "references": [],
+        "activity": "",
     }
     for other in (
         ToolContext(project_name="Acme Srl", git=None, origin=RunOrigin.MANUAL, project_data=context.project_data),
@@ -93,3 +95,16 @@ def test_an_unknown_project_comes_back_as_an_error(context):
 
     assert "error" in _call(LIST_REFERENCES, other)
     assert "error" in _create(other)
+
+
+def test_a_task_born_from_an_activity_is_linked_to_it(context):
+    from models.domain.note import Activity
+
+    activity = context.project_data.create_activity("Acme Srl", Activity(title="Rilascio"))
+
+    result = _create(context, title="Note di rilascio", activity="attivita-rilascio")
+
+    assert result["activity"] == activity
+    assert context.project_data.activity("Acme Srl", activity).agent_tasks == [result["task"]]
+    assert "not found" in _create(context, title="Orfano", activity="attivita-manca.md")["error"].lower()
+    assert [name for name, _ in context.project_data.agent_tasks("Acme Srl")] == [result["task"]]  # the orphan was not created

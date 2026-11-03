@@ -3,15 +3,15 @@ import { notifications } from "@mantine/notifications";
 import { useEffect, useState } from "react";
 
 import { useCopyToReference } from "../../api/atlassian";
-import { useAgentTasks, useTodoLists } from "../../api/projectData";
+import { useActivities, useAgentTasks } from "../../api/projectData";
 
 /** «📎 Crea riferimento» on a Jira issue or a Confluence page: it is copied
  * into the project as a context reference (a second time it is refreshed),
- * linked from the agent tasks and todo lists chosen here (none is fine). */
+ * linked from the agent tasks and activities chosen here (none is fine). */
 export function CopyToReference({ project, from, id }: { project: string; from: "issue" | "page"; id: string }) {
   const [opened, setOpened] = useState(false);
   const tasks = useAgentTasks(project);
-  const lists = useTodoLists(project);
+  const lists = useActivities(project);
   const copy = useCopyToReference(project);
   const [linkTo, setLinkTo] = useState<string[]>([]);
 
@@ -23,7 +23,7 @@ export function CopyToReference({ project, from, id }: { project: string; from: 
 
   const options = [
     { group: "Agent task", items: (tasks.data ?? []).map((task) => ({ value: task.name, label: task.title })) },
-    { group: "Todo list", items: (lists.data ?? []).map((todo) => ({ value: todo.name, label: todo.title })) },
+    { group: "Attività", items: (lists.data ?? []).map((activity) => ({ value: activity.name, label: activity.title })) },
   ].filter((group) => group.items.length);
 
   const submit = () =>
@@ -48,8 +48,8 @@ export function CopyToReference({ project, from, id }: { project: string; from: 
           </Text>
           <MultiSelect
             label="Collega a"
-            description="Facoltativo: lo puoi collegare anche dopo, dal task o dalla todo list."
-            placeholder={options.length ? "Scegli agent task o todo list" : "Nessun agent task né todo list"}
+            description="Facoltativo: lo puoi collegare anche dopo, dal task o dall'attività."
+            placeholder={options.length ? "Scegli agent task o attività" : "Nessun agent task né attività"}
             data={options}
             value={linkTo}
             onChange={setLinkTo}

@@ -2,7 +2,7 @@
 # «Chat bot», «Refiner» e «Segretario» ogni progetto li ha già di default (dal codice): scriverli qui ne cambia prompt e modello
 # alla sincronizzazione. Dalla UI i chatbot non si creano: quelli in più si scrivono qui.
 # Un progetto può averne più di uno: ognuno ha il suo agente (prompt, modello, tool).
-# kind: automation (tool fissi e cache delle automation), secretary (tool fissi sulle note), refiner (tool fissi per
+# kind: automation (tool fissi e cache delle automation), secretary (tool fissi sulle note: attività e agent task), refiner (tool fissi per
 # rifinire gli agent task, accanto a loro nella UI) oppure custom (tool a scelta, il default).
 chatbots:
   - name: Chat bot
@@ -18,19 +18,22 @@ chatbots:
       Se chiedo come è andata, controlla con automation_status.
       Se nessuna automation è adatta, dimmelo; se non sai, non inventare.
   - name: Segretario
-    # secretary: tool fissi (list_todo_lists, read_todo_list, create_todo_list, update_todo_list, list_agent_tasks,
+    # secretary: tool fissi (list_activities, read_activity, create_activity, update_activity, list_agent_tasks,
     # list_references, create_agent_task); dei riferimenti vede solo i titoli
     kind: secretary
-    description: Todo list, stato degli agent task e nuovi agent task
+    description: Attività, stato degli agent task e nuovi agent task
     model: openrouter/google/gemini-3.1-flash-lite-preview
     max_steps: 6
     system_prompt: |
       Sei il mio segretario sul progetto. Rispondi in italiano, breve.
-      Mi aiuti con le todo list: le leggi, ne crei di nuove, aggiungi voci e le spunti; non le cancelli né le rinomini.
-      Prima di modificare una lista leggila con read_todo_list e usa i numeri delle voci.
+      Mi aiuti con le attività: ognuna ha una descrizione, una todo list e uno stato (da fare, in corso, fatta).
+      Le leggi, ne crei di nuove, ne cambi descrizione e stato, aggiungi voci alla todo list e le spunti;
+      non le cancelli né le rinomini. Prima di modificarne una leggila con read_activity e usa i numeri delle voci.
+      Quando tutte le voci sono fatte chiedimi se segnarla fatta.
       Per le scadenze usa la data di oggi che ti danno i tool (es. «entro venerdì» → la data precisa).
       Sugli agent task mi dici lo stato (e quello dell'ultima sessione Copilot) con list_agent_tasks.
-      Puoi creare un agent task con create_agent_task, ad esempio da una voce di una todo list: scegli il tipo
+      Puoi creare un agent task con create_agent_task, ad esempio da una voce di un'attività (indica l'attività:
+      il task le resta collegato): scegli il tipo
       (refinement = rifinire una storia, development = uno sviluppo, analysis = un'analisi), scrivi solo quello che sai
       e collega i riferimenti che c'entrano, scelti per titolo con list_references (il loro contenuto non lo leggi).
       Il task nasce «in rifinitura»: dimmelo e dammi il suo link.

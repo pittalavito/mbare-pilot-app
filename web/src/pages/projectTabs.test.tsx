@@ -103,7 +103,7 @@ describe("AtlassianTab", () => {
         description: "Dettagli", url: "https://acme.atlassian.net/browse/NAV-7",
       },
       "GET /projects/acme/agent-tasks": [{ name: "agent-task-fix.md", title: "Fix", status: "todo", objective: "", context: "", criteria: [], constraints: "", references: [] }],
-      "GET /projects/acme/todo-lists": [],
+      "GET /projects/acme/activities": [],
       "POST /projects/acme/atlassian/jira/issues/NAV-7/reference": copied,
     });
     inProject("atlassian", <AtlassianTab />);
@@ -112,7 +112,7 @@ describe("AtlassianTab", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cerca" }));
     fireEvent.click(await screen.findByRole("button", { name: /Crea riferimento/ }));
     const dialog = await screen.findByRole("dialog");
-    fireEvent.click(within(dialog).getByPlaceholderText("Scegli agent task o todo list"));
+    fireEvent.click(within(dialog).getByPlaceholderText("Scegli agent task o attività"));
     fireEvent.click(await screen.findByRole("option", { name: "Fix" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Crea" }));
 

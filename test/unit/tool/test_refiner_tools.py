@@ -39,7 +39,7 @@ def test_the_agent_gets_counts_and_the_link_never_the_comments(context):
     result = _call(context)
 
     assert result == {
-        "note": "code-reference-todo-mbare-pilot.md", "created": True, "files": 1, "comments": 1,
+        "note": "code-reference-todo-mbare-pilot.md", "created": True, "files": 1, "comments": 1, "malformed": 0,
         "link": "/projects/Acme%20Srl/data?note=code-reference-todo-mbare-pilot.md",
     }
     assert SECRET not in json.dumps(result) and "login.py" not in json.dumps(result)
@@ -50,7 +50,7 @@ def test_the_agent_gets_counts_and_the_link_never_the_comments(context):
 def test_nothing_found_means_no_note_and_no_link(context, tmp_path):
     (tmp_path / "acme" / "api" / "login.py").write_text("x = 1\n", encoding="utf-8")
 
-    assert _call(context) == {"note": None, "created": False, "files": 0, "comments": 0, "link": None}
+    assert _call(context) == {"note": None, "created": False, "files": 0, "comments": 0, "malformed": 0, "link": None}
 
 
 def test_errors_and_runs_outside_a_chatbot(context):

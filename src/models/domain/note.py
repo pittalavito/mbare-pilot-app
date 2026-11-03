@@ -1,11 +1,12 @@
 """The types of a project's notes. On disk every note is a markdown file of
 ``notes/``; the type is in its name (``agent-task-<title>.md``,
-``todo-list-<title>.md``, ``code-reference-<title>.md``,
+``attivita-<title>.md``, ``code-reference-<title>.md``,
 ``context-reference-<title>.md``, anything else is generic) and the typed ones
 follow a template (domain/project/note_templates.py), shown by the app as a form.
 
-References (code, context) are linked to agent tasks and todo lists by name
-(their ``references``, many to many): they show only inside what links them."""
+References (code, context) are linked to agent tasks and activities by name
+(their ``references``, many to many): they show only inside what links them.
+An activity also links the agent tasks born from it (its ``agent_tasks``)."""
 from datetime import date
 from enum import StrEnum
 
@@ -17,8 +18,9 @@ class NoteType(StrEnum):
     """Free markdown."""
     AGENT_TASK = "agent_task"
     """A task for an agent: objective, context, acceptance criteria, constraints."""
-    TODO_LIST = "todo_list"
-    """A checklist with optional priority and due date per item."""
+    ACTIVITY = "activity"
+    """Something to do: a description, its todo list (priority and due date
+    optional per item), the agent tasks born from it. Was the «todo list»."""
     CODE_REFERENCE = "code_reference"
     """A piece of code that matters for a task: repository, file, lines, why."""
     CONTEXT_REFERENCE = "context_reference"
@@ -84,9 +86,21 @@ class TodoItem(ChecklistItem):
     due: date | None = None
 
 
-class TodoList(BaseModel):
+class ActivityStatus(StrEnum):
+    """Set by hand (or by the secretary); when every item is done the editor suggests «done»."""
+    TODO = "todo"
+    IN_PROGRESS = "in_progress"
+    DONE = "done"
+
+
+class Activity(BaseModel):
     title: str = Field(min_length=1)
+    status: ActivityStatus = ActivityStatus.TODO
+    description: str = ""
     items: list[TodoItem] = []
+    """Its todo list."""
+    agent_tasks: list[str] = []
+    """The agent tasks born from it, by note name (the one place the link is written)."""
     references: list[str] = []
     """The linked reference notes, by name."""
 

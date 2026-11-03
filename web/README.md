@@ -58,7 +58,7 @@ src/
     automation.ts     hook delle automation e delle esecuzioni (con polling)
     chat.ts           hook di chatbot (solo lettura), conversazioni, messaggi e cache delle automation
     catalog.ts        cataloghi condivisi dagli editor: modelli, tool, funzioni, agenti
-    projectData.ts    note (anche agent task e todo list), file del progetto (upload col contenuto grezzo, download da link)
+    projectData.ts    note (anche agent task e attività), file del progetto (upload col contenuto grezzo, download da link)
     git.ts            repository, log e stato (mutation: git gira solo sui pulsanti)
     atlassian.ts      impostazioni del sito, issue Jira, pagine Confluence, preferiti
     masking.ts        valori mascherati e sincronizzazione delle definizioni YAML
@@ -75,7 +75,7 @@ src/
   pages/
     projects/         lista dei progetti, «Apri cartella» e «Crea da zero»
     project/          pagina del progetto: intestazione e tab (una rotta per tab)
-    data/             tab Dati: note markdown (modifica/anteprima, Ctrl+S), agent task e todo list (form dei template, con i riferimenti collegati: ReferencesSection), riferimenti, file; ⚙️ Impostazioni sceglie i tipi mostrati (DataSettings)
+    data/             tab Dati: note markdown (modifica/anteprima, Ctrl+S), attività e agent task (form dei template, con i riferimenti collegati: ReferencesSection), riferimenti, file; ⚙️ Impostazioni sceglie i tipi mostrati (DataSettings)
     git/              tab Git: commit con filtri e file modificati
     atlassian/        tab Atlassian: Jira, Confluence, preferiti; «📎 Crea riferimento» copia issue e pagine nei riferimenti (CopyToReference)
     library/          pagina Libreria: agenti globali (la stessa sezione Agenti) e catalogo dei tool

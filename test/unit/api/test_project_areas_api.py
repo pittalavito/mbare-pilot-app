@@ -97,18 +97,18 @@ def test_notes_crud(client):
     assert client.put("/projects/acme/notes/.hidden", json={"content": ""}).status_code == 400
 
 
-def test_references_linked_from_a_task_and_a_todo_list(client):
+def test_references_linked_from_a_task_and_an_activity(client):
     ref = client.post("/projects/acme/references", json={"kind": "code_reference", "title": "Login", "path": "src/a.py", "source": "jira"})
     assert ref.status_code == 201 and ref.json()["name"] == "code-reference-login.md"
-    assert client.post("/projects/acme/references", json={"kind": "todo_list", "title": "x"}).status_code == 422
+    assert client.post("/projects/acme/references", json={"kind": "activity", "title": "x"}).status_code == 422
     client.post("/projects/acme/agent-tasks", json={"title": "Fix", "references": ["code-reference-login.md"]})
-    client.post("/projects/acme/todo-lists", json={"title": "Giro", "references": ["code-reference-login.md"]})
+    client.post("/projects/acme/activities", json={"title": "Giro", "references": ["code-reference-login.md"]})
     assert client.post("/projects/acme/agent-tasks", json={"title": "Altro", "references": ["appunti.md"]}).status_code == 400
 
     [listed] = client.get("/projects/acme/references").json()
-    assert (listed["path"], listed["source"], listed["linked_from"]) == ("src/a.py", "jira", ["agent-task-fix.md", "todo-list-giro.md"])
+    assert (listed["path"], listed["source"], listed["linked_from"]) == ("src/a.py", "jira", ["agent-task-fix.md", "attivita-giro.md"])
     assert client.put("/projects/acme/references/code-reference-login.md", json={"title": "Login v2"}).json()["linked_from"] == [
-        "agent-task-fix.md", "todo-list-giro.md",
+        "agent-task-fix.md", "attivita-giro.md",
     ]
     assert [note["note_type"] for note in client.get("/projects/acme/notes").json() if note["name"].startswith("code-")] == ["code_reference"]
 
@@ -118,14 +118,14 @@ def test_references_linked_from_a_task_and_a_todo_list(client):
 
 
 def test_data_settings(client):
-    assert client.get("/projects/acme/data-settings").json() == {"visible_note_types": ["generic", "agent_task", "todo_list"]}
+    assert client.get("/projects/acme/data-settings").json() == {"visible_note_types": ["generic", "agent_task", "activity"]}
     saved = client.put("/projects/acme/data-settings", json={"visible_note_types": ["code_reference", "generic"]})
     assert saved.json() == {"visible_note_types": ["generic", "code_reference"]}
     assert client.put("/projects/acme/data-settings", json={"visible_note_types": ["boh"]}).status_code == 422
     assert client.get("/projects/acme").json()["name"] == "acme"
 
 
-def test_agent_tasks_and_todo_lists(client):
+def test_agent_tasks_and_activities(client):
     created = client.post("/projects/acme/agent-tasks", json={"title": "Fix porto", "criteria": [{"text": "test verdi"}]})
     assert created.status_code == 201 and created.json()["name"] == "agent-task-fix-porto.md"
     assert client.post("/projects/acme/agent-tasks", json={"title": "Fix porto"}).status_code == 409
@@ -135,14 +135,20 @@ def test_agent_tasks_and_todo_lists(client):
     assert saved.json()["status"] == "done"
     assert [task["status"] for task in client.get("/projects/acme/agent-tasks").json()] == ["done"]
 
-    todo = {"title": "Rilascio", "items": [{"text": "tag", "priority": "high", "due": "2026-11-02"}]}
-    assert client.post("/projects/acme/todo-lists", json=todo).json()["name"] == "todo-list-rilascio.md"
-    assert client.get("/projects/acme/todo-lists").json()[0]["items"] == [{"text": "tag", "done": False, "priority": "high", "due": "2026-11-02"}]
-    assert client.put("/projects/acme/todo-lists/agent-task-fix-porto.md", json=todo).status_code == 400
+    todo = {"title": "Rilascio", "description": "La 2.0", "items": [{"text": "tag", "priority": "high", "due": "2026-11-02"}],
+            "agent_tasks": ["agent-task-fix-porto.md"]}
+    assert client.post("/projects/acme/activities", json=todo).json()["name"] == "attivita-rilascio.md"
+    [activity] = client.get("/projects/acme/activities").json()
+    assert activity["items"] == [{"text": "tag", "done": False, "priority": "high", "due": "2026-11-02"}]
+    assert (activity["status"], activity["description"], activity["agent_tasks"]) == ("todo", "La 2.0", ["agent-task-fix-porto.md"])
+    assert client.put("/projects/acme/activities/attivita-rilascio.md", json={**todo, "status": "done"}).json()["status"] == "done"
+    assert client.put("/projects/acme/activities/agent-task-fix-porto.md", json=todo).status_code == 400
 
     types = {note["name"]: note["note_type"] for note in client.get("/projects/acme/notes").json()}
-    assert types == {"agent-task-fix-porto.md": "agent_task", "todo-list-rilascio.md": "todo_list"}
-    assert client.delete("/projects/acme/notes/todo-list-rilascio.md").status_code == 204
+    assert types == {"agent-task-fix-porto.md": "agent_task", "attivita-rilascio.md": "activity"}
+    assert client.delete("/projects/acme/notes/agent-task-fix-porto.md").status_code == 204
+    assert client.get("/projects/acme/activities").json()[0]["agent_tasks"] == []  # the deleted task is unlinked
+    assert client.delete("/projects/acme/notes/attivita-rilascio.md").status_code == 204
 
 
 def test_files_upload_download_delete(client):
@@ -305,7 +311,7 @@ def test_an_issue_or_a_page_becomes_a_context_reference_linked_where_chosen(clie
     site = AtlassianSite(_FakeJira(), _FakeConfluence())
     monkeypatch.setattr(client.app.state.container.atlassian_service, "site", lambda project: site)
     task = client.post("/projects/acme/agent-tasks", json={"title": "Fix"}).json()["name"]
-    todo = client.post("/projects/acme/todo-lists", json={"title": "Giro"}).json()["name"]
+    todo = client.post("/projects/acme/activities", json={"title": "Giro"}).json()["name"]
 
     created = client.post("/projects/acme/atlassian/jira/issues/proj-12/reference", json={"link_to": [task, todo]})
     assert created.status_code == 201

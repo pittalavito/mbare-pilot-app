@@ -65,7 +65,7 @@ def get_issue(project: str, issue_key: str,
 def issue_reference(project: str, issue_key: str, request: ReferenceImportRequest,
                     response: Response, service: AtlassianService = Depends(atlassian_service)) -> ReferenceImportResponse:
     """Copy the issue into the project as a context reference (201), or refresh
-    the copy made before (200); linked from ``link_to`` (agent tasks, todo lists)."""
+    the copy made before (200); linked from ``link_to`` (agent tasks, activities)."""
     name, created = service.reference_from_issue(project, issue_key, request.link_to)
     response.status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
     return ReferenceImportResponse(name=name, created=created)

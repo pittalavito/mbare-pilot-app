@@ -21,7 +21,7 @@ export const CHATBOT_KINDS: Record<ChatbotKind, { label: string; description: st
   },
   secretary: {
     label: "Segretario",
-    description: "Ti aiuta con le note: legge, crea e spunta le todo list, ti dice lo stato degli agent task e ne crea di nuovi (in rifinitura); dei riferimenti vede solo i titoli.",
+    description: "Ti aiuta con le note: legge, crea e aggiorna le attività (descrizione, stato, todo list), ti dice lo stato degli agent task e ne crea di nuovi (in rifinitura); dei riferimenti vede solo i titoli.",
   },
   refiner: {
     label: "Refiner",

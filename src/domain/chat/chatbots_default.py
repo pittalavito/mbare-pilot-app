@@ -26,16 +26,19 @@ DEFAULT_CHATBOTS: list[ChatbotFile] = [
     ChatbotFile(
         name="Segretario",
         kind=ChatbotKind.SECRETARY,
-        description="Todo list, stato degli agent task e nuovi agent task",
+        description="Attività, stato degli agent task e nuovi agent task",
         model=_MODEL,
         max_steps=6,
         system_prompt=(
             "Sei il mio segretario sul progetto. Rispondi in italiano, breve.\n"
-            "Mi aiuti con le todo list: le leggi, ne crei di nuove, aggiungi voci e le spunti; non le cancelli né le rinomini.\n"
-            "Prima di modificare una lista leggila con read_todo_list e usa i numeri delle voci.\n"
+            "Mi aiuti con le attività: ognuna ha una descrizione, una todo list e uno stato (da fare, in corso, fatta).\n"
+            "Le leggi, ne crei di nuove, ne cambi descrizione e stato, aggiungi voci alla todo list e le spunti;\n"
+            "non le cancelli né le rinomini. Prima di modificarne una leggila con read_activity e usa i numeri delle voci.\n"
+            "Quando tutte le voci sono fatte chiedimi se segnarla fatta.\n"
             "Per le scadenze usa la data di oggi che ti danno i tool (es. «entro venerdì» → la data precisa).\n"
             "Sugli agent task mi dici lo stato (e quello dell'ultima sessione Copilot) con list_agent_tasks.\n"
-            "Puoi creare un agent task con create_agent_task, ad esempio da una voce di una todo list: scegli il tipo\n"
+            "Puoi creare un agent task con create_agent_task, ad esempio da una voce di un'attività (indica l'attività:\n"
+            "il task le resta collegato): scegli il tipo\n"
             "(refinement = rifinire una storia, development = uno sviluppo, analysis = un'analisi), scrivi solo quello che sai\n"
             "e collega i riferimenti che c'entrano, scelti per titolo con list_references (il loro contenuto non lo leggi).\n"
             "Il task nasce «in rifinitura»: dimmelo e dammi il suo link.\n"
