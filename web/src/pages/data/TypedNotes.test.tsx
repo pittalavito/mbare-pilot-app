@@ -219,7 +219,7 @@ describe("typed notes", () => {
     fireEvent.click(screen.getByRole("button", { name: "Salva" }));
 
     await waitFor(() => expect(saved).toHaveBeenCalled());
-    expect(await saved.mock.results[0].value).toEqual({ visible_note_types: ["generic", "agent_task", "context_reference"] });
+    expect(await saved.mock.results[0].value).toEqual({ visible_note_types: ["generic", "agent_task", "context_reference"], files_visible: true });
     expect(screen.queryByRole("tab", { name: /Attività/ })).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("tab", { name: /Riferimenti/ }));
     expect(await screen.findByText("Non collegato a niente")).toBeInTheDocument();

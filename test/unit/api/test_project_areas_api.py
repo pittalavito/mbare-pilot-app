@@ -103,7 +103,7 @@ def test_references_linked_from_a_task_and_an_activity(client):
     assert client.post("/projects/acme/references", json={"kind": "activity", "title": "x"}).status_code == 422
     client.post("/projects/acme/agent-tasks", json={"title": "Fix", "references": ["code-reference-login.md"]})
     client.post("/projects/acme/activities", json={"title": "Giro", "references": ["code-reference-login.md"]})
-    assert client.post("/projects/acme/agent-tasks", json={"title": "Altro", "references": ["appunti.md"]}).status_code == 400
+    assert client.post("/projects/acme/agent-tasks", json={"title": "Altro", "references": ["agent-task-fix.md"]}).status_code == 400
 
     [listed] = client.get("/projects/acme/references").json()
     assert (listed["path"], listed["source"], listed["linked_from"]) == ("src/a.py", "jira", ["agent-task-fix.md", "attivita-giro.md"])
@@ -118,9 +118,11 @@ def test_references_linked_from_a_task_and_an_activity(client):
 
 
 def test_data_settings(client):
-    assert client.get("/projects/acme/data-settings").json() == {"visible_note_types": ["generic", "agent_task", "activity"]}
+    assert client.get("/projects/acme/data-settings").json() == {"visible_note_types": ["generic", "agent_task", "activity"], "files_visible": True}
     saved = client.put("/projects/acme/data-settings", json={"visible_note_types": ["code_reference", "generic"]})
-    assert saved.json() == {"visible_note_types": ["generic", "code_reference"]}
+    assert saved.json() == {"visible_note_types": ["generic", "code_reference"], "files_visible": True}  # files_visible: default
+    hidden = client.put("/projects/acme/data-settings", json={"visible_note_types": ["generic"], "files_visible": False})
+    assert hidden.json()["files_visible"] is False and client.get("/projects/acme/data-settings").json()["files_visible"] is False
     assert client.put("/projects/acme/data-settings", json={"visible_note_types": ["boh"]}).status_code == 422
     assert client.get("/projects/acme").json()["name"] == "acme"
 

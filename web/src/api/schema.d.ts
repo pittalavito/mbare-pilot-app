@@ -2394,6 +2394,11 @@ export interface components {
         DataSettingsBody: {
             /** Visible Note Types */
             visible_note_types: components["schemas"]["NoteType"][];
+            /**
+             * Files Visible
+             * @default true
+             */
+            files_visible: boolean;
         };
         /** DefinitionEntryResponse */
         DefinitionEntryResponse: {

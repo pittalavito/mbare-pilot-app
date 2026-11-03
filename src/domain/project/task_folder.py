@@ -12,7 +12,9 @@ import shutil
 from pathlib import Path, PurePosixPath
 
 from core.error import ValidationError
-from domain.project.data_paths import NOTE_SUFFIX, REPO_TASKS_DIR, note_file_name
+from domain.project.data_paths import FILE_LINK_PREFIX, NOTE_SUFFIX, REPO_TASKS_DIR, note_file_name
+
+_FILES_SUBFOLDER = FILE_LINK_PREFIX.rstrip("/")
 
 
 def relative_folder(task_note: str) -> str:
@@ -23,7 +25,8 @@ def relative_folder(task_note: str) -> str:
 
 def write(repository: Path, task_note: str, files: dict[str, bytes]) -> Path:
     """The task's folder in ``repository`` with exactly ``files`` (name →
-    content), rebuilt from scratch. ValidationError when ``mbare-pilot`` or the
+    content; ``files/<name>`` goes in its ``files/`` subfolder, any other
+    folder part is dropped), rebuilt from scratch. ValidationError when ``mbare-pilot`` or the
     task's folder is not a plain folder (a file, or a link, which could lead
     out of the repository: the app never deletes or writes through one)."""
     root = repository.resolve()
@@ -36,7 +39,10 @@ def write(repository: Path, task_note: str, files: dict[str, bytes]) -> Path:
         shutil.rmtree(target)
     target.mkdir(parents=True)
     for name, content in files.items():
-        (target / Path(name).name).write_bytes(content)
+        parts = PurePosixPath(name.replace("\\", "/"))
+        folder = target / _FILES_SUBFOLDER if parts.parent.name == _FILES_SUBFOLDER else target  # files/<name>: the uploaded files
+        folder.mkdir(exist_ok=True)
+        (folder / parts.name).write_bytes(content)
     return target
 
 
