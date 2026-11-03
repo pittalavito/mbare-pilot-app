@@ -81,6 +81,34 @@ describe("RefinerPanel", () => {
     expect(await screen.findByPlaceholderText(/Scrivi a Refiner/)).toBeInTheDocument();
   });
 
+  it("changes the refiner's model from its details", async () => {
+    let refiner = REFINER;
+    const patched = vi.fn(async (request: Request) => {
+      refiner = { ...refiner, model: (await request.json()).model };
+      return refiner;
+    });
+    renderData({
+      "GET /projects/acme/chatbots": () => [SECRETARY, refiner],
+      "GET /models/choices": { choices: ["mock/echo", "openai/gpt-4o"], usable: ["mock/echo", "openai/gpt-4o"] },
+      "PATCH /chatbots/7/model": patched,
+    });
+    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    expect(await screen.findByText("mock/echo")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Dettagli/ }));
+    const dialog = await screen.findByRole("dialog", { name: /Chatbot «Refiner»/ });
+    fireEvent.click(within(dialog).getByRole("textbox", { name: "Modello" }));
+    fireEvent.click(await screen.findByRole("option", { name: "openai/gpt-4o" }));
+    const save = within(dialog).getByRole("button", { name: "Salva" });
+    await waitFor(() => expect(save).toBeEnabled());
+    fireEvent.click(save);
+
+    expect(await within(dialog).findByText(/Modello salvato/)).toBeInTheDocument();
+    expect(patched).toHaveBeenCalledTimes(1);
+    fireEvent.click(within(dialog).getByRole("button", { name: "" })); // close
+    expect(await screen.findByText("openai/gpt-4o")).toBeInTheDocument(); // the panel shows the new model
+  });
+
   it("without a refiner says where it comes from", async () => {
     renderData({ "GET /projects/acme/chatbots": [SECRETARY] });
     fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
