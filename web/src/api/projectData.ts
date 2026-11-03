@@ -22,6 +22,8 @@ export const NOTE_PREFIXES = {
   agent_task: "agent-task-", todo_list: "todo-list-", code_reference: "code-reference-", context_reference: "context-reference-",
 } as const;
 
+export type CodeTodoScan = components["schemas"]["CodeTodoScanResponse"];
+
 export const dataKeys = {
   notes: (project: string) => ["projects", project, "notes"] as const,
   note: (project: string, note: string) => ["projects", project, "notes", note] as const,
@@ -172,6 +174,16 @@ export function useReferences(project: string) {
 }
 
 /** Create (``kind`` given) or rewrite (``name`` given) a reference; linking it is the task's or todo list's job. */
+/** Gather the code's todoMbarePilot{...} comments into the note
+ * ``code-reference-todo-mbare-pilot.md``: counts back, ``note`` null when nothing was found. */
+export function useScanCodeTodos(project: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => unwrap(api.POST("/projects/{project}/code-todos", { params: { path: { project } } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: dataKeys.references(project) }),
+  });
+}
+
 export function useSaveReference(project: string) {
   const queryClient = useQueryClient();
   return useMutation({

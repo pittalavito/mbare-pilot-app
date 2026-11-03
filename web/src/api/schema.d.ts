@@ -686,6 +686,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/code-todos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Scan Code Todos
+         * @description Gather the todoMbarePilot{...} comments of the code into the note
+         *     ``code-reference-todo-mbare-pilot.md`` (409 when a note with that name was written by hand).
+         */
+        post: operations["scan_code_todos_projects__project__code_todos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project}/data-settings": {
         parameters: {
             query?: never;
@@ -1963,6 +1984,20 @@ export interface components {
              * @default false
              */
             done: boolean;
+        };
+        /**
+         * CodeTodoScanResponse
+         * @description What a scan of the todoMbarePilot comments wrote: counts only, the comments are in the note.
+         */
+        CodeTodoScanResponse: {
+            /** Note */
+            note: string | null;
+            /** Created */
+            created: boolean;
+            /** Files */
+            files: number;
+            /** Comments */
+            comments: number;
         };
         /** CommitResponse */
         CommitResponse: {
@@ -4797,6 +4832,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    scan_code_todos_projects__project__code_todos_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeTodoScanResponse"];
+                };
             };
             /** @description Validation Error */
             422: {

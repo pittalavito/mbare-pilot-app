@@ -25,12 +25,15 @@ const REFERENCE = {
   content: "### api/login.py\n- riga 2: Rifattorizza", linked_from: [],
 };
 
+const CREATED = { name: "agent-task-login.md", title: "Login", status: "created", type: "development", objective: "", context: "",
+  criteria: [], constraints: "", references: [] };
+
 function renderData(extra: Record<string, unknown> = {}) {
   const sent = vi.fn(() => ({}));
   let replied = false;
   mockApi({
     "GET /projects/acme/notes": [],
-    "GET /projects/acme/agent-tasks": [],
+    "GET /projects/acme/agent-tasks": [CREATED],
     "GET /projects/acme/copilot-sessions": [],
     "GET /projects/acme/chatbots": [SECRETARY, REFINER],
     "GET /chatbots/7/conversations": () => (replied ? [{ id: 3, chatbot_id: 7, title: "Todo del codice", created_at: "", updated_at: "" }] : []),
@@ -144,7 +147,7 @@ describe("RefinerPanel", () => {
     fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
     fireEvent.change(await screen.findByLabelText("Vincoli", { exact: false }), { target: { value: "mio vincolo" } });
 
-    fireEvent.change(screen.getByPlaceholderText(/Scrivi a Refiner/), { target: { value: "scrivi l'obiettivo" } });
+    fireEvent.change(await screen.findByPlaceholderText(/Scrivi a Refiner/), { target: { value: "scrivi l'obiettivo" } });
     fireEvent.click(screen.getByRole("button", { name: "Invia" }));
 
     expect(await screen.findByText(/è cambiato mentre lo modificavi/)).toBeInTheDocument();
@@ -152,6 +155,29 @@ describe("RefinerPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /Ricarica/ }));
     expect(await screen.findByDisplayValue("Scritto dal Refiner")).toBeInTheDocument();
     expect(screen.queryByDisplayValue("mio vincolo")).not.toBeInTheDocument();
+  });
+
+  it("is there only for a created or in refinement task", async () => {
+    const todo = { ...CREATED, name: "agent-task-pronto.md", title: "Pronto", status: "todo" };
+    renderData({ "GET /projects/acme/agent-tasks": [CREATED, todo] });
+    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    expect(await screen.findByPlaceholderText(/Scrivi a Refiner/)).toBeInTheDocument(); // Login, created, is open
+
+    fireEvent.click(screen.getByText("Pronto", { selector: ".mantine-NavLink-label" }));
+
+    await waitFor(() => expect(screen.queryByPlaceholderText(/Scrivi a Refiner/)).not.toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /Refiner/ })).not.toBeInTheDocument(); // nor its show/hide
+  });
+
+  it("«Rifinisci con il Refiner» puts the request in its box, not sent", async () => {
+    const sent = renderData();
+    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Nascondi il Refiner" }));
+
+    fireEvent.click(screen.getByRole("button", { name: /Rifinisci con il Refiner/ }));
+
+    expect(await screen.findByPlaceholderText(/Scrivi a Refiner/)).toHaveValue("Rifinisci questo task."); // shown again, ready
+    expect(sent).not.toHaveBeenCalled();
   });
 
   it("without a refiner says where it comes from", async () => {

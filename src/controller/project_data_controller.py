@@ -4,14 +4,16 @@ A file is uploaded as the raw request body (PUT) and downloaded as bytes.
 
 Agent tasks and todo lists are notes too (deleted as notes), read and written
 as their template's fields under /agent-tasks and /todo-lists. Code and context
-references, linked to them by name, under /references (deleting one unlinks it)."""
+references, linked to them by name, under /references (deleting one unlinks it);
+/code-todos gathers the code's todoMbarePilot comments into one of them."""
 from fastapi import APIRouter, Depends, Request, Response, status
 
-from controller.dependencies import project_data_service
+from controller.dependencies import code_todo_service, project_data_service
 from core.error import NotFoundError
 from models.controller.project_data import (
     AgentTaskBody,
     AgentTaskResponse,
+    CodeTodoScanResponse,
     DataFileResponse,
     DataSettingsBody,
     NoteRequest,
@@ -23,6 +25,7 @@ from models.controller.project_data import (
     TodoListResponse,
 )
 from models.domain.note import NoteType
+from service.code_todo_service import CodeTodoService
 from service.project_data_service import ProjectDataService
 
 router = APIRouter(prefix="/projects/{project}", tags=["project data"])
@@ -113,6 +116,13 @@ def save_reference(project: str, note: str, request: ReferenceBody, service: Pro
     service.save_reference(project, note, reference)
     kind, _ = service.reference(project, note)
     return ReferenceResponse.from_reference(note, kind, reference, service.linked_from(project).get(note, []))
+
+
+@router.post("/code-todos")
+def scan_code_todos(project: str, service: CodeTodoService = Depends(code_todo_service)) -> CodeTodoScanResponse:
+    """Gather the todoMbarePilot{...} comments of the code into the note
+    ``code-reference-todo-mbare-pilot.md`` (409 when a note with that name was written by hand)."""
+    return CodeTodoScanResponse(**service.save(project).model_dump())
 
 
 @router.delete("/references/{note}", status_code=status.HTTP_204_NO_CONTENT)

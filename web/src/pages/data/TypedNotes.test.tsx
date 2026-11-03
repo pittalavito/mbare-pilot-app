@@ -24,31 +24,32 @@ const renderData = () =>
   renderPage(<Routes><Route path="/projects/:project/data" element={<DataTab />} /></Routes>, { route: "/projects/acme/data" });
 
 describe("agent task status and type", () => {
-  const task = (name: string, title: string, status: string, type: string) => ({
-    name, title, status, type, objective: "", context: "", criteria: [], constraints: "", references: [],
+  const task = (name: string, title: string, status: string, type: string, extra = {}) => ({
+    name, title, status, type, objective: "", context: "", criteria: [], constraints: "", references: [], ...extra,
   });
   const TASKS = [
     task("agent-task-login.md", "Login", "refinement", "analysis"),
     task("agent-task-export.md", "Export", "todo", "development"),
+    task("agent-task-vecchio.md", "Vecchio", "done", "development"),
   ];
+  const BASE = { "GET /projects/acme/notes": NOTES, "GET /projects/acme/copilot-sessions": [], "GET /projects/acme/chatbots": [] };
+  const item = (title: string) => screen.queryByText(title, { selector: ".mantine-NavLink-label" })?.closest(".mantine-NavLink-root") ?? null;
+  const group = (label: string) => screen.getAllByRole("button").find((button) => button.hasAttribute("aria-expanded") && button.textContent?.includes(label));
 
-  it("shows type and status, filters by type and creates a task in the filtered type", async () => {
+  it("groups the tasks by status, the done ones closed, filters by type and creates in the filtered type", async () => {
     const created = vi.fn(async (request: Request) => ({ name: "agent-task-nuovo.md", ...(await request.json()) }));
-    mockApi({
-      "GET /projects/acme/notes": NOTES,
-      "GET /projects/acme/agent-tasks": TASKS,
-      "GET /projects/acme/copilot-sessions": [],
-      "POST /projects/acme/agent-tasks": created,
-    });
+    mockApi({ ...BASE, "GET /projects/acme/agent-tasks": TASKS, "POST /projects/acme/agent-tasks": created });
     renderData();
 
     fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
-    const item = (title: string) => screen.queryByText(title, { selector: ".mantine-NavLink-label" })?.closest(".mantine-NavLink-root") ?? null;
     await screen.findByText("Login", { selector: ".mantine-NavLink-label" });
-    const login = item("Login") as HTMLElement;
-    expect(within(login).getByText("Analisi")).toBeInTheDocument();
-    expect(within(login).getByText("In rifinitura")).toBeInTheDocument();
-    expect(screen.getByText(/Non ancora pronto/)).toBeInTheDocument(); // the open one (Login) is in refinement
+    expect(group("Creati")).toHaveTextContent("Creati0");
+    expect(group("In rifinitura")).toHaveTextContent("In rifinitura1");
+    expect(group("Fatti")).toHaveAttribute("aria-expanded", "false");
+    expect(item("Vecchio")).toBeNull(); // in the closed «Fatti»
+    expect(within(item("Login") as HTMLElement).getByText("Analisi")).toBeInTheDocument();
+    fireEvent.click(group("Fatti")!);
+    expect(item("Vecchio")).not.toBeNull();
 
     fireEvent.click(within(screen.getByRole("radiogroup", { name: "Filtra per tipo" })).getByRole("radio", { name: "Sviluppo" }));
     await waitFor(() => expect(item("Login")).toBeNull());
@@ -57,30 +58,32 @@ describe("agent task status and type", () => {
     fireEvent.click(screen.getByRole("button", { name: /Nuovo task/ }));
     fireEvent.change(await screen.findByLabelText("Titolo", { selector: "[data-autofocus]" }), { target: { value: "Nuovo" } });
     fireEvent.click(screen.getByRole("button", { name: "Crea" }));
-
     await waitFor(() => expect(created).toHaveBeenCalled());
     expect(await created.mock.results[0].value).toMatchObject({ title: "Nuovo", status: "created", type: "development" });
   });
 
-  it("saves the status and the type chosen in the editor", async () => {
-    const saved = vi.fn(async (request: Request) => ({ name: "agent-task-login.md", ...(await request.json()) }));
-    mockApi({
-      "GET /projects/acme/notes": NOTES,
-      "GET /projects/acme/agent-tasks": [TASKS[0]],
-      "GET /projects/acme/copilot-sessions": [],
-      "PUT /projects/acme/agent-tasks/agent-task-login.md": saved,
-    });
+  it("the path shows the one action of each status and saves a move at once", async () => {
+    let current = TASKS[0];
+    const saved = vi.fn(async (request: Request) => { current = { ...current, ...(await request.json()) }; return current; });
+    mockApi({ ...BASE, "GET /projects/acme/agent-tasks": () => [current], "PUT /projects/acme/agent-tasks/agent-task-login.md": saved });
     renderData();
 
     fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
-    const status = await screen.findByRole("radiogroup", { name: "Stato" });
-    fireEvent.click(within(status).getByRole("radio", { name: "Da fare" }));
+    expect(await screen.findByText("Manca ancora l'obiettivo e i criteri di accettazione.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Delega a Copilot/ })).not.toBeInTheDocument(); // not ready
+    fireEvent.change(screen.getByLabelText("Obiettivo", { exact: false }), { target: { value: "Capire il login" } });
     fireEvent.click(within(screen.getByRole("radiogroup", { name: "Tipo del task" })).getByRole("radio", { name: "Rifinitura" }));
-    expect(screen.queryByText(/Non ancora pronto/)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Salva" }));
+    fireEvent.click(screen.getByRole("button", { name: /Segna da fare/ }));
 
     await waitFor(() => expect(saved).toHaveBeenCalled());
-    expect(await saved.mock.results[0].value).toMatchObject({ status: "todo", type: "refinement" });
+    expect(await saved.mock.results[0].value).toMatchObject({ status: "todo", type: "refinement", objective: "Capire il login" }); // the form too
+    expect(await screen.findByRole("button", { name: /Delega a Copilot/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Segna da fare/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Cambia stato/ }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "In corso" }));
+    expect(await screen.findByText(/Copilot ci sta lavorando/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "apri Copilot" })).toHaveAttribute("href", "/projects/acme/copilot");
   });
 });
 
@@ -162,9 +165,9 @@ describe("typed notes", () => {
 
     fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
     expect(await screen.findByDisplayValue("Sbloccare il porto")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("radio", { name: "Fatto" }));
     fireEvent.click(screen.getByRole("button", { name: /Criterio/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Salva" }));
+    fireEvent.click(screen.getByRole("button", { name: /Cambia stato/ }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Fatto" })); // saved at once, with the form
 
     await waitFor(() => expect(saved).toHaveBeenCalled());
     const body = await saved.mock.results[0].value;

@@ -1,7 +1,9 @@
 import { ActionIcon, Alert, Anchor, Badge, Button, Card, Group, Modal, SegmentedControl, Select, Stack, Text, TextInput, Textarea } from "@mantine/core";
 import { useEffect, useState } from "react";
 
-import { type Reference, type ReferenceBody, type ReferenceKind, useDeleteReference, useReferences, useSaveReference } from "../../api/projectData";
+import {
+  type CodeTodoScan, type Reference, type ReferenceBody, type ReferenceKind, useDeleteReference, useReferences, useSaveReference, useScanCodeTodos,
+} from "../../api/projectData";
 import { ConfirmButton } from "../../components/ConfirmButton";
 
 /** The code and context references of an agent task or a todo list. A
@@ -25,7 +27,10 @@ export function ReferencesSection({ project, value, onChange }: { project: strin
     <Stack gap="xs">
       <Group justify="space-between">
         <Text size="sm" fw={500}>📎 Riferimenti</Text>
-        <Button size="xs" variant="light" onClick={() => setEditing("new")}>➕ Nuovo riferimento</Button>
+        <Group gap="xs">
+          <ScanCodeTodosButton project={project} onScanned={(note) => !value.includes(note) && onChange([...value, note])} />
+          <Button size="xs" variant="light" onClick={() => setEditing("new")}>➕ Nuovo riferimento</Button>
+        </Group>
       </Group>
       {references.error && <Alert color="red">{references.error.message}</Alert>}
       {!value.length && <Text size="xs" c="dimmed">Nessun riferimento collegato: codice o contesto (anche copiato da Jira, Confluence…) utile per questo lavoro.</Text>}
@@ -66,6 +71,33 @@ export function ReferencesSection({ project, value, onChange }: { project: strin
         onDeleted={(name) => onChange(value.filter((item) => item !== name))}
       />
     </Stack>
+  );
+}
+
+/** What a scan found, said to the user. */
+export const scanMessage = (scan: CodeTodoScan) =>
+  scan.note
+    ? `${scan.comments} ${scan.comments === 1 ? "commento" : "commenti"} todoMbarePilot in ${scan.files} file: nota ${scan.created ? "creata" : "aggiornata"}.`
+    : "Nessun commento todoMbarePilot nel codice.";
+
+/** «🔍 Todo del codice»: gathers the code's todoMbarePilot comments into their
+ * note, without an agent; ``onScanned`` gets the note (none when nothing was found). */
+export function ScanCodeTodosButton({ project, onScanned }: { project: string; onScanned: (note: string) => void }) {
+  const scan = useScanCodeTodos(project);
+  return (
+    <Group gap="xs" wrap="nowrap">
+      {scan.data && <Text size="xs" c="dimmed">{scanMessage(scan.data)}</Text>}
+      {scan.error && <Text size="xs" c="red">{scan.error.message}</Text>}
+      <Button
+        size="xs"
+        variant="default"
+        loading={scan.isPending}
+        title="Cerca i commenti todoMbarePilot{…} nel codice e li raccoglie nella nota «TODO Mbare Pilot»"
+        onClick={() => scan.mutate(undefined, { onSuccess: (result) => result.note && onScanned(result.note) })}
+      >
+        🔍 Todo del codice
+      </Button>
+    </Group>
   );
 }
 

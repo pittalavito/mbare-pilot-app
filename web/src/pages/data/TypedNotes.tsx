@@ -1,7 +1,9 @@
-import { Alert, Badge, Button, Checkbox, Grid, Group, Loader, Modal, NavLink, SegmentedControl, Stack, Text, TextInput, Textarea } from "@mantine/core";
+import {
+  Alert, Anchor, Badge, Button, Checkbox, Grid, Group, Loader, Menu, Modal, NavLink, SegmentedControl, Stack, Stepper, Text, TextInput, Textarea, UnstyledButton,
+} from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { type ReactNode, useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { useCopilotSessions, useDeleteTaskSessions } from "../../api/copilot";
 import {
@@ -20,11 +22,11 @@ import { RefinerPanel } from "./RefinerPanel";
 
 /** In order: created and refinement come before todo, ready to delegate. */
 export const STATUS = [
-  { value: "created", label: "Creato", color: "gray" },
-  { value: "refinement", label: "In rifinitura", color: "yellow" },
-  { value: "todo", label: "Da fare", color: "indigo" },
-  { value: "in_progress", label: "In corso", color: "blue" },
-  { value: "done", label: "Fatto", color: "green" },
+  { value: "created", label: "Creato", group: "Creati", color: "gray" },
+  { value: "refinement", label: "In rifinitura", group: "In rifinitura", color: "yellow" },
+  { value: "todo", label: "Da fare", group: "Da fare", color: "indigo" },
+  { value: "in_progress", label: "In corso", group: "In corso", color: "blue" },
+  { value: "done", label: "Fatto", group: "Fatti", color: "green" },
 ] as const;
 
 /** What the task asks for; it picks Copilot's planning prompt (type_prompts). */
@@ -36,24 +38,40 @@ export const TYPES = [
 
 const ALL = "all";
 
-/** The agent tasks, with the Refiner chatbot on the right (it can be hidden). */
+/** The statuses in which the task is the Refiner's: it sits next to them. */
+const REFINABLE: readonly string[] = ["created", "refinement"];
+type Draft = { text: string; id: number };
+
+/** The agent tasks grouped by status, with the Refiner on the right while the
+ * open task is created or in refinement (it can be hidden). */
 export function AgentTasks({ project }: { project: string }) {
-  const [refiner, setRefiner] = useState(true);
+  const [hidden, setHidden] = useState(false);
   const [open, setOpen] = useState<AgentTask>();
+  const [draft, setDraft] = useState<Draft>();
+  const refinable = !!open && REFINABLE.includes(open.status ?? "created");
+  const refiner = refinable && !hidden;
+  const refine = () => {
+    setHidden(false);
+    setDraft((current) => ({ text: "Rifinisci questo task.", id: (current?.id ?? 0) + 1 }));
+  };
   return (
     <Grid gutter="md">
       <Grid.Col span={{ base: 12, lg: refiner ? 8 : 12 }}>
-        <Group justify="flex-end" mb="xs">
-          <Button size="compact-xs" variant="subtle" onClick={() => setRefiner(!refiner)}>{refiner ? "Nascondi il Refiner" : "🧠 Mostra il Refiner"}</Button>
-        </Group>
-        <AgentTaskList project={project} onSelected={setOpen} />
+        {refinable && (
+          <Group justify="flex-end" mb="xs">
+            <Button size="compact-xs" variant="subtle" onClick={() => setHidden(!hidden)}>{hidden ? "🧠 Mostra il Refiner" : "Nascondi il Refiner"}</Button>
+          </Group>
+        )}
+        <AgentTaskList project={project} onSelected={setOpen} onRefine={refine} />
       </Grid.Col>
-      {refiner && <Grid.Col span={{ base: 12, lg: 4 }}><RefinerPanel project={project} openTask={open} /></Grid.Col>}
+      {refiner && <Grid.Col span={{ base: 12, lg: 4 }}><RefinerPanel project={project} openTask={open} draft={draft} /></Grid.Col>}
     </Grid>
   );
 }
 
-function AgentTaskList({ project, onSelected }: { project: string; onSelected: (task: AgentTask | undefined) => void }) {
+function AgentTaskList({ project, onSelected, onRefine }: {
+  project: string; onSelected: (task: AgentTask | undefined) => void; onRefine: () => void;
+}) {
   const tasks = useAgentTasks(project);
   const save = useSaveAgentTask(project);
   const [type, setType] = useState<string>(ALL);
@@ -72,22 +90,18 @@ function AgentTaskList({ project, onSelected }: { project: string; onSelected: (
           onChange={setType}
         />
       }
+      groups={STATUS.map((status) => ({ key: status.value, label: status.group, color: status.color, collapsed: status.value === "done" }))}
+      groupOf={(task) => task.status ?? "created"}
       describe={(task) => {
-        const status = STATUS.find((item) => item.value === task.status) ?? STATUS[0];
         const kind = TYPES.find((item) => item.value === task.type) ?? TYPES[1];
-        return (
-          <Group gap={4} wrap="nowrap">
-            <Badge size="xs" variant="outline" color={kind.color}>{kind.label}</Badge>
-            <Badge size="xs" variant="light" color={status.color}>{status.label}</Badge>
-          </Group>
-        );
+        return <Badge size="xs" variant="outline" color={kind.color}>{kind.label}</Badge>;
       }}
       create={(title, done) => save.mutate({
         body: { title, status: "created", type: type === ALL ? "development" : type as AgentTaskBody["type"], objective: "", context: "", criteria: [], constraints: "", references: [] },
       }, done)}
       creating={save.isPending}
       onSelected={onSelected}
-      renderEditor={(task) => <AgentTaskEditor key={task.name} project={project} task={task} />}
+      renderEditor={(task) => <AgentTaskEditor key={task.name} project={project} task={task} onRefine={onRefine} />}
     />
   );
 }
@@ -119,7 +133,10 @@ type Named = { name: string; title: string };
 type Done = { onSuccess: (created: Named) => void; onError: (error: Error) => void };
 
 /** The notes of one type on the left (``?note=`` is the open one), its form on the right. */
-function TypedNotes<T extends Named>({ items, error, newLabel, intro, toolbar, describe, create, creating, onSelected, renderEditor }: {
+/** A section of the list (by status, for the agent tasks). */
+type Group = { key: string; label: string; color: string; collapsed?: boolean };
+
+function TypedNotes<T extends Named>({ items, error, newLabel, intro, toolbar, groups, groupOf, describe, create, creating, onSelected, renderEditor }: {
   project: string;
   items?: T[];
   error?: string;
@@ -127,6 +144,9 @@ function TypedNotes<T extends Named>({ items, error, newLabel, intro, toolbar, d
   intro: string;
   /** Under «New»: e.g. a filter of the list. */
   toolbar?: ReactNode;
+  /** Sections of the list, in order, each with its count (``collapsed``: closed at first); ``groupOf`` puts an item in one. */
+  groups?: Group[];
+  groupOf?: (item: T) => string;
   describe: (item: T) => ReactNode;
   create: (title: string, done: Done) => void;
   creating: boolean;
@@ -139,7 +159,11 @@ function TypedNotes<T extends Named>({ items, error, newLabel, intro, toolbar, d
   const requested = search.get("note");
   const selected = items?.find((item) => item.name === requested) ?? items?.[0];
   const select = (name: string) => setSearch({ note: name }, { replace: true });
-  useEffect(() => onSelected?.(selected), [selected?.name, selected?.title]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => onSelected?.(selected), [selected && JSON.stringify(selected)]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
+  const link = (item: T) => (
+    <NavLink key={item.name} label={item.title} rightSection={describe(item)} active={item.name === selected?.name} onClick={() => select(item.name)} />
+  );
   return (
     <Grid gutter="md">
       <Grid.Col span={{ base: 12, md: 3 }}>
@@ -149,9 +173,26 @@ function TypedNotes<T extends Named>({ items, error, newLabel, intro, toolbar, d
           {!items && !error && <Loader size="sm" />}
           {error && <Alert color="red">{error}</Alert>}
           {items && !items.length && <Text size="sm" c="dimmed">Nessuna, per ora.</Text>}
-          {items?.map((item) => (
-            <NavLink key={item.name} label={item.title} rightSection={describe(item)} active={item.name === selected?.name} onClick={() => select(item.name)} />
-          ))}
+          {groups && groupOf && items?.length ? groups.map((group) => {
+            const members = items.filter((item) => groupOf(item) === group.key);
+            const open = toggled[group.key] ?? (!group.collapsed || members.some((item) => item.name === selected?.name));
+            return (
+              <Stack key={group.key} gap={0}>
+                <UnstyledButton
+                  aria-expanded={open}
+                  onClick={() => setToggled({ ...toggled, [group.key]: !open })}
+                  disabled={!members.length}
+                >
+                  <Group gap={6} wrap="nowrap">
+                    <Text size="xs" c="dimmed" w={10}>{members.length ? (open ? "▾" : "▸") : ""}</Text>
+                    <Badge size="sm" variant="light" color={group.color}>{group.label}</Badge>
+                    <Text size="xs" c="dimmed">{members.length}</Text>
+                  </Group>
+                </UnstyledButton>
+                {open && members.map(link)}
+              </Stack>
+            );
+          }) : items?.map(link)}
         </Stack>
       </Grid.Col>
       <Grid.Col span={{ base: 12, md: 9 }}>{selected ? renderEditor(selected) : <Text c="dimmed">{intro}</Text>}</Grid.Col>
@@ -256,7 +297,69 @@ const fields = <T extends object>(item: T & { name: string }) => {
 
 // ------------------------------------------------------------------ editors
 
-function AgentTaskEditor({ project, task }: { project: string; task: AgentTask }) {
+/** Where the task is in its flow, and the one action that moves it on:
+ * created → «Rifinisci con il Refiner», in refinement → «Segna da fare», todo →
+ * «Delega a Copilot»; in progress and done are Copilot's. «Cambia stato» is for
+ * any other move, by hand. */
+function StatusPath({ project, status, missing, busy, dirty, onStatus, onRefine, onDelegate }: {
+  project: string; status: string;
+  /** What a refined task should have and this one lacks. */
+  missing: string[];
+  busy: boolean; dirty: boolean;
+  onStatus: (status: AgentTaskBody["status"]) => void; onRefine: () => void; onDelegate: () => void;
+}) {
+  const index = Math.max(0, STATUS.findIndex((item) => item.value === status));
+  return (
+    <Stack gap="xs">
+      <Stepper active={index} size="xs" iconSize={22} allowNextStepsSelect={false} aria-label="Stato del task">
+        {STATUS.map((item, position) => (
+          <Stepper.Step key={item.value} label={item.label} color={position <= index ? STATUS[index].color : undefined} />
+        ))}
+      </Stepper>
+      <Group gap="xs">
+        {status === "created" && (
+          <>
+            <Button size="xs" onClick={onRefine}>🧠 Rifinisci con il Refiner</Button>
+            <Text size="xs" c="dimmed">Il Refiner lo prende, ti fa domande e scrive i campi con te.</Text>
+          </>
+        )}
+        {status === "refinement" && (
+          <>
+            <Button size="xs" onClick={() => onStatus("todo")} loading={busy}>✅ Segna da fare</Button>
+            <Text size="xs" c={missing.length ? "orange" : "dimmed"}>
+              {missing.length ? `Manca ancora ${missing.join(" e ")}.` : "Quando è rifinito: pronto da delegare."}
+            </Text>
+          </>
+        )}
+        {status === "todo" && (
+          <Button size="xs" onClick={onDelegate} disabled={dirty} title={dirty ? "Salva prima il task: Copilot legge il file" : undefined}>
+            🤖 Delega a Copilot
+          </Button>
+        )}
+        {status === "in_progress" && (
+          <Text size="xs">
+            Copilot ci sta lavorando: <Anchor component={Link} to={`/projects/${encodeURIComponent(project)}/copilot`}>apri Copilot</Anchor>.
+          </Text>
+        )}
+        {status === "done" && <Text size="xs" c="dimmed">Fatto.</Text>}
+        <Menu position="bottom-end">
+          <Menu.Target>
+            <Button size="xs" variant="subtle" ml="auto" loading={busy && status !== "refinement"}>Cambia stato ▾</Button>
+          </Menu.Target>
+          <Menu.Dropdown>
+            {STATUS.filter((item) => item.value !== status).map((item) => (
+              <Menu.Item key={item.value} onClick={() => onStatus(item.value)}>
+                <Badge size="xs" variant="light" color={item.color}>{item.label}</Badge>
+              </Menu.Item>
+            ))}
+          </Menu.Dropdown>
+        </Menu>
+      </Group>
+    </Stack>
+  );
+}
+
+function AgentTaskEditor({ project, task, onRefine }: { project: string; task: AgentTask; onRefine: () => void }) {
   const save = useSaveAgentTask(project);
   const sessions = useCopilotSessions(project);
   const deleteSessions = useDeleteTaskSessions(project);
@@ -271,11 +374,19 @@ function AgentTaskEditor({ project, task }: { project: string; task: AgentTask }
   const outdated = latest !== JSON.stringify(base); // changed elsewhere (e.g. by the Refiner)
   useEffect(() => { if (outdated && !dirty) reload(); }, [latest]); // eslint-disable-line react-hooks/exhaustive-deps
   const [delegating, setDelegating] = useState(false);
-  const onSave = () =>
+  const write = (body: AgentTaskBody, message: (saved: AgentTask) => string) =>
     save.mutate(
-      { name: task.name, body: { ...form, criteria: (form.criteria ?? []).filter((item) => item.text.trim()) } },
-      { onSuccess: (saved) => { setForm(fields(saved)); setBase(fields(saved)); notifications.show({ message: `${saved.title} salvato.` }); } },
+      { name: task.name, body: { ...body, criteria: (body.criteria ?? []).filter((item) => item.text.trim()) } },
+      { onSuccess: (saved) => { setForm(fields(saved)); setBase(fields(saved)); notifications.show({ message: message(saved) }); } },
     );
+  const onSave = () => write(form, (saved) => `${saved.title} salvato.`);
+  /** A move along the flow is saved at once, with what is in the form. */
+  const moveTo = (status: AgentTaskBody["status"]) =>
+    write({ ...form, status }, (saved) => `${saved.title}: ${STATUS.find((item) => item.value === saved.status)?.label.toLowerCase()}.`);
+  const missing = [
+    !(form.objective ?? "").trim() && "l'obiettivo",
+    !(form.criteria ?? []).some((item) => item.text.trim()) && "i criteri di accettazione",
+  ].filter((item): item is string => !!item);
   return (
     <EditorShell
       project={project} name={task.name} dirty={dirty} valid={!!form.title.trim()} saving={save.isPending} error={save.error?.message} onSave={onSave}
@@ -284,14 +395,7 @@ function AgentTaskEditor({ project, task }: { project: string; task: AgentTask }
         run: () => deleteSessions.mutateAsync(task.name),
         error: deleteSessions.error?.message,
       } : undefined}
-      actions={
-        <>
-          <Button variant="light" onClick={() => setDelegating(true)} disabled={dirty} title={dirty ? "Salva prima il task: Copilot legge il file" : undefined}>
-            🤖 Delega a Copilot
-          </Button>
-          <DelegateModal project={project} task={task.name} opened={delegating} onClose={() => setDelegating(false)} />
-        </>
-      }
+      actions={<DelegateModal project={project} task={task.name} opened={delegating} onClose={() => setDelegating(false)} />}
     >
       {outdated && dirty && (
         <Alert color="orange">
@@ -301,30 +405,20 @@ function AgentTaskEditor({ project, task }: { project: string; task: AgentTask }
           </Group>
         </Alert>
       )}
+      <StatusPath
+        project={project} status={form.status ?? "created"} missing={missing} busy={save.isPending} dirty={dirty}
+        onStatus={moveTo} onRefine={onRefine} onDelegate={() => setDelegating(true)}
+      />
       <TextInput label="Titolo" value={form.title} onChange={(event) => set({ title: event.currentTarget.value })} />
-      <Group align="flex-end" gap="md">
-        <div>
-          <Text size="sm" fw={500} mb={4}>Stato</Text>
-          <SegmentedControl
-            aria-label="Stato"
-            data={STATUS.map(({ value, label }) => ({ value, label }))}
-            value={form.status ?? "created"}
-            onChange={(value) => set({ status: value as AgentTaskBody["status"] })}
-          />
-        </div>
-        <div>
-          <Text size="sm" fw={500} mb={4}>Tipo</Text>
-          <SegmentedControl
-            aria-label="Tipo del task"
-            data={TYPES.map(({ value, label }) => ({ value, label }))}
-            value={form.type ?? "development"}
-            onChange={(value) => set({ type: value as AgentTaskBody["type"] })}
-          />
-        </div>
-      </Group>
-      {form.status && !["todo", "in_progress", "done"].includes(form.status) && (
-        <Text size="xs" c="dimmed">Non ancora pronto: quando è rifinito, mettilo «Da fare». Si può delegare comunque, con un avviso.</Text>
-      )}
+      <div>
+        <Text size="sm" fw={500} mb={4}>Tipo</Text>
+        <SegmentedControl
+          aria-label="Tipo del task"
+          data={TYPES.map(({ value, label }) => ({ value, label }))}
+          value={form.type ?? "development"}
+          onChange={(value) => set({ type: value as AgentTaskBody["type"] })}
+        />
+      </div>
       <Textarea label="Obiettivo" description="Cosa deve ottenere l'agente." autosize minRows={2} value={form.objective ?? ""} onChange={(event) => set({ objective: event.currentTarget.value })} />
       <Textarea label="Contesto" description="Repository, file, decisioni già prese." autosize minRows={2} value={form.context ?? ""} onChange={(event) => set({ context: event.currentTarget.value })} />
       <div>

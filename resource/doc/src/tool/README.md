@@ -155,6 +155,7 @@ Gli altri tool del chatbot `refiner`, in `refiner/agent_tasks.py`. **Ogni regola
 
 - **Dell'utente**: titolo, tipo e riferimenti; da «da fare» in poi il task non è più del Refiner.
 - **Mascheramento**: il contenuto dei riferimenti arriva all'agente come ogni output dei tool, cioè con i valori sensibili del progetto mascherati.
+- **Nella UI**: il pannello del Refiner compare accanto agli agent task solo quando il task aperto è «creato» o «in rifinitura»; «🧠 Rifinisci con il Refiner» (su un task creato) gli prepara la richiesta, da mandare tu.
 - **Il task aperto**: il pannello del Refiner manda con ogni messaggio il nome del task aperto nell'editor (`open_note`, vedi [service](../service/README.md#chatbot)); per l'agente è «questo task».
 - Solo nel chatbot di un progetto (`notes_run()`).
 
