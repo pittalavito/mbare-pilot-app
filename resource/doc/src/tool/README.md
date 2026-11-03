@@ -136,7 +136,7 @@ Gli altri tool del chatbot `secretary`, in `notes/agent_tasks.py`:
 
 Il tool del chatbot `refiner`, in `refiner/create_code_reference.py`. Cerca nel codice del progetto i commenti `todoMbarePilot{descrizione}` e li scrive in **un** riferimento codice (`code-reference-todo-mbare-pilot.md`) con `CodeTodoService` ([service](../service/README.md#commenti-todombarepilot-codetodoservice)).
 
-- **Cosa restituisce**: il nome della nota, se è nuova, quanti file e quanti commenti, e il **link** alla nota (`/projects/<progetto>/data?note=<nota>`). **Mai** i commenti, i percorsi o il codice: l'agente dice cosa ha fatto, i commenti li legge l'utente nella nota (il pannello del Refiner la apre al clic sul link).
+- **Cosa restituisce**: il nome della nota, se è nuova, quanti file e quanti commenti, quanti sono scritti male (`malformed`, elencati nella nota) e il **link** alla nota (`/projects/<progetto>/data?note=<nota>`). **Mai** i commenti, i percorsi o il codice: l'agente dice cosa ha fatto, i commenti li legge l'utente nella nota (il pannello del Refiner la apre al clic sul link).
 - **Niente trovato**: `note` e `link` vuoti, a meno che la nota esistesse già (allora viene svuotata).
 - **Errori**: una nota con quel nome scritta a mano non viene toccata e il tool restituisce l'errore.
 - Solo nel chatbot di un progetto (serve `code_todos` nel contesto).

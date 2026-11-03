@@ -28,7 +28,7 @@ def test_the_scan_writes_the_note_and_answers_with_counts(client):
     scan = client.post("/projects/acme/code-todos")
 
     assert scan.status_code == 200
-    assert scan.json() == {"note": "code-reference-todo-mbare-pilot.md", "created": True, "files": 1, "comments": 1}
+    assert scan.json() == {"note": "code-reference-todo-mbare-pilot.md", "created": True, "files": 1, "comments": 1, "malformed": 0}
     [reference] = client.get("/projects/acme/references").json()
     assert reference["name"] == "code-reference-todo-mbare-pilot.md" and "riga 1: Rifai il login" in reference["content"]
     assert client.post("/projects/acme/code-todos").json()["created"] is False

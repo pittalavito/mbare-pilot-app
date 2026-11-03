@@ -1998,6 +1998,11 @@ export interface components {
             files: number;
             /** Comments */
             comments: number;
+            /**
+             * Malformed
+             * @default 0
+             */
+            malformed: number;
         };
         /** CommitResponse */
         CommitResponse: {

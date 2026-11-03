@@ -5,6 +5,7 @@ import {
   type CodeTodoScan, type Reference, type ReferenceBody, type ReferenceKind, useDeleteReference, useReferences, useSaveReference, useScanCodeTodos,
 } from "../../api/projectData";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { CodeTodoHelp, TODO_EXAMPLE } from "./CodeTodoHelp";
 
 /** The code and context references of an agent task or a todo list. A
  * reference is a note of its own (``code-reference-<title>.md``...) linked by
@@ -75,10 +76,14 @@ export function ReferencesSection({ project, value, onChange }: { project: strin
 }
 
 /** What a scan found, said to the user. */
-export const scanMessage = (scan: CodeTodoScan) =>
-  scan.note
-    ? `${scan.comments} ${scan.comments === 1 ? "commento" : "commenti"} todoMbarePilot in ${scan.files} file: nota ${scan.created ? "creata" : "aggiornata"}.`
-    : "Nessun commento todoMbarePilot nel codice.";
+export function scanMessage(scan: CodeTodoScan): string {
+  if (!scan.note) return `Nessun commento todoMbarePilot nel codice: scrivilo così, ${TODO_EXAMPLE}`;
+  const found = scan.comments
+    ? `${scan.comments} ${scan.comments === 1 ? "commento" : "commenti"} todoMbarePilot in ${scan.files} file`
+    : "Nessun commento todoMbarePilot valido";
+  const wrong = scan.malformed ? `; ${scan.malformed} da correggere (scritti male, elencati nella nota)` : "";
+  return `${found}${wrong}: nota ${scan.created ? "creata" : "aggiornata"}.`;
+}
 
 /** «🔍 Todo del codice»: gathers the code's todoMbarePilot comments into their
  * note, without an agent; ``onScanned`` gets the note (none when nothing was found). */
@@ -86,7 +91,7 @@ export function ScanCodeTodosButton({ project, onScanned }: { project: string; o
   const scan = useScanCodeTodos(project);
   return (
     <Group gap="xs" wrap="nowrap">
-      {scan.data && <Text size="xs" c="dimmed">{scanMessage(scan.data)}</Text>}
+      {scan.data && <Text size="xs" c={scan.data.malformed ? "orange" : "dimmed"}>{scanMessage(scan.data)}</Text>}
       {scan.error && <Text size="xs" c="red">{scan.error.message}</Text>}
       <Button
         size="xs"
@@ -97,6 +102,7 @@ export function ScanCodeTodosButton({ project, onScanned }: { project: string; o
       >
         🔍 Todo del codice
       </Button>
+      <CodeTodoHelp />
     </Group>
   );
 }

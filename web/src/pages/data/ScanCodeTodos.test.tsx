@@ -67,8 +67,31 @@ describe("Todo del codice", () => {
     renderData();
     fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
     fireEvent.click(await screen.findByRole("button", { name: /Todo del codice/ }));
-    expect(await screen.findByText("Nessun commento todoMbarePilot nel codice.")).toBeInTheDocument();
+    expect(await screen.findByText("Nessun commento todoMbarePilot nel codice: scrivilo così, // todoMbarePilot{descrizione}")).toBeInTheDocument();
     expect(screen.queryByText("TODO Mbare Pilot")).not.toBeInTheDocument();
+  });
+
+  it("says how many are written wrong", async () => {
+    api({ "POST /projects/acme/code-todos": { note: NOTE, created: false, files: 1, comments: 1, malformed: 2 } });
+    renderData();
+    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Todo del codice/ }));
+
+    expect(await screen.findByText("1 commento todoMbarePilot in 1 file; 2 da correggere (scritti male, elencati nella nota): nota aggiornata."))
+      .toBeInTheDocument();
+  });
+
+  it("explains how the comment is written, with a copy button", async () => {
+    api();
+    renderData();
+    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Come si scrive un commento todoMbarePilot" }));
+
+    expect(await screen.findByText("Come si scrive il commento")).toBeInTheDocument();
+    expect(screen.getByText(/esatto, maiuscole comprese/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copia il commento" })).toBeInTheDocument();
+    expect(screen.getByText(/Rifattorizza il controllo della password/)).toBeInTheDocument();
   });
 
   it("shows the server's error", async () => {

@@ -135,3 +135,5 @@ class CodeTodoScanResponse(BaseModel):
     created: bool
     files: int
     comments: int
+    malformed: int = 0
+    """Comments written wrong: listed in the note, to fix."""

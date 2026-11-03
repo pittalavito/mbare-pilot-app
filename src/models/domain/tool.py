@@ -215,6 +215,7 @@ class CreateCodeReferenceResponse(BaseModel):
     created: bool = Field(..., description="True = a new note, false = the existing one rewritten.")
     files: int = Field(..., description="How many files have comments.")
     comments: int = Field(..., description="How many comments were found.")
+    malformed: int = Field(0, description="Comments written wrong, not collected: listed in the note; tell the user to fix them.")
     link: str | None = Field(None, description="Link to the note in the app: give it to the user as a markdown link.")
 
 
