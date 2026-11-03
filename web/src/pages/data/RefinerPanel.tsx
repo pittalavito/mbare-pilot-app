@@ -3,12 +3,14 @@ import { useState } from "react";
 
 import { type Chatbot, useChatbots, useConversations } from "../../api/chat";
 import { type Reference, useReferences } from "../../api/projectData";
+import { ChatbotDetails } from "../chat/ChatbotDetails";
 import { ConversationView } from "../chat/ChatTab";
 import { ReferenceModal } from "./ReferencesSection";
 
 /** The project's refiner chatbot next to its agent tasks (the first one by
  * name, when there are more). A link to a reference in its answers (``…/data?note=
- * code-reference-…``) opens the reference here, to read and edit it. */
+ * code-reference-…``) opens the reference here, to read and edit it.
+ * «ℹ️ Dettagli» shows it and changes its model, as in the Chat tab. */
 export function RefinerPanel({ project }: { project: string }) {
   const chatbots = useChatbots(project);
   if (chatbots.isPending) return <Loader size="sm" />;
@@ -31,14 +33,19 @@ function Refiner({ project, chatbot }: { project: string; chatbot: Chatbot }) {
   const references = useReferences(project);
   const [conversation, setConversation] = useState<number>();
   const [opened, setOpened] = useState<string>();
+  const [details, setDetails] = useState(false);
   const reference: Reference | undefined = references.data?.find((item) => item.name === opened);
 
   return (
     <Stack gap="xs">
       <Group justify="space-between" wrap="nowrap">
         <Text fw={600}>🧠 {chatbot.name}</Text>
-        <Button size="compact-xs" variant="light" onClick={() => setConversation(undefined)}>💬 Nuova</Button>
+        <Group gap={4} wrap="nowrap">
+          <Button size="compact-xs" variant="default" onClick={() => setDetails(true)}>ℹ️ Dettagli</Button>
+          <Button size="compact-xs" variant="light" onClick={() => setConversation(undefined)}>💬 Nuova</Button>
+        </Group>
       </Group>
+      <Text size="xs" c="dimmed">Modello <code>{chatbot.model}</code></Text>
       {chatbot.description && <Text size="xs" c="dimmed">{chatbot.description}</Text>}
       {!!conversations.data?.length && (
         <Select
@@ -73,6 +80,7 @@ function Refiner({ project, chatbot }: { project: string; chatbot: Chatbot }) {
         onCreated={() => {}}
         onDeleted={() => setOpened(undefined)}
       />
+      <ChatbotDetails chatbot={chatbot} opened={details} onClose={() => setDetails(false)} />
     </Stack>
   );
 }
