@@ -7,7 +7,7 @@ import {
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { CodeTodoHelp, TODO_EXAMPLE } from "./CodeTodoHelp";
 
-/** The code and context references of an agent task or a todo list. A
+/** The code and context references of an agent task or an activity. A
  * reference is a note of its own (``code-reference-<title>.md``...) linked by
  * name, many to many: here only the links change (saved with the task or
  * list); a reference itself is saved as soon as it is created or edited. */

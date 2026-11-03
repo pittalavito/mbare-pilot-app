@@ -1,11 +1,11 @@
 """Request/response models of a project's data API: notes (generic, agent
-tasks, todo lists, code and context references) and uploaded files."""
+tasks, activities, code and context references) and uploaded files."""
 from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from models.domain.note import AgentTask, ChecklistItem, NoteType, Reference, TaskStatus, TaskType, TodoItem, TodoList, TodoPriority
+from models.domain.note import Activity, ActivityStatus, AgentTask, ChecklistItem, NoteType, Reference, TaskStatus, TaskType, TodoItem, TodoPriority
 from models.domain.project import ProjectDataFile
 
 
@@ -16,7 +16,7 @@ class DataFileResponse(BaseModel):
     size: int
     modified_at: datetime
     note_type: str | None = None
-    """For a note: ``generic`` | ``agent_task`` | ``todo_list`` | ``code_reference`` | ``context_reference``."""
+    """For a note: ``generic`` | ``agent_task`` | ``activity`` | ``code_reference`` | ``context_reference``."""
 
     @classmethod
     def from_file(cls, item: ProjectDataFile) -> "DataFileResponse":
@@ -68,23 +68,28 @@ class TodoItemBody(ChecklistItemBody):
     due: date | None = None
 
 
-class TodoListBody(BaseModel):
+class ActivityBody(BaseModel):
     title: str = Field(min_length=1)
+    status: ActivityStatus = ActivityStatus.TODO
+    description: str = ""
     items: list[TodoItemBody] = []
+    """Its todo list."""
+    agent_tasks: list[str] = []
+    """The agent tasks born from it, by name."""
     references: list[str] = []
     """The linked reference notes, by name."""
 
-    def to_todo(self) -> TodoList:
-        return TodoList(title=self.title, items=[TodoItem(**item.model_dump()) for item in self.items], references=self.references)
+    def to_activity(self) -> Activity:
+        return Activity(**self.model_dump(exclude={"items"}), items=[TodoItem(**item.model_dump()) for item in self.items])
 
 
-class TodoListResponse(TodoListBody):
+class ActivityResponse(ActivityBody):
     name: str
-    """The note's file name (``todo-list-<title>.md``): it identifies the list."""
+    """The note's file name (``attivita-<title>.md``): it identifies the activity."""
 
     @classmethod
-    def from_todo(cls, name: str, todo: TodoList) -> "TodoListResponse":
-        return cls(name=name, **todo.model_dump())
+    def from_activity(cls, name: str, activity: Activity) -> "ActivityResponse":
+        return cls(name=name, **activity.model_dump())
 
 
 # --------------------------------------------------------------- references
@@ -114,7 +119,7 @@ class ReferenceResponse(ReferenceBody):
     kind: str
     """``code_reference`` | ``context_reference``."""
     linked_from: list[str]
-    """The agent tasks and todo lists that link it."""
+    """The agent tasks and activities that link it."""
 
     @classmethod
     def from_reference(cls, name: str, kind: NoteType, reference: Reference, linked_from: list[str]) -> "ReferenceResponse":
@@ -125,7 +130,7 @@ class ReferenceResponse(ReferenceBody):
 
 class DataSettingsBody(BaseModel):
     visible_note_types: list[NoteType]
-    """The note types the Dati tab shows: ``generic``, ``agent_task``, ``todo_list``, ``code_reference``, ``context_reference``."""
+    """The note types the Dati tab shows: ``generic``, ``agent_task``, ``activity``, ``code_reference``, ``context_reference``."""
 
 
 class CodeTodoScanResponse(BaseModel):

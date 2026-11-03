@@ -31,3 +31,28 @@ def test_a_container_in_the_tests_never_reaches_the_real_copilot_cli(stores):
     from core.container import Container
 
     assert not Container(stores=stores).copilot_service._client.available
+
+
+def test_at_startup_the_old_todo_lists_become_activities(stores, project_store, files_repository, monkeypatch):
+    from core.error import ValidationError
+    from models.domain.project import Project, ProjectSource
+    from service.project_data_service import ProjectDataService
+
+    for name in ("acme", "rotto"):
+        project_store.save(Project(name=name, source=ProjectSource.FOLDER, root_path=f"/code/{name}"))
+    notes = files_repository.root / "acme" / "notes"
+    notes.mkdir(parents=True)
+    (notes / "todo-list-rilascio.md").write_text("# Rilascio\n\n- [x] tag\n", encoding="utf-8")
+    real = ProjectDataService.migrate_todo_lists
+
+    def migrate(self, project_name):
+        if project_name == "rotto":
+            raise ValidationError("non leggibile")  # logged: the app starts anyway
+        return real(self, project_name)
+
+    monkeypatch.setattr(ProjectDataService, "migrate_todo_lists", migrate)
+    container = Container(stores=stores)
+
+    [(name, activity)] = container.project_data_service.activities("acme")
+    assert (name, activity.status.value) == ("attivita-rilascio.md", "done")
+    assert not (notes / "todo-list-rilascio.md").exists()

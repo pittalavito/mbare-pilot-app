@@ -1,6 +1,6 @@
 import { ActionIcon, Button, Checkbox, Group, Select, Stack, Text, TextInput } from "@mantine/core";
 
-/** A checklist item; ``priority`` and ``due`` only in the todo lists. */
+/** A checklist item; ``priority`` and ``due`` only in the activities' todo lists. */
 export type ChecklistRow = { text: string; done?: boolean; priority?: "high" | "medium" | "low" | null; due?: string | null };
 
 export const PRIORITY_LABELS = { high: "alta", medium: "media", low: "bassa" } as const;

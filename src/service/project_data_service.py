@@ -1,6 +1,6 @@
 """A project's data, kept by the app apart from the project's code, under
 ``<MBARE_PILOT_HOME>/project/<slug>/``: ``notes/*.md`` (notes written in the app:
-generic, or typed by their name and written with a template: agent tasks, todo lists,
+generic, or typed by their name and written with a template: agent tasks, activities,
 and the code and context references they link by name),
 ``files/*`` (uploaded documents), ``context/*.md`` (the project's context,
 written by hand: what read_context gives the chatbot, and the RAG will index)
@@ -11,9 +11,11 @@ from datetime import datetime, timezone
 from pydantic import BaseModel
 
 from core.error import ConflictError, NotFoundError, ValidationError
+from core.observability import LogPrefix, log_info, log_warning
 from domain.project.data_paths import (
     CONTEXT_DIR,
     FILES_DIR,
+    NOTE_PREFIXES,
     NOTE_SUFFIX,
     NOTES_DIR,
     TASK_FILE,
@@ -24,14 +26,14 @@ from domain.project.data_paths import (
     typed_note_file_name,
 )
 from domain.project.note_templates import (
+    parse_activity,
     parse_agent_task,
     parse_reference,
-    parse_todo_list,
+    render_activity,
     render_agent_task,
     render_reference,
-    render_todo_list,
 )
-from models.domain.note import AgentTask, NoteType, Reference, TodoList
+from models.domain.note import Activity, AgentTask, NoteType, Reference
 from models.domain.project import DEFAULT_VISIBLE_NOTE_TYPES, ProjectDataFile, ProjectDataKind
 from models.store.files import StoredFile
 from service.store.project_file_store import ProjectFileStore
@@ -57,7 +59,14 @@ class ProjectDataService:
         return _to_data_file(stored, ProjectDataKind.NOTE)
 
     def delete_note(self, project_name: str, note_name: str) -> bool:
-        return self._files.delete(self._id(project_name, NOTES_DIR, note_file_name(note_name)))
+        """An agent task is also unlinked from the activities it was born from."""
+        name = note_file_name(note_name)
+        if note_type(name) == NoteType.AGENT_TASK:
+            for activity_name, activity in self.activities(project_name):
+                if name in activity.agent_tasks:
+                    self.save_activity(project_name, activity_name, activity.model_copy(
+                        update={"agent_tasks": [task for task in activity.agent_tasks if task != name]}))
+        return self._files.delete(self._id(project_name, NOTES_DIR, name))
 
     # ----------------------------------------------------------- typed notes
     def agent_tasks(self, project_name: str) -> list[tuple[str, AgentTask]]:
@@ -81,24 +90,55 @@ class ProjectDataService:
         _check_references(task.references)
         self._save_typed(project_name, NoteType.AGENT_TASK, note_name, render_agent_task(task))
 
-    def todo_lists(self, project_name: str) -> list[tuple[str, TodoList]]:
-        """The todo lists, as (note name, list)."""
-        return self._typed_notes(project_name, NoteType.TODO_LIST, parse_todo_list)
+    def activities(self, project_name: str) -> list[tuple[str, Activity]]:
+        """The activities, as (note name, activity)."""
+        return self._typed_notes(project_name, NoteType.ACTIVITY, parse_activity)
 
-    def todo_list(self, project_name: str, note_name: str) -> TodoList:
-        """One todo list; NotFoundError when missing, ValidationError when the note is of another type."""
+    def activity(self, project_name: str, note_name: str) -> Activity:
+        """One activity; NotFoundError when missing, ValidationError when the note is of another type."""
         name = note_file_name(note_name)
-        if note_type(name) != NoteType.TODO_LIST:
-            raise ValidationError(f"{name} non è una todo list.")
-        return parse_todo_list(self.read_note(project_name, name), _title(name))
+        if note_type(name) != NoteType.ACTIVITY:
+            raise ValidationError(f"{name} non è un'attività.")
+        return parse_activity(self.read_note(project_name, name), _title(name))
 
-    def create_todo_list(self, project_name: str, todo: TodoList) -> str:
-        _check_references(todo.references)
-        return self._create_typed(project_name, NoteType.TODO_LIST, todo.title, render_todo_list(todo))
+    def create_activity(self, project_name: str, activity: Activity) -> str:
+        """A new note named after the title (``attivita-<title>.md``); returns its name."""
+        _check_links(activity)
+        return self._create_typed(project_name, NoteType.ACTIVITY, activity.title, render_activity(activity))
 
-    def save_todo_list(self, project_name: str, note_name: str, todo: TodoList) -> None:
-        _check_references(todo.references)
-        self._save_typed(project_name, NoteType.TODO_LIST, note_name, render_todo_list(todo))
+    def save_activity(self, project_name: str, note_name: str, activity: Activity) -> None:
+        """Rewrite an existing activity (its name stays, also when the title changes)."""
+        _check_links(activity)
+        self._save_typed(project_name, NoteType.ACTIVITY, note_name, render_activity(activity))
+
+    def link_agent_task(self, project_name: str, activity_name: str, task_name: str) -> None:
+        """The agent task among the activity's ones (once); both must exist."""
+        task = note_file_name(task_name)
+        self.agent_task(project_name, task)
+        activity = self.activity(project_name, activity_name)
+        if task not in activity.agent_tasks:
+            self.save_activity(project_name, activity_name, activity.model_copy(update={"agent_tasks": [*activity.agent_tasks, task]}))
+
+    def migrate_todo_lists(self, project_name: str) -> int:
+        """The old todo lists (``todo-list-<title>.md``) become activities
+        (``attivita-<title>.md``): same items and references, description
+        empty, status from the items. One whose new name is taken stays as it
+        is (logged). Returns how many were moved."""
+        moved = 0
+        for note in self.list_notes(project_name):
+            if not note.name.startswith(_OLD_TODO_LIST_PREFIX):
+                continue
+            new = NOTE_PREFIXES[NoteType.ACTIVITY] + note.name.removeprefix(_OLD_TODO_LIST_PREFIX)
+            if self._files.get(self._id(project_name, NOTES_DIR, new)) is not None:
+                log_warning(LogPrefix.PROJECT_SERVICE, "Todo list %s non migrata: %s esiste già", note.name, new)
+                continue
+            activity = parse_activity(self.read_note(project_name, note.name), _title(new))
+            self.save_note(project_name, new, render_activity(activity))
+            self._files.delete(self._id(project_name, NOTES_DIR, note.name))
+            moved += 1
+        if moved:
+            log_info(LogPrefix.PROJECT_SERVICE, "%s: %d todo list diventate attività", project_name, moved)
+        return moved
 
     # ------------------------------------------------------------ references
     def references(self, project_name: str) -> list[tuple[str, NoteType, Reference]]:
@@ -127,16 +167,17 @@ class ProjectDataService:
         self._save_typed(project_name, kind, note_name, render_reference(reference, kind == NoteType.CODE_REFERENCE))
 
     def delete_reference(self, project_name: str, note_name: str) -> bool:
-        """The reference, and its links from the agent tasks and todo lists."""
+        """The reference, and its links from the agent tasks and activities."""
         name = note_file_name(note_name)
         if not note_type(name).is_reference:
             raise ValidationError(f"{name} non è un riferimento.")
         for task_name, task in self.agent_tasks(project_name):
             if name in task.references:
                 self.save_agent_task(project_name, task_name, task.model_copy(update={"references": [r for r in task.references if r != name]}))
-        for todo_name, todo in self.todo_lists(project_name):
-            if name in todo.references:
-                self.save_todo_list(project_name, todo_name, todo.model_copy(update={"references": [r for r in todo.references if r != name]}))
+        for activity_name, activity in self.activities(project_name):
+            if name in activity.references:
+                self.save_activity(project_name, activity_name, activity.model_copy(
+                    update={"references": [r for r in activity.references if r != name]}))
         return self.delete_note(project_name, name)
 
     def import_reference(self, project_name: str, kind: NoteType, reference: Reference, link_to: list[str] = ()) -> tuple[str, bool]:
@@ -157,25 +198,24 @@ class ProjectDataService:
         return name, created
 
     def link_reference(self, project_name: str, reference_name: str, parents: list[str]) -> None:
-        """Link the reference from each agent task / todo list (by name) that does not link it yet."""
+        """Link the reference from each agent task / activity (by name) that does not link it yet."""
         for parent in parents:
             kind = note_type(note_file_name(parent))
             if kind == NoteType.AGENT_TASK:
                 task = self.agent_task(project_name, parent)
                 if reference_name not in task.references:
                     self.save_agent_task(project_name, parent, task.model_copy(update={"references": [*task.references, reference_name]}))
-            elif kind == NoteType.TODO_LIST:
-                name = note_file_name(parent)
-                todo = parse_todo_list(self.read_note(project_name, name), _title(name))
-                if reference_name not in todo.references:
-                    self.save_todo_list(project_name, name, todo.model_copy(update={"references": [*todo.references, reference_name]}))
+            elif kind == NoteType.ACTIVITY:
+                activity = self.activity(project_name, parent)
+                if reference_name not in activity.references:
+                    self.save_activity(project_name, parent, activity.model_copy(update={"references": [*activity.references, reference_name]}))
             else:
-                raise ValidationError(f"{parent} non è un agent task né una todo list: non può collegare riferimenti.")
+                raise ValidationError(f"{parent} non è un agent task né un'attività: non può collegare riferimenti.")
 
     def linked_from(self, project_name: str) -> dict[str, list[str]]:
-        """Reference name → the agent tasks and todo lists that link it."""
+        """Reference name → the agent tasks and activities that link it."""
         links: dict[str, list[str]] = {}
-        for parent, item in [*self.agent_tasks(project_name), *self.todo_lists(project_name)]:
+        for parent, item in [*self.agent_tasks(project_name), *self.activities(project_name)]:
             for name in item.references:
                 links.setdefault(name, []).append(parent)
         return links
@@ -278,6 +318,17 @@ def _to_data_file(stored: StoredFile, kind: ProjectDataKind) -> ProjectDataFile:
         modified_at=datetime.fromtimestamp(stored.mtime_ns / 1e9, tz=timezone.utc),
         note_type=note_type(name) if kind == ProjectDataKind.NOTE else None,
     )
+
+
+_OLD_TODO_LIST_PREFIX = "todo-list-"
+"""The name of a todo list before they became activities (migrate_todo_lists)."""
+
+
+def _check_links(activity: Activity) -> None:
+    _check_references(activity.references)
+    for name in activity.agent_tasks:
+        if note_type(note_file_name(name)) != NoteType.AGENT_TASK:
+            raise ValidationError(f"{name} non è un agent task: un'attività collega solo agent-task-….")
 
 
 def _check_references(names: list[str]) -> None:

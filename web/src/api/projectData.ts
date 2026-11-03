@@ -4,22 +4,22 @@ import { ApiError, api, detail, unwrap } from "./client";
 import type { components } from "./schema";
 
 /** The project's own data (apart from its code): markdown notes and uploaded files.
- * Agent tasks, todo lists and the code/context references they link are notes too,
+ * Agent tasks, activities and the code/context references they link are notes too,
  * read and written as their template's fields. */
 
 export type DataFile = components["schemas"]["DataFileResponse"];
-export type NoteType = "generic" | "agent_task" | "todo_list" | "code_reference" | "context_reference";
+export type NoteType = "generic" | "agent_task" | "activity" | "code_reference" | "context_reference";
 export type AgentTask = components["schemas"]["AgentTaskResponse"];
 export type AgentTaskBody = components["schemas"]["AgentTaskBody"];
-export type TodoList = components["schemas"]["TodoListResponse"];
-export type TodoListBody = components["schemas"]["TodoListBody"];
+export type Activity = components["schemas"]["ActivityResponse"];
+export type ActivityBody = components["schemas"]["ActivityBody"];
 export type Reference = components["schemas"]["ReferenceResponse"];
 export type ReferenceBody = components["schemas"]["ReferenceBody"];
 export type ReferenceKind = components["schemas"]["ReferenceCreateBody"]["kind"];
 
 /** The name of a typed note starts with the prefix of its type (as the backend decides it). */
 export const NOTE_PREFIXES = {
-  agent_task: "agent-task-", todo_list: "todo-list-", code_reference: "code-reference-", context_reference: "context-reference-",
+  agent_task: "agent-task-", activity: "attivita-", code_reference: "code-reference-", context_reference: "context-reference-",
 } as const;
 
 export type CodeTodoScan = components["schemas"]["CodeTodoScanResponse"];
@@ -29,7 +29,7 @@ export const dataKeys = {
   note: (project: string, note: string) => ["projects", project, "notes", note] as const,
   typed: (project: string) => ["projects", project, "notes", "typed"] as const,
   agentTasks: (project: string) => ["projects", project, "notes", "typed", "agent_task"] as const,
-  todoLists: (project: string) => ["projects", project, "notes", "typed", "todo_list"] as const,
+  activities: (project: string) => ["projects", project, "notes", "typed", "activity"] as const,
   references: (project: string) => ["projects", project, "notes", "typed", "references"] as const,
   files: (project: string) => ["projects", project, "files"] as const,
 };
@@ -101,26 +101,26 @@ export function useSaveAgentTask(project: string) {
   });
 }
 
-export function useTodoLists(project: string) {
+export function useActivities(project: string) {
   return useQuery({
-    queryKey: dataKeys.todoLists(project),
-    queryFn: () => unwrap(api.GET("/projects/{project}/todo-lists", { params: { path: { project } } })),
+    queryKey: dataKeys.activities(project),
+    queryFn: () => unwrap(api.GET("/projects/{project}/activities", { params: { path: { project } } })),
   });
 }
 
-/** Create (``name`` undefined: the note is named after the title) or rewrite a todo list. */
-export function useSaveTodoList(project: string) {
+/** Create (``name`` undefined: the note is named after the title) or rewrite an activity. */
+export function useSaveActivity(project: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ name, body }: { name?: string; body: TodoListBody }) =>
+    mutationFn: ({ name, body }: { name?: string; body: ActivityBody }) =>
       unwrap(
         name === undefined
-          ? api.POST("/projects/{project}/todo-lists", { params: { path: { project } }, body })
-          : api.PUT("/projects/{project}/todo-lists/{note}", { params: { path: { project, note: name } }, body }),
+          ? api.POST("/projects/{project}/activities", { params: { path: { project } }, body })
+          : api.PUT("/projects/{project}/activities/{note}", { params: { path: { project, note: name } }, body }),
       ),
     onSuccess: () =>
       Promise.all([
-        queryClient.invalidateQueries({ queryKey: dataKeys.todoLists(project) }),
+        queryClient.invalidateQueries({ queryKey: dataKeys.activities(project) }),
         queryClient.invalidateQueries({ queryKey: dataKeys.notes(project), exact: true }),
       ]),
   });
@@ -165,7 +165,7 @@ export function useDeleteFile(project: string) {
 
 // --------------------------------------------------------------- references
 
-/** Every code and context reference, with the tasks and todo lists that link it. */
+/** Every code and context reference, with the tasks and activities that link it. */
 export function useReferences(project: string) {
   return useQuery({
     queryKey: dataKeys.references(project),
@@ -173,7 +173,7 @@ export function useReferences(project: string) {
   });
 }
 
-/** Create (``kind`` given) or rewrite (``name`` given) a reference; linking it is the task's or todo list's job. */
+/** Create (``kind`` given) or rewrite (``name`` given) a reference; linking it is the task's or activity's job. */
 /** Gather the code's todoMbarePilot{...} comments into the note
  * ``code-reference-todo-mbare-pilot.md``: counts back, ``note`` null when nothing was found. */
 export function useScanCodeTodos(project: string) {
@@ -197,7 +197,7 @@ export function useSaveReference(project: string) {
   });
 }
 
-/** Delete a reference: it is unlinked from every task and todo list too. */
+/** Delete a reference: it is unlinked from every task and activity too. */
 export function useDeleteReference(project: string) {
   const queryClient = useQueryClient();
   return useMutation({

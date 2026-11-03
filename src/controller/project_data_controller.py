@@ -2,8 +2,9 @@
 uploaded files, under /projects/{project}/notes and /projects/{project}/files.
 A file is uploaded as the raw request body (PUT) and downloaded as bytes.
 
-Agent tasks and todo lists are notes too (deleted as notes), read and written
-as their template's fields under /agent-tasks and /todo-lists. Code and context
+Agent tasks and activities are notes too (deleted as notes: an agent task is
+then unlinked from its activities), read and written as their template's
+fields under /agent-tasks and /activities. Code and context
 references, linked to them by name, under /references (deleting one unlinks it);
 /code-todos gathers the code's todoMbarePilot comments into one of them."""
 from fastapi import APIRouter, Depends, Request, Response, status
@@ -11,6 +12,8 @@ from fastapi import APIRouter, Depends, Request, Response, status
 from controller.dependencies import code_todo_service, project_data_service
 from core.error import NotFoundError
 from models.controller.project_data import (
+    ActivityBody,
+    ActivityResponse,
     AgentTaskBody,
     AgentTaskResponse,
     CodeTodoScanResponse,
@@ -21,8 +24,6 @@ from models.controller.project_data import (
     ReferenceBody,
     ReferenceCreateBody,
     ReferenceResponse,
-    TodoListBody,
-    TodoListResponse,
 )
 from models.domain.note import NoteType
 from service.code_todo_service import CodeTodoService
@@ -75,23 +76,23 @@ def save_agent_task(project: str, note: str, request: AgentTaskBody, service: Pr
     return AgentTaskResponse.from_task(note, task)
 
 
-@router.get("/todo-lists")
-def list_todo_lists(project: str, service: ProjectDataService = Depends(project_data_service)) -> list[TodoListResponse]:
-    return [TodoListResponse.from_todo(name, todo) for name, todo in service.todo_lists(project)]
+@router.get("/activities")
+def list_activities(project: str, service: ProjectDataService = Depends(project_data_service)) -> list[ActivityResponse]:
+    return [ActivityResponse.from_activity(name, activity) for name, activity in service.activities(project)]
 
 
-@router.post("/todo-lists", status_code=status.HTTP_201_CREATED)
-def create_todo_list(project: str, request: TodoListBody, service: ProjectDataService = Depends(project_data_service)) -> TodoListResponse:
-    """A new note ``todo-list-<title>.md``; 409 when one with that name exists."""
-    todo = request.to_todo()
-    return TodoListResponse.from_todo(service.create_todo_list(project, todo), todo)
+@router.post("/activities", status_code=status.HTTP_201_CREATED)
+def create_activity(project: str, request: ActivityBody, service: ProjectDataService = Depends(project_data_service)) -> ActivityResponse:
+    """A new note ``attivita-<title>.md``; 409 when one with that name exists."""
+    activity = request.to_activity()
+    return ActivityResponse.from_activity(service.create_activity(project, activity), activity)
 
 
-@router.put("/todo-lists/{note}")
-def save_todo_list(project: str, note: str, request: TodoListBody, service: ProjectDataService = Depends(project_data_service)) -> TodoListResponse:
-    todo = request.to_todo()
-    service.save_todo_list(project, note, todo)
-    return TodoListResponse.from_todo(note, todo)
+@router.put("/activities/{note}")
+def save_activity(project: str, note: str, request: ActivityBody, service: ProjectDataService = Depends(project_data_service)) -> ActivityResponse:
+    activity = request.to_activity()
+    service.save_activity(project, note, activity)
+    return ActivityResponse.from_activity(note, activity)
 
 
 # --------------------------------------------------------------- references
@@ -105,7 +106,7 @@ def list_references(project: str, service: ProjectDataService = Depends(project_
 
 @router.post("/references", status_code=status.HTTP_201_CREATED)
 def create_reference(project: str, request: ReferenceCreateBody, service: ProjectDataService = Depends(project_data_service)) -> ReferenceResponse:
-    """A new note ``code-reference-<title>.md`` or ``context-reference-<title>.md`` (409 when it exists); link it from a task or todo list."""
+    """A new note ``code-reference-<title>.md`` or ``context-reference-<title>.md`` (409 when it exists); link it from a task or activity."""
     kind, reference = NoteType(request.kind), request.to_reference()
     return ReferenceResponse.from_reference(service.create_reference(project, kind, reference), kind, reference, [])
 
@@ -127,7 +128,7 @@ def scan_code_todos(project: str, service: CodeTodoService = Depends(code_todo_s
 
 @router.delete("/references/{note}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_reference(project: str, note: str, service: ProjectDataService = Depends(project_data_service)) -> Response:
-    """The reference and its links from the agent tasks and todo lists."""
+    """The reference and its links from the agent tasks and activities."""
     if not service.delete_reference(project, note):
         raise NotFoundError(f"Riferimento non trovato: {note}")
     return Response(status_code=status.HTTP_204_NO_CONTENT)

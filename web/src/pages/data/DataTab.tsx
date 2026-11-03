@@ -10,10 +10,10 @@ import { ConfirmButton } from "../../components/ConfirmButton";
 import { Markdown } from "../../components/Markdown";
 import { localTime, size } from "../../format";
 import { DEFAULT_VISIBLE, DataSettings, REFERENCE_TYPES, References } from "./DataSettings";
-import { AgentTasks, TodoLists } from "./TypedNotes";
+import { Activities, AgentTasks } from "./TypedNotes";
 
 /** The Dati tab of a project: its own data, kept by the app apart from its
- * code: notes written here (generic, agent tasks, todo lists, references: all
+ * code: notes written here (generic, activities, agent tasks, references: all
  * markdown files, typed by their name) and uploaded files (sources of the RAG
  * index). Which note types it shows is a setting of the project (⚙️). */
 export function DataTab() {
@@ -24,13 +24,18 @@ export function DataTab() {
   const references = REFERENCE_TYPES.filter((kind) => visible.includes(kind));
   const tabs = [
     visible.includes("generic") && { value: "notes", label: "📝 Note", panel: <Notes project={project} /> },
+    visible.includes("activity") && { value: "activities", label: "📋 Attività", panel: <Activities project={project} /> },
     visible.includes("agent_task") && { value: "agent-tasks", label: "🤖 Agent task", panel: <AgentTasks project={project} /> },
-    visible.includes("todo_list") && { value: "todo-lists", label: "✅ Todo list", panel: <TodoLists project={project} /> },
     references.length > 0 && { value: "references", label: "📎 Riferimenti", panel: <References project={project} kinds={references} /> },
     { value: "files", label: "📎 File", panel: <Files project={project} /> },
     { value: "settings", label: "⚙️ Impostazioni", panel: <DataSettings project={project} /> },
   ].filter((tab) => !!tab);
-  const [tab, setTab] = useState<string | null>(() => tabOfNote(search.get("note"))); // a link to a note opens its tab
+  const note = search.get("note");
+  const [tab, setTab] = useState<string | null>(() => tabOfNote(note)); // a link to a note opens its tab
+  useEffect(() => { // and so does a note opened from another tab (e.g. an activity's agent task)
+    const wanted = tabOfNote(note);
+    if (wanted) setTab(wanted);
+  }, [note]);
   const current = tabs.some((item) => item.value === tab) ? tab : tabs[0].value; // a hidden tab falls back to the first one
 
   if (settings.isPending) return <Loader size="sm" />;
@@ -49,7 +54,7 @@ export function DataTab() {
 export function tabOfNote(note: string | null): string | null {
   if (!note) return null;
   if (note.startsWith(NOTE_PREFIXES.agent_task)) return "agent-tasks";
-  if (note.startsWith(NOTE_PREFIXES.todo_list)) return "todo-lists";
+  if (note.startsWith(NOTE_PREFIXES.activity)) return "activities";
   if (note.startsWith(NOTE_PREFIXES.code_reference) || note.startsWith(NOTE_PREFIXES.context_reference)) return "references";
   return "notes";
 }
@@ -162,7 +167,7 @@ function NewNoteModal({ project, existing, opened, onClose, onCreated }: {
     const candidate = clean.toLowerCase().endsWith(".md") ? clean : `${clean}.md`;
     if (existing.some((item) => item.toLowerCase() === candidate.toLowerCase())) return setError(`Esiste già una nota ${candidate}.`);
     const reserved = Object.values(NOTE_PREFIXES).find((prefix) => candidate.toLowerCase().startsWith(prefix));
-    if (reserved) return setError(`«${reserved}» è riservato: usa le tab Agent task e Todo list.`);
+    if (reserved) return setError(`«${reserved}» è riservato: usa le tab Attività e Agent task.`);
     save.mutate(
       { note: clean, content: `# ${clean.replace(/\.md$/i, "")}\n` },
       { onSuccess: (note) => { onCreated(note.name); close(); }, onError: (exc) => setError(exc.message) },

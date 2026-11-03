@@ -1,9 +1,9 @@
 """Project domain models: a project is a named folder on disk the agents work on."""
 from datetime import datetime, timezone
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Any
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from models.domain.chat import EmbeddingModelName
 from models.domain.note import NoteType
@@ -19,8 +19,8 @@ class ProjectSource(StrEnum):
     """A new, empty folder created for the project."""
 
 
-DEFAULT_VISIBLE_NOTE_TYPES = [NoteType.GENERIC, NoteType.AGENT_TASK, NoteType.TODO_LIST]
-"""The references stay inside the tasks and todo lists that link them."""
+DEFAULT_VISIBLE_NOTE_TYPES = [NoteType.GENERIC, NoteType.AGENT_TASK, NoteType.ACTIVITY]
+"""The references stay inside the tasks and activities that link them."""
 
 
 class Project(BaseModel):
@@ -33,6 +33,12 @@ class Project(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     visible_note_types: list[NoteType] | None = None
     """The note types the Dati tab shows; None = DEFAULT_VISIBLE_NOTE_TYPES."""
+
+    @field_validator("visible_note_types", mode="before")
+    @classmethod
+    def _old_todo_list(cls, value: Any) -> Any:
+        """Saved before the todo lists became activities."""
+        return [("activity" if item == "todo_list" else item) for item in value] if isinstance(value, list) else value
 
 
 class ProjectDataKind(StrEnum):

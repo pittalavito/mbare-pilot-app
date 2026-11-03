@@ -1,5 +1,6 @@
 import {
-  Alert, Anchor, Badge, Button, Checkbox, Grid, Group, Loader, Menu, Modal, NavLink, SegmentedControl, Stack, Stepper, Text, TextInput, Textarea, UnstyledButton,
+  ActionIcon, Alert, Anchor, Badge, Button, Checkbox, Grid, Group, Loader, Menu, Modal, NavLink, SegmentedControl, Select, Stack, Stepper, Text,
+  TextInput, Textarea, UnstyledButton,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { type ReactNode, useEffect, useState } from "react";
@@ -7,7 +8,7 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import { useCopilotSessions, useDeleteTaskSessions } from "../../api/copilot";
 import {
-  type AgentTask, type AgentTaskBody, type TodoList, type TodoListBody, useAgentTasks, useDeleteNote, useSaveAgentTask, useSaveTodoList, useTodoLists,
+  type Activity, type ActivityBody, type AgentTask, type AgentTaskBody, useActivities, useAgentTasks, useDeleteNote, useSaveActivity, useSaveAgentTask,
 } from "../../api/projectData";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { DelegateModal } from "../copilot/DelegateModal";
@@ -15,8 +16,8 @@ import { ChecklistEditor } from "./ChecklistEditor";
 import { ReferencesSection } from "./ReferencesSection";
 import { RefinerPanel } from "./RefinerPanel";
 
-/** The typed notes of the Dati tab: agent tasks and todo lists. On disk they
- * are notes (``agent-task-<title>.md``, ``todo-list-<title>.md``) written with
+/** The typed notes of the Dati tab: activities and agent tasks. On disk they
+ * are notes (``attivita-<title>.md``, ``agent-task-<title>.md``) written with
  * their template; here each one is a form of its fields, with the code and
  * context references it links (ReferencesSection). */
 
@@ -106,23 +107,36 @@ function AgentTaskList({ project, onSelected, onRefine }: {
   );
 }
 
-export function TodoLists({ project }: { project: string }) {
-  const lists = useTodoLists(project);
-  const save = useSaveTodoList(project);
+/** In order; the editor suggests «done» when every item is. */
+export const ACTIVITY_STATUS = [
+  { value: "todo", label: "Da fare", color: "gray" },
+  { value: "in_progress", label: "In corso", color: "blue" },
+  { value: "done", label: "Fatta", color: "green" },
+] as const;
+
+export function Activities({ project }: { project: string }) {
+  const activities = useActivities(project);
+  const save = useSaveActivity(project);
   return (
     <TypedNotes
       project={project}
-      items={lists.data}
-      error={lists.error?.message}
-      newLabel="Nuova todo list"
-      intro="Una todo list è una checklist, con priorità e scadenza facoltative per voce. È una nota todo-list-<titolo>.md."
-      describe={(todo) => {
-        const done = todo.items.filter((item) => item.done).length;
-        return <Badge size="xs" variant="light" color={todo.items.length && done === todo.items.length ? "green" : "gray"}>{done}/{todo.items.length}</Badge>;
+      items={activities.data}
+      error={activities.error?.message}
+      newLabel="Nuova attività"
+      intro="Un'attività è una cosa da fare: una descrizione, la sua todo list (priorità e scadenza facoltative per voce) e gli agent task che ne nascono. È una nota attivita-<titolo>.md."
+      describe={(activity) => {
+        const status = ACTIVITY_STATUS.find((item) => item.value === activity.status) ?? ACTIVITY_STATUS[0];
+        const done = activity.items.filter((item) => item.done).length;
+        return (
+          <Group gap={4} wrap="nowrap">
+            {!!activity.items.length && <Text size="xs" c="dimmed">{done}/{activity.items.length}</Text>}
+            <Badge size="xs" variant="light" color={status.color}>{status.label}</Badge>
+          </Group>
+        );
       }}
-      create={(title, done) => save.mutate({ body: { title, items: [], references: [] } }, done)}
+      create={(title, done) => save.mutate({ body: { title, status: "todo", description: "", items: [], agent_tasks: [], references: [] } }, done)}
       creating={save.isPending}
-      renderEditor={(todo) => <TodoListEditor key={todo.name} project={project} todo={todo} />}
+      renderEditor={(activity) => <ActivityEditor key={activity.name} project={project} activity={activity} />}
     />
   );
 }
@@ -297,6 +311,25 @@ const fields = <T extends object>(item: T & { name: string }) => {
 
 // ------------------------------------------------------------------ editors
 
+/** «Nasce da»: the activities that list this agent task (a click opens one); nothing when none. */
+function BornFrom({ project, task }: { project: string; task: string }) {
+  const activities = useActivities(project);
+  const [, setSearch] = useSearchParams();
+  const parents = (activities.data ?? []).filter((activity) => activity.agent_tasks.includes(task));
+  if (!parents.length) return null;
+  return (
+    <Text size="xs">
+      📋 Nasce da:{" "}
+      {parents.map((activity, index) => (
+        <span key={activity.name}>
+          {index > 0 && ", "}
+          <Anchor size="xs" component="button" type="button" onClick={() => setSearch({ note: activity.name }, { replace: true })}>{activity.title}</Anchor>
+        </span>
+      ))}
+    </Text>
+  );
+}
+
 /** Where the task is in its flow, and the one action that moves it on:
  * created → «Rifinisci con il Refiner», in refinement → «Segna da fare», todo →
  * «Delega a Copilot»; in progress and done are Copilot's. «Cambia stato» is for
@@ -409,6 +442,7 @@ function AgentTaskEditor({ project, task, onRefine }: { project: string; task: A
         project={project} status={form.status ?? "created"} missing={missing} busy={save.isPending} dirty={dirty}
         onStatus={moveTo} onRefine={onRefine} onDelegate={() => setDelegating(true)}
       />
+      <BornFrom project={project} task={task.name} />
       <TextInput label="Titolo" value={form.title} onChange={(event) => set({ title: event.currentTarget.value })} />
       <div>
         <Text size="sm" fw={500} mb={4}>Tipo</Text>
@@ -431,23 +465,117 @@ function AgentTaskEditor({ project, task, onRefine }: { project: string; task: A
   );
 }
 
-function TodoListEditor({ project, todo }: { project: string; todo: TodoList }) {
-  const save = useSaveTodoList(project);
-  const [form, setForm] = useState<TodoListBody>(() => fields(todo));
-  const dirty = JSON.stringify(form) !== JSON.stringify(fields(todo));
+function ActivityEditor({ project, activity }: { project: string; activity: Activity }) {
+  const save = useSaveActivity(project);
+  const [form, setForm] = useState<ActivityBody>(() => fields(activity));
+  const [base, setBase] = useState<ActivityBody>(() => fields(activity));
+  const set = (patch: Partial<ActivityBody>) => setForm((current) => ({ ...current, ...patch }));
+  const dirty = JSON.stringify(form) !== JSON.stringify(base);
+  const latest = JSON.stringify(fields(activity));
+  useEffect(() => { // changed elsewhere (e.g. by the secretary): reloaded when nothing is unsaved
+    if (latest !== JSON.stringify(base) && !dirty) { setForm(fields(activity)); setBase(fields(activity)); }
+  }, [latest]); // eslint-disable-line react-hooks/exhaustive-deps
   const items = form.items ?? [];
   const done = items.filter((item) => item.done).length;
-  const onSave = () =>
+  const write = (body: ActivityBody, message: string) =>
     save.mutate(
-      { name: todo.name, body: { ...form, items: items.filter((item) => item.text.trim()) } },
-      { onSuccess: (saved) => { setForm(fields(saved)); notifications.show({ message: `${saved.title} salvata.` }); } },
+      { name: activity.name, body: { ...body, items: (body.items ?? []).filter((item) => item.text.trim()) } },
+      { onSuccess: (saved) => { setForm(fields(saved)); setBase(fields(saved)); notifications.show({ message }); } },
     );
   return (
-    <EditorShell project={project} name={todo.name} dirty={dirty} valid={!!form.title.trim()} saving={save.isPending} error={save.error?.message} onSave={onSave}>
-      <TextInput label="Titolo" value={form.title} onChange={(event) => setForm({ ...form, title: event.currentTarget.value })} />
-      <Text size="sm" c="dimmed">{done} di {items.length} fatte</Text>
-      <ChecklistEditor items={items} onChange={(next) => setForm({ ...form, items: next })} withDetails addLabel="Voce" />
-      <ReferencesSection project={project} value={form.references ?? []} onChange={(references) => setForm((current) => ({ ...current, references }))} />
+    <EditorShell
+      project={project} name={activity.name} dirty={dirty} valid={!!form.title.trim()} saving={save.isPending} error={save.error?.message}
+      onSave={() => write(form, `${form.title} salvata.`)}
+    >
+      <TextInput label="Titolo" value={form.title} onChange={(event) => set({ title: event.currentTarget.value })} />
+      <Group align="flex-end" gap="sm">
+        <div>
+          <Text size="sm" fw={500} mb={4}>Stato</Text>
+          <SegmentedControl
+            aria-label="Stato dell'attività"
+            data={ACTIVITY_STATUS.map(({ value, label }) => ({ value, label }))}
+            value={form.status ?? "todo"}
+            onChange={(value) => set({ status: value as ActivityBody["status"] })}
+          />
+        </div>
+        {!!items.length && done === items.length && form.status !== "done" && (
+          <Button size="xs" variant="light" color="green" loading={save.isPending}
+            onClick={() => write({ ...form, status: "done" }, `${form.title}: fatta.`)}>
+            ✅ Tutte le voci sono fatte: segna fatta
+          </Button>
+        )}
+      </Group>
+      <Textarea label="Descrizione" description="Di cosa si tratta, perché, per quando." autosize minRows={2} value={form.description ?? ""}
+        onChange={(event) => set({ description: event.currentTarget.value })} />
+      <div>
+        <Text size="sm" fw={500} mb={4}>Todo <Text span size="xs" c="dimmed">· {done} di {items.length} fatte</Text></Text>
+        <ChecklistEditor items={items} onChange={(next) => set({ items: next })} withDetails addLabel="Voce" />
+      </div>
+      <LinkedAgentTasks
+        project={project}
+        value={form.agent_tasks ?? []}
+        onChange={(agent_tasks) => set({ agent_tasks })}
+        onCreated={(name) => write({ ...form, agent_tasks: [...(form.agent_tasks ?? []), name] }, "Agent task creato e collegato.")}
+      />
+      <ReferencesSection project={project} value={form.references ?? []} onChange={(references) => set({ references })} />
     </EditorShell>
+  );
+}
+
+/** The agent tasks born from an activity: each with its status (a click opens
+ * it), unlink, link an existing one, or create a new one already linked
+ * (``onCreated``: the activity is saved at once, so the task is not left alone). */
+function LinkedAgentTasks({ project, value, onChange, onCreated }: {
+  project: string; value: string[]; onChange: (names: string[]) => void; onCreated: (name: string) => void;
+}) {
+  const tasks = useAgentTasks(project);
+  const save = useSaveAgentTask(project);
+  const [adding, setAdding] = useState(false);
+  const [, setSearch] = useSearchParams();
+  const byName = new Map((tasks.data ?? []).map((task) => [task.name, task]));
+  const others = (tasks.data ?? []).filter((task) => !value.includes(task.name));
+  return (
+    <Stack gap="xs">
+      <Group justify="space-between">
+        <Text size="sm" fw={500}>🤖 Agent task</Text>
+        <Button size="xs" variant="light" onClick={() => setAdding(true)}>➕ Nuovo agent task</Button>
+      </Group>
+      {!value.length && <Text size="xs" c="dimmed">Nessun agent task nato da questa attività: creane uno o collega uno esistente.</Text>}
+      {value.map((name) => {
+        const task = byName.get(name);
+        const status = STATUS.find((item) => item.value === task?.status) ?? STATUS[0];
+        return (
+          <Group key={name} justify="space-between" wrap="nowrap">
+            {task ? (
+              <Anchor size="sm" component="button" type="button" onClick={() => setSearch({ note: name }, { replace: true })}>{task.title}</Anchor>
+            ) : <Text size="sm" c="orange"><code>{name}</code> · non trovato</Text>}
+            <Group gap={4} wrap="nowrap">
+              {task && <Badge size="xs" variant="light" color={status.color}>{status.label}</Badge>}
+              <ActionIcon variant="subtle" color="gray" aria-label={`Scollega ${task?.title ?? name}`} onClick={() => onChange(value.filter((item) => item !== name))}>✕</ActionIcon>
+            </Group>
+          </Group>
+        );
+      })}
+      {others.length > 0 && (
+        <Select
+          size="xs"
+          placeholder="Collega un agent task esistente…"
+          searchable
+          data={others.map((task) => ({ value: task.name, label: task.title }))}
+          value={null}
+          onChange={(name) => name && onChange([...value, name])}
+        />
+      )}
+      <TitleModal
+        title="Nuovo agent task"
+        opened={adding}
+        loading={save.isPending}
+        onClose={() => setAdding(false)}
+        onCreate={(title, onError) => save.mutate(
+          { body: { title, status: "created", type: "development", objective: "", context: "", criteria: [], constraints: "", references: [] } },
+          { onSuccess: (created) => { setAdding(false); onCreated(created.name); }, onError },
+        )}
+      />
+    </Stack>
   );
 }

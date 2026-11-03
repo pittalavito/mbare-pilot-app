@@ -1,5 +1,6 @@
 """The secretary's agent task tools: list the references by title, and create
-an agent task (e.g. from an item of a todo list). The task is born in
+an agent task (e.g. from an item of an activity's todo list), linked to that
+activity when given. The task is born in
 refinement: the user refines it and sets it to todo. The secretary never
 reads a reference's content, only its title, to choose which ones to link.
 Only in a chatbot's run of a project."""
@@ -13,7 +14,7 @@ from domain.project.data_paths import note_file_name
 from models.domain.note import AgentTask, ChecklistItem, NoteType, TaskStatus, TaskType
 from models.domain.tool import AgentTaskCreatedResponse, ListReferencesResponse, ReferenceInfo, ToolErrorResponse
 from tool.context import ToolContext
-from tool.list.notes.todo_lists import notes_run
+from tool.list.notes.activities import notes_run
 from tool.spec import ToolSpec
 
 _ONLY_IN_CHAT = "Agent task e riferimenti disponibili solo nel chatbot di un progetto."
@@ -48,9 +49,10 @@ def build_list_references(context: ToolContext) -> Tool:
 def build_create(run: ToolContext) -> Tool:
 
     @tool(name="create_agent_task", description=(
-        "Create an agent task, e.g. from an item of a todo list: title, type, objective, context, acceptance criteria, "
-        "constraints and the references to link (names from list_references). It is created in refinement: the user "
-        "refines it and makes it ready. Write only what you know: leave a field empty rather than invent it."
+        "Create an agent task, e.g. from an item of an activity's todo list: title, type, objective, context, acceptance "
+        "criteria, constraints, the references to link (names from list_references) and the activity it is born from "
+        "(it is linked to it). It is created in refinement: the user refines it and makes it ready. Write only what you "
+        "know: leave a field empty rather than invent it."
     ))
     def create_agent_task(
         title: Annotated[str, "The task's title, short."],
@@ -60,6 +62,7 @@ def build_create(run: ToolContext) -> Tool:
         criteria: Annotated[list[str], "Acceptance criteria, one per string; [] = none yet."],
         constraints: Annotated[str, "What must not be done or touched; '' = none."],
         references: References,
+        activity: Annotated[str, "The activity it is born from (name from list_activities): it is linked to it; '' = none."],
     ) -> AgentTaskCreatedResponse | ToolErrorResponse:
         if not notes_run(run):
             return ToolErrorResponse(error=_ONLY_IN_CHAT)
@@ -72,16 +75,21 @@ def build_create(run: ToolContext) -> Tool:
             unknown = [name for name in names if name not in known]
             if unknown:
                 return ToolErrorResponse(error=f"Riferimenti inesistenti: {', '.join(unknown)}. Usa i nomi che dà list_references.")
+            parent = note_file_name(activity.strip()) if activity.strip() else None
+            if parent is not None:
+                project_data.activity(project_name, parent)  # exists, before creating the task
             task = AgentTask(
                 title=title.strip(), status=TaskStatus.REFINEMENT, type=type, objective=objective.strip(),
                 context=context.strip(), criteria=[ChecklistItem(text=text.strip()) for text in criteria if text.strip()],
                 constraints=constraints.strip(), references=names,
             )
             name = project_data.create_agent_task(project_name, task)
+            if parent is not None:
+                project_data.link_agent_task(project_name, parent, name)
         except AppError as exc:
             return ToolErrorResponse(error=str(exc))
         return AgentTaskCreatedResponse(
-            task=name, title=task.title, type=task.type.value, status=task.status.value, references=names,
+            task=name, title=task.title, type=task.type.value, status=task.status.value, references=names, activity=parent,
             link=f"/projects/{quote(project_name)}/data?note={quote(name)}",
         )
 

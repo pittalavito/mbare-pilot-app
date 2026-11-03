@@ -10,15 +10,15 @@ import { ReferenceModal, ReferenceSummary, ScanCodeTodosButton } from "./Referen
 
 export const NOTE_TYPES: { value: NoteType; label: string; description: string }[] = [
   { value: "generic", label: "📝 Note", description: "Le note libere in markdown." },
+  { value: "activity", label: "📋 Attività", description: "Cose da fare: descrizione, todo list (con priorità e scadenza) e gli agent task che ne nascono." },
   { value: "agent_task", label: "🤖 Agent task", description: "I compiti da delegare a un agente o a Copilot." },
-  { value: "todo_list", label: "✅ Todo list", description: "Le checklist con priorità e scadenza." },
-  { value: "code_reference", label: "📎 Riferimenti di codice", description: "Di solito si vedono solo dentro il task o la todo list che li collega." },
+  { value: "code_reference", label: "📎 Riferimenti di codice", description: "Di solito si vedono solo dentro il task o l'attività che li collega." },
   { value: "context_reference", label: "📎 Riferimenti di contesto", description: "Come sopra: mostrarli qui serve a ritrovare anche quelli non collegati." },
 ];
 
 export const REFERENCE_TYPES: NoteType[] = ["code_reference", "context_reference"];
 /** As the backend's DEFAULT_VISIBLE_NOTE_TYPES: the references stay inside what links them. */
-export const DEFAULT_VISIBLE: NoteType[] = ["generic", "agent_task", "todo_list"];
+export const DEFAULT_VISIBLE: NoteType[] = ["generic", "activity", "agent_task"];
 
 export function DataSettings({ project }: { project: string }) {
   const settings = useDataSettings(project);
@@ -59,7 +59,7 @@ export function DataSettings({ project }: { project: string }) {
   );
 }
 
-/** Every reference of the shown kinds, linked or not: here it is edited or deleted, linked from its task or todo list. */
+/** Every reference of the shown kinds, linked or not: here it is edited or deleted, linked from its task or activity. */
 export function References({ project, kinds }: { project: string; kinds: NoteType[] }) {
   const references = useReferences(project);
   const [editing, setEditing] = useState<Reference | "new">();
@@ -72,7 +72,7 @@ export function References({ project, kinds }: { project: string; kinds: NoteTyp
   return (
     <Stack gap="xs" maw={900}>
       <Group justify="space-between">
-        <Text size="sm" c="dimmed">I riferimenti si collegano dall'agent task o dalla todo list. Qui li vedi tutti, anche quelli non collegati.</Text>
+        <Text size="sm" c="dimmed">I riferimenti si collegano dall'agent task o dall'attività. Qui li vedi tutti, anche quelli non collegati.</Text>
         <Group gap="xs">
           <ScanCodeTodosButton project={project} onScanned={setScanned} />
           <Button size="xs" variant="light" onClick={() => setEditing("new")}>➕ Nuovo riferimento</Button>

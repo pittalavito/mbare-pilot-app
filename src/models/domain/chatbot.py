@@ -20,7 +20,8 @@ class ChatbotKind(StrEnum):
     """Launches the project's automations and checks how they went: only
     KIND_TOOLS' tools (whatever is saved), and the automation cache."""
     SECRETARY = "secretary"
-    """Helps with the notes: reads, creates and ticks the todo lists, reads the
+    """Helps with the notes: reads, creates and updates the activities (their
+    description, status and todo list), reads the
     agent tasks' status and creates agent tasks (in refinement), linking
     references by their title, never reading them. Only KIND_TOOLS' tools, no cache."""
     REFINER = "refiner"
@@ -35,7 +36,7 @@ class ChatbotKind(StrEnum):
 KIND_TOOLS: dict[ChatbotKind, list[str]] = {
     ChatbotKind.AUTOMATION: ["list_automations", "run_automation", "automation_status"],
     ChatbotKind.SECRETARY: [
-        "list_todo_lists", "read_todo_list", "create_todo_list", "update_todo_list",
+        "list_activities", "read_activity", "create_activity", "update_activity",
         "list_agent_tasks", "list_references", "create_agent_task",
     ],
     ChatbotKind.REFINER: [

@@ -28,15 +28,29 @@ Agent task::
     ## Riferimenti
     - code-reference-login.md
 
-Todo list (priority and due date optional)::
+Activity (status, description, its todo list with optional priority and due
+date per item, the agent tasks born from it)::
 
     # Rilascio v2
 
+    Stato: in corso
+
+    ## Descrizione
+    Preparare e pubblicare la 2.0.
+
+    ## Todo
     - [x] Aggiornare le dipendenze  (alta, 2026-10-30)
     - [ ] Scrivere le note di rilascio  (media)
     - [ ] Taggare il commit
+
+    ## Agent task
+    - agent-task-note-di-rilascio.md
+
     ## Riferimenti
     - context-reference-procedura-di-rilascio.md
+
+An old todo list (items right under the title, no status) reads as an activity:
+its status is «fatta» when every item is done, else «da fare».
 
 Reference, code or context (repository, file and lines only for code)::
 
@@ -50,11 +64,12 @@ Reference, code or context (repository, file and lines only for code)::
     ## Contenuto
     ...
 
-``## Riferimenti`` (written only when there are some) links reference notes by name."""
+``## Riferimenti`` and ``## Agent task`` (written only when there are some)
+link notes by name."""
 import re
 from datetime import date
 
-from models.domain.note import AgentTask, ChecklistItem, Reference, TaskStatus, TaskType, TodoItem, TodoList, TodoPriority
+from models.domain.note import Activity, ActivityStatus, AgentTask, ChecklistItem, Reference, TaskStatus, TaskType, TodoItem, TodoPriority
 
 STATUS_LABELS = {
     TaskStatus.CREATED: "creato", TaskStatus.REFINEMENT: "in rifinitura",
@@ -62,11 +77,13 @@ STATUS_LABELS = {
 }
 TYPE_LABELS = {TaskType.REFINEMENT: "rifinitura", TaskType.DEVELOPMENT: "sviluppo", TaskType.ANALYSIS: "analisi"}
 PRIORITY_LABELS = {TodoPriority.HIGH: "alta", TodoPriority.MEDIUM: "media", TodoPriority.LOW: "bassa"}
+ACTIVITY_STATUS_LABELS = {ActivityStatus.TODO: "da fare", ActivityStatus.IN_PROGRESS: "in corso", ActivityStatus.DONE: "fatta"}
 
 _STATUS = "Stato:"
 _TYPE = "Tipo:"
 _SECTIONS = {"objective": "Obiettivo", "context": "Contesto", "criteria": "Criteri di accettazione", "constraints": "Vincoli"}
 _REFERENCES = "Riferimenti"
+_DESCRIPTION, _TODO, _AGENT_TASKS = "Descrizione", "Todo", "Agent task"
 _SOURCE, _SOURCE_SEPARATOR = "Fonte:", " · "
 _CODE_FIELDS = {"repository": "Repository:", "path": "File:", "lines": "Righe:"}
 _CONTENT = "Contenuto"
@@ -105,26 +122,39 @@ def parse_agent_task(text: str, fallback_title: str) -> AgentTask:
     )
 
 
-# ---------------------------------------------------------------- todo list
+# ----------------------------------------------------------------- activity
 
-def render_todo_list(todo: TodoList) -> str:
-    lines = [f"# {_line(todo.title)}", ""]
-    for item in todo.items:
+def render_activity(activity: Activity) -> str:
+    lines = [f"# {_line(activity.title)}", "", f"{_STATUS} {ACTIVITY_STATUS_LABELS[activity.status]}", "", f"## {_DESCRIPTION}"]
+    lines += [activity.description.strip()] if activity.description.strip() else []
+    lines += ["", f"## {_TODO}"]
+    for item in activity.items:
         details = [PRIORITY_LABELS[item.priority]] if item.priority else []
         details += [item.due.isoformat()] if item.due else []
         lines.append(_check(item) + (f"  ({', '.join(details)})" if details else ""))
-    return "\n".join(lines + _references(todo.references)) + "\n"
+    lines += _links(_AGENT_TASKS, activity.agent_tasks)
+    return "\n".join(lines + _references(activity.references)) + "\n"
 
 
-def parse_todo_list(text: str, fallback_title: str) -> TodoList:
-    title, head, sections = _split(text, fallback_title, {_REFERENCES})
-    references = sections.pop(_REFERENCES.lower(), [])
-    lines = head + [line for body in sections.values() for line in body]
-    return TodoList(title=title, items=[_todo_item(text, done) for done, text in _checks(lines)], references=_bullets(references))
+def parse_activity(text: str, fallback_title: str) -> Activity:
+    title, head, sections = _split(text, fallback_title, {_DESCRIPTION, _TODO, _AGENT_TASKS, _REFERENCES})
+    items = [_todo_item(text, done) for done, text in _checks(head + sections.get(_TODO.lower(), []))]  # head: an old todo list
+    label = _value(head, _STATUS).lower()
+    status = next((key for key, value in ACTIVITY_STATUS_LABELS.items() if value == label), None)
+    if status is None:  # none written (an old todo list) or unknown
+        status = ActivityStatus.DONE if items and all(item.done for item in items) else ActivityStatus.TODO
+    return Activity(
+        title=title,
+        status=status,
+        description=_text(sections.get(_DESCRIPTION.lower(), [])),
+        items=items,
+        agent_tasks=_bullets(sections.get(_AGENT_TASKS.lower(), [])),
+        references=_bullets(sections.get(_REFERENCES.lower(), [])),
+    )
 
 
 def parse_todo_item(text: str) -> TodoItem:
-    """One new item as written in the list: ``Taggare il commit  (alta, 2026-10-30)``, not done."""
+    """One new item as written in a todo list: ``Taggare il commit  (alta, 2026-10-30)``, not done."""
     return _todo_item(text.strip(), False)
 
 
@@ -189,8 +219,13 @@ def _check(item: ChecklistItem) -> str:
 
 def _references(names: list[str]) -> list[str]:
     """The ``## Riferimenti`` section, only when there are some."""
+    return _links(_REFERENCES, names)
+
+
+def _links(heading: str, names: list[str]) -> list[str]:
+    """A section of note names (``- name``), only when there are some."""
     names = [name for name in (_line(name) for name in names) if name]
-    return ["", f"## {_REFERENCES}", *(f"- {name}" for name in names)] if names else []
+    return ["", f"## {heading}", *(f"- {name}" for name in names)] if names else []
 
 
 def _bullets(lines: list[str]) -> list[str]:
