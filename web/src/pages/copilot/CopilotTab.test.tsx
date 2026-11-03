@@ -142,12 +142,13 @@ describe("CopilotTab", () => {
       "GET /projects/acme/git/repositories": [{ path: "api", name: "api" }],
       "GET /projects/acme/copilot-sessions": [],
     });
-    renderTab("/projects/acme/data");
+    renderTab(); // a task not ready is delegated from here: its form offers delegation only when it is «Da fare»
 
-    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
-    fireEvent.click(await screen.findByRole("button", { name: /Delega a Copilot/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Delega un task/ }));
     const dialog = await screen.findByRole("dialog");
 
+    fireEvent.click(within(dialog).getByRole("textbox", { name: "Agent task" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Capire" }));
     expect(await within(dialog).findByDisplayValue("Predefinito del tipo (analisi)")).toBeInTheDocument();
     expect(within(dialog).getByText(/non è ancora «Da fare»/)).toBeInTheDocument();
   });

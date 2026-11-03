@@ -125,8 +125,10 @@ function RoutedConversation({ chatbot }: { chatbot: Chatbot }) {
  * created on the first message: ``onOpen`` gets its id). ``height``: of the
  * messages; ``onLinkClick``: a click on a link of a message, before the
  * browser follows it (``event.preventDefault()`` to handle it in place). */
-export function ConversationView({ chatbot, conversationId, onOpen: open, height = 520, onLinkClick, openNote }: {
+export function ConversationView({ chatbot, conversationId, onOpen: open, height = 520, onLinkClick, openNote, draft }: {
   chatbot: Chatbot;
+  /** A message to put in the box (not sent): a new ``id`` puts it again. */
+  draft?: { text: string; id: number };
   /** The note open next to the chat: sent with every message (not saved in it). */
   openNote?: string;
   conversationId: number | undefined;
@@ -144,6 +146,12 @@ export function ConversationView({ chatbot, conversationId, onOpen: open, height
   const [text, setText] = useState("");
   const [pending, setPending] = useState<string>();
   const bottom = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (!draft) return;
+    setText(draft.text);
+    box.current?.focus();
+  }, [draft?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const list = current === undefined ? [] : (messages.data ?? []);
   const hasCache = chatbot.kind === "automation"; // only an automation chatbot has the automation cache
@@ -211,6 +219,7 @@ export function ConversationView({ chatbot, conversationId, onOpen: open, height
       {send.error && <Alert color="red">{send.error.message}</Alert>}
       <Group align="flex-end" wrap="nowrap">
         <Textarea
+          ref={box}
           style={{ flex: 1 }}
           autosize
           minRows={1}

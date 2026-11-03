@@ -126,3 +126,12 @@ class ReferenceResponse(ReferenceBody):
 class DataSettingsBody(BaseModel):
     visible_note_types: list[NoteType]
     """The note types the Dati tab shows: ``generic``, ``agent_task``, ``todo_list``, ``code_reference``, ``context_reference``."""
+
+
+class CodeTodoScanResponse(BaseModel):
+    """What a scan of the todoMbarePilot comments wrote: counts only, the comments are in the note."""
+    note: str | None
+    """The code reference written; None = nothing found and no note to update."""
+    created: bool
+    files: int
+    comments: int
