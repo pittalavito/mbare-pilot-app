@@ -36,6 +36,13 @@ from tool.list.hello_world import hello_world
 from tool.list.notes.agent_tasks import CREATE_AGENT_TASK, LIST_REFERENCES
 from tool.list.notes.todo_lists import CREATE_TODO_LIST, LIST_TODO_LISTS, READ_TODO_LIST, UPDATE_TODO_LIST
 from tool.list.project.read_context import READ_CONTEXT
+from tool.list.refiner.agent_tasks import (
+    FINISH_REFINEMENT,
+    LIST_REFINABLE_TASKS,
+    READ_AGENT_TASK,
+    START_REFINEMENT,
+    UPDATE_AGENT_TASK,
+)
 from tool.list.refiner.create_code_reference import CREATE_CODE_REFERENCE
 from tool.spec import ToolSpec, static
 
@@ -54,6 +61,11 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         LIST_REFERENCES,
         CREATE_AGENT_TASK,
         CREATE_CODE_REFERENCE,
+        LIST_REFINABLE_TASKS,
+        START_REFINEMENT,
+        READ_AGENT_TASK,
+        UPDATE_AGENT_TASK,
+        FINISH_REFINEMENT,
         DELEGATE_TASK,
         COPILOT_STATUS,
         READ_CONTEXT,

@@ -70,6 +70,9 @@ class MessageResponse(BaseModel):
 
 class MessageRequest(BaseModel):
     text: str
+    open_note: str = ""
+    """The note open next to the chat (e.g. the agent task beside the refiner):
+    told to the agent with the message, not saved in it; ``""`` = none."""
 
 
 class AutomationCacheEntryResponse(BaseModel):

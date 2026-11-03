@@ -11,7 +11,7 @@ import { ReferenceModal } from "./ReferencesSection";
  * name, when there are more). A link to a reference in its answers (``…/data?note=
  * code-reference-…``) opens the reference here, to read and edit it.
  * «ℹ️ Dettagli» shows it and changes its model, as in the Chat tab. */
-export function RefinerPanel({ project }: { project: string }) {
+export function RefinerPanel({ project, openTask }: { project: string; openTask?: Named }) {
   const chatbots = useChatbots(project);
   if (chatbots.isPending) return <Loader size="sm" />;
   if (chatbots.error) return <Alert color="red">{chatbots.error.message}</Alert>;
@@ -19,7 +19,7 @@ export function RefinerPanel({ project }: { project: string }) {
   if (!refiner) {
     return <Text size="sm" c="dimmed">Nessun Refiner nel progetto: il chatbot di default si crea all'avvio dell'API (se manca, guarda il log).</Text>;
   }
-  return <Refiner key={refiner.id} project={project} chatbot={refiner} />;
+  return <Refiner key={refiner.id} project={project} chatbot={refiner} openTask={openTask} />;
 }
 
 /** The note named by an app link to the Dati tab (``?note=``), or null. */
@@ -28,7 +28,10 @@ export function noteOfLink(href: string): string | null {
   return url.origin === window.location.origin && url.pathname.endsWith("/data") ? url.searchParams.get("note") : null;
 }
 
-function Refiner({ project, chatbot }: { project: string; chatbot: Chatbot }) {
+/** A note by name and title (the agent task open next to the chat). */
+type Named = { name: string; title: string };
+
+function Refiner({ project, chatbot, openTask }: { project: string; chatbot: Chatbot; openTask?: Named }) {
   const conversations = useConversations(chatbot.id);
   const references = useReferences(project);
   const [conversation, setConversation] = useState<number>();
@@ -46,6 +49,9 @@ function Refiner({ project, chatbot }: { project: string; chatbot: Chatbot }) {
         </Group>
       </Group>
       <Text size="xs" c="dimmed">Modello <code>{chatbot.model}</code></Text>
+      <Text size="xs">
+        {openTask ? <>Task aperto: <b>{openTask.title}</b> — per il Refiner è «questo task».</> : "Nessun task aperto: digli quale."}
+      </Text>
       {chatbot.description && <Text size="xs" c="dimmed">{chatbot.description}</Text>}
       {!!conversations.data?.length && (
         <Select
@@ -62,6 +68,7 @@ function Refiner({ project, chatbot }: { project: string; chatbot: Chatbot }) {
         conversationId={conversation}
         onOpen={setConversation}
         height={380}
+        openNote={openTask?.name}
         onLinkClick={(event, href) => {
           const note = noteOfLink(href);
           if (!note?.match(/^(code|context)-reference-/)) return;

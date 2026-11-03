@@ -141,6 +141,17 @@ def test_send_saves_both_messages_and_titles_the_conversation(service):
     assert service.list_conversations(chatbot.id)[0].title == "Ciao bot"
 
 
+def test_the_note_open_next_to_the_chat_reaches_the_agent_not_the_conversation(service):
+    chatbot = _create(service)
+    conversation = service.new_conversation(chatbot.id)
+
+    reply = service.send(conversation.id, "rifinisci questo task", open_note="agent-task-login")
+
+    assert reply.content == "echo: [Accanto alla chat è aperta la nota agent-task-login.md: «questo task» è quello.]\n\nrifinisci questo task"
+    assert service.messages(conversation.id)[0].content == "rifinisci questo task"  # saved as written
+    assert service.send(conversation.id, "e poi?", open_note="  ").content == "echo: e poi?"
+
+
 def test_send_passes_the_conversation_so_far_as_memory(service, agents):
     chatbot = _create(service)
     conversation = service.new_conversation(chatbot.id)

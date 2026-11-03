@@ -236,3 +236,35 @@ class AgentTaskCreatedResponse(BaseModel):
     status: str = Field(..., description="Always refinement: the user refines it, then sets it to todo.")
     references: list[str] = Field(..., description="The linked references, by name.")
     link: str = Field(..., description="Link to the task in the app: give it to the user as a markdown link.")
+
+
+class RefinableTaskInfo(BaseModel):
+    task: str = Field(..., description="The task's note name (agent-task-<title>.md): what the other task tools want.")
+    title: str
+    type: str = Field(..., description="refinement, development or analysis.")
+    status: str = Field(..., description="created (take it with start_refinement) or refinement (being refined).")
+
+
+class ListRefinableTasksResponse(BaseModel):
+    tasks: list[RefinableTaskInfo] = Field(..., description="The tasks the refiner can work on: created or in refinement.")
+
+
+class LinkedReferenceInfo(BaseModel):
+    name: str
+    title: str
+    kind: str = Field(..., description="code or context.")
+    source: str = Field(..., description="Where it was copied from (jira, confluence, todoMbarePilot...); '' = written by hand.")
+    content: str
+
+
+class AgentTaskDetailResponse(BaseModel):
+    task: str
+    title: str
+    type: str = Field(..., description="refinement, development or analysis.")
+    status: str = Field(..., description="created, refinement, todo, in_progress or done.")
+    objective: str
+    context: str
+    criteria: list[str] = Field(..., description="Acceptance criteria, in order.")
+    constraints: str
+    references: list[LinkedReferenceInfo] = Field(..., description="The linked references with their content; missing ones are left out.")
+    link: str = Field(..., description="Link to the task in the app.")

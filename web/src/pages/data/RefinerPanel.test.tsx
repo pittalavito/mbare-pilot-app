@@ -109,6 +109,51 @@ describe("RefinerPanel", () => {
     expect(await screen.findByText("openai/gpt-4o")).toBeInTheDocument(); // the panel shows the new model
   });
 
+  it("sends the open task with every message and the editor follows what the refiner writes", async () => {
+    const task = { name: "agent-task-login.md", title: "Login", status: "created", type: "development", objective: "", context: "",
+      criteria: [], constraints: "", references: [] };
+    let current = task;
+    const bodies: unknown[] = [];
+    renderData({
+      "GET /projects/acme/agent-tasks": () => [current],
+      "POST /conversations/3/messages": async (request: Request) => {
+        bodies.push(await request.json());
+        current = { ...current, status: "refinement", objective: "Login sotto il secondo" }; // what start_refinement + update_agent_task do
+        return {};
+      },
+    });
+    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+
+    expect(await screen.findByText(/Task aperto:/)).toHaveTextContent("Task aperto: Login");
+    fireEvent.change(screen.getByPlaceholderText(/Scrivi a Refiner/), { target: { value: "rifinisci questo task" } });
+    fireEvent.click(screen.getByRole("button", { name: "Invia" }));
+
+    await waitFor(() => expect(bodies).toEqual([{ text: "rifinisci questo task", open_note: "agent-task-login.md" }]));
+    expect(await screen.findByDisplayValue("Login sotto il secondo")).toBeInTheDocument(); // reloaded: nothing unsaved
+    expect(screen.queryByText(/è cambiato mentre lo modificavi/)).not.toBeInTheDocument();
+  });
+
+  it("warns instead of reloading when the open task has unsaved changes", async () => {
+    const task = { name: "agent-task-login.md", title: "Login", status: "refinement", type: "development", objective: "", context: "",
+      criteria: [], constraints: "", references: [] };
+    let current = task;
+    renderData({
+      "GET /projects/acme/agent-tasks": () => [current],
+      "POST /conversations/3/messages": () => { current = { ...current, objective: "Scritto dal Refiner" }; return {}; },
+    });
+    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.change(await screen.findByLabelText("Vincoli", { exact: false }), { target: { value: "mio vincolo" } });
+
+    fireEvent.change(screen.getByPlaceholderText(/Scrivi a Refiner/), { target: { value: "scrivi l'obiettivo" } });
+    fireEvent.click(screen.getByRole("button", { name: "Invia" }));
+
+    expect(await screen.findByText(/è cambiato mentre lo modificavi/)).toBeInTheDocument();
+    expect(screen.getByDisplayValue("mio vincolo")).toBeInTheDocument(); // my change is kept
+    fireEvent.click(screen.getByRole("button", { name: /Ricarica/ }));
+    expect(await screen.findByDisplayValue("Scritto dal Refiner")).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("mio vincolo")).not.toBeInTheDocument();
+  });
+
   it("without a refiner says where it comes from", async () => {
     renderData({ "GET /projects/acme/chatbots": [SECRETARY] });
     fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));

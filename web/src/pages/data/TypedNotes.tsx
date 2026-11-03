@@ -39,20 +39,21 @@ const ALL = "all";
 /** The agent tasks, with the Refiner chatbot on the right (it can be hidden). */
 export function AgentTasks({ project }: { project: string }) {
   const [refiner, setRefiner] = useState(true);
+  const [open, setOpen] = useState<AgentTask>();
   return (
     <Grid gutter="md">
       <Grid.Col span={{ base: 12, lg: refiner ? 8 : 12 }}>
         <Group justify="flex-end" mb="xs">
           <Button size="compact-xs" variant="subtle" onClick={() => setRefiner(!refiner)}>{refiner ? "Nascondi il Refiner" : "🧠 Mostra il Refiner"}</Button>
         </Group>
-        <AgentTaskList project={project} />
+        <AgentTaskList project={project} onSelected={setOpen} />
       </Grid.Col>
-      {refiner && <Grid.Col span={{ base: 12, lg: 4 }}><RefinerPanel project={project} /></Grid.Col>}
+      {refiner && <Grid.Col span={{ base: 12, lg: 4 }}><RefinerPanel project={project} openTask={open} /></Grid.Col>}
     </Grid>
   );
 }
 
-function AgentTaskList({ project }: { project: string }) {
+function AgentTaskList({ project, onSelected }: { project: string; onSelected: (task: AgentTask | undefined) => void }) {
   const tasks = useAgentTasks(project);
   const save = useSaveAgentTask(project);
   const [type, setType] = useState<string>(ALL);
@@ -85,6 +86,7 @@ function AgentTaskList({ project }: { project: string }) {
         body: { title, status: "created", type: type === ALL ? "development" : type as AgentTaskBody["type"], objective: "", context: "", criteria: [], constraints: "", references: [] },
       }, done)}
       creating={save.isPending}
+      onSelected={onSelected}
       renderEditor={(task) => <AgentTaskEditor key={task.name} project={project} task={task} />}
     />
   );
@@ -117,7 +119,7 @@ type Named = { name: string; title: string };
 type Done = { onSuccess: (created: Named) => void; onError: (error: Error) => void };
 
 /** The notes of one type on the left (``?note=`` is the open one), its form on the right. */
-function TypedNotes<T extends Named>({ items, error, newLabel, intro, toolbar, describe, create, creating, renderEditor }: {
+function TypedNotes<T extends Named>({ items, error, newLabel, intro, toolbar, describe, create, creating, onSelected, renderEditor }: {
   project: string;
   items?: T[];
   error?: string;
@@ -128,6 +130,8 @@ function TypedNotes<T extends Named>({ items, error, newLabel, intro, toolbar, d
   describe: (item: T) => ReactNode;
   create: (title: string, done: Done) => void;
   creating: boolean;
+  /** The open one (or none), whenever it changes. */
+  onSelected?: (item: T | undefined) => void;
   renderEditor: (item: T) => ReactNode;
 }) {
   const [search, setSearch] = useSearchParams();
@@ -135,6 +139,7 @@ function TypedNotes<T extends Named>({ items, error, newLabel, intro, toolbar, d
   const requested = search.get("note");
   const selected = items?.find((item) => item.name === requested) ?? items?.[0];
   const select = (name: string) => setSearch({ note: name }, { replace: true });
+  useEffect(() => onSelected?.(selected), [selected?.name, selected?.title]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <Grid gutter="md">
       <Grid.Col span={{ base: 12, md: 3 }}>
@@ -257,13 +262,19 @@ function AgentTaskEditor({ project, task }: { project: string; task: AgentTask }
   const deleteSessions = useDeleteTaskSessions(project);
   const taskSessions = (sessions.data ?? []).filter((session) => session.task_note === task.name).length;
   const [form, setForm] = useState<AgentTaskBody>(() => fields(task));
+  /** The task as the form was loaded: what «dirty» compares with. */
+  const [base, setBase] = useState<AgentTaskBody>(() => fields(task));
   const set = (patch: Partial<AgentTaskBody>) => setForm((current) => ({ ...current, ...patch }));
-  const dirty = JSON.stringify(form) !== JSON.stringify(fields(task));
+  const dirty = JSON.stringify(form) !== JSON.stringify(base);
+  const latest = JSON.stringify(fields(task));
+  const reload = () => { setForm(fields(task)); setBase(fields(task)); };
+  const outdated = latest !== JSON.stringify(base); // changed elsewhere (e.g. by the Refiner)
+  useEffect(() => { if (outdated && !dirty) reload(); }, [latest]); // eslint-disable-line react-hooks/exhaustive-deps
   const [delegating, setDelegating] = useState(false);
   const onSave = () =>
     save.mutate(
       { name: task.name, body: { ...form, criteria: (form.criteria ?? []).filter((item) => item.text.trim()) } },
-      { onSuccess: (saved) => { setForm(fields(saved)); notifications.show({ message: `${saved.title} salvato.` }); } },
+      { onSuccess: (saved) => { setForm(fields(saved)); setBase(fields(saved)); notifications.show({ message: `${saved.title} salvato.` }); } },
     );
   return (
     <EditorShell
@@ -282,6 +293,14 @@ function AgentTaskEditor({ project, task }: { project: string; task: AgentTask }
         </>
       }
     >
+      {outdated && dirty && (
+        <Alert color="orange">
+          <Group justify="space-between" gap="xs">
+            <Text size="sm">Il task è cambiato mentre lo modificavi (forse il Refiner): salvando sovrascrivi quelle modifiche.</Text>
+            <Button size="compact-xs" variant="light" color="orange" onClick={reload}>Ricarica (perdi le tue)</Button>
+          </Group>
+        </Alert>
+      )}
       <TextInput label="Titolo" value={form.title} onChange={(event) => set({ title: event.currentTarget.value })} />
       <Group align="flex-end" gap="md">
         <div>

@@ -84,7 +84,7 @@ def list_messages(conversation_id: int, service: ChatbotService = Depends(chatbo
 def send_message(conversation_id: int, request: MessageRequest, service: ChatbotService = Depends(chatbot_service)) -> MessageResponse:
     """Saves the user's message and returns the chatbot's reply (``error`` role
     when the agent could not answer)."""
-    return MessageResponse.from_message(service.send(conversation_id, request.text))
+    return MessageResponse.from_message(service.send(conversation_id, request.text, request.open_note))
 
 
 @router.get("/chatbots/{chatbot_id}/automation-cache")

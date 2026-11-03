@@ -125,8 +125,10 @@ function RoutedConversation({ chatbot }: { chatbot: Chatbot }) {
  * created on the first message: ``onOpen`` gets its id). ``height``: of the
  * messages; ``onLinkClick``: a click on a link of a message, before the
  * browser follows it (``event.preventDefault()`` to handle it in place). */
-export function ConversationView({ chatbot, conversationId, onOpen: open, height = 520, onLinkClick }: {
+export function ConversationView({ chatbot, conversationId, onOpen: open, height = 520, onLinkClick, openNote }: {
   chatbot: Chatbot;
+  /** The note open next to the chat: sent with every message (not saved in it). */
+  openNote?: string;
   conversationId: number | undefined;
   onOpen: (id: number | undefined) => void;
   height?: number;
@@ -158,7 +160,7 @@ export function ConversationView({ chatbot, conversationId, onOpen: open, height
     setPending(message);
     setText("");
     send.mutate(
-      { conversationId: current, text: message },
+      { conversationId: current, text: message, openNote },
       {
         onSuccess: (id) => id !== current && open(id),
         onError: () => setText(message), // to try again
