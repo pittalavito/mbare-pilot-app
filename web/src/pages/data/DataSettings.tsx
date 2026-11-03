@@ -24,9 +24,13 @@ export function DataSettings({ project }: { project: string }) {
   const settings = useDataSettings(project);
   const save = useSaveDataSettings(project);
   const [chosen, setChosen] = useState<NoteType[]>([]);
+  const [files, setFiles] = useState(true);
   const saved = settings.data?.visible_note_types ?? [];
-  useEffect(() => setChosen(settings.data?.visible_note_types ?? []), [settings.data]); // the saved choice, once loaded
-  const dirty = JSON.stringify([...chosen].sort()) !== JSON.stringify([...saved].sort());
+  useEffect(() => { // the saved choice, once loaded
+    setChosen(settings.data?.visible_note_types ?? []);
+    setFiles(settings.data?.files_visible ?? true);
+  }, [settings.data]);
+  const dirty = JSON.stringify([...chosen].sort()) !== JSON.stringify([...saved].sort()) || files !== (settings.data?.files_visible ?? true);
 
   if (settings.isPending) return <Loader size="sm" />;
   if (settings.error) return <Alert color="red">{settings.error.message}</Alert>;
@@ -45,12 +49,18 @@ export function DataSettings({ project }: { project: string }) {
           }}
         />
       ))}
+      <Checkbox
+        label="📎 File"
+        description="I file caricati (PDF, CSV…): nascosti qui restano sul disco e si possono ancora collegare come riferimento."
+        checked={files}
+        onChange={(event) => setFiles(event.currentTarget.checked)}
+      />
       {save.error && <Alert color="red">{save.error.message}</Alert>}
       <Group>
         <Button
           disabled={!dirty}
           loading={save.isPending}
-          onClick={() => save.mutate({ visible_note_types: chosen }, { onSuccess: () => notifications.show({ message: "Impostazioni salvate." }) })}
+          onClick={() => save.mutate({ visible_note_types: chosen, files_visible: files }, { onSuccess: () => notifications.show({ message: "Impostazioni salvate." }) })}
         >
           Salva
         </Button>

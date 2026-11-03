@@ -131,6 +131,8 @@ class ReferenceResponse(ReferenceBody):
 class DataSettingsBody(BaseModel):
     visible_note_types: list[NoteType]
     """The note types the Dati tab shows: ``generic``, ``agent_task``, ``activity``, ``code_reference``, ``context_reference``."""
+    files_visible: bool = True
+    """It shows the uploaded files too (they stay on disk either way)."""
 
 
 class CodeTodoScanResponse(BaseModel):

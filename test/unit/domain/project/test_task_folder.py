@@ -76,3 +76,10 @@ def test_a_link_is_never_followed(tmp_path, link):
 ])
 def test_git_status_paths_inside_the_task_folders(path, inside):
     assert task_folder.is_task_path(path) is inside
+
+
+def test_uploaded_files_go_in_the_files_subfolder(tmp_path):
+    folder = task_folder.write(tmp_path, "agent-task-x", {"task.md": b"t", "files/specifiche.pdf": b"%PDF", "altro/x.md": b"x"})
+
+    assert (folder / "files" / "specifiche.pdf").read_bytes() == b"%PDF"
+    assert (folder / "x.md").read_bytes() == b"x"  # any other folder part is dropped

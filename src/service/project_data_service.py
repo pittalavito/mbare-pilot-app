@@ -20,6 +20,8 @@ from domain.project.data_paths import (
     NOTES_DIR,
     TASK_FILE,
     data_file_name,
+    file_link,
+    is_file_link,
     note_file_name,
     note_type,
     project_slug,
@@ -59,13 +61,17 @@ class ProjectDataService:
         return _to_data_file(stored, ProjectDataKind.NOTE)
 
     def delete_note(self, project_name: str, note_name: str) -> bool:
-        """An agent task is also unlinked from the activities it was born from."""
+        """An agent task is also unlinked from the activities it was born from,
+        a note (or a reference) from the tasks and activities that link it."""
         name = note_file_name(note_name)
-        if note_type(name) == NoteType.AGENT_TASK:
+        kind = note_type(name)
+        if kind == NoteType.AGENT_TASK:
             for activity_name, activity in self.activities(project_name):
                 if name in activity.agent_tasks:
                     self.save_activity(project_name, activity_name, activity.model_copy(
                         update={"agent_tasks": [task for task in activity.agent_tasks if task != name]}))
+        elif kind == NoteType.GENERIC or kind.is_reference:
+            self._unlink(project_name, name)
         return self._files.delete(self._id(project_name, NOTES_DIR, name))
 
     # ----------------------------------------------------------- typed notes
@@ -171,14 +177,17 @@ class ProjectDataService:
         name = note_file_name(note_name)
         if not note_type(name).is_reference:
             raise ValidationError(f"{name} non è un riferimento.")
-        for task_name, task in self.agent_tasks(project_name):
-            if name in task.references:
-                self.save_agent_task(project_name, task_name, task.model_copy(update={"references": [r for r in task.references if r != name]}))
-        for activity_name, activity in self.activities(project_name):
-            if name in activity.references:
-                self.save_activity(project_name, activity_name, activity.model_copy(
-                    update={"references": [r for r in activity.references if r != name]}))
         return self.delete_note(project_name, name)
+
+    def _unlink(self, project_name: str, link: str) -> None:
+        """``link`` (a reference, a note, ``files/<name>``) out of every task's and activity's references."""
+        for task_name, task in self.agent_tasks(project_name):
+            if link in task.references:
+                self.save_agent_task(project_name, task_name, task.model_copy(update={"references": [r for r in task.references if r != link]}))
+        for activity_name, activity in self.activities(project_name):
+            if link in activity.references:
+                self.save_activity(project_name, activity_name, activity.model_copy(
+                    update={"references": [r for r in activity.references if r != link]}))
 
     def import_reference(self, project_name: str, kind: NoteType, reference: Reference, link_to: list[str] = ()) -> tuple[str, bool]:
         """A reference copied from elsewhere (Jira, Confluence...): created, or
@@ -240,17 +249,20 @@ class ProjectDataService:
 
     # ---------------------------------------------------------- copilot folder
     def copilot_files(self, project_name: str, task_note: str) -> dict[str, bytes]:
-        """The agent task (``task.md``) and its linked references (by their
-        names), as the notes are now: name → content, for the task's folder in
+        """The agent task (``task.md``) and what it links (references and notes
+        by their names, uploaded files as ``files/<name>``), as they are now: name → content, for the task's folder in
         the repository (domain/project/task_folder.py). References that no
         longer exist are skipped. NotFoundError when the task is gone."""
         task_name = note_file_name(task_note)
         task = self.agent_task(project_name, task_name)
         files = {TASK_FILE: self.read_note(project_name, task_name).encode("utf-8")}
         for name in task.references:
-            reference = self._id(project_name, NOTES_DIR, note_file_name(name))
-            if self._files.get(reference) is not None:
-                files[note_file_name(name)] = self._files.read(reference)
+            if is_file_link(name):  # an uploaded file: files/<name>, as task.md links it
+                stored, key = self._id(project_name, FILES_DIR, data_file_name(name)), file_link(name)
+            else:  # a reference or a note
+                stored, key = self._id(project_name, NOTES_DIR, note_file_name(name)), note_file_name(name)
+            if self._files.get(stored) is not None:
+                files[key] = self._files.read(stored)
         return files
 
     # -------------------------------------------------------------- settings
@@ -266,6 +278,15 @@ class ProjectDataService:
         self._projects.save(project.model_copy(update={"visible_note_types": ordered}))
         return ordered
 
+    def files_visible(self, project_name: str) -> bool:
+        """Whether the Dati tab shows the uploaded files."""
+        return self._projects.get(self._project(project_name)).files_visible
+
+    def save_files_visible(self, project_name: str, visible: bool) -> bool:
+        project = self._projects.get(self._project(project_name))
+        self._projects.save(project.model_copy(update={"files_visible": visible}))
+        return visible
+
     # ----------------------------------------------------------------- files
     def list_files(self, project_name: str) -> list[ProjectDataFile]:
         return self._list(project_name, FILES_DIR, ProjectDataKind.FILE)
@@ -279,6 +300,8 @@ class ProjectDataService:
         return _to_data_file(stored, ProjectDataKind.FILE)
 
     def delete_file(self, project_name: str, file_name: str) -> bool:
+        """Also unlinked from the tasks and activities that link it."""
+        self._unlink(project_name, file_link(file_name))
         return self._files.delete(self._id(project_name, FILES_DIR, data_file_name(file_name)))
 
     # --------------------------------------------------------------- context
@@ -332,10 +355,15 @@ def _check_links(activity: Activity) -> None:
 
 
 def _check_references(names: list[str]) -> None:
-    """Links name reference notes (a missing one is tolerated: the file may have been removed by hand)."""
+    """What a task or an activity links as reference: reference notes, other
+    notes by name, uploaded files as ``files/<name>`` (a missing one is
+    tolerated: it may have been removed by hand). Not agent tasks nor activities."""
     for name in names:
-        if not note_type(note_file_name(name)).is_reference:
-            raise ValidationError(f"{name} non è un riferimento: si possono collegare solo code-reference-… e context-reference-….")
+        if is_file_link(name):
+            if file_link(name) != name.strip():  # exactly files/<name>: no folders, no spaces around
+                raise ValidationError(f"Collegamento a un file non valido: {name!r} (files/<nome>).")
+        elif note_type(note_file_name(name)) not in (NoteType.GENERIC, NoteType.CODE_REFERENCE, NoteType.CONTEXT_REFERENCE):
+            raise ValidationError(f"{name} non si può collegare come riferimento: solo riferimenti, note e file (files/<nome>).")
 
 
 def _title(note_name: str) -> str:

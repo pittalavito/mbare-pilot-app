@@ -34,6 +34,9 @@ class Project(BaseModel):
     visible_note_types: list[NoteType] | None = None
     """The note types the Dati tab shows; None = DEFAULT_VISIBLE_NOTE_TYPES."""
 
+    files_visible: bool = True
+    """The Dati tab shows the uploaded files (they stay on disk either way)."""
+
     @field_validator("visible_note_types", mode="before")
     @classmethod
     def _old_todo_list(cls, value: Any) -> Any:

@@ -17,8 +17,8 @@ class Adapter:
             source=ProjectSource(row.source),
             root_path=row.root_path,
             embedding_model=EmbeddingModelName(row.embedding_model),
-            visible_note_types=[NoteType(value) for value in row.visible_note_types if value in NoteType.__members__.values()]
-            if row.visible_note_types is not None else None,
+            visible_note_types=_note_types(row.visible_note_types) if row.visible_note_types is not None else None,
+            files_visible=row.files_visible,
             created_at=as_utc(row.created_at),
         )
 
@@ -35,5 +35,17 @@ class Factory:
             root_path=project.root_path,
             embedding_model=project.embedding_model.value,
             visible_note_types=[kind.value for kind in project.visible_note_types] if project.visible_note_types is not None else None,
+            files_visible=project.files_visible,
             created_at=project.created_at,
         )
+
+
+_RENAMED_NOTE_TYPES = {"todo_list": NoteType.ACTIVITY.value}
+"""Saved before a type was renamed: read as the new one."""
+
+
+def _note_types(values: list[str]) -> list[NoteType]:
+    """The saved values that are note types (renamed ones as the new name); unknown ones dropped."""
+    known = set(NoteType.__members__.values())
+    return list(dict.fromkeys(NoteType(_RENAMED_NOTE_TYPES.get(value, value)) for value in values
+                              if _RENAMED_NOTE_TYPES.get(value, value) in known))

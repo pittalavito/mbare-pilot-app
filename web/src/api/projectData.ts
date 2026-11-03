@@ -134,6 +134,9 @@ export function useFiles(project: string) {
 }
 
 /** Where a file is downloaded from (the browser saves it). */
+/** How a task or an activity links an uploaded file (the backend's FILE_LINK_PREFIX). */
+export const FILE_LINK_PREFIX = "files/";
+
 export const fileUrl = (project: string, name: string) =>
   `${window.location.origin}/api/projects/${encodeURIComponent(project)}/files/${encodeURIComponent(name)}`;
 
@@ -159,7 +162,11 @@ export function useDeleteFile(project: string) {
   return useMutation({
     mutationFn: (name: string) =>
       unwrap(api.DELETE("/projects/{project}/files/{file_name}", { params: { path: { project, file_name: name } } })),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: dataKeys.files(project) }),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: dataKeys.files(project) }),
+        queryClient.invalidateQueries({ queryKey: dataKeys.typed(project) }), // unlinked from tasks and activities
+      ]),
   });
 }
 

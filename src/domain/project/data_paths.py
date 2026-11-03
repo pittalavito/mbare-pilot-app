@@ -97,6 +97,20 @@ def typed_note_file_name(kind: NoteType, title: str) -> str:
     return f"{NOTE_PREFIXES[kind]}{slug(title, 'senza-titolo')}{NOTE_SUFFIX}"
 
 
+FILE_LINK_PREFIX = "files/"
+"""How a task or an activity links an uploaded file: ``files/<name>`` (the
+path it gets in the task's folder for Copilot too). A note is linked by its name."""
+
+
+def is_file_link(name: str) -> bool:
+    return name.strip().replace("\\", "/").startswith(FILE_LINK_PREFIX)
+
+
+def file_link(file_name: str) -> str:
+    """``specifiche.pdf`` (or ``files/specifiche.pdf``) → ``files/specifiche.pdf``."""
+    return FILE_LINK_PREFIX + data_file_name(file_name)
+
+
 def data_file_name(file_name: str) -> str:
     """Base name of an uploaded file (any directory part is dropped), checked."""
     return _checked(PurePath(file_name.replace("\\", "/")).name.strip(), "file")
