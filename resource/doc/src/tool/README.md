@@ -91,6 +91,7 @@ Creato da `AgentService` per ogni run:
 - `project_name`: il progetto della run (`None` fuori da un progetto);
 - i service che i tool possono usare: `git`, `pipelines` (`PipelineService`, per le automation), `project_data` (`ProjectDataService`, per il contesto del chatbot, gli agent task e le attività), `copilot` (`CopilotService`, per delegare a Copilot);
 - `origin`: cosa ha avviato la run (chat, automation, manuale): i tool delle automation funzionano solo con `chat`, cioè nel chatbot;
+- `open_note`: la nota aperta accanto alla chat (`None` = nessuna): i tool del Refiner lavorano solo su quella;
 **Il mascheramento non sta nei tool**: il contesto non ha sessione né funzioni di registrazione. Lo gestisce `AgentMask` (`domain/agent/masking.py`), che avvolge ogni tool attorno alla run: gli argomenti arrivano smascherati, l'output esce serializzato e mascherato. Un tool dichiara i suoi valori sensibili nel **modello di output** (vedi [service](../service/README.md#mascheramento)): `MaskRepositoryName`, `MaskPersonName`, `MaskEmailAddress` (campi singoli) o `MaskRepositoryNames` (liste), da `models/domain/masking.py`. Un tool non chiama nulla per registrare.
 
 ```python
@@ -143,20 +144,20 @@ Il tool del chatbot `refiner`, in `refiner/create_code_reference.py`. Cerca nel 
 
 ## Refiner: la rifinitura degli agent task
 
-Gli altri tool del chatbot `refiner`, in `refiner/agent_tasks.py`. **Ogni regola sullo stato sta nel tool**, non nel prompt: qualunque altro passaggio viene rifiutato.
+Gli altri tool del chatbot `refiner`, in `refiner/agent_tasks.py`. Lavorano **solo sul task aperto accanto alla chat** (`ToolContext.open_note`, vedi [service](../service/README.md#chatbot)): non ricevono un nome di task e non ne raggiungono altri. **Ogni regola sullo stato sta nel tool**, non nel prompt: qualunque altro passaggio viene rifiutato.
 
-| Tool | Cosa fa | Solo se il task è |
+| Tool | Cosa fa | Solo se il task aperto è |
 |---|---|---|
-| `list_refinable_tasks()` | i task che il Refiner può prendere o sta rifinendo (nome, titolo, tipo, stato) | creato o in rifinitura |
-| `start_refinement(task)` | lo prende: creato → **in rifinitura**; restituisce il task con i riferimenti | creato |
-| `read_agent_task(task)` | i campi e il **contenuto** dei riferimenti collegati (quelli cancellati si saltano) | in rifinitura |
-| `update_agent_task(task, objective, context, criteria, constraints)` | scrive i campi; un valore vuoto (`''`, `[]`) lascia il campo com'è; `criteria` dati sostituiscono tutti i criteri (le spunte di quelli uguali restano) | in rifinitura |
-| `finish_refinement(task)` | chiude la rifinitura: in rifinitura → **da fare**. Rifiutato senza obiettivo o senza criteri; la descrizione gli dice di usarlo solo dopo un sì esplicito dell'utente | in rifinitura |
+| `read_agent_task()` | i campi, il **contenuto** dei riferimenti collegati (quelli cancellati si saltano) e la **checklist del suo tipo** (`task_checklists` del coding agent, [definizioni](../../definitions.md#coding-agent-global-coding-agentyml-coding-agentyml); `[]` se non c'è o la definizione non si legge) | in rifinitura |
+| `update_agent_task(objective, context, criteria, constraints)` | scrive i campi; un valore vuoto (`''`, `[]`) lascia il campo com'è; `criteria` dati sostituiscono tutti i criteri (le spunte di quelli uguali restano) | in rifinitura |
+| `finish_refinement()` | chiude la rifinitura: in rifinitura → **da fare**. Rifiutato senza obiettivo o senza criteri; la descrizione gli dice di usarlo solo dopo un sì esplicito dell'utente | in rifinitura |
 
+- **Senza task aperto** (o con una nota che non è un agent task): ogni tool risponde di aprire il task. Un task **creato** non è ancora suo: lo porta «in rifinitura» l'utente, con il pulsante, senza LLM.
+- **La checklist** la controlla il Refiner, non il codice: dice cosa manca, lo chiede, e propone «da fare» quando è soddisfatta. La decisione resta all'utente.
 - **Dell'utente**: titolo, tipo e riferimenti; da «da fare» in poi il task non è più del Refiner.
 - **Mascheramento**: il contenuto dei riferimenti arriva all'agente come ogni output dei tool, cioè con i valori sensibili del progetto mascherati.
-- **Nella UI**: il pannello del Refiner compare accanto agli agent task solo quando il task aperto è «creato» o «in rifinitura»; «🧠 Rifinisci con il Refiner» (su un task creato) gli prepara la richiesta, da mandare tu.
-- **Il task aperto**: il pannello del Refiner manda con ogni messaggio il nome del task aperto nell'editor (`open_note`, vedi [service](../service/README.md#chatbot)); per l'agente è «questo task».
+- **Nella UI**: il pannello del Refiner compare accanto agli agent task solo quando il task aperto è «creato» o «in rifinitura»; «🧠 Rifinisci con il Refiner» (su un task creato) lo porta subito «in rifinitura» (salvato, senza LLM) e prepara la richiesta al Refiner, da mandare tu.
+- **Il task aperto**: il pannello del Refiner manda con ogni messaggio il nome del task aperto nell'editor (`open_note`): l'agente lo legge in testa al messaggio, i tool lo ricevono nel contesto.
 - Solo nel chatbot di un progetto (`notes_run()`).
 
 ## Copilot: `delegate_task(task, repository)`

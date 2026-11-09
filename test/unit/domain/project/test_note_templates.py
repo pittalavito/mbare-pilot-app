@@ -48,7 +48,21 @@ def test_status_and_type_written_by_hand():
     assert parse_agent_task("# Senza\n", "x").status == TaskStatus.CREATED
     task = parse_agent_task("# Strano\n\nStato: boh\nTipo: boh\n", "x")
     assert (task.status, task.type) == (TaskStatus.CREATED, TaskType.DEVELOPMENT)
-    assert [status.is_refined for status in TaskStatus] == [False, False, True, True, True]
+    assert [status.is_refined for status in TaskStatus] == [False, False, True, True, True, True]
+
+
+def test_the_new_types_and_status_are_written_in_italian_and_the_old_refinement_type_reads_as_jira():
+    text = render_agent_task(AgentTask(title="Doc", status=TaskStatus.TO_VERIFY, type=TaskType.CONFLUENCE))
+    assert "Stato: da verificare\nTipo: doc confluence\n" in text
+    assert parse_agent_task("# Storia\n\nTipo: Task Jira\n", "x").type == TaskType.JIRA
+
+    old = parse_agent_task("# Storia\n\nStato: da fare\nTipo: rifinitura\n", "x")  # «rifinire una storia», before jira
+    assert (old.status, old.type) == (TaskStatus.TODO, TaskType.JIRA)
+    assert "Tipo: task jira" in render_agent_task(old)  # rewritten only when saved
+
+
+def test_only_a_development_is_executed_by_copilot():
+    assert [kind for kind in TaskType if not kind.plan_only] == [TaskType.DEVELOPMENT]
 
 
 def test_markdown_headings_inside_a_section_do_not_cut_it():

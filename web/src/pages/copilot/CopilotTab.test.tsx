@@ -57,6 +57,24 @@ describe("CopilotTab", () => {
     await waitFor(() => expect(approved).toHaveBeenCalled());
   });
 
+  it("a plan-only task has no ok: Copilot's answer is saved as a note", async () => {
+    const saved = vi.fn(() => ({ note: "analisi-fix-porto.md", session: session() }));
+    mockApi({
+      "GET /copilot/status": { installed: true, version: "x" },
+      "GET /projects/acme/copilot-sessions": [session()],
+      "GET /projects/acme/agent-tasks": [{ name: "agent-task-fix-porto.md", title: "Fix porto", status: "in_progress", type: "analysis" }],
+      "GET /copilot-sessions/4/messages": MESSAGES,
+      "POST /copilot-sessions/4/save-note": saved,
+    });
+    renderTab();
+
+    const save = await screen.findByRole("button", { name: /Salva come nota/ });
+    await waitFor(() => expect(save).toBeEnabled()); // once Copilot's answer is loaded
+    expect(screen.queryByRole("button", { name: /Ok, parti/ })).not.toBeInTheDocument();
+    fireEvent.click(save);
+    await waitFor(() => expect(saved).toHaveBeenCalled());
+  });
+
   it("while Copilot executes the chat waits and the execution can be cancelled; at the end the changed files show", async () => {
     const cancelled = vi.fn(() => session({ status: "running", cancel_requested: true }));
     mockApi({

@@ -28,10 +28,37 @@ execute_prompt: >-
   l'indice o i branch. Alla fine riassumi cosa hai cambiato (file e motivo) e se i criteri di accettazione sono soddisfatti.
 
 # Il prompt di preparazione di ogni tipo di task, quando alla delega non se ne sceglie uno (facoltativo):
-# il nome di un file .md di coding-agent/ ("" = plan_prompt). Tipi: refinement, development, analysis;
-# un tipo assente usa plan_prompt.
+# il nome di un file .md di coding-agent/ ("" = plan_prompt). Tipi: development, analysis, confluence, jira;
+# un tipo assente usa plan_prompt. Solo development viene eseguito («Ok, parti»): gli altri restano in
+# preparazione e l'ultima risposta di Copilot si salva come nota («Salva come nota»), quindi il loro prompt
+# chiede di rispondere con il documento finito.
 type_prompts:
+  development: ""
   analysis: analisi
+  confluence: confluence
+  jira: jira
+
+# Cosa deve avere un task rifinito, per tipo (facoltativo): il Refiner riceve solo la checklist del tipo
+# del task aperto, dice cosa manca e lo chiede prima di proporre «da fare». Il codice non blocca niente.
+task_checklists:
+  development:
+    - obiettivo chiaro, in una o due frasi
+    - repository su cui lavorare
+    - criteri di accettazione verificabili (es. i test che devono passare)
+    - vincoli, cioè cosa non toccare
+  analysis:
+    - la domanda a cui rispondere
+    - repository e parti di codice da guardare
+    - la forma della risposta (es. elenco di rischi, opzioni con una raccomandazione)
+  confluence:
+    - spazio e pagina padre, o la pagina da aggiornare
+    - per chi è la pagina
+    - gli argomenti da coprire
+    - i riferimenti da cui partire
+  jira:
+    - la chiave della issue, o il progetto per una nuova
+    - la storia attuale o il bisogno da cui nasce
+    - i criteri di accettazione attesi
 
 # --deny-tool dell'esecuzione: l'elenco completo (il codice non ne aggiunge).
 # L'app controlla comunque l'HEAD prima e dopo e segnala se è cambiato.

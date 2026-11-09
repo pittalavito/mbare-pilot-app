@@ -1609,6 +1609,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/copilot-sessions/{session_id}/send-back": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Back
+         * @description A task to verify needs more work: the message starts a new execution of the same session (in the worker's queue).
+         */
+        post: operations["send_back_copilot_sessions__session_id__send_back_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/copilot-sessions/{session_id}/save-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save Note
+         * @description A plan-only task (analysis, Confluence, Jira): Copilot's last answer becomes a note linked to the task, which becomes done.
+         */
+        post: operations["save_note_copilot_sessions__session_id__save_note_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/copilot-sessions/{session_id}/cancel": {
         parameters: {
             query?: never;
@@ -2200,6 +2240,12 @@ export interface components {
             cache_write: number | null;
             /** Output */
             output: number;
+        };
+        /** CopilotSavedNoteResponse */
+        CopilotSavedNoteResponse: {
+            /** Note */
+            note: string;
+            session: components["schemas"]["CopilotSessionResponse"];
         };
         /** CopilotSessionRequest */
         CopilotSessionRequest: {
@@ -3132,16 +3178,19 @@ export interface components {
          * TaskStatus
          * @description In this order: created (by hand) and refinement (being refined with an
          *     agent, or created by the secretary) come before todo, ready to delegate;
-         *     Copilot moves it to in_progress, then done (or back to todo).
+         *     Copilot moves it to in_progress, then to_verify (a development: the user
+         *     checks Copilot's changes and confirms) or done (the other types, when the
+         *     user saves Copilot's answer as a note), or back to todo when it fails.
          * @enum {string}
          */
-        TaskStatus: "created" | "refinement" | "todo" | "in_progress" | "done";
+        TaskStatus: "created" | "refinement" | "todo" | "in_progress" | "to_verify" | "done";
         /**
          * TaskType
-         * @description What the task asks for; it picks Copilot's planning prompt (type_prompts).
+         * @description What the task asks for; it picks Copilot's planning prompt
+         *     (type_prompts) and how Copilot works on it (``plan_only``).
          * @enum {string}
          */
-        TaskType: "refinement" | "development" | "analysis";
+        TaskType: "development" | "analysis" | "confluence" | "jira";
         /** TodoItemBody */
         TodoItemBody: {
             /** Text */
@@ -6731,6 +6780,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CopilotSessionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_back_copilot_sessions__session_id__send_back_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CopilotMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CopilotSessionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_note_copilot_sessions__session_id__save_note_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CopilotSavedNoteResponse"];
                 };
             };
             /** @description Validation Error */

@@ -4,7 +4,8 @@ from the data folder: ``definition/global-coding-agent.yml``, whose fields
 The planning prompts to choose from when delegating are the ``<name>.md`` of
 ``definition/coding-agent/`` and ``definition/project/<slug>/coding-agent/``
 (the project's win by name); ``type_prompts`` picks one per task type when
-the user does not choose. Every planning prompt says where the task is with
+the user does not choose; ``task_checklists`` say, per task type, what a
+refined task should have (the Refiner checks it). Every planning prompt says where the task is with
 ``{task_folder}``: the task and its references are files in the repository
 (domain/project/task_folder.py), not text of the prompt.
 
@@ -68,6 +69,11 @@ def plan_prompt(settings: CodingAgentSettings, task_folder: str, prompt: str = "
     return (settings.prompts[prompt] if prompt else settings.plan_prompt).replace(TASK_FOLDER_PLACEHOLDER, task_folder)
 
 
+def task_checklist(settings: CodingAgentSettings, task_type: TaskType) -> list[str]:
+    """What a refined task of ``task_type`` should have (``[]`` = nothing written)."""
+    return list(settings.task_checklists.get(task_type, []))
+
+
 def check_model(settings: CodingAgentSettings, model: str) -> str:
     """``model`` when it is one of ``settings.models`` (``""`` = the default)."""
     model = model.strip()
@@ -106,6 +112,8 @@ def _values(files: DefinitionFiles, path: str, folder: str, required: bool) -> d
         values["denied_tools"] = spec.denied_tools
     if spec.type_prompts is not None:
         values["type_prompts"] = {kind: name.strip() for kind, name in spec.type_prompts.items()}
+    if spec.task_checklists is not None:
+        values["task_checklists"] = {kind: list(points) for kind, points in spec.task_checklists.items()}
     if spec.models is not None:
         values["models"] = [_model(item) for item in spec.models]
         names = [model.name for model in values["models"]]

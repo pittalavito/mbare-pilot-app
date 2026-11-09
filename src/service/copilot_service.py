@@ -21,7 +21,13 @@ files (the warning before an execution, the files changed by it).
 
 One execution at a time per repository (the queue waits); after an execution
 the chat can go on and a new ok starts a new one. The task's status follows:
-in progress while it runs, done when it succeeds, back to todo otherwise."""
+in progress while it runs, to verify when it succeeds (the user checks the
+changes and confirms, or sends the task back to Copilot with a message: a new
+execution of the same session), back to todo otherwise.
+
+Only a development task is executed. The other types (analysis, Confluence,
+Jira: ``TaskType.plan_only``) stay in planning: Copilot reads and answers, and
+the user saves its last answer as a note linked to the task, which becomes done."""
 import time
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
@@ -33,8 +39,8 @@ from core.error import AppError, ConflictError, NotFoundError, UpstreamError, Va
 from core.observability import LogPrefix, log_exception, observed
 from domain.client.copilot.client import NOT_FOUND, CopilotClient, CopilotMode
 from domain.project import coding_agent, task_folder
-from domain.project.data_paths import note_file_name
-from domain.project.note_templates import STATUS_LABELS
+from domain.project.data_paths import note_file_name, slug
+from domain.project.note_templates import NOTE_PREFIXES_BY_TYPE, STATUS_LABELS
 from models.domain.copilot import (
     CodingAgentSettings,
     CopilotMessage,
@@ -48,7 +54,7 @@ from models.domain.copilot import (
     CopilotTurnRecord,
     CopilotUsage,
 )
-from models.domain.note import TaskStatus
+from models.domain.note import AgentTask, TaskStatus, TaskType
 from service.git_service import GitService
 from service.project_data_service import ProjectDataService
 from service.store.copilot_store import CopilotStore
@@ -63,6 +69,14 @@ def _short(commit: str) -> str:
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def output_note_name(task_note: str, task_type: TaskType) -> str:
+    """Where a plan-only task's answer is saved: ``agent-task-login.md`` →
+    ``analisi-login.md`` (an analysis) or ``bozza-login.md`` (a draft)."""
+    name = note_file_name(task_note).removesuffix(".md")
+    name = name[len("agent-task-"):] if name.lower().startswith("agent-task-") else name
+    return note_file_name(NOTE_PREFIXES_BY_TYPE[task_type] + slug(name, "task"))
 
 
 def not_refined_warning(status: TaskStatus) -> str | None:
@@ -196,6 +210,12 @@ class CopilotService:
         ))
         if (warning := not_refined_warning(task.status)):
             self._message(session, CopilotMessageRole.EVENT, warning)
+        if task.type.plan_only:
+            self._message(session, CopilotMessageRole.EVENT,
+                          "Questo tipo di task non cambia il codice: Copilot resta in preparazione e risponde. "
+                          "Quando la risposta va bene, «Salva come nota»: diventa una nota collegata al task, che passa a «fatto».")
+            if task.status == TaskStatus.TODO:
+                self._set_task_status(session, TaskStatus.IN_PROGRESS)
         return self._plan_turn(session, folder, first_turn, refresh=False)
 
     @observed(LogPrefix.COPILOT_SERVICE)
@@ -230,6 +250,7 @@ class CopilotService:
             raise ConflictError("Si può dare l'ok solo durante la preparazione.")
         if not any(message.role == CopilotMessageRole.COPILOT for message in self._copilot.list_messages(session.id)):
             raise ConflictError("Copilot non ha ancora risposto: aspetta la sua risposta prima di dare l'ok.")
+        self._refuse_plan_only(session)
         changed = self._changed_files(session)
         if changed:
             listed = "\n".join(f"- {path}" for path in changed[:20]) + ("\n- …" if len(changed) > 20 else "")
@@ -237,6 +258,49 @@ class CopilotService:
                           f"⚠️ Nel repository ci sono già {len(changed)} file modificati: le modifiche di Copilot si aggiungeranno a queste.\n{listed}")
         self._message(session, CopilotMessageRole.EVENT, "In coda: parte appena il worker è libero (un'esecuzione alla volta per repository).")
         return self._update(session, status=CopilotSessionStatus.QUEUED, cancel_requested=False, error=None)
+
+    @observed(LogPrefix.COPILOT_SERVICE)
+    def send_back(self, session_id: int, text: str) -> CopilotSession:
+        """The task is to verify and needs more work: ``text`` (what to fix)
+        starts a new execution of the same Copilot session, which remembers the
+        plan and its changes. It goes in the worker's queue like an ok."""
+        session = self.session(session_id)
+        if session.status in (CopilotSessionStatus.QUEUED, CopilotSessionStatus.RUNNING):
+            raise ConflictError("Copilot sta già eseguendo il task: aspetta che finisca o annulla.")
+        if not text.strip():
+            raise ValidationError("Scrivi cosa deve sistemare Copilot.")
+        task = self._data.agent_task(session.project_name, session.task_note)
+        if task.status != TaskStatus.TO_VERIFY:
+            raise ConflictError(f"Si rimanda a Copilot solo un task «{STATUS_LABELS[TaskStatus.TO_VERIFY]}»: "
+                                f"questo è «{STATUS_LABELS[task.status]}».")
+        self._refuse_plan_only(session)
+        self._message(session, CopilotMessageRole.EVENT, "↩️ Rimandato a Copilot. In coda: parte appena il worker è libero.")
+        return self._update(session, status=CopilotSessionStatus.QUEUED, next_prompt=text.strip(), cancel_requested=False, error=None)
+
+    @observed(LogPrefix.COPILOT_SERVICE)
+    def save_as_note(self, session_id: int) -> tuple[str, CopilotSession]:
+        """A plan-only task (analysis, Confluence, Jira): Copilot's last answer
+        becomes a note (``analisi-<task>.md`` or ``bozza-<task>.md``, rewritten
+        when it exists), linked to the task, which becomes done. Returns the
+        note's name and the session."""
+        session = self.session(session_id)
+        if session.status in (CopilotSessionStatus.QUEUED, CopilotSessionStatus.RUNNING):
+            raise ConflictError("Copilot sta eseguendo il task: aspetta che finisca o annulla.")
+        answer = next((message.content for message in reversed(self._copilot.list_messages(session.id))
+                       if message.role == CopilotMessageRole.COPILOT and message.content.strip()), None)
+        if answer is None:
+            raise ConflictError("Copilot non ha ancora risposto: non c'è niente da salvare.")
+        task = self._data.agent_task(session.project_name, session.task_note)
+        if not task.type.plan_only:
+            raise ConflictError("Un task di sviluppo non si salva come nota: Copilot cambia il codice, con «Ok, parti».")
+        note = output_note_name(session.task_note, task.type)
+        heading = "Analisi" if task.type == TaskType.ANALYSIS else "Bozza"
+        self._data.save_note(session.project_name, note, f"# {heading}: {task.title}\n\n{answer.strip()}\n")
+        references = task.references if note in task.references else [*task.references, note]
+        self._data.save_agent_task(session.project_name, session.task_note,
+                                   task.model_copy(update={"references": references, "status": TaskStatus.DONE}))
+        self._message(session, CopilotMessageRole.EVENT, f"💾 Salvata come nota {note}, collegata al task: il task è «fatto».")
+        return note, self.session(session.id)
 
     @observed(LogPrefix.COPILOT_SERVICE)
     def cancel(self, session_id: int) -> CopilotSession:
@@ -287,13 +351,14 @@ class CopilotService:
         except AppError as exc:
             self._message(session, CopilotMessageRole.EVENT, f"❌ Non partita: {exc}")
             return self._update(session, status=CopilotSessionStatus.FAILED, error=str(exc), finished_at=_now())
-        session = self._update(session, head_before=head_before, head_after=None, changed_files=[], error=None)
+        prompt = session.next_prompt or settings.execute_prompt  # sent back to Copilot: the user's message
+        session = self._update(session, head_before=head_before, head_after=None, changed_files=[], error=None, next_prompt="")
         self._message(session, CopilotMessageRole.EVENT, "▶️ Esecuzione partita: Copilot modifica i file, senza commit.")
         self._set_task_status(session, TaskStatus.IN_PROGRESS)  # before the folder: task.md says «in corso»
         self._refresh_task_folder(session, folder)
-        self._message(session, CopilotMessageRole.USER, settings.execute_prompt)
+        self._message(session, CopilotMessageRole.USER, prompt)
         started = time.monotonic()
-        turn = self._client.turn(folder, session.copilot_session_id, settings.execute_prompt, CopilotMode.EXECUTE,
+        turn = self._client.turn(folder, session.copilot_session_id, prompt, CopilotMode.EXECUTE,
                                  self._execution_timeout, settings.denied_tools, self._cancel_check(session.id), model=session.model)
         self._record_usage(session, turn, CopilotPhase.EXECUTE, started)
         session = self._record(session, turn)
@@ -328,7 +393,11 @@ class CopilotService:
         summary = {CopilotSessionStatus.DONE: "✅ Finita", CopilotSessionStatus.FAILED: "❌ Fallita", CopilotSessionStatus.CANCELLED: "⏹️ Annullata"}
         files = f": {len(changed)} file modificati nel repository." if changed else ": nessun file modificato."
         self._message(session, CopilotMessageRole.EVENT, summary[status] + files)
-        self._set_task_status(session, TaskStatus.DONE if status == CopilotSessionStatus.DONE else TaskStatus.TODO)
+        if status == CopilotSessionStatus.DONE:
+            self._message(session, CopilotMessageRole.EVENT,
+                          f"Il task è «{STATUS_LABELS[TaskStatus.TO_VERIFY]}»: controlla le modifiche, poi confermalo "
+                          "o rimandalo a Copilot dal form del task.")
+        self._set_task_status(session, TaskStatus.TO_VERIFY if status == CopilotSessionStatus.DONE else TaskStatus.TODO)
         return session
 
     # --------------------------------------------------------------- helpers
@@ -372,6 +441,17 @@ class CopilotService:
             task_folder.write(folder, session.task_note, self._data.copilot_files(session.project_name, session.task_note))
         except (AppError, OSError):
             log_exception(LogPrefix.COPILOT_SERVICE, "Cartella del task %s non aggiornata", session.task_note)
+
+    def _refuse_plan_only(self, session: CopilotSession) -> None:
+        """ConflictError when the session's task is plan-only (it is never
+        executed). A task deleted meanwhile is not refused here."""
+        try:
+            task: AgentTask | None = self._data.agent_task(session.project_name, session.task_note)
+        except AppError:
+            task = None
+        if task is not None and task.type.plan_only:
+            raise ConflictError("Questo tipo di task non cambia il codice: niente esecuzione. "
+                                "Quando la risposta di Copilot va bene, «Salva come nota».")
 
     def _cancel_check(self, session_id: int) -> Callable[[], bool]:
         """Polled by the client while Copilot runs: reads the DB every few seconds."""

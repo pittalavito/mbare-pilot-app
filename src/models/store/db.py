@@ -315,6 +315,8 @@ class CopilotSessionTable(SQLModel, table=True):
     """Copilot's model for every turn; ``""`` = COPILOT_MODEL or Copilot's default."""
     status: str = Field(index=True)
     """``planning`` | ``queued`` | ``running`` | ``done`` | ``failed`` | ``cancelled``."""
+    next_prompt: str = Field(default="", sa_type=Text)
+    """The turn that starts the next execution; ``""`` = the definition's ``execute_prompt``."""
     cancel_requested: bool = False
     head_before: str | None = None
     head_after: str | None = None

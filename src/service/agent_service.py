@@ -68,14 +68,16 @@ class AgentService:
 
     @observed(LogPrefix.AGENT_SERVICE)
     def run_definition(self, definition: AgentDefinition, task_input: str, *, project_name: str | None = None,
-                       origin: RunOrigin = RunOrigin.MANUAL, history: list[ChatMessage] | None = None) -> AgentRunRecord:
+                       origin: RunOrigin = RunOrigin.MANUAL, history: list[ChatMessage] | None = None,
+                       open_note: str | None = None) -> AgentRunRecord:
         """Run ``definition`` on ``task_input`` inside a datapizza trace and
         persist the run (facts + trace). A failed run is persisted too, with
         ``ok=False``. The run's project (``project_name``, else the
         definition's) is the one its tools work on; ``history`` are the
         previous messages of a conversation, oldest first. In a project with
         masking, the LLM sees aliases instead of the sensitive values: input,
-        history and tool output are masked, the answer is unmasked."""
+        history and tool output are masked, the answer is unmasked.
+        ``open_note``: the note open next to a chatbot's chat, for its tools."""
         project_name = project_name or definition.project_name
         require_usable_model(self._catalog, definition.model)
         client = self._chat_service.get_client(definition.model)
@@ -92,6 +94,7 @@ class AgentService:
             project_data=self._project_data_service,
             copilot=self._copilot_service,
             code_todos=self._code_todo_service,
+            open_note=open_note,
         )
         tools = mask.wrap(build_tools(definition.tool_names, context))
         agent = AgentFactory.create_agent(definition, client, tools)

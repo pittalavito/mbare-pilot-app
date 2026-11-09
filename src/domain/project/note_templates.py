@@ -73,9 +73,13 @@ from models.domain.note import Activity, ActivityStatus, AgentTask, ChecklistIte
 
 STATUS_LABELS = {
     TaskStatus.CREATED: "creato", TaskStatus.REFINEMENT: "in rifinitura",
-    TaskStatus.TODO: "da fare", TaskStatus.IN_PROGRESS: "in corso", TaskStatus.DONE: "fatto",
+    TaskStatus.TODO: "da fare", TaskStatus.IN_PROGRESS: "in corso", TaskStatus.TO_VERIFY: "da verificare", TaskStatus.DONE: "fatto",
 }
-TYPE_LABELS = {TaskType.REFINEMENT: "rifinitura", TaskType.DEVELOPMENT: "sviluppo", TaskType.ANALYSIS: "analisi"}
+TYPE_LABELS = {TaskType.DEVELOPMENT: "sviluppo", TaskType.ANALYSIS: "analisi", TaskType.CONFLUENCE: "doc confluence", TaskType.JIRA: "task jira"}
+_OLD_TYPE_LABELS = {"rifinitura": TaskType.JIRA}
+"""Labels of types that no longer exist, still read (the file is rewritten only when saved)."""
+NOTE_PREFIXES_BY_TYPE = {TaskType.ANALYSIS: "analisi-", TaskType.CONFLUENCE: "bozza-", TaskType.JIRA: "bozza-"}
+"""The generic note where Copilot's answer to a plan-only task is saved (``analisi-<task>.md``, ``bozza-<task>.md``)."""
 PRIORITY_LABELS = {TodoPriority.HIGH: "alta", TodoPriority.MEDIUM: "media", TodoPriority.LOW: "bassa"}
 ACTIVITY_STATUS_LABELS = {ActivityStatus.TODO: "da fare", ActivityStatus.IN_PROGRESS: "in corso", ActivityStatus.DONE: "fatta"}
 
@@ -113,7 +117,7 @@ def parse_agent_task(text: str, fallback_title: str) -> AgentTask:
     return AgentTask(
         title=title,
         status=next((key for key, label in STATUS_LABELS.items() if label == status), TaskStatus.CREATED),
-        type=next((key for key, label in TYPE_LABELS.items() if label == kind), TaskType.DEVELOPMENT),
+        type=next((key for key, label in TYPE_LABELS.items() if label == kind), _OLD_TYPE_LABELS.get(kind, TaskType.DEVELOPMENT)),
         objective=_text(fields.get("objective", [])),
         context=_text(fields.get("context", [])),
         criteria=[ChecklistItem(text=text, done=done) for done, text in _checks(fields.get("criteria", []))],

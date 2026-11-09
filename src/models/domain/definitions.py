@@ -114,9 +114,20 @@ class CodingAgentFile(_File):
     type_prompts: dict[TaskType, str] | None = None
     """The planning prompt of each task type when delegating without choosing
     one: type → name of a ``coding-agent/<name>.md`` (``""`` = ``plan_prompt``)."""
+    task_checklists: dict[TaskType, list[Prompt]] | None = None
+    """What a refined task of each type should have (type → points): the
+    Refiner gets the one of the task it is refining."""
     models: list[ModelFile] | None = None
     """Copilot models to choose from when delegating (``--model``): a name, or
     ``{name, input, cached_input, cache_write, output, note, long_context}``."""
+
+    @field_validator("type_prompts", "task_checklists", mode="before")
+    @classmethod
+    def _old_types(cls, value: Any) -> Any:
+        """``refinement`` (rifinire una storia) is now ``jira``: an older file still reads."""
+        if isinstance(value, dict) and "refinement" in value and TaskType.JIRA.value not in value:
+            value = {(TaskType.JIRA.value if key == "refinement" else key): item for key, item in value.items()}
+        return value
 
     @field_validator("models", mode="before")
     @classmethod

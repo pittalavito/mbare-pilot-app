@@ -42,8 +42,9 @@ class AutomationStatusResponse(BaseModel):
 class AgentTaskInfo(BaseModel):
     task: str = Field(..., description="The task's note name (agent-task-<title>.md): what delegate_task wants.")
     title: str
-    status: str = Field(..., description="created, refinement (not ready yet), todo (ready to delegate), in_progress or done.")
-    type: str = Field(..., description="refinement (refine a story), development or analysis.")
+    status: str = Field(..., description="created, refinement (not ready yet), todo (ready to delegate), in_progress, "
+                                         "to_verify (Copilot finished a development: the user checks it) or done.")
+    type: str = Field(..., description="development, analysis, confluence (write a page) or jira (refine an issue).")
     copilot_status: str | None = Field(
         None, description="Status of the task's latest Copilot session (planning, queued, running, done, failed, cancelled); "
                           "null = never delegated, or Copilot not available.",
@@ -205,7 +206,7 @@ class TodoItemInfo(BaseModel):
 class ActivityTaskInfo(BaseModel):
     task: str = Field(..., description="The agent task's note name.")
     title: str
-    status: str = Field(..., description="created, refinement, todo, in_progress or done.")
+    status: str = Field(..., description="created, refinement, todo, in_progress, to_verify or done.")
 
 
 class ActivityResponse(BaseModel):
@@ -244,22 +245,11 @@ class ListReferencesResponse(BaseModel):
 class AgentTaskCreatedResponse(BaseModel):
     task: str = Field(..., description="The new task's note name (agent-task-<title>.md).")
     title: str
-    type: str = Field(..., description="refinement, development or analysis.")
+    type: str = Field(..., description="development, analysis, confluence or jira.")
     status: str = Field(..., description="Always refinement: the user refines it, then sets it to todo.")
     references: list[str] = Field(..., description="The linked references, by name.")
     activity: str | None = Field(None, description="The activity it is born from, linked to it; null = none.")
     link: str = Field(..., description="Link to the task in the app: give it to the user as a markdown link.")
-
-
-class RefinableTaskInfo(BaseModel):
-    task: str = Field(..., description="The task's note name (agent-task-<title>.md): what the other task tools want.")
-    title: str
-    type: str = Field(..., description="refinement, development or analysis.")
-    status: str = Field(..., description="created (take it with start_refinement) or refinement (being refined).")
-
-
-class ListRefinableTasksResponse(BaseModel):
-    tasks: list[RefinableTaskInfo] = Field(..., description="The tasks the refiner can work on: created or in refinement.")
 
 
 class LinkedReferenceInfo(BaseModel):
@@ -273,11 +263,12 @@ class LinkedReferenceInfo(BaseModel):
 class AgentTaskDetailResponse(BaseModel):
     task: str
     title: str
-    type: str = Field(..., description="refinement, development or analysis.")
-    status: str = Field(..., description="created, refinement, todo, in_progress or done.")
+    type: str = Field(..., description="development, analysis, confluence or jira.")
+    status: str = Field(..., description="created, refinement, todo, in_progress, to_verify or done.")
     objective: str
     context: str
     criteria: list[str] = Field(..., description="Acceptance criteria, in order.")
     constraints: str
     references: list[LinkedReferenceInfo] = Field(..., description="The linked references with their content; missing ones are left out.")
+    checklist: list[str] = Field([], description="What a refined task of this type should have: check it before proposing todo.")
     link: str = Field(..., description="Link to the task in the app.")

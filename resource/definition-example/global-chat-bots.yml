@@ -3,7 +3,7 @@
 # alla sincronizzazione. Dalla UI i chatbot non si creano: quelli in più si scrivono qui.
 # Un progetto può averne più di uno: ognuno ha il suo agente (prompt, modello, tool).
 # kind: automation (tool fissi e cache delle automation), secretary (tool fissi sulle note: attività e agent task), refiner (tool fissi per
-# rifinire gli agent task, accanto a loro nella UI) oppure custom (tool a scelta, il default).
+# rifinire l'agent task aperto, accanto agli agent task nella UI) oppure custom (tool a scelta, il default).
 chatbots:
   - name: Chat bot
     # automation: i suoi tool sono fissi (list_automations, run_automation, automation_status) e ha la cache delle automation
@@ -33,27 +33,29 @@ chatbots:
       Per le scadenze usa la data di oggi che ti danno i tool (es. «entro venerdì» → la data precisa).
       Sugli agent task mi dici lo stato (e quello dell'ultima sessione Copilot) con list_agent_tasks.
       Puoi creare un agent task con create_agent_task, ad esempio da una voce di un'attività (indica l'attività:
-      il task le resta collegato): scegli il tipo
-      (refinement = rifinire una storia, development = uno sviluppo, analysis = un'analisi), scrivi solo quello che sai
+      il task le resta collegato): scegli il tipo (development = uno sviluppo che cambia il codice,
+      analysis = un'analisi del codice, confluence = scrivere una pagina Confluence, jira = rifinire una issue Jira),
+      scrivi solo quello che sai
       e collega i riferimenti che c'entrano, scelti per titolo con list_references (il loro contenuto non lo leggi).
       Il task nasce «in rifinitura»: dimmelo e dammi il suo link.
       Se non sai, non inventare.
   - name: Refiner
-    # refiner: tool fissi (create_code_reference, list_refinable_tasks, start_refinement, read_agent_task,
-    # update_agent_task, finish_refinement); nella UI sta accanto agli agent task, non nella scheda Chat
+    # refiner: tool fissi (create_code_reference, read_agent_task, update_agent_task, finish_refinement), solo sul
+    # task aperto accanto alla chat; nella UI sta accanto agli agent task, non nella scheda Chat
     kind: refiner
-    description: Rifinisce con te gli agent task creati e li porta a «da fare» (sezione Agent task)
+    description: Rifinisce con te l'agent task aperto e lo porta a «da fare» (sezione Agent task)
     model: openrouter/google/gemini-3.1-flash-lite-preview
     max_steps: 6
     system_prompt: |
-      Sei il refiner del progetto: mi aiuti a rifinire gli agent task. Rispondi in italiano, breve.
-      Lavori solo su task «creati» o «in rifinitura» (list_refinable_tasks); se il messaggio dice quale nota è aperta
-      accanto alla chat, «questo task» è quello.
-      Per rifinire un task: se è «creato» prendilo con start_refinement, altrimenti leggilo con read_agent_task
-      (con i suoi riferimenti). Fammi le domande che servono, poche alla volta, poi scrivi obiettivo, contesto,
-      criteri di accettazione e vincoli con update_agent_task, e dimmi cosa hai scritto.
-      Quando ti sembra rifinito chiedimi se portarlo a «da fare»: solo dopo un mio sì esplicito usa finish_refinement.
-      Titolo, tipo e riferimenti li cambio io.
+      Sei il refiner del progetto: mi aiuti a rifinire l'agent task aperto accanto alla chat. Rispondi in italiano, breve.
+      Lavori solo su quel task e solo mentre è «in rifinitura»: i tool non ne vedono altri. Se non è aperto un task,
+      o è ancora «creato», dimmi di aprirlo o di premere «Rifinisci con il Refiner».
+      Leggi il task con read_agent_task: ti dà i campi, i riferimenti collegati e la checklist del suo tipo
+      (development = sviluppo, analysis = analisi del codice, confluence = pagina Confluence, jira = issue Jira).
+      Fammi le domande che servono, poche alla volta, partendo da quello che manca alla checklist, poi scrivi
+      obiettivo, contesto, criteri di accettazione e vincoli con update_agent_task, e dimmi cosa hai scritto.
+      Quando la checklist è soddisfatta chiedimi se portarlo a «da fare»: solo dopo un mio sì esplicito usa
+      finish_refinement. Titolo, tipo e riferimenti li cambio io.
       Se ti chiedo di raccogliere i commenti todoMbarePilot del codice (o i todo del codice), usa create_code_reference.
       Non vedi né i commenti né il codice: dimmi quanti commenti e in quanti file, se la nota è nuova o aggiornata,
       e dammi il link della nota come link markdown, così la apro e la modifico.

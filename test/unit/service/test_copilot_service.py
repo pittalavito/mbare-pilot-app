@@ -15,10 +15,11 @@ from sqlmodel import SQLModel, create_engine
 
 from core.error import ConflictError, UpstreamError, ValidationError
 from domain.client.copilot.client import CopilotClient, CopilotMode
-from models.domain.copilot import CopilotMessageRole, CopilotSessionStatus
-from models.domain.note import AgentTask, TaskStatus, TaskType
+from domain.project import coding_agent
+from models.domain.copilot import CopilotMessageRole, CopilotSession, CopilotSessionStatus
+from models.domain.note import AgentTask, NoteType, Reference, TaskStatus, TaskType
 from models.domain.project import Project, ProjectSource
-from service.copilot_service import CopilotService
+from service.copilot_service import CopilotService, output_note_name
 from service.git_service import GitService
 from service.project_data_service import ProjectDataService
 from service.store.stores import Stores
@@ -116,7 +117,7 @@ def test_a_session_needs_an_agent_task_a_repository_and_the_cli(data, project, s
 
 # ----------------------------------------------------------------- execution
 
-def test_the_ok_runs_copilot_in_the_worker_without_commits_and_closes_the_task(data, project, tmp_path, stores):
+def test_the_ok_runs_copilot_in_the_worker_without_commits_and_the_task_is_to_verify(data, project, tmp_path, stores):
     service = _service(stores, data)
     note = _task(data)
     session = service.start("acme", note, "api")
@@ -131,14 +132,115 @@ def test_the_ok_runs_copilot_in_the_worker_without_commits_and_closes_the_task(d
     assert session.status == CopilotSessionStatus.DONE and not session.head_moved
     assert sorted(session.changed_files) == ["copilot.txt", "mia-modifica.txt"]
     assert (project / "api" / "copilot.txt").is_file()
-    assert data.agent_task("acme", note).status == TaskStatus.DONE
+    assert data.agent_task("acme", note).status == TaskStatus.TO_VERIFY  # the user checks the changes, then confirms
+    assert "«da verificare»" in service.messages(session.id)[-1].content
     execution = _turns(tmp_path, session)[-1]
     assert execution["mode"] == "autopilot" and "--allow-all-tools" in execution["args"]
     denied = [execution["args"][i + 1] for i, arg in enumerate(execution["args"]) if arg == "--deny-tool"]
     assert denied == ["shell(git commit)", "shell(git push)", "shell(git reset)"]  # global-coding-agent.yml of conftest
     assert execution["prompt"] == "Ok, procedi con il piano concordato, senza commit."
-    assert service.messages(session.id)[-2].content == "Ho creato copilot.txt. Criteri soddisfatti."
+    assert service.messages(session.id)[-3].content == "Ho creato copilot.txt. Criteri soddisfatti."
     assert service.run_next() is None  # nothing else queued
+
+
+def test_a_task_to_verify_sent_back_runs_again_in_the_same_session_with_the_users_message(data, project, tmp_path, stores):
+    service = _service(stores, data)
+    note = _task(data)
+    session = service.start("acme", note, "api")
+    service.approve(session.id)
+    service.run_next()
+
+    session = service.send_back(session.id, "  Aggiungi anche un test.  ")
+
+    assert session.status == CopilotSessionStatus.QUEUED and session.next_prompt == "Aggiungi anche un test."
+    assert "Rimandato a Copilot" in service.messages(session.id)[-1].content
+    session = service.run_next()
+    assert session.status == CopilotSessionStatus.DONE and session.next_prompt == ""  # used once
+    turns = _turns(tmp_path, session)
+    assert turns[-1]["prompt"] == "Aggiungi anche un test." and turns[-1]["mode"] == "autopilot"
+    assert len(turns) == 3  # one Copilot session: plan, execution, execution again
+    assert data.agent_task("acme", note).status == TaskStatus.TO_VERIFY
+
+
+def test_only_a_task_to_verify_is_sent_back_and_with_a_message(data, project, stores):
+    service = _service(stores, data)
+    note = _task(data)
+    session = service.start("acme", note, "api")
+
+    with pytest.raises(ConflictError, match="solo un task «da verificare»"):
+        service.send_back(session.id, "rifai")  # still todo
+    with pytest.raises(ValidationError, match="Scrivi cosa"):
+        service.send_back(session.id, "  ")
+    service.approve(session.id)
+    with pytest.raises(ConflictError, match="sta già eseguendo"):
+        service.send_back(session.id, "rifai")  # queued
+
+
+def test_a_plan_only_task_is_never_executed_and_its_answer_becomes_a_linked_note(data, project, tmp_path, stores):
+    service = _service(stores, data)
+    reference = data.create_reference("acme", NoteType.CONTEXT_REFERENCE, Reference(title="Specifiche"))
+    note = _task(data, "Capire il login", type=TaskType.ANALYSIS, references=[reference])
+
+    session = service.start("acme", note, "api")
+
+    assert service.messages(session.id)[0].role == CopilotMessageRole.EVENT and "«Salva come nota»" in service.messages(session.id)[0].content
+    assert data.agent_task("acme", note).status == TaskStatus.IN_PROGRESS  # Copilot is on it
+    with pytest.raises(ConflictError, match="niente esecuzione"):
+        service.approve(session.id)
+    service.send(session.id, "Approfondisci")
+
+    saved, session = service.save_as_note(session.id)
+
+    assert saved == "analisi-capire-il-login.md"
+    assert data.read_note("acme", saved) == "# Analisi: Capire il login\n\nDomanda 2: confermi? (turni in questa sessione: 2)\n"  # the last answer
+    task = data.agent_task("acme", note)
+    assert task.status == TaskStatus.DONE and task.references == [reference, saved]
+    assert session.status == CopilotSessionStatus.PLANNING and "💾 Salvata come nota analisi-capire-il-login.md" in service.messages(session.id)[-1].content
+    assert all(turn["mode"] == "plan" for turn in _turns(tmp_path, session))
+    assert not (project / "api" / "copilot.txt").exists()
+
+    service.save_as_note(session.id)  # saved again: the note is rewritten, linked once
+    assert data.agent_task("acme", note).references == [reference, saved]
+
+
+@pytest.mark.parametrize(("kind", "saved"), [(TaskType.CONFLUENCE, "bozza-pagina.md"), (TaskType.JIRA, "bozza-pagina.md")])
+def test_confluence_and_jira_answers_are_drafts(data, project, stores, kind, saved):
+    service = _service(stores, data)
+    note = _task(data, "Pagina", type=kind, status=TaskStatus.REFINEMENT)
+    session = service.start("acme", note, "api")
+    assert data.agent_task("acme", note).status == TaskStatus.REFINEMENT  # only a todo task becomes in progress
+
+    assert service.save_as_note(session.id)[0] == saved
+    assert data.read_note("acme", saved).startswith("# Bozza: Pagina\n")
+
+
+def test_saving_as_a_note_needs_an_answer_and_a_plan_only_task(data, project, stores, copilot_store):
+    service = _service(stores, data)
+    development = service.start("acme", _task(data), "api")
+    with pytest.raises(ConflictError, match="Un task di sviluppo"):
+        service.save_as_note(development.id)
+    service.approve(development.id)
+    with pytest.raises(ConflictError, match="sta eseguendo"):
+        service.save_as_note(development.id)
+
+    silent = copilot_store.save_session(CopilotSession(project_name="acme", task_note=_task(data, "Muto", type=TaskType.ANALYSIS),
+                                                       copilot_session_id="s-muto"))
+    with pytest.raises(ConflictError, match="non ha ancora risposto"):
+        service.save_as_note(silent.id)
+
+
+def test_a_session_whose_task_was_deleted_can_still_be_approved(data, project, stores):
+    service = _service(stores, data)
+    note = _task(data)
+    session = service.start("acme", note, "api")
+    data.delete_note("acme", note)
+
+    assert service.approve(session.id).status == CopilotSessionStatus.QUEUED
+
+
+def test_output_note_names():
+    assert output_note_name("agent-task-login.md", TaskType.ANALYSIS) == "analisi-login.md"
+    assert output_note_name("Studio libero.md", TaskType.JIRA) == "bozza-studio-libero.md"  # a name without the prefix
 
 
 def test_a_commit_during_the_execution_is_reported_not_undone(data, project, stores):
@@ -330,12 +432,44 @@ def test_the_task_type_picks_the_planning_prompt_unless_one_is_chosen(data, proj
     analysis = service.start("acme", _task(data, "Capire il login", type=TaskType.ANALYSIS), "api")
     chosen = service.start("acme", _task(data, "Capire il bug", type=TaskType.ANALYSIS), "api", prompt="bug")
     development = service.start("acme", _task(data, "Sviluppa", type=TaskType.DEVELOPMENT), "api")
-    refinement = service.start("acme", _task(data, "Rifinisci", type=TaskType.REFINEMENT), "api")  # not in type_prompts
+    jira = service.start("acme", _task(data, "Rifinisci", type=TaskType.JIRA), "api")  # not in type_prompts
 
-    assert analysis.prompt == "analisi" and service.messages(analysis.id)[0].content.startswith("Solo analisi")
-    assert chosen.prompt == "bug" and service.messages(chosen.id)[0].content.startswith("Trova il bug")  # the choice wins
-    for session in (development, refinement):
-        assert session.prompt == "" and service.messages(session.id)[0].content.startswith("Ti affido il task")  # plan_prompt
+    def first_turn(session) -> str:
+        return next(message.content for message in service.messages(session.id) if message.role == CopilotMessageRole.USER)
+
+    assert analysis.prompt == "analisi" and first_turn(analysis).startswith("Solo analisi")
+    assert chosen.prompt == "bug" and first_turn(chosen).startswith("Trova il bug")  # the choice wins
+    for session in (development, jira):
+        assert session.prompt == "" and first_turn(session).startswith("Ti affido il task")  # plan_prompt
+
+
+def test_older_files_with_the_refinement_type_still_read_as_jira(data, project, config, stores):
+    (config.definitions_root / "coding-agent").mkdir()
+    (config.definitions_root / "coding-agent" / "storia.md").write_text("Rifinisci la storia.\n{task_folder}", encoding="utf-8")
+    path = config.definitions_root / "global-coding-agent.yml"
+    path.write_text(path.read_text(encoding="utf-8") + "type_prompts:\n  refinement: storia\ntask_checklists:\n  refinement: [chiave]\n",
+                    encoding="utf-8")
+
+    settings = _service(stores, data).coding_agent()
+
+    assert settings.type_prompts == {TaskType.JIRA: "storia"} and settings.task_checklists == {TaskType.JIRA: ["chiave"]}
+
+
+def test_task_checklists_per_type_and_the_project_replaces_them(data, project, config, stores):
+    path = config.definitions_root / "global-coding-agent.yml"
+    path.write_text(path.read_text(encoding="utf-8") + "task_checklists:\n  development: [repository, criteri]\n  jira: [chiave]\n",
+                    encoding="utf-8")
+    service = _service(stores, data)
+    assert coding_agent.task_checklist(service.coding_agent(), TaskType.DEVELOPMENT) == ["repository", "criteri"]
+    assert coding_agent.task_checklist(service.coding_agent(), TaskType.ANALYSIS) == []  # none written
+
+    project_file = config.definitions_root / "project" / "acme" / "coding-agent.yml"
+    project_file.parent.mkdir(parents=True)
+    project_file.write_text("task_checklists:\n  analysis: [domanda]\n", encoding="utf-8")
+    assert service.coding_agent("acme").task_checklists == {TaskType.ANALYSIS: ["domanda"]}  # the whole field replaced
+
+    project_file.write_text("task_checklists:\n  analysis: ['  ']\n", encoding="utf-8")
+    assert "task_checklists.analysis" in service.coding_agent_or_error("acme")[1]  # an empty point is an error
 
 
 def test_type_prompts_must_name_existing_prompts(data, project, config, stores):

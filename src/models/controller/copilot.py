@@ -21,6 +21,12 @@ class CopilotMessageRequest(BaseModel):
     text: str
 
 
+class CopilotSavedNoteResponse(BaseModel):
+    note: str
+    """The note Copilot's answer was saved in (``analisi-<task>.md``, ``bozza-<task>.md``)."""
+    session: "CopilotSessionResponse"
+
+
 class CopilotSessionResponse(BaseModel):
     id: int
     project_name: str

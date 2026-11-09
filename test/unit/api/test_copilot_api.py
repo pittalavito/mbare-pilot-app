@@ -90,3 +90,23 @@ def test_deleting_the_sessions_of_a_task(client):
 
     assert client.delete("/projects/acme/copilot-sessions", params={"task_note": task}).json() == {"deleted": 1}
     assert client.get("/projects/acme/copilot-sessions").json() == []
+
+
+def test_an_analysis_is_saved_as_a_note_and_a_task_to_verify_is_sent_back(client):
+    task = client.post("/projects/acme/agent-tasks", json={"title": "Capire", "type": "analysis", "status": "todo"}).json()["name"]
+    sid = client.post("/projects/acme/copilot-sessions", json={"task_note": task}).json()["id"]
+    assert client.post(f"/copilot-sessions/{sid}/approve").status_code == 409  # an analysis is never executed
+
+    saved = client.post(f"/copilot-sessions/{sid}/save-note").json()
+
+    assert saved["note"] == "analisi-capire.md" and saved["session"]["id"] == sid
+    assert next(item for item in client.get("/projects/acme/agent-tasks").json() if item["name"] == task)["status"] == "done"
+
+    development = client.post("/projects/acme/agent-tasks", json={"title": "Sviluppa", "status": "todo"}).json()["name"]
+    sid = client.post("/projects/acme/copilot-sessions", json={"task_note": development}).json()["id"]
+    assert client.post(f"/copilot-sessions/{sid}/send-back", json={"text": "rifai"}).status_code == 409  # not to verify
+    client.put(f"/projects/acme/agent-tasks/{development}", json={"title": "Sviluppa", "status": "to_verify"})
+
+    sent = client.post(f"/copilot-sessions/{sid}/send-back", json={"text": "Aggiungi un test"}).json()
+
+    assert sent["status"] == "queued"

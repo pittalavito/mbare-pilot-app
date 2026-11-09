@@ -1,16 +1,18 @@
 import { Alert, Avatar, Badge, Box, Button, Card, Grid, Group, List, Loader, NavLink, Paper, ScrollArea, Stack, Text, Textarea } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 
 import {
   type CopilotMessage, type CopilotSession, isExecuting, useApproveCopilot, useCancelCopilot, useCopilotMessages, useCopilotSessionUsage,
-  useCopilotSessions, useCopilotStatus, useDeleteCopilotSession, useSendCopilotMessage,
+  useCopilotSessions, useCopilotStatus, useDeleteCopilotSession, useSaveCopilotNote, useSendCopilotMessage,
 } from "../../api/copilot";
 import { useAgentTasks } from "../../api/projectData";
 import { useWorkerState } from "../../api/worker";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Markdown } from "../../components/Markdown";
 import { count, credits } from "../../format";
+import { isPlanOnly } from "../data/TypedNotes";
 import { DelegateModal } from "./DelegateModal";
 
 /** The Copilot tab of a project: the agent tasks delegated to GitHub Copilot
@@ -82,7 +84,10 @@ export function CopilotTab() {
       </Grid.Col>
       <Grid.Col span={{ base: 12, md: 9 }}>
         {selected ? (
-          <SessionView key={selected.id} project={project} session={selected} onDeleted={() => setSearch({}, { replace: true })} />
+          <SessionView
+            key={selected.id} project={project} session={selected} onDeleted={() => setSearch({}, { replace: true })}
+            planOnly={isPlanOnly(tasks.data?.find((task) => task.name === selected.task_note)?.type)}
+          />
         ) : (
           <Text c="dimmed">
             Delega un agent task a GitHub Copilot: nella chat Copilot legge il codice, ti fa le sue domande e propone un piano; con «Ok,
@@ -95,12 +100,17 @@ export function CopilotTab() {
   );
 }
 
-function SessionView({ project, session, onDeleted }: { project: string; session: CopilotSession; onDeleted: () => void }) {
+/** ``planOnly``: the task is not a development (analysis, Confluence, Jira):
+ * no «Ok, parti», its answer is saved as a note instead. */
+function SessionView({ project, session, onDeleted, planOnly }: {
+  project: string; session: CopilotSession; onDeleted: () => void; planOnly: boolean;
+}) {
   const executing = isExecuting(session);
   const messages = useCopilotMessages(session.id, executing);
   const usage = useCopilotSessionUsage(session.id, executing);
   const send = useSendCopilotMessage(project);
   const approve = useApproveCopilot(project);
+  const saveNote = useSaveCopilotNote(project);
   const cancel = useCancelCopilot(project);
   const remove = useDeleteCopilotSession(project);
   const [text, setText] = useState("");
@@ -141,10 +151,17 @@ function SessionView({ project, session, onDeleted }: { project: string; session
           )}
         </Stack>
         <Group gap="xs">
-          {session.status === "planning" && (
+          {session.status === "planning" && !planOnly && (
             <Button color="green" onClick={() => approve.mutate(session.id)} loading={approve.isPending} disabled={!answered || send.isPending}
                     title={answered ? undefined : "Aspetta la risposta di Copilot"}>
               ✅ Ok, parti
+            </Button>
+          )}
+          {planOnly && !executing && (
+            <Button color="green" loading={saveNote.isPending} disabled={!answered || send.isPending}
+                    title={answered ? "La risposta diventa una nota collegata al task, che passa a «fatto»" : "Aspetta la risposta di Copilot"}
+                    onClick={() => saveNote.mutate(session.id, { onSuccess: (saved) => notifications.show({ message: `Salvata come nota ${saved.note}.` }) })}>
+              💾 Salva come nota
             </Button>
           )}
           {executing && (
@@ -165,7 +182,7 @@ function SessionView({ project, session, onDeleted }: { project: string; session
           )}
         </Group>
       </Group>
-      {(approve.error || cancel.error) && <Alert color="red">{(approve.error ?? cancel.error)!.message}</Alert>}
+      {(approve.error || cancel.error || saveNote.error) && <Alert color="red">{(approve.error ?? cancel.error ?? saveNote.error)!.message}</Alert>}
       {session.head_moved && (
         <Alert color="red" title="L'HEAD è cambiato durante l'esecuzione">
           Un commit o un'altra operazione git non autorizzata ({session.head_before?.slice(0, 8) || "nessun commit"} → {session.head_after?.slice(0, 8)}). Controlla il

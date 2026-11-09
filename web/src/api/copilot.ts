@@ -5,7 +5,8 @@ import { dataKeys } from "./projectData";
 import type { components } from "./schema";
 
 /** Agent tasks delegated to GitHub Copilot CLI: sessions, the planning chat
- * (each message waits for Copilot's answer), the ok, cancellation. */
+ * (each message waits for Copilot's answer), the ok, a task to verify sent
+ * back, the answer of a plan-only task saved as a note, cancellation. */
 
 export type CopilotSession = components["schemas"]["CopilotSessionResponse"];
 export type CopilotMessage = components["schemas"]["CopilotMessageResponse"];
@@ -116,6 +117,26 @@ export function useApproveCopilot(project: string) {
   return useMutation({
     mutationFn: (id: number) => unwrap(api.POST("/copilot-sessions/{session_id}/approve", { params: { path: { session_id: id } } })),
     onSettled: (_, __, id) => refresh(id),
+  });
+}
+
+/** A task to verify needs more work: the message starts a new execution of the same session. */
+export function useSendBackCopilot(project: string) {
+  const refresh = useRefresh(project);
+  return useMutation({
+    mutationFn: ({ id, text }: { id: number; text: string }) =>
+      unwrap(api.POST("/copilot-sessions/{session_id}/send-back", { params: { path: { session_id: id } }, body: { text } })),
+    onSettled: (_, __, { id }) => refresh(id),
+  });
+}
+
+/** A plan-only task (analysis, Confluence, Jira): Copilot's last answer becomes a note linked to the task, which becomes done. */
+export function useSaveCopilotNote(project: string) {
+  const refresh = useRefresh(project);
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => unwrap(api.POST("/copilot-sessions/{session_id}/save-note", { params: { path: { session_id: id } } })),
+    onSettled: (_, __, id) => Promise.all([refresh(id), queryClient.invalidateQueries({ queryKey: dataKeys.notes(project) })]),
   });
 }
 
