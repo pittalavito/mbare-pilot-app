@@ -139,12 +139,13 @@ def delete_reference(project: str, note: str, service: ProjectDataService = Depe
 @router.get("/data-settings")
 def data_settings(project: str, service: ProjectDataService = Depends(project_data_service)) -> DataSettingsBody:
     """What the Dati tab shows (the default types until the project chooses)."""
-    return DataSettingsBody(visible_note_types=service.visible_note_types(project))
+    return DataSettingsBody(visible_note_types=service.visible_note_types(project), files_visible=service.files_visible(project))
 
 
 @router.put("/data-settings")
 def save_data_settings(project: str, request: DataSettingsBody, service: ProjectDataService = Depends(project_data_service)) -> DataSettingsBody:
-    return DataSettingsBody(visible_note_types=service.save_visible_note_types(project, request.visible_note_types))
+    return DataSettingsBody(visible_note_types=service.save_visible_note_types(project, request.visible_note_types),
+                            files_visible=service.save_files_visible(project, request.files_visible))
 
 
 # -------------------------------------------------------------------- files

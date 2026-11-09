@@ -27,7 +27,7 @@ export function DataTab() {
     visible.includes("activity") && { value: "activities", label: "📋 Attività", panel: <Activities project={project} /> },
     visible.includes("agent_task") && { value: "agent-tasks", label: "🤖 Agent task", panel: <AgentTasks project={project} /> },
     references.length > 0 && { value: "references", label: "📎 Riferimenti", panel: <References project={project} kinds={references} /> },
-    { value: "files", label: "📎 File", panel: <Files project={project} /> },
+    settings.data?.files_visible !== false && { value: "files", label: "📎 File", panel: <Files project={project} /> },
     { value: "settings", label: "⚙️ Impostazioni", panel: <DataSettings project={project} /> },
   ].filter((tab) => !!tab);
   const note = search.get("note");

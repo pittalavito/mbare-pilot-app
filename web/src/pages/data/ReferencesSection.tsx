@@ -1,16 +1,22 @@
 import { ActionIcon, Alert, Anchor, Badge, Button, Card, Group, Modal, SegmentedControl, Select, Stack, Text, TextInput, Textarea } from "@mantine/core";
 import { useEffect, useState } from "react";
 
+import { useSearchParams } from "react-router-dom";
+
 import {
-  type CodeTodoScan, type Reference, type ReferenceBody, type ReferenceKind, useDeleteReference, useReferences, useSaveReference, useScanCodeTodos,
+  type CodeTodoScan, FILE_LINK_PREFIX, type Reference, type ReferenceBody, type ReferenceKind, fileUrl, useDeleteReference, useFiles, useNotes,
+  useReferences, useSaveReference, useScanCodeTodos,
 } from "../../api/projectData";
+import { size } from "../../format";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { CodeTodoHelp, TODO_EXAMPLE } from "./CodeTodoHelp";
 
 /** The code and context references of an agent task or an activity. A
  * reference is a note of its own (``code-reference-<title>.md``...) linked by
  * name, many to many: here only the links change (saved with the task or
- * list); a reference itself is saved as soon as it is created or edited. */
+ * list); a reference itself is saved as soon as it is created or edited. A
+ * generic note (by name) or an uploaded file (``files/<name>``) is linked as it
+ * is: Copilot gets it in the task's folder. */
 
 const KINDS: Record<ReferenceKind, { label: string; color: string }> = {
   code_reference: { label: "Codice", color: "violet" },
@@ -20,9 +26,19 @@ const EMPTY: ReferenceBody = { title: "", source: "", source_url: "", repository
 
 export function ReferencesSection({ project, value, onChange }: { project: string; value: string[]; onChange: (names: string[]) => void }) {
   const references = useReferences(project);
+  const notes = useNotes(project);
+  const files = useFiles(project);
+  const [, setSearch] = useSearchParams();
   const [editing, setEditing] = useState<Reference | "new">();
   const byName = new Map((references.data ?? []).map((reference) => [reference.name, reference]));
+  const noteNames = new Set((notes.data ?? []).filter((note) => (note.note_type ?? "generic") === "generic").map((note) => note.name));
+  const fileByLink = new Map((files.data ?? []).map((file) => [FILE_LINK_PREFIX + file.name, file]));
   const others = (references.data ?? []).filter((reference) => !value.includes(reference.name));
+  const options = [
+    { group: "Riferimenti", items: others.map((reference) => ({ value: reference.name, label: `${reference.title} · ${KINDS[reference.kind as ReferenceKind]?.label ?? reference.kind}` })) },
+    { group: "Note", items: [...noteNames].filter((name) => !value.includes(name)).map((name) => ({ value: name, label: name })) },
+    { group: "File", items: [...fileByLink.keys()].filter((link) => !value.includes(link)).map((link) => ({ value: link, label: link.slice(FILE_LINK_PREFIX.length) })) },
+  ].filter((group) => group.items.length);
 
   return (
     <Stack gap="xs">
@@ -34,18 +50,27 @@ export function ReferencesSection({ project, value, onChange }: { project: strin
         </Group>
       </Group>
       {references.error && <Alert color="red">{references.error.message}</Alert>}
-      {!value.length && <Text size="xs" c="dimmed">Nessun riferimento collegato: codice o contesto (anche copiato da Jira, Confluence…) utile per questo lavoro.</Text>}
+      {!value.length && <Text size="xs" c="dimmed">Nessun riferimento collegato: codice o contesto (anche copiato da Jira, Confluence…), una nota o un file utile per questo lavoro.</Text>}
       {value.map((name) => {
         const reference = byName.get(name);
+        const file = fileByLink.get(name);
+        const note = noteNames.has(name);
+        const label = reference?.title ?? (file ? file.name : name);
         return (
           <Card key={name} withBorder p="xs">
             <Group justify="space-between" wrap="nowrap" align="flex-start">
-              {reference ? <ReferenceSummary reference={reference} /> : (
+              {reference ? <ReferenceSummary reference={reference} /> : file ? (
+                <Group gap="xs"><Badge size="xs" variant="light" color="cyan">File</Badge><Text size="sm">{file.name}</Text><Text size="xs" c="dimmed">{size(file.size)}</Text></Group>
+              ) : note ? (
+                <Group gap="xs"><Badge size="xs" variant="light" color="gray">Nota</Badge><Text size="sm">{name}</Text></Group>
+              ) : (
                 <Text size="sm" c="orange"><code>{name}</code> · non trovato (cancellato a mano?)</Text>
               )}
               <Group gap={4} wrap="nowrap">
                 {reference && <Button size="compact-xs" variant="subtle" onClick={() => setEditing(reference)}>Modifica</Button>}
-                <ActionIcon variant="subtle" color="gray" aria-label={`Scollega ${reference?.title ?? name}`} onClick={() => onChange(value.filter((item) => item !== name))}>
+                {file && <Anchor size="xs" href={fileUrl(project, file.name)} target="_blank" rel="noreferrer">Scarica</Anchor>}
+                {note && <Button size="compact-xs" variant="subtle" onClick={() => setSearch({ note: name }, { replace: true })}>Apri</Button>}
+                <ActionIcon variant="subtle" color="gray" aria-label={`Scollega ${label}`} onClick={() => onChange(value.filter((item) => item !== name))}>
                   ✕
                 </ActionIcon>
               </Group>
@@ -53,12 +78,12 @@ export function ReferencesSection({ project, value, onChange }: { project: strin
           </Card>
         );
       })}
-      {others.length > 0 && (
+      {options.length > 0 && (
         <Select
           size="xs"
-          placeholder="Collega un riferimento esistente…"
+          placeholder="Collega un riferimento, una nota o un file…"
           searchable
-          data={others.map((reference) => ({ value: reference.name, label: `${reference.title} · ${KINDS[reference.kind as ReferenceKind]?.label ?? reference.kind}` }))}
+          data={options}
           value={null}
           onChange={(name) => name && onChange([...value, name])}
         />

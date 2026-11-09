@@ -18,7 +18,7 @@ Schema overview (project-centric):
 from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import JSON, BigInteger, Column, DateTime, Text, UniqueConstraint
+from sqlalchemy import JSON, BigInteger, Column, DateTime, Text, UniqueConstraint, true
 from sqlmodel import Field, SQLModel
 
 
@@ -46,6 +46,8 @@ class ProjectTable(SQLModel, table=True):
     created_at: datetime = _timestamp()
     visible_note_types: list[str] | None = Field(default=None, sa_type=JSON)
     """The note types the Dati tab shows (NoteType values); NULL = the default ones."""
+    files_visible: bool = Field(default=True, sa_column_kwargs={"server_default": true()})
+    """The Dati tab shows the uploaded files."""
 
 
 class ProjectAtlassianTable(SQLModel, table=True):

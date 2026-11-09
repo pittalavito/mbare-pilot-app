@@ -140,8 +140,8 @@ def test_references_are_linked_to_tasks_and_activities_many_to_many(data_service
 def test_only_references_can_be_linked_and_saved_as_references(data_service):
     from models.domain.note import Reference
 
-    with pytest.raises(ValidationError, match="non è un riferimento"):
-        data_service.create_agent_task("My App", AgentTask(title="Fix", references=["appunti.md"]))
+    with pytest.raises(ValidationError, match="non si può collegare come riferimento"):
+        data_service.create_agent_task("My App", AgentTask(title="Fix", references=["attivita-x.md"]))
     with pytest.raises(ValidationError):
         data_service.create_reference("My App", NoteType.AGENT_TASK, Reference(title="x"))
     task = data_service.create_agent_task("My App", AgentTask(title="Fix"))
@@ -220,6 +220,36 @@ def test_the_settings_saved_before_the_activities_still_read(project_store):
                                       "visible_note_types": ["generic", "todo_list"]})
 
     assert project.visible_note_types == [NoteType.GENERIC, NoteType.ACTIVITY]
+
+
+# ------------------------------------------------------- notes and files
+
+def test_notes_and_files_are_linked_as_references_and_unlinked_when_deleted(data_service):
+    data_service.save_note("My App", "decisioni", "# Decisioni")
+    data_service.save_file("My App", "specifiche.pdf", b"%PDF")
+    activity = data_service.create_activity("My App", Activity(title="Rilascio", references=["decisioni.md", "files/specifiche.pdf"]))
+    task = data_service.create_agent_task("My App", AgentTask(title="Fix", references=["decisioni.md", "files/specifiche.pdf"]))
+
+    assert data_service.copilot_files("My App", task) == {
+        "task.md": data_service.read_note("My App", task).encode("utf-8"), "decisioni.md": b"# Decisioni", "files/specifiche.pdf": b"%PDF",
+    }
+    for wrong in ("files/../x", "files/", "agent-task-fix.md"):
+        with pytest.raises(ValidationError):
+            data_service.save_agent_task("My App", task, AgentTask(title="Fix", references=[wrong]))
+
+    assert data_service.delete_file("My App", "specifiche.pdf")
+    assert data_service.agent_task("My App", task).references == ["decisioni.md"]
+    assert data_service.activity("My App", activity).references == ["decisioni.md"]
+    assert data_service.delete_note("My App", "decisioni")
+    assert data_service.agent_task("My App", task).references == [] == data_service.activity("My App", activity).references
+
+
+def test_the_dati_tab_can_hide_the_files(data_service, project_store):
+    assert data_service.files_visible("My App") is True
+
+    assert data_service.save_files_visible("My App", False) is False
+
+    assert data_service.files_visible("My App") is False and project_store.get("My App").files_visible is False
 
 
 # ----------------------------------------------------------------- settings
