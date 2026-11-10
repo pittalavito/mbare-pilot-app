@@ -18,6 +18,7 @@ from controller.process_controller import router as process_router
 from controller.project_controller import router as project_router
 from controller.project_data_controller import router as project_data_router
 from controller.role_controller import router as role_router
+from controller.wip_controller import router as wip_router
 
 router = APIRouter()
 
@@ -43,3 +44,4 @@ router.include_router(masking_router)
 router.include_router(definition_router)
 router.include_router(process_router)
 router.include_router(copilot_router)
+router.include_router(wip_router)

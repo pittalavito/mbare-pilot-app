@@ -31,6 +31,7 @@ from service.project_data_service import ProjectDataService
 from service.project_service import ProjectService
 from service.run_service import RunService
 from service.store.stores import Stores
+from service.wip_service import WipService
 
 
 class Container:
@@ -101,6 +102,15 @@ class Container:
             agent_config_service=self.agent_config_service,
             agent_service=self.agent_service,
             automation_cache=self.automation_cache_service,
+        )
+        self.wip_service = WipService(
+            project_data=self.project_data_service,
+            masking=self.masking_service,
+            chatbots=stores.chatbots,
+            chat=self.chat_service,
+            catalog=stores.catalog,
+            runs=stores.runs,
+            wip_runs=stores.wip,
         )
         self.definition_service = DefinitionService(
             definitions=stores.definitions,

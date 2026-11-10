@@ -18,7 +18,7 @@ class Masker:
         self._alias_by_value = {entry.value.lower(): entry.alias for entry in entries}
         self._value_by_alias = {entry.alias: entry.value for entry in entries}
         values = sorted(self._alias_by_value, key=len, reverse=True)
-        self._pattern = re.compile("|".join(_whole(value) for value in values), re.IGNORECASE) if values else None
+        self._pattern = re.compile("|".join(whole_word(value) for value in values), re.IGNORECASE) if values else None
 
     def mask(self, text: str) -> str:
         if not self._pattern or not text:
@@ -37,7 +37,7 @@ def aliases_in(text: str) -> frozenset[str]:
     return frozenset(_ALIAS.findall(text))
 
 
-def _whole(value: str) -> str:
+def whole_word(value: str) -> str:
     """``value`` escaped, not glued to letters or digits where it starts/ends with one."""
     start = r"(?<!\w)" if re.match(r"\w", value[0]) else ""
     end = r"(?!\w)" if re.match(r"\w", value[-1]) else ""

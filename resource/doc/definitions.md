@@ -82,11 +82,19 @@ chatbots:
     system_prompt: |
       Sei il mio assistente...
     # oppure: system_prompt_file: prompt.md    (un file accanto a questo, usato così com'è)
+  - name: Segretario
+    kind: secretary
+    model: openrouter/google/gemini-3.1-flash-lite-preview
+    system_prompt: |
+      Sei il mio segretario sul progetto...
+    wip_prompt: |                  # solo secretary, facoltativo: le istruzioni di «Elabora WIP»
+      Leggi il testo nuovo della mia nota WIP...
   - name: Un altro
     ...
 ```
 
 - Uno dei due tra `system_prompt` e `system_prompt_file`.
+- **`wip_prompt`** (solo `kind: secretary`): le istruzioni di «📥 Elabora WIP», la chiamata unica con risposta strutturata che trasforma la nota WIP in proposte ([service](src/service/README.md#elabora-wip)). Omesso: il testo di default del codice (`DEFAULT_WIP_PROMPT`). Ha la sua versione (`wip_prompt_version`, cresce quando il testo cambia), registrata con ogni elaborazione per le metriche. Su un altro tipo è un errore.
 - **Tipo**: `kind: automation` lancia solo le automation (tool fissi `list_automations`, `run_automation`, `automation_status`, e la cache delle automation): `tools` si omette, e se lo scrivi diverso è un errore. `kind: secretary` aiuta con le note (tool fissi `list_activities`, `read_activity`, `create_activity`, `update_activity`, `list_agent_tasks`, `list_references`, `create_agent_task`; niente cache, dei riferimenti vede solo i titoli): stessa regola su `tools`. `kind: refiner` rifinisce gli agent task (tool fissi: `create_code_reference`, `read_agent_task`, `update_agent_task`, `finish_refinement`; lavora solo sul task aperto accanto alla chat, mentre è «in rifinitura», con la checklist del suo tipo, e lo porta a «da fare» con il tuo ok) e si vede accanto agli agent task, non nella scheda Chat: stessa regola su `tools`. `kind: custom` (il default): i tool li scegli tu.
 - **Di default**: ogni progetto ha i chatbot di `domain/chat/chatbots_default.py`, «Chat bot» (`automation`), «Refiner» (`refiner`) e «Segretario» (`secretary`): si creano alla creazione del progetto e, all'avvio di API e worker, nei progetti che non li hanno (per nome); quelli che ci sono non si toccano. Un chatbot con lo stesso nome in questi file ne sostituisce prompt e modello alla sincronizzazione. Dalla UI i chatbot **non si creano né si eliminano**, e se ne cambia solo il **modello**: nella finestra «ℹ️ Dettagli» (`PATCH /chatbots/{id}/model`, solo un modello del catalogo attivo); per il Refiner la finestra si apre dal suo pannello in Dati → Agent task, il resto è in sola lettura e gli altri chatbot vengono da qui. Il file vince anche sul modello: sincronizzare un chatbot che è in questi file rimette il modello scritto nel file.
 - **Più chatbot per progetto**, ognuno con il suo agente: si trovano **per nome** (maiuscole e minuscole indifferenti); quelli che non sono nei file restano come sono.

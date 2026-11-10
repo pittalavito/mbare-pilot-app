@@ -143,6 +143,11 @@ def copilot_store(stores):
 
 
 @pytest.fixture
+def wip_store(stores):
+    return stores.wip
+
+
+@pytest.fixture
 def project_file_store(stores):
     return stores.project_files
 

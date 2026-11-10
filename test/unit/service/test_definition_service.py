@@ -322,6 +322,26 @@ def test_an_automation_chatbot_from_the_files_gets_its_fixed_tools(services, def
     assert "togli tools" in definitions.preview("acme")[1].message
 
 
+def test_the_secretary_s_wip_prompt_comes_from_the_files(services, definition_store):
+    definitions, chatbots, _ = services
+    _write(definition_store, f"{PROJECT_DIR}/chat-bots.yml", f"""chatbots:
+  - {{name: Segretario, kind: secretary, model: {MODEL}, system_prompt: Segretario., wip_prompt: Proponi solo voci.}}
+  - {{name: Sbagliato, model: {MODEL}, system_prompt: X., wip_prompt: Non mio.}}
+""")
+
+    assert [outcome for _, _, outcome in _outcomes(definitions.sync("acme"))] == ["created", "error"]
+    [bot] = chatbots.list_chatbots("acme")
+    assert (bot.wip_prompt, bot.wip_prompt_version) == ("Proponi solo voci.", 1)
+    assert "wip_prompt vale solo per un chatbot secretary" in definitions.preview("acme")[1].message
+
+    _write(definition_store, f"{PROJECT_DIR}/chat-bots.yml", f"""chatbots:
+  - {{name: Segretario, kind: secretary, model: {MODEL}, system_prompt: Segretario., wip_prompt: Proponi anche attività.}}
+""")
+    assert _outcomes(definitions.sync("acme"))[0][2] == "updated"
+    [bot] = chatbots.list_chatbots("acme")
+    assert (bot.wip_prompt, bot.wip_prompt_version) == ("Proponi anche attività.", 2)
+
+
 def test_the_default_chatbots_are_created_where_missing_and_never_changed(services, caplog, catalog_store, project_store):
     definitions, chatbots, _ = services
     mine = chatbots.create_chatbot("acme", "segretario", system_prompt="Mio.", model=MODEL)  # same name: left as it is
@@ -334,6 +354,7 @@ def test_the_default_chatbots_are_created_where_missing_and_never_changed(servic
     ]
     assert bots["Chat bot"].kind.value == "automation" and bots["Chat bot"].tool_names == ["list_automations", "run_automation", "automation_status"]
     assert bots["segretario"] == mine
+    assert bots["Chat bot"].wip_prompt == "" and bots["Refiner"].wip_prompt == ""
     assert definitions.seed_default_chatbots(["acme"]) == 0  # already there
 
     project_store.save(Project(name="beta", source=ProjectSource.FOLDER, root_path="/code/beta"))

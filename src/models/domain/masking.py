@@ -80,3 +80,21 @@ class MaskEntry(BaseModel):
     """What the LLM sees instead, e.g. ``REPO_1``; never reused."""
     manual: bool = False
     """Added by hand (True) or registered by a tool (False)."""
+
+
+class MaskOrigin(StrEnum):
+    """Where an alias of a masked free text comes from (domain/masking/preview.py)."""
+    MAP = "map"
+    """The project's map."""
+    TAG = "tag"
+    """``mask{term}`` in the text (the term is in the map now)."""
+    AUTO = "auto"
+    """Recognized automatically (email, URL, IP, key): only for this text."""
+
+
+class MaskSpan(BaseModel):
+    """An alias in a masked text: ``text[start:end] == alias``."""
+    start: int
+    end: int
+    alias: str
+    origin: MaskOrigin

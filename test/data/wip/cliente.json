@@ -1,0 +1,10 @@
+{
+  "wip": "call con Acme Spa: vogliono l'export in CSV entro fine mese, priorità alta.\nil token di staging è ghp_abcdefghijklmnopqrstuvwx1234, va ruotato.",
+  "activities": [],
+  "map": [{"category": "term", "value": "Acme Spa"}],
+  "sensitive": ["Acme Spa", "ghp_abcdefghijklmnopqrstuvwx1234"],
+  "expected": [
+    {"kind": "new_activity", "title": "Export CSV per il cliente"},
+    {"kind": "new_activity", "title": "Ruotare il token di staging"}
+  ]
+}

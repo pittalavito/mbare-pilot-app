@@ -1,0 +1,10 @@
+{
+  "wip": "il db su 10.20.30.40 è pieno, password=Pippo2024! va cambiata. Giulia del team infra (mask{Giulia Rossi}) ci guarda domani.",
+  "activities": [{"title": "Manutenzione infra", "items": [{"text": "Pulire i log vecchi", "done": false}]}],
+  "map": [],
+  "sensitive": ["10.20.30.40", "Pippo2024!", "Giulia Rossi"],
+  "expected": [
+    {"kind": "add_item", "activity_title": "Manutenzione infra", "text": "Liberare spazio sul db"},
+    {"kind": "add_item", "activity_title": "Manutenzione infra", "text": "Cambiare la password del db"}
+  ]
+}

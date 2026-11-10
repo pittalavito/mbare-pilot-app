@@ -18,6 +18,7 @@ from service.process_service import ProcessService
 from service.project_data_service import ProjectDataService
 from service.project_service import ProjectService
 from service.run_service import RunService
+from service.wip_service import WipService
 
 
 def project_service(request: Request) -> ProjectService:
@@ -82,3 +83,7 @@ def code_todo_service(request: Request) -> CodeTodoService:
 
 def copilot_service(request: Request) -> CopilotService:
     return request.app.state.container.copilot_service
+
+
+def wip_service(request: Request) -> WipService:
+    return request.app.state.container.wip_service

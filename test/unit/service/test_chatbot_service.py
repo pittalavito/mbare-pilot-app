@@ -3,7 +3,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from core.error import ConflictError, NotFoundError, ValidationError
 from fakes import FakeAgent
-from models.domain.chatbot import MessageRole
+from models.domain.chatbot import ChatbotKind, MessageRole
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
 from service.chat_service import ChatService
@@ -62,6 +62,20 @@ def test_create_chatbot_with_its_own_agent(service):
     assert (created.max_steps, created.tool_names) == (6, ["git_status", "hello_world"])
     assert [chatbot.name for chatbot in service.list_chatbots("acme")] == ["Supporto"]
     assert service.list_chatbots("other") == []
+
+
+def test_only_a_secretary_has_a_wip_prompt_and_its_changes_are_versioned(service):
+    secretary = _create(service, name="Segretario", kind=ChatbotKind.SECRETARY, wip_prompt="  Solo voci.  ")
+    assert (secretary.wip_prompt, secretary.wip_prompt_version) == ("Solo voci.", 1)
+
+    same = service.update_chatbot(secretary.id, name="Segretario", system_prompt="Sei l'assistente del progetto.", model=MODEL)
+    assert (same.wip_prompt, same.wip_prompt_version) == ("Solo voci.", 1)  # None = unchanged
+    changed = service.update_chatbot(secretary.id, name="Segretario", system_prompt="Sei l'assistente del progetto.", model=MODEL,
+                                     wip_prompt="Solo attività.")
+    assert (changed.wip_prompt, changed.wip_prompt_version, changed.prompt_version) == ("Solo attività.", 2, 1)
+
+    with pytest.raises(ValidationError, match="Solo il segretario"):
+        _create(service, name="Altro", wip_prompt="X")
 
 
 def test_available_tools_are_the_implemented_ones(service):

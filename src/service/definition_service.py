@@ -262,6 +262,7 @@ class DefinitionService:
             description=spec.description.strip(),
             max_steps=spec.max_steps,
             tool_names=list(KIND_TOOLS.get(spec.kind, spec.tools)),  # a kind's fixed tools: compared as saved
+            wip_prompt=(spec.wip_prompt or "").strip(),
         )
         current = next((bot for bot in self._chatbots.list_chatbots(project_name) if bot.name.lower() == spec.name.lower()), None)
         if current is None:

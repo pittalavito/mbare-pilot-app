@@ -1,16 +1,19 @@
 import { Alert, Anchor, Button, Card, FileInput, Grid, Group, Loader, Modal, NavLink, SegmentedControl, Stack, Tabs, Text, TextInput, Textarea } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { type ReactNode, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 
 import {
   type DataFile, NOTE_PREFIXES, fileUrl, useDataSettings, useDeleteFile, useDeleteNote, useFiles, useNote, useNotes, useSaveNote, useUploadFiles,
 } from "../../api/projectData";
+import { WIP_NOTE, useWipState, wipKeys } from "../../api/wip";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Markdown } from "../../components/Markdown";
 import { localTime, size } from "../../format";
 import { DEFAULT_VISIBLE, DataSettings, REFERENCE_TYPES, References } from "./DataSettings";
 import { Activities, AgentTasks } from "./TypedNotes";
+import { WipModal } from "./WipModal";
 
 /** The Dati tab of a project: its own data, kept by the app apart from its
  * code: notes written here (generic, activities, agent tasks, references: all
@@ -61,12 +64,14 @@ export function tabOfNote(note: string | null): string | null {
 
 // -------------------------------------------------------------------- notes
 
-/** The generic notes: the typed ones have their own tabs. */
+/** The generic notes: the typed ones have their own tabs. The WIP note
+ * (``wip.md``) is always the first, even before it exists. */
 function Notes({ project }: { project: string }) {
   const notes = useNotes(project);
   const [search, setSearch] = useSearchParams();
   const [creating, setCreating] = useState(false);
-  const names = notes.data?.filter((note) => (note.note_type ?? "generic") === "generic").map((note) => note.name) ?? [];
+  const generic = notes.data?.filter((note) => (note.note_type ?? "generic") === "generic").map((note) => note.name) ?? [];
+  const names = notes.data ? [WIP_NOTE, ...generic.filter((name) => name !== WIP_NOTE)] : [];
   const requested = search.get("note");
   const selected = requested && names.includes(requested) ? requested : names[0];
   const select = (name: string) => setSearch({ note: name }, { replace: true });
@@ -78,12 +83,16 @@ function Notes({ project }: { project: string }) {
           <Button onClick={() => setCreating(true)}>➕ Nuova nota</Button>
           {notes.isPending && <Loader size="sm" />}
           {notes.error && <Alert color="red">{notes.error.message}</Alert>}
-          {notes.data && !names.length && <Text size="sm" c="dimmed">Nessuna nota.</Text>}
-          {names.map((name) => <NavLink key={name} label={name} active={name === selected} onClick={() => select(name)} />)}
+          {names.map((name) => (
+            <NavLink key={name} label={name === WIP_NOTE ? `📥 ${name}` : name} description={name === WIP_NOTE ? "appunti di getto" : undefined}
+                     active={name === selected} onClick={() => select(name)} />
+          ))}
         </Stack>
       </Grid.Col>
       <Grid.Col span={{ base: 12, md: 9 }}>
-        {selected ? (
+        {selected === WIP_NOTE ? (
+          <WipEditor project={project} />
+        ) : selected ? (
           <NoteEditor key={selected} project={project} name={selected} />
         ) : (
           <Text c="dimmed">Le note sono file markdown del progetto: appunti, decisioni, contesto per gli agenti.</Text>
@@ -96,18 +105,51 @@ function Notes({ project }: { project: string }) {
 
 function NoteEditor({ project, name }: { project: string; name: string }) {
   const note = useNote(project, name);
+  if (note.error) return <Alert color="red">{note.error.message}</Alert>;
+  if (note.isPending) return <Loader size="sm" />;
+  return <NoteForm project={project} name={name} saved={note.data.content} />;
+}
+
+/** The WIP note: written freely, «📥 Elabora WIP» turns its new text (after
+ * the last «elaborato il…» line) into proposals for the activities. */
+function WipEditor({ project }: { project: string }) {
+  const state = useWipState(project);
+  const [processing, setProcessing] = useState(false);
+  if (state.error) return <Alert color="red">{state.error.message}</Alert>;
+  if (state.isPending) return <Loader size="sm" />;
+  const pending = state.data.pending_words;
+  return (
+    <>
+      <NoteForm
+        key={state.data.content} project={project} name={WIP_NOTE} saved={state.data.content} deletable={false}
+        placeholder="Scrivi di getto cosa succede sul progetto: «📥 Elabora WIP» lo trasforma in attività e voci. mask{nome} nasconde un nome."
+        extra={(dirty) => (
+          <Button variant="light" onClick={() => setProcessing(true)} disabled={dirty || !pending}
+                  title={dirty ? "Salva prima la nota" : pending ? undefined : "Niente di nuovo dopo l'ultimo segno"}>
+            📥 Elabora WIP{pending ? ` (${pending} parole nuove)` : ""}
+          </Button>
+        )}
+      />
+      <WipModal project={project} opened={processing} onClose={() => setProcessing(false)} />
+    </>
+  );
+}
+
+function NoteForm({ project, name, saved, deletable = true, placeholder, extra }: {
+  project: string; name: string; saved: string; deletable?: boolean; placeholder?: string; extra?: (dirty: boolean) => ReactNode;
+}) {
   const save = useSaveNote(project);
   const remove = useDeleteNote(project);
-  const [text, setText] = useState<string>();
+  const queryClient = useQueryClient();
+  const [text, setText] = useState(saved);
   const [view, setView] = useState("edit");
-  useEffect(() => {
-    if (note.data && text === undefined) setText(note.data.content);
-  }, [note.data, text]);
-
-  if (note.isPending || text === undefined) return <Loader size="sm" />;
-  if (note.error) return <Alert color="red">{note.error.message}</Alert>;
-  const dirty = text !== note.data.content;
-  const onSave = () => save.mutate({ note: name, content: text }, { onSuccess: () => notifications.show({ message: `${name} salvata.` }) });
+  const dirty = text !== saved;
+  const onSave = () => save.mutate({ note: name, content: text }, {
+    onSuccess: () => {
+      notifications.show({ message: `${name} salvata.` });
+      return queryClient.invalidateQueries({ queryKey: wipKeys.state(project) });
+    },
+  });
   return (
     <Stack gap="sm">
       <Group justify="space-between">
@@ -119,6 +161,7 @@ function NoteEditor({ project, name }: { project: string; name: string }) {
           autosize
           minRows={16}
           maxRows={30}
+          placeholder={placeholder}
           styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
           value={text}
           onChange={(event) => setText(event.currentTarget.value)}
@@ -136,15 +179,18 @@ function NoteEditor({ project, name }: { project: string; name: string }) {
       <Group>
         <Button onClick={onSave} loading={save.isPending} disabled={!dirty}>Salva</Button>
         <Text size="xs" c="dimmed">Ctrl+S salva</Text>
-        <ConfirmButton
-          ml="auto"
-          message={`Eliminare ${name}?`}
-          loading={remove.isPending}
-          error={remove.error?.message}
-          onConfirm={() => remove.mutate(name)}
-        >
-          Elimina
-        </ConfirmButton>
+        {extra?.(dirty)}
+        {deletable && (
+          <ConfirmButton
+            ml="auto"
+            message={`Eliminare ${name}?`}
+            loading={remove.isPending}
+            error={remove.error?.message}
+            onConfirm={() => remove.mutate(name)}
+          >
+            Elimina
+          </ConfirmButton>
+        )}
       </Group>
     </Stack>
   );

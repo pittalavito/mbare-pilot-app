@@ -76,3 +76,21 @@ class FakeAgent:
             if self._error:
                 raise self._error
         return SimpleNamespace(text=f"echo: {task_input}")
+
+
+class FakeStructuredClient:
+    """A chat client that answers ``structured_response`` with ``answer`` (or
+    raises ``error``), emitting a generation span, and remembers what it got."""
+
+    def __init__(self, answer: BaseModel | None = None, error: Exception | None = None):
+        self.answer = answer
+        self.error = error
+        self.calls: list[dict] = []
+
+    def structured_response(self, *, input, output_cls, system_prompt=None, **kwargs):
+        self.calls.append({"input": input, "output_cls": output_cls, "system_prompt": system_prompt})
+        with fake_generation("gpt-4o", 300, 50):
+            pass
+        if self.error:
+            raise self.error
+        return SimpleNamespace(structured_data=[self.answer if self.answer is not None else output_cls(proposals=[])])
