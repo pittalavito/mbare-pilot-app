@@ -49,6 +49,16 @@ def test_the_whole_flow(client, model):
     assert again.status_code == 409
 
 
+def test_dismissing_the_proposals(client):
+    client.put("/projects/acme/notes/wip.md", json={"content": "il login è lento"})
+    result = client.post("/projects/acme/wip/process", json={}).json()
+
+    dismissed = client.post("/projects/acme/wip/dismiss", json={"run_id": result["run_id"]}).json()
+
+    assert (dismissed["discarded"], dismissed["dismissed_at"] is not None) == (1, True)
+    assert client.post("/projects/acme/wip/dismiss", json={"run_id": result["run_id"]}).status_code == 409
+
+
 def test_a_failing_model_is_a_502(client, model):
     client.put("/projects/acme/notes/wip.md", json={"content": "qualcosa"})
     model.error = RuntimeError("giù")

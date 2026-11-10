@@ -9,6 +9,10 @@ class WipParagraphsRequest(BaseModel):
     """How many paragraphs of the new text to process; None = all."""
 
 
+class WipRunRequest(BaseModel):
+    run_id: str
+
+
 class WipApplyRequest(BaseModel):
     run_id: str
     choices: list[WipChoice]

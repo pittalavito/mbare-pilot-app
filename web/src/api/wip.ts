@@ -45,6 +45,14 @@ export function useProcessWip(project: string) {
   });
 }
 
+/** The proposals closed without applying any: all of them count as discarded (metrics), no sign. */
+export function useDismissWip(project: string) {
+  return useMutation({
+    mutationFn: (runId: string) =>
+      unwrap(api.POST("/projects/{project}/wip/dismiss", { params: { path: { project } }, body: { run_id: runId } })),
+  });
+}
+
 /** The chosen proposals, then the sign in the note. */
 export function useApplyWip(project: string) {
   const queryClient = useQueryClient();

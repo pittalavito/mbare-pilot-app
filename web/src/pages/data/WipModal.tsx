@@ -7,13 +7,14 @@ import { Fragment, type ReactNode, useEffect, useState } from "react";
 import { useAddMask } from "../../api/masking";
 import { useActivities } from "../../api/projectData";
 import {
-  type WipApplied, type WipPreview, type WipProposal, type WipResult, useApplyWip, useProcessWip, useWipPreview,
+  type WipApplied, type WipPreview, type WipProposal, type WipResult, useApplyWip, useDismissWip, useProcessWip, useWipPreview,
 } from "../../api/wip";
 
 /** «📥 Elabora WIP»: first the preview of exactly what the secretary's model
  * gets (masked: nothing leaves without being seen here), then its proposals
- * to choose and correct, then what was applied. Nothing chosen = nothing done
- * and no sign in the note. */
+ * to choose and correct, then what was applied. Closing the proposals
+ * without applying («Annulla», ✕) records them as dismissed: nothing done, no
+ * sign in the note, all of them discarded in the metrics. */
 
 const ORIGINS = {
   map: { label: "mappa del progetto", color: "blue" },
@@ -38,6 +39,12 @@ export function WipModal({ project, opened, onClose }: { project: string; opened
   const [paragraphs, setParagraphs] = useState<number | null>(null);
   const preview = useWipPreview(project);
   const process = useProcessWip(project);
+  const dismiss = useDismissWip(project);
+  /** Leaving the proposals without applying them counts as dismissing them. */
+  const close = () => {
+    if (step.kind === "proposals") dismiss.mutate(step.result.run_id);
+    onClose();
+  };
   useEffect(() => {
     if (opened) {
       setStep({ kind: "preview" });
@@ -53,7 +60,7 @@ export function WipModal({ project, opened, onClose }: { project: string; opened
   const send = () => process.mutate(paragraphs, { onSuccess: (result) => setStep({ kind: "proposals", result }) });
 
   return (
-    <Modal opened={opened} onClose={onClose} title="📥 Elabora WIP" size="xl">
+    <Modal opened={opened} onClose={close} title="📥 Elabora WIP" size="xl">
       {step.kind === "preview" && (
         <Stack gap="sm">
           {preview.isPending && <Loader size="sm" />}
@@ -71,7 +78,7 @@ export function WipModal({ project, opened, onClose }: { project: string; opened
         </Stack>
       )}
       {step.kind === "proposals" && (
-        <ProposalsView project={project} result={step.result} onCancel={onClose} onApplied={(applied) => setStep({ kind: "done", applied })} />
+        <ProposalsView project={project} result={step.result} onCancel={close} onApplied={(applied) => setStep({ kind: "done", applied })} />
       )}
       {step.kind === "done" && (
         <Stack gap="sm">

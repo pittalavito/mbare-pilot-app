@@ -350,6 +350,7 @@ class WipRunTable(SQLModel, table=True):
     corrected: int = 0
     discarded: int = 0
     skipped: int = 0
+    dismissed_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
     created_at: datetime = _timestamp(index=True)
 
 

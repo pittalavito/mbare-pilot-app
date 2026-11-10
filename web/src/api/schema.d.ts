@@ -1766,6 +1766,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/wip/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Wip Dismiss
+         * @description The proposals closed without applying any: all discarded, no sign (409 when applied or dismissed already).
+         */
+        post: operations["wip_dismiss_projects__project__wip_dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3554,11 +3574,18 @@ export interface components {
              * @default 0
              */
             skipped: number;
+            /** Dismissed At */
+            dismissed_at?: string | null;
             /**
              * Created At
              * Format: date-time
              */
             created_at?: string;
+        };
+        /** WipRunRequest */
+        WipRunRequest: {
+            /** Run Id */
+            run_id: string;
         };
         /** WipState */
         WipState: {
@@ -7341,6 +7368,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WipApplied"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    wip_dismiss_projects__project__wip_dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WipRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WipRun"];
                 };
             };
             /** @description Validation Error */

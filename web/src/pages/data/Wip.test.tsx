@@ -105,8 +105,10 @@ describe("the WIP note", () => {
     await waitFor(() => expect(bodies).toEqual([{ paragraphs: null }, { paragraphs: 2 }]));
   });
 
-  it("without proposals nothing is applied", async () => {
+  it("without proposals nothing is applied, and closing records them as dismissed", async () => {
+    const dismissed = vi.fn(async (request: Request) => ({ ...(await request.json()), discarded: 0 }));
     mockApi({
+      "POST /projects/acme/wip/dismiss": dismissed,
       "GET /projects/acme/notes": NOTES,
       "GET /projects/acme/wip": { content: "niente", pending_words: 1 },
       "POST /projects/acme/wip/preview": PREVIEW,
@@ -119,5 +121,31 @@ describe("the WIP note", () => {
     await within(dialog).findByTestId("wip-preview");
     fireEvent.click(within(dialog).getByRole("button", { name: /Invia al segretario/ }));
     expect(await within(dialog).findByText(/non ha proposte: la WIP resta da elaborare/)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Chiudi" }));
+    await waitFor(() => expect(dismissed).toHaveBeenCalled());
+    expect(await dismissed.mock.results[0].value).toMatchObject({ run_id: "r2" });
+  });
+
+  it("«Annulla» on the proposals dismisses them", async () => {
+    const dismissed = vi.fn(async (request: Request) => await request.json());
+    mockApi({
+      "GET /projects/acme/notes": NOTES,
+      "GET /projects/acme/wip": { content: "qualcosa", pending_words: 1 },
+      "GET /projects/acme/activities": [],
+      "POST /projects/acme/wip/preview": PREVIEW,
+      "POST /projects/acme/wip/process": PROPOSALS,
+      "POST /projects/acme/wip/dismiss": dismissed,
+    });
+    renderData();
+
+    fireEvent.click(await screen.findByRole("button", { name: /Elabora WIP/ }));
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByTestId("wip-preview");
+    fireEvent.click(within(dialog).getByRole("button", { name: /Invia al segretario/ }));
+    await within(dialog).findByText("«sentire Marco»");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Annulla" }));
+
+    await waitFor(() => expect(dismissed).toHaveBeenCalled());
+    expect(await dismissed.mock.results[0].value).toEqual({ run_id: "r1" });
   });
 });

@@ -117,6 +117,8 @@ class WipRun(BaseModel):
     discarded: int = 0
     skipped: int = 0
     """Chosen but not applied: the activity or the item changed meanwhile."""
+    dismissed_at: datetime | None = None
+    """The user closed the proposals without applying any («Annulla»): all of them discarded."""
     created_at: datetime = Field(default_factory=_utc_now)
 
 

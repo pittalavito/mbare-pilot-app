@@ -1,10 +1,10 @@
 """«Elabora WIP» of a project, under /projects/{project}/wip: the note's state,
 the preview of what the secretary's model would get (masked), the call that
-returns the proposals, and applying the chosen ones (no LLM)."""
+returns the proposals, applying the chosen ones (no LLM) or dismissing them all."""
 from fastapi import APIRouter, Depends
 
 from controller.dependencies import wip_service
-from models.controller.wip import WipApplyRequest, WipParagraphsRequest
+from models.controller.wip import WipApplyRequest, WipParagraphsRequest, WipRunRequest
 from models.domain.wip import WipApplied, WipPreview, WipResult, WipRun, WipState
 from service.wip_service import WipService
 
@@ -39,3 +39,9 @@ def wip_process(project: str, request: WipParagraphsRequest, service: WipService
 def wip_apply(project: str, request: WipApplyRequest, service: WipService = Depends(wip_service)) -> WipApplied:
     """The chosen proposals, then the sign in the note (409 when the WIP changed meanwhile)."""
     return service.apply(project, request.run_id, request.choices)
+
+
+@router.post("/dismiss")
+def wip_dismiss(project: str, request: WipRunRequest, service: WipService = Depends(wip_service)) -> WipRun:
+    """The proposals closed without applying any: all discarded, no sign (409 when applied or dismissed already)."""
+    return service.dismiss(project, request.run_id)

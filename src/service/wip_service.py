@@ -17,7 +17,8 @@ by the app **without LLM** once the user chose them.
 3. **Apply** (no LLM): only the chosen proposals, as edited; one on an
    activity or an item that changed meanwhile is skipped. Then the sign goes
    in the note after the processed text, and the ``WipRun`` records what the
-   user accepted, corrected, discarded."""
+   user accepted, corrected, discarded. Or **dismiss**: the user closed the
+   proposals without applying any; all of them count as discarded, no sign."""
 import json
 from datetime import date, datetime, timezone
 from time import perf_counter
@@ -172,11 +173,7 @@ class WipService:
         text. ValidationError without choices (nothing chosen = nothing
         done, no sign); ConflictError when the run was applied already or
         the WIP's new text no longer starts with what was processed."""
-        run = self._wip_runs.get_run(run_id)
-        if run is None or run.project_name != project_name:
-            raise NotFoundError(f"Elaborazione non trovata: {run_id}")
-        if run.applied_at is not None:
-            raise ConflictError("Queste proposte sono già state applicate.")
+        run = self._open_run(project_name, run_id)
         if not choices:
             raise ValidationError("Nessuna proposta scelta: niente da applicare (la WIP resta da elaborare).")
         now = now or datetime.now()
@@ -199,7 +196,26 @@ class WipService:
         }))
         return WipApplied(applied=applied, skipped=skipped)
 
+    @observed(LogPrefix.WIP_SERVICE)
+    def dismiss(self, project_name: str, run_id: str) -> WipRun:
+        """The proposals closed without applying any: all of them discarded,
+        no sign (the WIP stays to process). ConflictError when they were
+        applied or dismissed already."""
+        run = self._open_run(project_name, run_id)
+        return self._wip_runs.save_run(run.model_copy(update={"dismissed_at": datetime.now(timezone.utc), "discarded": run.proposed}))
+
     # --------------------------------------------------------------- helpers
+    def _open_run(self, project_name: str, run_id: str) -> WipRun:
+        """The run, still waiting for the user's choice."""
+        run = self._wip_runs.get_run(run_id)
+        if run is None or run.project_name != project_name:
+            raise NotFoundError(f"Elaborazione non trovata: {run_id}")
+        if run.applied_at is not None:
+            raise ConflictError("Queste proposte sono già state applicate.")
+        if run.dismissed_at is not None:
+            raise ConflictError("Queste proposte sono state annullate: rielabora la WIP.")
+        return run
+
     def _content(self, project_name: str) -> str:
         try:
             return self._data.read_note(project_name, wip.WIP_NOTE)

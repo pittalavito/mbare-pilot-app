@@ -290,6 +290,29 @@ def test_nothing_chosen_a_changed_wip_or_an_unknown_run(service, data, client):
     assert data.activities("acme") == []  # nothing done
 
 
+def test_dismissing_counts_every_proposal_as_discarded_and_leaves_the_wip_to_process(service, data, client, stores):
+    _write(data, "primo")
+    client.answer = WipAnswer(proposals=[_proposal(ProposalKind.NEW_ACTIVITY, title="Una"), _proposal(ProposalKind.NEW_ACTIVITY, title="Due")])
+    result = service.process("acme")
+
+    dismissed = service.dismiss("acme", result.run_id)
+
+    assert (dismissed.discarded, dismissed.accepted, dismissed.applied_at) == (2, 0, None) and dismissed.dismissed_at is not None
+    assert stores.wip.get_run(result.run_id).dismissed_at is not None
+    assert data.read_note("acme", "wip.md") == "primo" and data.activities("acme") == []  # no sign, nothing done
+    with pytest.raises(ConflictError, match="annullate"):
+        service.dismiss("acme", result.run_id)
+    with pytest.raises(ConflictError, match="annullate"):
+        service.apply("acme", result.run_id, [WipChoice(proposal=result.proposals[0])])
+
+    applied = service.process("acme")
+    service.apply("acme", applied.run_id, [WipChoice(proposal=applied.proposals[0])])
+    with pytest.raises(ConflictError, match="già state applicate"):
+        service.dismiss("acme", applied.run_id)
+    with pytest.raises(NotFoundError):
+        service.dismiss("altro", applied.run_id)
+
+
 # ------------------------------------------------------------ the data set
 
 @pytest.mark.parametrize("case", sorted(DATA.glob("*.json")), ids=lambda path: path.stem)

@@ -12,6 +12,7 @@ class Adapter:
         run = WipRun.model_validate(row.model_dump())
         run.created_at = as_utc(run.created_at)
         run.applied_at = as_utc(run.applied_at) if run.applied_at else None
+        run.dismissed_at = as_utc(run.dismissed_at) if run.dismissed_at else None
         return run
 
 
