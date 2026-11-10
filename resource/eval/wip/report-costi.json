@@ -1,0 +1,7 @@
+{
+  "wip": "mask{Giulia Bianchi} chiede un report mensile dei costi cloud, da mandare a giulia@acme.it con i dati di https://billing.acme.it/export",
+  "activities": [],
+  "map": [],
+  "sensitive": ["Giulia Bianchi", "giulia@acme.it", "https://billing.acme.it/export"],
+  "expected": [{"kind": "new_activity", "title": "Report mensile dei costi cloud"}]
+}

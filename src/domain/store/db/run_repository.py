@@ -1,4 +1,6 @@
 """Agent run facts (tables agent_run + tool_call). The verbatim traces live in Redis."""
+from datetime import datetime
+
 from sqlalchemy.engine import Engine
 from sqlmodel import col, delete, select
 
@@ -24,6 +26,16 @@ class DbRunRepository(SqlRepository[AgentRunTable]):
     def list_recent(self, limit: int = 100) -> list[AgentRunTable]:
         """Most recent runs first."""
         statement = select(AgentRunTable).order_by(col(AgentRunTable.created_at).desc()).limit(limit)
+        with self._session() as session:
+            return list(session.exec(statement).all())
+
+    def list_since(self, since: datetime | None, project_name: str | None) -> list[AgentRunTable]:
+        """Every run after ``since`` (None = ever), of ``project_name`` (None = every project)."""
+        statement = select(AgentRunTable)
+        if since is not None:
+            statement = statement.where(col(AgentRunTable.created_at) >= since)
+        if project_name is not None:
+            statement = statement.where(AgentRunTable.project_name == project_name)
         with self._session() as session:
             return list(session.exec(statement).all())
 

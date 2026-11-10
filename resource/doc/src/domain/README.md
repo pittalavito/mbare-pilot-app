@@ -8,6 +8,7 @@ src/domain/
   agent/      costruzione degli agenti, tracing di token e costi
   client/     client git, Maven, Atlassian, Copilot CLI ed embedding
   rag/        divisione dei documenti in pezzi per titolo (RAG)
+  evaluation/ come le valutazioni giudicano i risultati (regole, senza LLM)
   masking/    mascheramento: Masker (mappa del progetto) e preview (testo libero: mask{}, riconoscimento automatico)
   maven/      lettura di pom.xml e del report JaCoCo
   pipeline/   regole del grafo delle automation (validazione, ordine di esecuzione)

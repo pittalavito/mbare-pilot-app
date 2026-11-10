@@ -1,0 +1,22 @@
+[
+  {"question": "Con quale strumento cambiamo lo schema delle tabelle e dove stanno quei file?", "path": "context/architettura.md", "section": "Database"},
+  {"question": "Dove finisce un evento che non si riesce a consumare dopo qualche tentativo?", "path": "context/architettura.md", "section": "Code e messaggi"},
+  {"question": "Che nome devo dare al ramo su cui lavoro per un ticket?", "path": "context/convenzioni.md", "section": "Branch e commit"},
+  {"question": "Quanta parte del codice appena scritto deve essere verificata per passare il controllo di qualità?", "path": "context/convenzioni.md", "section": "Test"},
+  {"question": "Posso scrivere l'indirizzo di posta di un cliente nei messaggi di diagnostica?", "path": "context/convenzioni.md", "section": "Logging"},
+  {"question": "Come si porta in produzione una versione nuova?", "path": "context/runbook-rilascio.md", "section": "Rilascio"},
+  {"question": "Ho messo online una versione sbagliata: come torno a quella di prima?", "path": "context/runbook-rilascio.md", "section": "Rollback"},
+  {"question": "In quali giorni non si possono pubblicare aggiornamenti?", "path": "context/runbook-rilascio.md", "section": "Finestre"},
+  {"question": "Gli acquisti falliscono con errori del server: da dove comincio a indagare?", "path": "context/runbook-incidenti.md", "section": "Allarmi"},
+  {"question": "Chi va avvisato di notte se il sito è irraggiungibile?", "path": "context/runbook-incidenti.md", "section": "Reperibilità"},
+  {"question": "Come si chiama il codice che identifica un prodotto in una certa taglia e colore?", "path": "context/glossario.md", "section": "Termini di dominio"},
+  {"question": "Perché è tutto in un'unica applicazione invece che diviso in servizi?", "path": "context/decisioni.md", "section": "Niente microservizi per ora"},
+  {"question": "Dopo quanto tempo la vetrina mostra un prezzo aggiornato?", "path": "context/decisioni.md", "section": "Cache del catalogo"},
+  {"question": "Si può restituire solo una parte di un ordine e ridare indietro i soldi?", "path": "context/modulo-pagamenti.md", "section": "Rimborsi"},
+  {"question": "Teniamo da qualche parte i numeri delle carte di credito?", "path": "context/modulo-pagamenti.md", "section": "Sicurezza"},
+  {"question": "Come entrano i prodotti nuovi dal software del magazzino?", "path": "context/modulo-catalogo.md", "section": "Import"},
+  {"question": "Qual è il budget annuale del marketing?", "path": null, "section": null},
+  {"question": "Che versione di Android supporta l'app mobile?", "path": null, "section": null},
+  {"question": "Chi è il commercialista dell'azienda?", "path": null, "section": null},
+  {"question": "Come si configura la stampante dell'ufficio?", "path": null, "section": null}
+]

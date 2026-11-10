@@ -38,6 +38,7 @@ class LogPrefix(StrEnum):
     CODE_TODO_SERVICE = "CODE_TODO_SERVICE"
     WIP_SERVICE = "WIP_SERVICE"
     RAG_SERVICE = "RAG_SERVICE"
+    EVALUATION_SERVICE = "EVALUATION_SERVICE"
 
 
 def configure_logging(log_level: str) -> None:

@@ -1,0 +1,13 @@
+{
+  "wip": "fatto il tag della release. ho anche creato l'account per il nuovo arrivato.",
+  "activities": [
+    {"title": "Rilascio v2", "items": [{"text": "Aggiornare le dipendenze", "done": true}, {"text": "Taggare il commit", "done": false}]},
+    {"title": "Onboarding", "items": [{"text": "Creare l'account", "done": false}, {"text": "Dare accesso al repository", "done": false}]}
+  ],
+  "map": [],
+  "sensitive": [],
+  "expected": [
+    {"kind": "check_item", "activity_title": "Rilascio v2", "item": 2},
+    {"kind": "check_item", "activity_title": "Onboarding", "item": 1}
+  ]
+}

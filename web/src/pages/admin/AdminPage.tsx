@@ -11,6 +11,7 @@ import {
 } from "../../api/admin";
 import { useCopilotStatus } from "../../api/copilot";
 import { CopilotUsage } from "./CopilotUsage";
+import { Metrics } from "./Metrics";
 import { localTime, size } from "../../format";
 
 /** The Admin page, one tab per area (``?tab=``): services, observability, models, backups.
@@ -129,8 +130,10 @@ function Observability() {
           <Tabs.Tab value="runs">Agent Runs</Tabs.Tab>
           <Tabs.Tab value="tools">Tool Calls</Tabs.Tab>
           <Tabs.Tab value="copilot">Copilot</Tabs.Tab>
+          <Tabs.Tab value="metrics">📊 Metriche</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="copilot"><CopilotUsage /></Tabs.Panel>
+        <Tabs.Panel value="metrics"><Metrics /></Tabs.Panel>
         <Tabs.Panel value="runs"><AgentRuns runs={runs.data} error={runs.error?.message} /></Tabs.Panel>
         <Tabs.Panel value="tools">
           {calls.error && <Alert color="red">{calls.error.message}</Alert>}

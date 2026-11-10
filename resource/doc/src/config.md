@@ -26,6 +26,7 @@ Valori derivati:
 | `automation_cache_threshold` | `AUTOMATION_CACHE_THRESHOLD` (vecchio nome `CHAT_ROUTE_THRESHOLD`) | 0,9: quanto un messaggio deve somigliare (coseno) a una voce della cache delle automation per lanciarne l'automation senza agente |
 | `automation_cache_embedder` | `AUTOMATION_CACHE_EMBEDDER` (vecchio nome `CHAT_ROUTE_EMBEDDER`) | `hashing`: l'embedder della cache (oppure `openrouter/<modello>`) |
 | `app_root`, `run_dir`, `logs_dir` | cartella dell'app, `resource/run`, `resource/logs` | file PID e log di API e worker |
+| `evaluations_root`, `eval_data_root` | `<MBARE_PILOT_HOME>/evaluations`, `resource/eval` | i report delle valutazioni e i loro set di prova (Metriche, `resource/scripts/eval-*.py`) |
 | `web_dist` | `web/dist` | il frontend compilato che l'API serve (`core/server.py`) |
 | `project_data_root` | `data_home / "project"` | note, file caricati e contesto dei progetti (`project/<slug>/`) |
 | `definitions_root` | `data_home / "definition"` | agenti, chatbot e automation come YAML (vedi [definitions](../definitions.md)) |

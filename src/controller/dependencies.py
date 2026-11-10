@@ -10,8 +10,10 @@ from service.chatbot_service import ChatbotService
 from service.code_todo_service import CodeTodoService
 from service.copilot_service import CopilotService
 from service.definition_service import DefinitionService
+from service.evaluation_service import EvaluationService
 from service.git_service import GitService
 from service.masking_service import MaskingService
+from service.metrics_service import MetricsService
 from service.model_service import ModelService
 from service.pipeline_service import PipelineService
 from service.process_service import ProcessService
@@ -92,3 +94,11 @@ def wip_service(request: Request) -> WipService:
 
 def rag_service(request: Request) -> RagService:
     return request.app.state.container.rag_service
+
+
+def metrics_service(request: Request) -> MetricsService:
+    return request.app.state.container.metrics_service
+
+
+def evaluation_service(request: Request) -> EvaluationService:
+    return request.app.state.container.evaluation_service

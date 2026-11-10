@@ -144,6 +144,16 @@ class Config(BaseSettings):
         return self.data_home / "project"
 
     @property
+    def evaluations_root(self) -> Path:
+        """The evaluations' reports (markdown and JSON): ``<data_home>/evaluations``."""
+        return self.data_home / "evaluations"
+
+    @property
+    def eval_data_root(self) -> Path:
+        """The evaluation data sets, in the app: ``resource/eval/{wip,rag}``."""
+        return self.app_root / "resource" / "eval"
+
+    @property
     def definitions_root(self) -> Path:
         """Root of the definitions as files: ``<data_home>/definition`` (global ones, ``project/<slug>/``)."""
         return self.data_home / "definition"

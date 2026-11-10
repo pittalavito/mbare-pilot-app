@@ -1,0 +1,7 @@
+{
+  "wip": "il bug dei pagamenti blocca i clienti: riprodurlo è la cosa più urgente.",
+  "activities": [{"title": "Bug pagamenti", "items": [{"text": "Riprodurre il bug", "done": false}, {"text": "Scrivere il test", "done": false}]}],
+  "map": [],
+  "sensitive": [],
+  "expected": [{"kind": "set_item", "activity_title": "Bug pagamenti", "item": 1}]
+}

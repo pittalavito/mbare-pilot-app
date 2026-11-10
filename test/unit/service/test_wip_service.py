@@ -21,7 +21,7 @@ from service.wip_service import WipService
 
 TODAY = date(2026, 11, 10)
 NOW = datetime(2026, 11, 10, 14, 30)
-DATA = Path(__file__).parents[2] / "data" / "wip"
+DATA = Path(__file__).parents[3] / "resource" / "eval" / "wip"
 MODEL = "openai/gpt-4o"
 
 

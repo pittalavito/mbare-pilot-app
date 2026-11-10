@@ -1,0 +1,7 @@
+{
+  "wip": "il login è ancora lento, devo guardare anche le query del database.",
+  "activities": [{"title": "Login lento", "items": [{"text": "Analizzare i log", "done": false}]}],
+  "map": [],
+  "sensitive": [],
+  "expected": [{"kind": "add_item", "activity_title": "Login lento", "text": "Guardare le query del database"}]
+}

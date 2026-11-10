@@ -1909,6 +1909,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/observability/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Metrics
+         * @description The last ``days`` days (omitted = ever), of ``project`` (omitted = every project).
+         */
+        get: operations["metrics_observability_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/observability/evaluations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Evaluations
+         * @description The evaluations launched from the page and every report on disk.
+         */
+        get: operations["evaluations_observability_evaluations_get"];
+        put?: never;
+        /**
+         * Launch Evaluation
+         * @description Queued for the worker (it may take minutes and it costs: real models).
+         */
+        post: operations["launch_evaluation_observability_evaluations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/observability/evaluations/reports/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Evaluation Report
+         * @description A report as markdown (``format=md``) or JSON (``format=json``).
+         */
+        get: operations["evaluation_report_observability_evaluations_reports__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2009,6 +2073,30 @@ export interface components {
             max_steps: number;
             /** Tool Names */
             tool_names?: string[];
+        };
+        /**
+         * AgentMetrics
+         * @description One agent, chatbot or «Elabora WIP» (``name`` = the run's config_name) over the period.
+         */
+        AgentMetrics: {
+            /** Name */
+            name: string;
+            /** Calls */
+            calls: number;
+            /** Errors */
+            errors: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Cost Eur */
+            cost_eur: number;
+            /** Latency Avg Ms */
+            latency_avg_ms: number;
+            /** Latency P95 Ms */
+            latency_p95_ms: number;
+            /** Models */
+            models?: string[];
         };
         /** AgentResponse */
         AgentResponse: {
@@ -2769,6 +2857,80 @@ export interface components {
          */
         EmbeddingModelName: "openai/text-embedding-3-small" | "ollama/nomic-embed-text";
         /**
+         * EvaluationKind
+         * @enum {string}
+         */
+        EvaluationKind: "wip" | "rag";
+        /**
+         * EvaluationReport
+         * @description A report on disk: ``<name>.md`` and ``<name>.json``.
+         */
+        EvaluationReport: {
+            /** Name */
+            name: string;
+            kind: components["schemas"]["EvaluationKind"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** EvaluationRequest */
+        EvaluationRequest: {
+            kind: components["schemas"]["EvaluationKind"];
+            /**
+             * Models
+             * @default []
+             */
+            models: string[];
+            /**
+             * Embedders
+             * @default []
+             */
+            embedders: string[];
+        };
+        /**
+         * EvaluationRun
+         * @description An evaluation launched from the page: the worker's queue.
+         */
+        EvaluationRun: {
+            /** Id */
+            id?: number | null;
+            kind: components["schemas"]["EvaluationKind"];
+            /** Models */
+            models?: string[];
+            /** Embedders */
+            embedders?: string[];
+            /** @default queued */
+            status: components["schemas"]["EvaluationStatus"];
+            /**
+             * Report
+             * @default
+             */
+            report: string;
+            /** Error */
+            error?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at?: string;
+            /** Finished At */
+            finished_at?: string | null;
+        };
+        /**
+         * EvaluationStatus
+         * @enum {string}
+         */
+        EvaluationStatus: "queued" | "running" | "done" | "failed";
+        /** EvaluationsResponse */
+        EvaluationsResponse: {
+            /** Runs */
+            runs: components["schemas"]["EvaluationRun"][];
+            /** Reports */
+            reports: components["schemas"]["EvaluationReport"][];
+        };
+        /**
          * FavoriteKind
          * @enum {string}
          */
@@ -2950,6 +3112,18 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** MetricsResponse */
+        MetricsResponse: {
+            /** Days */
+            days: number | null;
+            /** Project Name */
+            project_name: string | null;
+            /** Agents */
+            agents: components["schemas"]["AgentMetrics"][];
+            /** Copilot */
+            copilot: components["schemas"]["CopilotModelUsageResponse"][];
+            wip: components["schemas"]["WipMetrics"];
         };
         /**
          * ModelChoicesResponse
@@ -3631,6 +3805,32 @@ export interface components {
              * @default false
              */
             edited: boolean;
+        };
+        /**
+         * WipMetrics
+         * @description How the «Elabora WIP» proposals were received over the period.
+         */
+        WipMetrics: {
+            /** Runs */
+            runs: number;
+            /** Applied */
+            applied: number;
+            /** Dismissed */
+            dismissed: number;
+            /** Open */
+            open: number;
+            /** Proposed */
+            proposed: number;
+            /** Accepted */
+            accepted: number;
+            /** Corrected */
+            corrected: number;
+            /** Discarded */
+            discarded: number;
+            /** Skipped */
+            skipped: number;
+            /** Acceptance Rate */
+            acceptance_rate?: number | null;
         };
         /** WipParagraphsRequest */
         WipParagraphsRequest: {
@@ -7851,6 +8051,124 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RagHit"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    metrics_observability_metrics_get: {
+        parameters: {
+            query?: {
+                days?: number | null;
+                project?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    evaluations_observability_evaluations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationsResponse"];
+                };
+            };
+        };
+    };
+    launch_evaluation_observability_evaluations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvaluationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    evaluation_report_observability_evaluations_reports__name__get: {
+        parameters: {
+            query?: {
+                format?: string;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
                 };
             };
             /** @description Validation Error */
