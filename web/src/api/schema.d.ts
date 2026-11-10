@@ -632,7 +632,11 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Save Activity */
+        /**
+         * Save Activity
+         * @description A done activity with «Imparato» is (re)indexed in the project's context
+         *     (best effort: the save never fails for the index).
+         */
         put: operations["save_activity_projects__project__activities__note__put"];
         post?: never;
         delete?: never;
@@ -1806,6 +1810,105 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Context */
+        get: operations["list_context_projects__project__context_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/context/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Context */
+        get: operations["read_context_projects__project__context__name__get"];
+        /**
+         * Save Context
+         * @description Create or overwrite, then index it (best effort: ``index_error`` says why it was not).
+         */
+        put: operations["save_context_projects__project__context__name__put"];
+        post?: never;
+        /** Delete Context */
+        delete: operations["delete_context_projects__project__context__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/context-index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Context Index
+         * @description How many documents and pieces are indexed, and with which embedder.
+         */
+        get: operations["context_index_projects__project__context_index_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/context-index/reindex": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reindex
+         * @description Every context document and done activity with «Imparato» (unchanged ones are not embedded again).
+         */
+        post: operations["reindex_projects__project__context_index_reindex_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/context-index/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search
+         * @description What search_context gives the Refiner and Copilot for this question.
+         */
+        post: operations["search_projects__project__context_index_search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1836,6 +1939,11 @@ export interface components {
              * @default []
              */
             references: string[];
+            /**
+             * Learned
+             * @default
+             */
+            learned: string;
         };
         /** ActivityResponse */
         ActivityResponse: {
@@ -1863,6 +1971,11 @@ export interface components {
              * @default []
              */
             references: string[];
+            /**
+             * Learned
+             * @default
+             */
+            learned: string;
             /** Name */
             name: string;
         };
@@ -2296,6 +2409,18 @@ export interface components {
             excerpt: string;
             /** Url */
             url: string;
+        };
+        /** ContextSavedResponse */
+        ContextSavedResponse: {
+            /** Name */
+            name: string;
+            /** Index Error */
+            index_error?: string | null;
+        };
+        /** ContextSearchRequest */
+        ContextSearchRequest: {
+            /** Question */
+            question: string;
         };
         /** ConversationResponse */
         ConversationResponse: {
@@ -2990,6 +3115,48 @@ export interface components {
          * @enum {string}
          */
         ProposalPriority: "high" | "medium" | "low";
+        /**
+         * RagHit
+         * @description A search result: the piece and where it comes from (to cite it).
+         */
+        RagHit: {
+            /**
+             * Path
+             * @description Where it comes from: context/<name>.md or notes/attivita-<name>.md.
+             */
+            path: string;
+            /**
+             * Title
+             * @description The document's title.
+             */
+            title: string;
+            /**
+             * Section
+             * @description The section of the document ('' = its beginning).
+             */
+            section: string;
+            /** Text */
+            text: string;
+            /**
+             * Score
+             * @description 0..1+: cosine similarity plus a bonus for the question's words found in the piece.
+             */
+            score: number;
+        };
+        /**
+         * RagIndexState
+         * @description What the index of a project holds, for the Contesto tab.
+         */
+        RagIndexState: {
+            /** Documents */
+            documents: number;
+            /** Pieces */
+            pieces: number;
+            /** Embedder */
+            embedder: string;
+            /** Error */
+            error?: string | null;
+        };
         /** ReferenceBody */
         ReferenceBody: {
             /** Title */
@@ -7458,6 +7625,232 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WipRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_context_projects__project__context_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataFileResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_context_projects__project__context__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_context_projects__project__context__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContextSavedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_context_projects__project__context__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    context_index_projects__project__context_index_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RagIndexState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reindex_projects__project__context_index_reindex_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RagIndexState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_projects__project__context_index_search_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContextSearchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RagHit"][];
                 };
             };
             /** @description Validation Error */

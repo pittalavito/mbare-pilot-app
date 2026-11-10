@@ -7,6 +7,7 @@ src/domain/
   chat/       client LLM per modello del catalogo, costi, catalogo di default
   agent/      costruzione degli agenti, tracing di token e costi
   client/     client git, Maven, Atlassian, Copilot CLI ed embedding
+  rag/        divisione dei documenti in pezzi per titolo (RAG)
   masking/    mascheramento: Masker (mappa del progetto) e preview (testo libero: mask{}, riconoscimento automatico)
   maven/      lettura di pom.xml e del report JaCoCo
   pipeline/   regole del grafo delle automation (validazione, ordine di esecuzione)
@@ -23,7 +24,7 @@ src/domain/
 | [client/maven](client/maven/README.md) | Maven come sottoprocesso, solo `jacoco:report`: `mvnw` o `mvn`, timeout, errori |
 | [client/atlassian](client/atlassian/README.md) | Jira e Confluence Cloud: connessione, errori, conversione in testo |
 | [client/copilot](client/copilot/README.md) | GitHub Copilot CLI: un turno per chiamata nella stessa sessione, preparazione in sola lettura, esecuzione senza commit |
-| `client/embedding` | `Embedder` (interfaccia, con `local`: falso se il testo esce dal PC), `HashingEmbedder` (finto: parole → posizioni del vettore), `OpenRouterEmbedder` (modello vero, API compatibile OpenAI), `Factory`, `cosine_similarity`: per la cache dei chatbot (vedi [service](../service/README.md#cache-chatrouteservice)) |
+| `client/embedding` | `Embedder` (interfaccia, con `local`: falso se il testo esce dal PC), `HashingEmbedder` (finto: parole → posizioni del vettore), `OpenRouterEmbedder` (modello vero, API compatibile OpenAI), `Factory`, `cosine_similarity`: per la cache dei chatbot e per l'indice del contesto ([RAG](../service/README.md#contesto-rag)) (vedi [service](../service/README.md#cache-chatrouteservice)) |
 | `masking` | `Masker` (valori della mappa ↔ alias, parole intere, il più lungo vince) e `preview` (testo libero dell'utente: `mask{termine}`, riconoscimento automatico di email, URL, IP, token e chiavi con alias temporanei, posizioni degli alias per l'anteprima): vedi [service](../service/README.md#mascheramento) |
 | [store/files](store/files/README.md) | file su disco confinati in una radice, indirizzati per `file_id` |
 | [store/redis](store/redis/README.md) | trace delle run e heartbeat dei worker, keyspace e scadenze |

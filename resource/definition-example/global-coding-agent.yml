@@ -9,13 +9,14 @@
 # Il task non va nel prompt. Nel repository l'app scrive solo mbare-pilot/<nome del task>/task.md, minimo
 # (titolo, tipo, dove trovare il resto), prima di ogni turno: {task_folder} = quella cartella, relativa al
 # repository (es. mbare-pilot/agent-task-login). Il task completo e i riferimenti Copilot li legge con i
-# tool MCP del server «mbare-pilot» dell'app (read_task, list_references, read_reference); in esecuzione può
+# tool MCP del server «mbare-pilot» dell'app (read_task, list_references, read_reference, search_context); in esecuzione può
 # chiedere con ask_user e chiude con finish. La cartella resta dopo la sessione ed è visibile a git.
 
 # Primo turno della preparazione (modalità piano, sola lettura).
 plan_prompt: |
   Ti affido il task indicato in {task_folder}/task.md, sul repository in cui ti trovi. Il task completo lo leggi
   con il tool MCP read_task del server «mbare-pilot», i riferimenti collegati con list_references e read_reference.
+  Per architettura, convenzioni e decisioni del progetto cerca con search_context (cita documento e sezione).
   Prima di cambiare qualcosa:
   1. leggi il task, i riferimenti e il codice che ti serve;
   2. fammi le domande necessarie per chiarire il task, poche e precise;

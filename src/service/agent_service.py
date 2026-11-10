@@ -20,6 +20,7 @@ from service.masking_service import MaskingService
 from service.model_service import require_usable_model
 from service.pipeline_service import PipelineService
 from service.project_data_service import ProjectDataService
+from service.rag_service import RagService
 from service.store.catalog_store import CatalogStore
 from service.store.run_store import RunStore
 from tool.context import ToolContext
@@ -40,13 +41,15 @@ class AgentService:
         project_data_service: ProjectDataService,
         copilot_service: CopilotService,
         code_todo_service: CodeTodoService,
+        rag_service: RagService | None = None,
     ):
         """``pipeline_service`` lets the agents start automations (tool run_automation);
         ``masking_service`` hides the project's sensitive values from the LLM (a
         project without a map is left as it is);
         ``project_data_service`` lets them read the project's context (tool read_context);
         ``copilot_service`` lets the chatbot delegate agent tasks to Copilot (tool delegate_task);
-        ``code_todo_service`` lets the refiner gather the code's comments (tool create_code_reference).
+        ``code_todo_service`` lets the refiner gather the code's comments (tool create_code_reference);
+        ``rag_service`` lets them search the project's context (tool search_context).
         All are required: whether a tool may use one in a run is decided by the
         tool (``ToolContext.require_*``, the run's origin), not by leaving it out."""
         self._chat_service = chat_service
@@ -59,6 +62,7 @@ class AgentService:
         self._project_data_service = project_data_service
         self._copilot_service = copilot_service
         self._code_todo_service = code_todo_service
+        self._rag_service = rag_service
 
     def run(self, config_name: str, task_input: str, *, project_name: str | None = None, origin: RunOrigin = RunOrigin.MANUAL,
             history: list[ChatMessage] | None = None) -> AgentRunRecord:
@@ -94,6 +98,7 @@ class AgentService:
             project_data=self._project_data_service,
             copilot=self._copilot_service,
             code_todos=self._code_todo_service,
+            rag=self._rag_service,
             open_note=open_note,
         )
         tools = mask.wrap(build_tools(definition.tool_names, context))

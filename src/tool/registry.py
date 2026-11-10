@@ -35,7 +35,7 @@ from tool.list.git.git_status import GIT_STATUS
 from tool.list.hello_world import hello_world
 from tool.list.notes.activities import CREATE_ACTIVITY, LIST_ACTIVITIES, READ_ACTIVITY, UPDATE_ACTIVITY
 from tool.list.notes.agent_tasks import CREATE_AGENT_TASK, LIST_REFERENCES
-from tool.list.project.read_context import READ_CONTEXT
+from tool.list.project.search_context import SEARCH_CONTEXT
 from tool.list.refiner.agent_tasks import (
     FINISH_REFINEMENT,
     READ_AGENT_TASK,
@@ -64,7 +64,7 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         FINISH_REFINEMENT,
         DELEGATE_TASK,
         COPILOT_STATUS,
-        READ_CONTEXT,
+        SEARCH_CONTEXT,
         GIT_STATUS,
         GIT_LOG,
         GIT_DIFF,

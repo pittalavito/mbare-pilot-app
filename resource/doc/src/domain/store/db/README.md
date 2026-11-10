@@ -17,6 +17,7 @@ src/domain/store/db/
   pipeline_repository.py      automation, step, collegamenti del grafo, run (anche coda del worker), step delle run
   run_repository.py           run degli agenti e loro tool call
   wip_repository.py           le «Elabora WIP» di un progetto (wip_run)
+  rag_repository.py           l'indice del contesto (document, chunk con pgvector)
   mapper.py                   condiviso dai mapper: as_utc, saved_id
   run_mapper.py               Adapter/Factory delle run
   catalog_mapper.py           …dei modelli e dei tool
@@ -27,6 +28,7 @@ src/domain/store/db/
   atlassian_mapper.py         …di sito e preferiti Atlassian
   copilot_mapper.py           …di sessioni, messaggi e turni di Copilot
   wip_mapper.py               …delle «Elabora WIP»
+  rag_mapper.py               …dell'indice del contesto
 ```
 
 Le tabelle stanno in [`models/store/db.py`](../../../models/README.md), con la mappa dello schema in testa. Chi usa questi repository e mapper sono gli [store per aggregato](../../../service/README.md#gli-store-servicestore) (`service/store/`): fuori da uno store circolano solo modelli di dominio, mai righe.

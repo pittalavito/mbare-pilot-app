@@ -21,7 +21,7 @@ mbare-pilot-data/
     <slug>/
       notes/                  note scritte dall'app: generiche, agent-task-<titolo>.md, attivita-<titolo>.md
       files/                  file caricati
-      context/                contesto del progetto (.md): lo legge read_context, lo indicizzerà il RAG
+      context/                contesto del progetto (.md): sotto-scheda «📚 Contesto», indicizzato per search_context
 ```
 
 `base-agent.yml` (in `definition/` e in `project/<slug>/`) è previsto ma non ancora implementato.
@@ -78,7 +78,7 @@ chatbots:
     description: Il mio assistente sul progetto
     model: openrouter/google/gemini-2.5-flash-lite
     max_steps: 4
-    tools: [list_automations, run_automation, automation_status, read_context]
+    tools: [list_automations, run_automation, automation_status, search_context]
     system_prompt: |
       Sei il mio assistente...
     # oppure: system_prompt_file: prompt.md    (un file accanto a questo, usato così com'è)

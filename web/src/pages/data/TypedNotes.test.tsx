@@ -251,7 +251,7 @@ describe("typed notes", () => {
 
     await waitFor(() => expect(created).toHaveBeenCalled());
     expect(await created.mock.results[0].value).toEqual({
-      name: "attivita-spesa.md", title: "Spesa", status: "todo", description: "", items: [], agent_tasks: [], references: [],
+      name: "attivita-spesa.md", title: "Spesa", status: "todo", description: "", items: [], agent_tasks: [], references: [], learned: "",
     });
   });
 

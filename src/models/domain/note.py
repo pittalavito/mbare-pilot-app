@@ -114,6 +114,9 @@ class Activity(BaseModel):
     """The agent tasks born from it, by note name (the one place the link is written)."""
     references: list[str] = []
     """The linked reference notes, by name."""
+    learned: str = ""
+    """What the user learned (``## Imparato``, written when done): a done
+    activity with it enters the project's context index (RAG)."""
 
 
 class TaskLink(BaseModel):

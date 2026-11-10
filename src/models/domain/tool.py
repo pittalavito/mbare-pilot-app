@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 
 from models.domain.git import GitBranch, GitBranchPullOutcome, GitCommit, GitDiffFile, GitStash, GitStatus
 from models.domain.masking import MaskRepositoryName, MaskRepositoryNames
+from models.domain.rag import RagHit
 
 
 class ToolErrorResponse(BaseModel):
@@ -76,9 +77,8 @@ class CopilotStatusResponse(BaseModel):
     chat: str = Field(..., description="Link to the Copilot chat in the app.")
 
 
-class ReadContextResponse(BaseModel):
-    files: dict[str, str] = Field(..., description="File name -> its markdown content.")
-
+class SearchContextResponse(BaseModel):
+    hits: list[RagHit] = Field(..., description="The best pieces, the most relevant first, with their document and section.")
 
 class HelloWorldResponse(BaseModel):
     response: str = Field(..., description="The greeting message.")

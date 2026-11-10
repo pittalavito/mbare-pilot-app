@@ -70,6 +70,11 @@ class Config(BaseSettings):
     """Embedder of the cache: ``hashing`` (a mock: same words = similar) or
     ``openrouter/<model>`` (e.g. ``openrouter/openai/text-embedding-3-small``;
     the text is masked before it leaves the PC). CHAT_ROUTE_EMBEDDER, its old name, still works."""
+    rag_embedder: str = ""
+    """Embedder of the projects' context index (RAG): ``""`` = each project's
+    ``embedding_model`` through OpenRouter (``openai/text-embedding-3-small`` →
+    ``openrouter/openai/text-embedding-3-small``); ``hashing`` = the mock, free and offline
+    (low quality: same words = similar)."""
 
     # --- Worker (started and stopped by the API) ---
     worker_script: str = "src/worker.py"

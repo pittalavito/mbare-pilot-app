@@ -1,7 +1,8 @@
-"""Text embeddings for the chatbots' cache (and, later, the RAG index).
+"""Text embeddings for the chatbots' cache and the projects' context index (RAG).
 
 ``Embedder`` is the interface, built by ``Factory`` from the configured name
-(Config ``AUTOMATION_CACHE_EMBEDDER``):
+(Config ``AUTOMATION_CACHE_EMBEDDER`` for the cache, ``RAG_EMBEDDER`` or the project's
+``embedding_model`` for the context index, service/rag_service.py):
 
 - ``hashing``: a mock, no model and no network. Each word (lowercase, no
   accents, no stopwords) is hashed to a fixed position of the vector, so texts

@@ -13,6 +13,7 @@ import { Markdown } from "../../components/Markdown";
 import { localTime, size } from "../../format";
 import { DEFAULT_VISIBLE, DataSettings, REFERENCE_TYPES, References } from "./DataSettings";
 import { Activities, AgentTasks } from "./TypedNotes";
+import { ContextTab } from "./ContextTab";
 import { WipModal } from "./WipModal";
 
 /** The Dati tab of a project: its own data, kept by the app apart from its
@@ -31,6 +32,7 @@ export function DataTab() {
     visible.includes("agent_task") && { value: "agent-tasks", label: "🤖 Agent task", panel: <AgentTasks project={project} /> },
     references.length > 0 && { value: "references", label: "📎 Riferimenti", panel: <References project={project} kinds={references} /> },
     settings.data?.files_visible !== false && { value: "files", label: "📎 File", panel: <Files project={project} /> },
+    { value: "context", label: "📚 Contesto", panel: <ContextTab project={project} /> },
     { value: "settings", label: "⚙️ Impostazioni", panel: <DataSettings project={project} /> },
   ].filter((tab) => !!tab);
   const note = search.get("note");

@@ -21,6 +21,7 @@ from service.store.mask_store import MaskStore
 from service.store.pipeline_store import PipelineStore
 from service.store.project_file_store import ProjectFileStore
 from service.store.project_store import ProjectStore
+from service.store.rag_store import RagStore
 from service.store.run_store import RunStore
 from service.store.wip_store import WipStore
 from service.store.worker_store import WorkerStore
@@ -43,6 +44,7 @@ class Stores:
         self.pipelines = PipelineStore(self.engine)
         self.copilot = CopilotStore(self.engine)
         self.wip = WipStore(self.engine)
+        self.rag = RagStore(self.engine)
         self.atlassian = AtlassianStore(self.engine, SecretBox(config.secret_key))
         # Redis
         self.workers = WorkerStore(self.redis_client)

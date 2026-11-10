@@ -17,6 +17,7 @@ from service.pipeline_service import PipelineService
 from service.process_service import ProcessService
 from service.project_data_service import ProjectDataService
 from service.project_service import ProjectService
+from service.rag_service import RagService
 from service.run_service import RunService
 from service.wip_service import WipService
 
@@ -87,3 +88,7 @@ def copilot_service(request: Request) -> CopilotService:
 
 def wip_service(request: Request) -> WipService:
     return request.app.state.container.wip_service
+
+
+def rag_service(request: Request) -> RagService:
+    return request.app.state.container.rag_service

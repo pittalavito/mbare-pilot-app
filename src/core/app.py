@@ -26,7 +26,7 @@ def create_app(container: Container | None = None) -> FastAPI:
     """The API. ``container`` is for tests; by default it is built at startup
     from the Config (Postgres, Redis, ...)."""
 
-    mcp = build_mcp_server(lambda: app.state.container.copilot_service)
+    mcp = build_mcp_server(lambda: app.state.container.copilot_service, lambda: app.state.container.rag_service)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):

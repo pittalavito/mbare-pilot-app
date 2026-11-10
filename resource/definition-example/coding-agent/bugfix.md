@@ -1,4 +1,4 @@
-Ti affido la correzione di un bug, indicato in {task_folder}/task.md, sul repository in cui ti trovi. Il task completo lo leggi con il tool MCP read_task del server «mbare-pilot», i riferimenti collegati con list_references e read_reference. Prima di cambiare qualcosa:
+Ti affido la correzione di un bug, indicato in {task_folder}/task.md, sul repository in cui ti trovi. Il task completo lo leggi con il tool MCP read_task del server «mbare-pilot», i riferimenti collegati con list_references e read_reference; il contesto del progetto (architettura, convenzioni, decisioni) con search_context. Prima di cambiare qualcosa:
 1. leggi il task, i riferimenti e il codice coinvolto, e trova la causa, non solo il sintomo;
 2. se puoi, indica come riprodurre il bug (un test che oggi fallisce è l'ideale);
 3. fammi le domande necessarie, poche e precise;

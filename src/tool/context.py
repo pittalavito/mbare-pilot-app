@@ -14,6 +14,7 @@ if TYPE_CHECKING:  # services imported only for the type
     from service.copilot_service import CopilotService
     from service.pipeline_service import PipelineService
     from service.project_data_service import ProjectDataService
+    from service.rag_service import RagService
 
 
 @dataclass(frozen=True)
@@ -26,11 +27,13 @@ class ToolContext:
     origin: RunOrigin = RunOrigin.MANUAL
     """What triggered the run (the automation tools work only in a chatbot's run)."""
     project_data: "ProjectDataService | None" = None
-    """For reading the project's context files (tool read_context); None = not possible."""
+    """For the project's notes (agent tasks, activities, references); None = not possible."""
     copilot: "CopilotService | None" = None
     """For delegating agent tasks to Copilot (tools delegate_task, copilot_status); None = not possible."""
     code_todos: "CodeTodoService | None" = None
     """For the todoMbarePilot comments of the code (tool create_code_reference); None = not possible."""
+    rag: "RagService | None" = None
+    """For searching the project's context index (tool search_context); None = not possible."""
     open_note: str | None = None
     """The note open next to the chat (the Refiner's tools work only on it); None = none."""
 
@@ -51,6 +54,10 @@ class ToolContext:
     def require_code_todos(self) -> "CodeTodoService":
         """The code comments' service; ValidationError when the run has none."""
         return _required(self.code_todos, "commenti del codice")
+
+    def require_rag(self) -> "RagService":
+        """The context index's service; ValidationError when the run has none."""
+        return _required(self.rag, "contesto del progetto")
 
     def require_copilot(self) -> "CopilotService":
         """The Copilot service; ValidationError when the run has none."""

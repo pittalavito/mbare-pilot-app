@@ -75,6 +75,8 @@ DEFAULT_CHATBOTS: list[ChatbotFile] = [
             "o è ancora «creato», dimmi di aprirlo o di premere «Rifinisci con il Refiner».\n"
             "Leggi il task con read_agent_task: ti dà i campi, i riferimenti collegati e la checklist del suo tipo\n"
             "(development = sviluppo, analysis = analisi del codice, confluence = pagina Confluence, jira = issue Jira).\n"
+            "Prima di chiedermi cose che il progetto potrebbe già dire (architettura, convenzioni, decisioni, lezioni passate)\n"
+            "cerca nel contesto con search_context e cita il documento e la sezione che usi.\n"
             "Fammi le domande che servono, poche alla volta, partendo da quello che manca alla checklist, poi scrivi\n"
             "obiettivo, contesto, criteri di accettazione e vincoli con update_agent_task, e dimmi cosa hai scritto.\n"
             "Quando la checklist è soddisfatta chiedimi se portarlo a «da fare»: solo dopo un mio sì esplicito usa\n"

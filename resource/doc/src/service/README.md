@@ -22,6 +22,7 @@ src/service/
   masking_service.py        mascheramento dei dati sensibili verso i modelli
   copilot_service.py        agent task delegati a GitHub Copilot CLI: chat di preparazione, esecuzione nel worker
   wip_service.py            «Elabora WIP»: anteprima mascherata, una chiamata strutturata, proposte applicate senza LLM
+  rag_service.py            contesto del progetto (RAG): indicizzazione mascherata, ricerca ibrida con le fonti
 ```
 
 Chi crea i service e li collega tra loro è il [Container](../core/README.md) (`core/container.py`): ogni service riceve nel costruttore **gli store e i service che usa, e solo quelli**. Così la firma dice cosa legge e scrive.
@@ -39,6 +40,7 @@ La persistenza è divisa per **aggregato**: uno store per gruppo di dati che viv
 | `ChatbotStore` | chatbot, conversazioni, messaggi, cache delle automation | Postgres | `ChatbotService`, `AutomationCacheService` |
 | `PipelineStore` | automation (step, collegamenti) e run (step delle run); tiene l'engine per `transaction` | Postgres | `PipelineService`, `PipelineRunner` |
 | `CopilotStore` | sessioni, messaggi e turni di Copilot (anche la coda del worker) | Postgres | `CopilotService` |
+| `RagStore` | l'indice del contesto (`document`, `chunk` con gli embedding pgvector) | Postgres | `RagService` |
 | `WipStore` | le «Elabora WIP» (`wip_run`): modello, versione del prompt, proposte e cosa ne ha fatto l'utente | Postgres | `WipService` |
 | `AtlassianStore` | sito e preferiti Atlassian; cifra e decifra il token con `SecretBox` | Postgres | `AtlassianService` |
 | `WorkerStore` | heartbeat dei worker (con TTL) | Redis | `PipelineService` |
@@ -185,6 +187,19 @@ L'utente mette in cache un **suo** messaggio scegliendo un'automation del proget
 - **Regole**: maiuscole e minuscole indifferenti, solo parole intere (`api` non tocca `rapid`), i valori più lunghi vincono su quelli che contengono.
 - **Testo libero scritto dall'utente** (la nota WIP): oltre alla mappa, `mask{termine}` aggiunge il termine alla mappa, e il **riconoscimento automatico** (`domain/masking/preview.py`: email, URL, indirizzi IP, token e chiavi) maschera solo per quella chiamata, con alias propri (`MAIL_1`, `URL_1`, `IP_1`, `CHIAVE_1`) che non entrano nella mappa. Vedi [Elabora WIP](#elabora-wip).
 - **Cosa resta in chiaro**: la run salvata ha input e output veri; il trace in Redis (tool call e chiamate del modello) contiene invece quello che il modello ha visto, cioè gli alias. Un valore che non è un repository e che il modello vede prima che qualcuno lo registri passa in chiaro: per i nomi noti in anticipo (persone, clienti), aggiungili a mano.
+
+## Contesto (RAG)
+
+**`RagService`**: l'indice del contesto di un progetto, quello che il Refiner e Copilot cercano (`search_context`) invece di leggere tutto.
+
+- **Cosa entra**: i documenti `.md` della cartella `context/` del progetto (sotto-scheda «📚 Contesto»: architettura, convenzioni, decisioni, runbook, glossario) e le attività **fatte** con la sezione **«Imparato»** (titolo, descrizione, «Imparato»; non le voci). Niente codice, niente note generiche, niente WIP.
+- **Pezzi** (`domain/rag/chunking.py`): un pezzo per sezione `##`; una sezione oltre `MAX_WORDS` (300) si divide per paragrafi, un paragrafo troppo lungo per frasi e poi per parole. I pezzi sono `Chunk` di datapizza; nei metadati portano il titolo del documento e la sezione, che la ricerca restituisce per citarli.
+- **Mascheramento prima dell'embedding**: se l'embedder non è locale (`Embedder.local`), ogni pezzo passa dalla mappa del progetto e dal riconoscimento automatico (`domain/masking/preview.py`) prima di uscire dal PC; anche la domanda della ricerca. Il testo salvato resta in chiaro: è quello che legge chi cerca.
+- **Indicizzazione**: `index_context(progetto, nome)` e `index_activity(progetto, nome)` (un'attività esce dall'indice se non è più fatta o non ha «Imparato»), `reindex(progetto)` per tutto (toglie quello che non esiste più). Un documento che non è cambiato (`content_hash` del testo e dell'embedder) non si rimanda all'embedder. Partono da soli al salvataggio di un documento di contesto o di un'attività (`index_quietly`: un errore dell'embedder non fa fallire il salvataggio, lo dice la risposta) e con «🔄 Reindicizza tutto».
+- **Ricerca** (`search(progetto, domanda, limit=5)`): coseno tra la domanda e ogni pezzo fatto con lo stesso embedder, più un bonus (`KEYWORD_BONUS`, 0,15 × la quota di parole della domanda presenti nel pezzo: nomi tecnici, sigle). Il punteggio si calcola in Python sui pezzi del progetto (una cartella di contesto è piccola): uguale su Postgres e sul SQLite dei test.
+- **L'embedder** del progetto (`embedder`): `RAG_EMBEDDER` se c'è (`hashing`: quello finto, gratis e offline), altrimenti il suo `embedding_model` via OpenRouter (`openai/text-embedding-3-small` → `openrouter/openai/text-embedding-3-small`); `ollama/…` non è ancora supportato. `state(progetto)` dice documenti, pezzi, embedder e perché non si può costruire.
+- **Il RAG «con memoria»**: il Refiner ha la conversazione e scrive lui la domanda di ricerca a partire da quella.
+- **Set di prova**: `test/data/rag/` (un contesto finto e 12 domande con la sezione attesa); il test misura hit@5.
 
 ## Elabora WIP
 

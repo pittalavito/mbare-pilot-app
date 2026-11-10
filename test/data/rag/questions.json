@@ -1,0 +1,14 @@
+[
+  {"question": "Dove stanno le migrazioni del database e con che strumento?", "path": "context/architettura.md", "section": "Database"},
+  {"question": "Cosa succede a un messaggio quando il consumer fallisce tre volte?", "path": "context/architettura.md", "section": "Code e messaggi"},
+  {"question": "Come si chiamano i branch e che formato hanno i commit?", "path": "context/convenzioni.md", "section": "Branch e commit"},
+  {"question": "Che copertura minima chiede SonarQube sul codice nuovo?", "path": "context/convenzioni.md", "section": "Test"},
+  {"question": "Si possono scrivere email nei log?", "path": "context/convenzioni.md", "section": "Logging"},
+  {"question": "Da quale pipeline Jenkins parte il rilascio?", "path": "context/runbook.md", "section": "Rilascio"},
+  {"question": "Come si fa il rollback di una migrazione Flyway?", "path": "context/runbook.md", "section": "Rollback"},
+  {"question": "Cosa controllo per un picco di errori 5xx sul checkout?", "path": "context/runbook.md", "section": "Allarmi"},
+  {"question": "Che cos'è uno SKU?", "path": "context/glossario.md", "section": "Termini di dominio"},
+  {"question": "Cosa vuol dire PSP?", "path": "context/glossario.md", "section": "Sigle"},
+  {"question": "Perché non usiamo i microservizi?", "path": "context/decisioni.md", "section": "Niente microservizi per ora"},
+  {"question": "Quanto dura la cache Redis del catalogo?", "path": "context/decisioni.md", "section": "Cache del catalogo"}
+]

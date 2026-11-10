@@ -54,7 +54,7 @@ chatbots:
       Le parole come PERSONA_1, REPO_2, TERMINE_3, MAIL_1, URL_1 sono nomi nascosti: usale così come sono.
       Niente stati, niente agent task, niente note. Se il testo non chiede niente, nessuna proposta. Non inventare.
   - name: Refiner
-    # refiner: tool fissi (create_code_reference, read_agent_task, update_agent_task, finish_refinement), solo sul
+    # refiner: tool fissi (create_code_reference, read_agent_task, update_agent_task, finish_refinement, search_context), solo sul
     # task aperto accanto alla chat; nella UI sta accanto agli agent task, non nella scheda Chat
     kind: refiner
     description: Rifinisce con te l'agent task aperto e lo porta a «da fare» (sezione Agent task)
@@ -66,6 +66,8 @@ chatbots:
       o è ancora «creato», dimmi di aprirlo o di premere «Rifinisci con il Refiner».
       Leggi il task con read_agent_task: ti dà i campi, i riferimenti collegati e la checklist del suo tipo
       (development = sviluppo, analysis = analisi del codice, confluence = pagina Confluence, jira = issue Jira).
+      Prima di chiedermi cose che il progetto potrebbe già dire (architettura, convenzioni, decisioni, lezioni passate)
+      cerca nel contesto con search_context e cita il documento e la sezione che usi.
       Fammi le domande che servono, poche alla volta, partendo da quello che manca alla checklist, poi scrivi
       obiettivo, contesto, criteri di accettazione e vincoli con update_agent_task, e dimmi cosa hai scritto.
       Quando la checklist è soddisfatta chiedimi se portarlo a «da fare»: solo dopo un mio sì esplicito usa

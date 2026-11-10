@@ -29,6 +29,7 @@ from service.pipeline_service import PipelineService
 from service.process_service import ProcessService
 from service.project_data_service import ProjectDataService
 from service.project_service import ProjectService
+from service.rag_service import RagService
 from service.run_service import RunService
 from service.store.stores import Stores
 from service.wip_service import WipService
@@ -55,6 +56,8 @@ class Container:
         )
         self.git_service = GitService(projects=stores.projects)
         self.masking_service = MaskingService(projects=stores.projects, masks=stores.masks)
+        self.rag_service = RagService(project_data=self.project_data_service, masking=self.masking_service, projects=stores.projects,
+                                      rag=stores.rag)
         self.pipeline_service = PipelineService(
             pipelines=stores.pipelines,
             projects=stores.projects,
@@ -87,6 +90,7 @@ class Container:
             project_data_service=self.project_data_service,
             copilot_service=self.copilot_service,
             code_todo_service=self.code_todo_service,
+            rag_service=self.rag_service,
         )
         self.automation_cache_service = AutomationCacheService(
             chatbots=stores.chatbots,
