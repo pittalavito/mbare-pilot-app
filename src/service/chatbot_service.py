@@ -152,7 +152,8 @@ class ChatbotService:
         starting with ``!`` skips the cache. When the answer fails the reply is
         an ERROR message (kept in the chat, never sent back to the agent).
         ``open_note``: the note open next to the chat; the agent is told with
-        this message (not saved in the conversation, nor used by the cache)."""
+        this message (not saved in the conversation, nor used by the cache) and
+        its tools get it (the Refiner's work only on it)."""
         text = text.strip()
         bypass = text.startswith(CACHE_BYPASS)
         request = text.removeprefix(CACHE_BYPASS).strip()
@@ -167,7 +168,7 @@ class ChatbotService:
         if match is not None:
             reply = self._from_cache(conversation_id, match.entry)
         else:
-            reply = self._from_agent(conversation_id, chatbot, with_open_note(request, open_note), history)
+            reply = self._from_agent(conversation_id, chatbot, with_open_note(request, open_note), history, open_note)
         reply = self._chatbots.save_message(reply)
 
         update = {"updated_at": datetime.now(timezone.utc)}
@@ -192,9 +193,10 @@ class ChatbotService:
             content=f"{_CACHE_MARK} Ho lanciato l'automation {pipeline.name} (id {run.id})."
         )
 
-    def _from_agent(self, conversation_id: int, chatbot: Chatbot, text: str, history: list[ChatMessage]) -> ChatMessage:
+    def _from_agent(self, conversation_id: int, chatbot: Chatbot, text: str, history: list[ChatMessage], open_note: str = "") -> ChatMessage:
         try:
-            record = self._agents.run_definition(_agent_definition(chatbot), text, origin=RunOrigin.CHAT, history=history,)
+            record = self._agents.run_definition(_agent_definition(chatbot), text, origin=RunOrigin.CHAT, history=history,
+                                                 open_note=open_note.strip() or None)
         except AppError as exc:
             return ChatMessage(conversation_id=conversation_id, role=MessageRole.ERROR, content=str(exc))
         return ChatMessage(

@@ -1,6 +1,7 @@
 """Agent tasks delegated to GitHub Copilot CLI: sessions per project, the
 planning chat (each message waits for Copilot's answer), the ok that queues
-the execution for the worker, cancellation; what the turns used, per session
+the execution for the worker, sending a task to verify back to Copilot,
+saving the answer of a plan-only task as a note, cancellation; what the turns used, per session
 and for Observability (/observability/copilot/...)."""
 from fastapi import APIRouter, Depends, Response, status
 
@@ -11,6 +12,7 @@ from models.controller.copilot import (
     CopilotMessageResponse,
     CopilotModelOptionResponse,
     CopilotModelUsageResponse,
+    CopilotSavedNoteResponse,
     CopilotSessionRequest,
     CopilotSessionResponse,
     CopilotSessionUsageResponse,
@@ -94,6 +96,19 @@ def send_message(session_id: int, request: CopilotMessageRequest, service: Copil
 def approve(session_id: int, service: CopilotService = Depends(copilot_service)) -> CopilotSessionResponse:
     """The ok: the execution goes in the worker's queue."""
     return CopilotSessionResponse.from_session(service.approve(session_id))
+
+
+@router.post("/copilot-sessions/{session_id}/send-back")
+def send_back(session_id: int, request: CopilotMessageRequest, service: CopilotService = Depends(copilot_service)) -> CopilotSessionResponse:
+    """A task to verify needs more work: the message starts a new execution of the same session (in the worker's queue)."""
+    return CopilotSessionResponse.from_session(service.send_back(session_id, request.text))
+
+
+@router.post("/copilot-sessions/{session_id}/save-note")
+def save_note(session_id: int, service: CopilotService = Depends(copilot_service)) -> CopilotSavedNoteResponse:
+    """A plan-only task (analysis, Confluence, Jira): Copilot's last answer becomes a note linked to the task, which becomes done."""
+    note, session = service.save_as_note(session_id)
+    return CopilotSavedNoteResponse(note=note, session=CopilotSessionResponse.from_session(session))
 
 
 @router.post("/copilot-sessions/{session_id}/cancel")

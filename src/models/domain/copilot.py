@@ -52,6 +52,9 @@ class CopilotSession(BaseModel):
     model: str = ""
     """Copilot's model, for every turn of the session; ``""`` = COPILOT_MODEL or Copilot's default."""
     status: CopilotSessionStatus = CopilotSessionStatus.PLANNING
+    next_prompt: str = ""
+    """The turn that starts the next execution; ``""`` = the definition's
+    ``execute_prompt``. Set when the user sends the task back to Copilot."""
     cancel_requested: bool = False
     """Set by the API, read by the worker that is running it."""
     head_before: str | None = None
@@ -110,6 +113,8 @@ class CodingAgentSettings(BaseModel):
     type_prompts: dict[TaskType, str] = Field(default_factory=dict)
     """The prompt (a name of ``prompts``, ``""`` = ``plan_prompt``) of each task
     type, used when delegating without choosing one; a type not here: ``plan_prompt``."""
+    task_checklists: dict[TaskType, list[str]] = Field(default_factory=dict)
+    """What a refined task of each type should have; a type not here: nothing to check."""
     models: list[CopilotModel] = Field(default_factory=list)
     """The models to choose from when delegating (besides the default), as written."""
     prompts: dict[str, str] = Field(default_factory=dict)

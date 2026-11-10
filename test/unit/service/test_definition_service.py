@@ -330,7 +330,7 @@ def test_the_default_chatbots_are_created_where_missing_and_never_changed(servic
     bots = {bot.name: bot for bot in chatbots.list_chatbots("acme")}
     assert set(bots) == {"Chat bot", "Refiner", "segretario"}
     assert bots["Refiner"].kind.value == "refiner" and bots["Refiner"].tool_names == [
-        "create_code_reference", "list_refinable_tasks", "start_refinement", "read_agent_task", "update_agent_task", "finish_refinement",
+        "create_code_reference", "read_agent_task", "update_agent_task", "finish_refinement",
     ]
     assert bots["Chat bot"].kind.value == "automation" and bots["Chat bot"].tool_names == ["list_automations", "run_automation", "automation_status"]
     assert bots["segretario"] == mine

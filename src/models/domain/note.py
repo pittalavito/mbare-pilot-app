@@ -34,11 +34,14 @@ class NoteType(StrEnum):
 class TaskStatus(StrEnum):
     """In this order: created (by hand) and refinement (being refined with an
     agent, or created by the secretary) come before todo, ready to delegate;
-    Copilot moves it to in_progress, then done (or back to todo)."""
+    Copilot moves it to in_progress, then to_verify (a development: the user
+    checks Copilot's changes and confirms) or done (the other types, when the
+    user saves Copilot's answer as a note), or back to todo when it fails."""
     CREATED = "created"
     REFINEMENT = "refinement"
     TODO = "todo"
     IN_PROGRESS = "in_progress"
+    TO_VERIFY = "to_verify"
     DONE = "done"
 
     @property
@@ -48,13 +51,21 @@ class TaskStatus(StrEnum):
 
 
 class TaskType(StrEnum):
-    """What the task asks for; it picks Copilot's planning prompt (type_prompts)."""
-    REFINEMENT = "refinement"
-    """Refine a story: make it clear and complete."""
+    """What the task asks for; it picks Copilot's planning prompt
+    (type_prompts) and how Copilot works on it (``plan_only``)."""
     DEVELOPMENT = "development"
-    """Develop something: change the code."""
+    """Develop something: Copilot changes the code (planning, then execution)."""
     ANALYSIS = "analysis"
-    """Analyse: read the code and answer."""
+    """Analyse the code: Copilot reads and answers; the answer becomes a note."""
+    CONFLUENCE = "confluence"
+    """Write a Confluence page: Copilot writes the draft; it becomes a note."""
+    JIRA = "jira"
+    """Refine a Jira issue (was «refinement»): Copilot writes the draft; it becomes a note."""
+
+    @property
+    def plan_only(self) -> bool:
+        """Copilot never changes the code: no execution, its answer is saved as a note."""
+        return self != TaskType.DEVELOPMENT
 
 
 class ChecklistItem(BaseModel):

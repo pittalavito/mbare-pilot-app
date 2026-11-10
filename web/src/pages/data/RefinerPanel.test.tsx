@@ -121,7 +121,7 @@ describe("RefinerPanel", () => {
       "GET /projects/acme/agent-tasks": () => [current],
       "POST /conversations/3/messages": async (request: Request) => {
         bodies.push(await request.json());
-        current = { ...current, status: "refinement", objective: "Login sotto il secondo" }; // what start_refinement + update_agent_task do
+        current = { ...current, status: "refinement", objective: "Login sotto il secondo" }; // what the button and update_agent_task do
         return {};
       },
     });

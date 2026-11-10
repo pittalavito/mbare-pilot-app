@@ -21,7 +21,8 @@ _ONLY_IN_CHAT = "Agent task e riferimenti disponibili solo nel chatbot di un pro
 _KINDS = {NoteType.CODE_REFERENCE: "code", NoteType.CONTEXT_REFERENCE: "context"}
 
 Type = Annotated[TaskType, (
-    "What the task asks for: refinement (refine a story), development (develop something) or analysis (analyse and answer)."
+    "What the task asks for: development (change the code), analysis (analyse the code and answer), "
+    "confluence (write a Confluence page) or jira (refine a Jira issue)."
 )]
 References = Annotated[list[str], "Reference note names from list_references (only ones that matter for the task); [] = none."]
 

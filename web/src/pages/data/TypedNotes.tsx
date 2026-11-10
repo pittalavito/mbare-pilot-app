@@ -12,6 +12,7 @@ import {
 } from "../../api/projectData";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { DelegateModal } from "../copilot/DelegateModal";
+import { SendBackModal } from "../copilot/SendBackModal";
 import { ChecklistEditor } from "./ChecklistEditor";
 import { ReferencesSection } from "./ReferencesSection";
 import { RefinerPanel } from "./RefinerPanel";
@@ -21,21 +22,28 @@ import { RefinerPanel } from "./RefinerPanel";
  * their template; here each one is a form of its fields, with the code and
  * context references it links (ReferencesSection). */
 
-/** In order: created and refinement come before todo, ready to delegate. */
+/** In order: created and refinement come before todo, ready to delegate;
+ * a development goes through «to verify» (the user checks Copilot's changes). */
 export const STATUS = [
   { value: "created", label: "Creato", group: "Creati", color: "gray" },
   { value: "refinement", label: "In rifinitura", group: "In rifinitura", color: "yellow" },
   { value: "todo", label: "Da fare", group: "Da fare", color: "indigo" },
   { value: "in_progress", label: "In corso", group: "In corso", color: "blue" },
+  { value: "to_verify", label: "Da verificare", group: "Da verificare", color: "orange" },
   { value: "done", label: "Fatto", group: "Fatti", color: "green" },
 ] as const;
 
-/** What the task asks for; it picks Copilot's planning prompt (type_prompts). */
+/** What the task asks for; it picks Copilot's planning prompt (type_prompts).
+ * Only a development changes the code: the others stay in planning and
+ * Copilot's answer is saved as a note (``planOnly``). */
 export const TYPES = [
-  { value: "refinement", label: "Rifinitura", color: "grape" },
   { value: "development", label: "Sviluppo", color: "teal" },
   { value: "analysis", label: "Analisi", color: "orange" },
+  { value: "confluence", label: "Doc Confluence", color: "blue" },
+  { value: "jira", label: "Task Jira", color: "grape" },
 ] as const;
+
+export const isPlanOnly = (type?: string) => (type ?? "development") !== "development";
 
 const ALL = "all";
 
@@ -94,7 +102,7 @@ function AgentTaskList({ project, onSelected, onRefine }: {
       groups={STATUS.map((status) => ({ key: status.value, label: status.group, color: status.color, collapsed: status.value === "done" }))}
       groupOf={(task) => task.status ?? "created"}
       describe={(task) => {
-        const kind = TYPES.find((item) => item.value === task.type) ?? TYPES[1];
+        const kind = TYPES.find((item) => item.value === task.type) ?? TYPES[0];
         return <Badge size="xs" variant="outline" color={kind.color}>{kind.label}</Badge>;
       }}
       create={(title, done) => save.mutate({
@@ -331,29 +339,34 @@ function BornFrom({ project, task }: { project: string; task: string }) {
 }
 
 /** Where the task is in its flow, and the one action that moves it on:
- * created → «Rifinisci con il Refiner», in refinement → «Segna da fare», todo →
- * «Delega a Copilot»; in progress and done are Copilot's. «Cambia stato» is for
- * any other move, by hand. */
-function StatusPath({ project, status, missing, busy, dirty, onStatus, onRefine, onDelegate }: {
+ * created → «Rifinisci con il Refiner» (in refinement at once, no LLM), in
+ * refinement → «Segna da fare», todo → «Delega a Copilot», to verify →
+ * «Conferma» or «Rimanda a Copilot»; in progress is Copilot's. Only a
+ * development has «to verify» in its path. «Cambia stato» is for any other
+ * move, by hand. */
+function StatusPath({ project, status, planOnly, missing, busy, dirty, onStatus, onRefine, onDelegate, onSendBack }: {
   project: string; status: string;
+  /** Not a development: Copilot never changes the code, no «to verify». */
+  planOnly: boolean;
   /** What a refined task should have and this one lacks. */
   missing: string[];
   busy: boolean; dirty: boolean;
-  onStatus: (status: AgentTaskBody["status"]) => void; onRefine: () => void; onDelegate: () => void;
+  onStatus: (status: AgentTaskBody["status"]) => void; onRefine: () => void; onDelegate: () => void; onSendBack: () => void;
 }) {
-  const index = Math.max(0, STATUS.findIndex((item) => item.value === status));
+  const path = STATUS.filter((item) => !planOnly || item.value !== "to_verify" || status === "to_verify");
+  const index = Math.max(0, path.findIndex((item) => item.value === status));
   return (
     <Stack gap="xs">
       <Stepper active={index} size="xs" iconSize={22} allowNextStepsSelect={false} aria-label="Stato del task">
-        {STATUS.map((item, position) => (
-          <Stepper.Step key={item.value} label={item.label} color={position <= index ? STATUS[index].color : undefined} />
+        {path.map((item, position) => (
+          <Stepper.Step key={item.value} label={item.label} color={position <= index ? path[index].color : undefined} />
         ))}
       </Stepper>
       <Group gap="xs">
         {status === "created" && (
           <>
-            <Button size="xs" onClick={onRefine}>🧠 Rifinisci con il Refiner</Button>
-            <Text size="xs" c="dimmed">Il Refiner lo prende, ti fa domande e scrive i campi con te.</Text>
+            <Button size="xs" loading={busy} onClick={() => { onStatus("refinement"); onRefine(); }}>🧠 Rifinisci con il Refiner</Button>
+            <Text size="xs" c="dimmed">Il task passa «in rifinitura»: il Refiner ti fa domande e scrive i campi con te.</Text>
           </>
         )}
         {status === "refinement" && (
@@ -371,8 +384,16 @@ function StatusPath({ project, status, missing, busy, dirty, onStatus, onRefine,
         )}
         {status === "in_progress" && (
           <Text size="xs">
-            Copilot ci sta lavorando: <Anchor component={Link} to={`/projects/${encodeURIComponent(project)}/copilot`}>apri Copilot</Anchor>.
+            Copilot ci sta lavorando: <Anchor component={Link} to={`/projects/${encodeURIComponent(project)}/copilot`}>apri Copilot</Anchor>
+            {planOnly && <>; quando la risposta va bene, «Salva come nota»</>}.
           </Text>
+        )}
+        {status === "to_verify" && (
+          <>
+            <Button size="xs" color="green" onClick={() => onStatus("done")} loading={busy}>✅ Conferma</Button>
+            <Button size="xs" variant="light" onClick={onSendBack}>↩️ Rimanda a Copilot</Button>
+            <Text size="xs" c="dimmed">Controlla le modifiche di Copilot: commit e push li fai tu.</Text>
+          </>
         )}
         {status === "done" && <Text size="xs" c="dimmed">Fatto.</Text>}
         <Menu position="bottom-end">
@@ -380,7 +401,7 @@ function StatusPath({ project, status, missing, busy, dirty, onStatus, onRefine,
             <Button size="xs" variant="subtle" ml="auto" loading={busy && status !== "refinement"}>Cambia stato ▾</Button>
           </Menu.Target>
           <Menu.Dropdown>
-            {STATUS.filter((item) => item.value !== status).map((item) => (
+            {path.filter((item) => item.value !== status).map((item) => (
               <Menu.Item key={item.value} onClick={() => onStatus(item.value)}>
                 <Badge size="xs" variant="light" color={item.color}>{item.label}</Badge>
               </Menu.Item>
@@ -407,6 +428,7 @@ function AgentTaskEditor({ project, task, onRefine }: { project: string; task: A
   const outdated = latest !== JSON.stringify(base); // changed elsewhere (e.g. by the Refiner)
   useEffect(() => { if (outdated && !dirty) reload(); }, [latest]); // eslint-disable-line react-hooks/exhaustive-deps
   const [delegating, setDelegating] = useState(false);
+  const [sendingBack, setSendingBack] = useState(false);
   const write = (body: AgentTaskBody, message: (saved: AgentTask) => string) =>
     save.mutate(
       { name: task.name, body: { ...body, criteria: (body.criteria ?? []).filter((item) => item.text.trim()) } },
@@ -428,7 +450,12 @@ function AgentTaskEditor({ project, task, onRefine }: { project: string; task: A
         run: () => deleteSessions.mutateAsync(task.name),
         error: deleteSessions.error?.message,
       } : undefined}
-      actions={<DelegateModal project={project} task={task.name} opened={delegating} onClose={() => setDelegating(false)} />}
+      actions={
+        <>
+          <DelegateModal project={project} task={task.name} opened={delegating} onClose={() => setDelegating(false)} />
+          <SendBackModal project={project} task={task.name} opened={sendingBack} onClose={() => setSendingBack(false)} />
+        </>
+      }
     >
       {outdated && dirty && (
         <Alert color="orange">
@@ -439,8 +466,8 @@ function AgentTaskEditor({ project, task, onRefine }: { project: string; task: A
         </Alert>
       )}
       <StatusPath
-        project={project} status={form.status ?? "created"} missing={missing} busy={save.isPending} dirty={dirty}
-        onStatus={moveTo} onRefine={onRefine} onDelegate={() => setDelegating(true)}
+        project={project} status={form.status ?? "created"} planOnly={isPlanOnly(form.type)} missing={missing} busy={save.isPending} dirty={dirty}
+        onStatus={moveTo} onRefine={onRefine} onDelegate={() => setDelegating(true)} onSendBack={() => setSendingBack(true)}
       />
       <BornFrom project={project} task={task.name} />
       <TextInput label="Titolo" value={form.title} onChange={(event) => set({ title: event.currentTarget.value })} />

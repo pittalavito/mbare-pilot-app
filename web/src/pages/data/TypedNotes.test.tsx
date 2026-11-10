@@ -72,11 +72,11 @@ describe("agent task status and type", () => {
     expect(await screen.findByText("Manca ancora l'obiettivo e i criteri di accettazione.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Delega a Copilot/ })).not.toBeInTheDocument(); // not ready
     fireEvent.change(screen.getByLabelText("Obiettivo", { exact: false }), { target: { value: "Capire il login" } });
-    fireEvent.click(within(screen.getByRole("radiogroup", { name: "Tipo del task" })).getByRole("radio", { name: "Rifinitura" }));
+    fireEvent.click(within(screen.getByRole("radiogroup", { name: "Tipo del task" })).getByRole("radio", { name: "Task Jira" }));
     fireEvent.click(screen.getByRole("button", { name: /Segna da fare/ }));
 
     await waitFor(() => expect(saved).toHaveBeenCalled());
-    expect(await saved.mock.results[0].value).toMatchObject({ status: "todo", type: "refinement", objective: "Capire il login" }); // the form too
+    expect(await saved.mock.results[0].value).toMatchObject({ status: "todo", type: "jira", objective: "Capire il login" }); // the form too
     expect(await screen.findByRole("button", { name: /Delega a Copilot/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Segna da fare/ })).not.toBeInTheDocument();
 
@@ -84,6 +84,58 @@ describe("agent task status and type", () => {
     fireEvent.click(await screen.findByRole("menuitem", { name: "In corso" }));
     expect(await screen.findByText(/Copilot ci sta lavorando/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "apri Copilot" })).toHaveAttribute("href", "/projects/acme/copilot");
+    expect(screen.getByText(/«Salva come nota»/)).toBeInTheDocument(); // a Jira task: Copilot's answer becomes a note
+    expect(within(screen.getByLabelText("Stato del task")).queryByText("Da verificare")).not.toBeInTheDocument(); // not in a plan-only task's path
+  });
+
+  it("«Rifinisci con il Refiner» moves a created task to refinement at once", async () => {
+    let current = task("agent-task-grezzo.md", "Grezzo", "created", "development");
+    const saved = vi.fn(async (request: Request) => { current = { ...current, ...(await request.json()) }; return current; });
+    mockApi({ ...BASE, "GET /projects/acme/agent-tasks": () => [current], "PUT /projects/acme/agent-tasks/agent-task-grezzo.md": saved });
+    renderData();
+
+    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Rifinisci con il Refiner/ }));
+
+    await waitFor(() => expect(saved).toHaveBeenCalled());
+    expect(await saved.mock.results[0].value).toMatchObject({ status: "refinement" });
+  });
+
+  it("a development to verify is confirmed, or sent back to Copilot in its latest session", async () => {
+    let current = task("agent-task-export.md", "Export", "to_verify", "development", { objective: "x", criteria: [{ text: "ok", done: false }] });
+    const saved = vi.fn(async (request: Request) => { current = { ...current, ...(await request.json()) }; return current; });
+    const sentBack = vi.fn(async (request: Request) => ({ id: 7, status: "queued", text: (await request.json()).text }));
+    mockApi({
+      ...BASE,
+      "GET /projects/acme/copilot-sessions": [{ id: 7, task_note: "agent-task-export.md", status: "done" }, { id: 3, task_note: "agent-task-export.md", status: "done" }],
+      "GET /projects/acme/agent-tasks": () => [current],
+      "PUT /projects/acme/agent-tasks/agent-task-export.md": saved,
+      "POST /copilot-sessions/7/send-back": sentBack,
+    });
+    renderData();
+
+    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    expect(await screen.findByText(/commit e push li fai tu/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Rimanda a Copilot/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "Rimanda" })).toBeDisabled(); // nothing written yet
+    fireEvent.change(within(dialog).getByLabelText("Cosa deve sistemare"), { target: { value: "Aggiungi un test" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Rimanda" }));
+    await waitFor(() => expect(sentBack).toHaveBeenCalled());
+    expect(await sentBack.mock.results[0].value).toMatchObject({ text: "Aggiungi un test" }); // the newest session
+
+    fireEvent.click(screen.getByRole("button", { name: /Conferma/ }));
+    await waitFor(() => expect(saved).toHaveBeenCalled());
+    expect(await saved.mock.results[0].value).toMatchObject({ status: "done" });
+  });
+
+  it("sending back without a Copilot session says to delegate again", async () => {
+    mockApi({ ...BASE, "GET /projects/acme/agent-tasks": [task("agent-task-export.md", "Export", "to_verify", "development")] });
+    renderData();
+
+    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Rimanda a Copilot/ }));
+    expect(await screen.findByText(/Nessuna sessione Copilot per questo task/)).toBeInTheDocument();
   });
 });
 

@@ -31,6 +31,8 @@ class ToolContext:
     """For delegating agent tasks to Copilot (tools delegate_task, copilot_status); None = not possible."""
     code_todos: "CodeTodoService | None" = None
     """For the todoMbarePilot comments of the code (tool create_code_reference); None = not possible."""
+    open_note: str | None = None
+    """The note open next to the chat (the Refiner's tools work only on it); None = none."""
 
     def require_project(self) -> str:
         """The run's project; ValidationError for tools that need one."""
