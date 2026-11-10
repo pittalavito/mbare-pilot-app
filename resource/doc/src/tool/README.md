@@ -29,7 +29,7 @@ I tool che un agente può chiamare durante una run:
 | `list_agent_tasks` | **con contesto**, solo chatbot | gli agent task del progetto (nome, titolo, stato) con lo stato dell'ultima sessione Copilot, se c'è Copilot: quelli che si possono delegare |
 | `delegate_task` | **con contesto**, solo chatbot | delega un agent task a Copilot su un repository: apre la chat di preparazione e restituisce il link |
 | `copilot_status` | **con contesto**, solo chatbot | stato di un task delegato: solo lo stato, quanti file ha cambiato e se l'HEAD si è mosso |
-| `read_context` | **con contesto** | il contesto del progetto per il chatbot: i `.md` di `project/<slug>/context/` (la cartella che indicizzerà il RAG); ultima risorsa |
+| `search_context` | **con indice del contesto** | cerca nel contesto del progetto ([RAG](../service/README.md#contesto-rag)): i documenti di `context/` e le attività fatte con «Imparato». Restituisce i 5 pezzi migliori con documento e sezione, da citare. Ce l'ha il Refiner (tra i suoi tool fissi) e Copilot via MCP; ha sostituito `read_context`, che leggeva tutto |
 
 ```
 src/tool/
@@ -49,7 +49,7 @@ src/tool/
       delegate_task.py  delega un agent task a Copilot (apre la chat)
       copilot_status.py stato di un task delegato
     project/
-      read_context.py   contesto del progetto per il chatbot
+      search_context.py ricerca nel contesto del progetto (RAG)
     git/
       git_status.py     esempio con contesto
       git_pull_fast_forward.py  pull solo in fast-forward
@@ -259,7 +259,7 @@ In entrambi i casi: il modello di output in `models/domain/tool.py`.
 - `test/unit/tool/test_run_automation.py`: run messa in coda con risposta immediata, solo automation attive e con step nella descrizione, automation sconosciuta, niente lancio fuori dal chatbot di un progetto (run manuale, fuori da un progetto, dentro un'automation, anche eseguita davvero dal runner).
 - `test/unit/tool/test_automation_status.py`: solo gli stati dell'esecuzione e degli step, mai output o errori; esecuzioni di altri progetti non trovate; solo nel chatbot.
 - `test/unit/tool/test_copilot_tools.py`: elenco dei task, delega che apre la chat senza riportare le risposte di Copilot, stato, errori con i repository disponibili, solo nel chatbot (con il finto Copilot di `test/fake_copilot.py`).
-- `test/unit/tool/test_read_context.py`: i `.md` di `context/`, nient'altro; errori senza file o senza progetto.
+- `test/unit/tool/test_search_context.py`: i pezzi con la fonte; indice vuoto, domanda vuota, run senza indice.
 - `test/unit/tool/test_git_write.py`: pull e stash con un remoto vero: commit arrivati, già aggiornato, modifiche locali che bloccano, file non tracciati che non bloccano, branch divergente mai unito, branch senza upstream, autori registrati per il mascheramento, errori senza percorsi locali; stash dei soli file tracciati, stash e poi pull, niente da mettere da parte; stash apply dell'ultimo o di uno indicato (lo stash resta), errori (nessuno stash, stash inesistente o non valido, modifiche locali), conflitti segnalati.
 - `test/unit/tool/test_git_workflow.py`: log, diff, fetch, branch, checkout, nuovo branch, commit, push e pull di tutti i repository su un branch, con un `origin` vero e due cloni: fetch che non tocca i file e dimentica i branch cancellati, checkout di un branch solo remoto, rifiuti con modifiche locali, diff non staged/staged/di un commit e taglio, commit di tutto o di file scelti, push con e senza upstream, push rifiutato (con e senza fetch), repository saltati o falliti senza fermare gli altri; ogni tool nuovo risponde, errori con i repository disponibili, repository e autori mascherati, percorsi locali nascosti; le funzioni `git_pull_all_repo_by_branch`, `git_fetch` e `git_log`.
 - `test/unit/tool/test_git_tools.py`: `git_status` su un repository vero; progetto deciso dalla run, errori con i repository disponibili, percorsi fuori dal progetto, run senza progetto, schema degli argomenti, percorsi locali nascosti negli errori. Serve `git` nel PATH.

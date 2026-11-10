@@ -397,8 +397,8 @@ class CopilotTurnTable(SQLModel, table=True):
 # ---------------------------------------------------------------------- RAG
 
 class DocumentTable(SQLModel, table=True):
-    """A data item of the project indexed for RAG: a note or an uploaded file
-    in ``<MBARE_PILOT_HOME>/projects/<slug>/`` (never the code folder)."""
+    """A data item of the project indexed for RAG (service/rag_service.py): a
+    document of ``context/`` or a done activity with «Imparato» (never the code)."""
     __tablename__ = "document"
     __table_args__ = (UniqueConstraint("project_name", "path"),)
 
@@ -407,7 +407,8 @@ class DocumentTable(SQLModel, table=True):
     path: str
     """Relative to the project's data folder (e.g. ``notes/setup.md``)."""
     source: str
-    """``note`` | ``file``."""
+    """``context`` (a document of context/) | ``activity`` (a done activity with «Imparato»)."""
+    title: str = ""
     content_hash: str
     indexed_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
 
@@ -419,6 +420,8 @@ class ChunkTable(SQLModel, table=True):
     document_id: int = Field(foreign_key="document.id", index=True, ondelete="CASCADE")
     project_name: str = _project_fk(nullable=False)
     position: int
+    section: str = ""
+    """The ``##`` heading the piece comes from (``""`` = before the first one)."""
     text: str = Field(sa_type=Text)
     embedding_model: str
     embedding: list[float] = Field(sa_column=Column(Vector()))

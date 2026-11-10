@@ -322,14 +322,20 @@ class ProjectDataService:
         return self._files.delete(self._id(project_name, FILES_DIR, data_file_name(file_name)))
 
     # --------------------------------------------------------------- context
-    def context(self, project_name: str) -> dict[str, str]:
-        """The project's context: the ``.md`` files of ``context/``, name -> content."""
-        prefix = f"{project_slug(self._project(project_name))}/{CONTEXT_DIR}"
-        return {
-            stored.file_id.rsplit("/", 1)[-1]: self._files.read(stored.file_id).decode("utf-8")
-            for stored in sorted(self._files.list(prefix), key=lambda item: item.file_id.lower())
-            if stored.file_id.endswith(NOTE_SUFFIX)
-        }
+    def list_context(self, project_name: str) -> list[ProjectDataFile]:
+        """The project's context documents: the ``.md`` of ``context/``, by name."""
+        return [item for item in self._list(project_name, CONTEXT_DIR, ProjectDataKind.NOTE) if item.name.endswith(NOTE_SUFFIX)]
+
+    def read_context(self, project_name: str, name: str) -> str:
+        return self._files.read(self._id(project_name, CONTEXT_DIR, note_file_name(name))).decode("utf-8")
+
+    def save_context(self, project_name: str, name: str, content: str) -> ProjectDataFile:
+        """Create or overwrite a context document (``.md`` added when missing)."""
+        stored = self._files.save(self._id(project_name, CONTEXT_DIR, note_file_name(name)), content.encode("utf-8"))
+        return _to_data_file(stored, ProjectDataKind.NOTE)
+
+    def delete_context(self, project_name: str, name: str) -> bool:
+        return self._files.delete(self._id(project_name, CONTEXT_DIR, note_file_name(name)))
 
     # --------------------------------------------------------------- helpers
     def _project(self, project_name: str) -> str:

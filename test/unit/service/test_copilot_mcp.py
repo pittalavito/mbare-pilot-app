@@ -13,6 +13,7 @@ from pathlib import Path
 import httpx
 import pytest
 import uvicorn
+from sqlmodel import SQLModel, create_engine
 
 from core.app import create_app
 from core.container import Container
@@ -27,6 +28,16 @@ from service.git_service import GitService
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
 
 FAKE = [sys.executable, str(Path(__file__).parents[2] / "fake_copilot.py")]
+
+
+@pytest.fixture
+def engine(tmp_path):
+    """A SQLite file, one connection per thread: here the API, the worker and
+    ask_user write at the same time (the shared in-memory connection of the
+    other tests would mix their transactions; Postgres has a pool)."""
+    engine = create_engine(f"sqlite:///{tmp_path / 'app.db'}", connect_args={"check_same_thread": False, "timeout": 30})
+    SQLModel.metadata.create_all(engine)
+    return engine
 
 
 def _git(cwd, *args) -> None:
@@ -266,6 +277,22 @@ def test_copilot_reads_the_task_asks_and_finishes_through_the_real_server(server
     assert service.session(session.id).status == CopilotSessionStatus.DONE
 
 
+def test_copilot_searches_the_project_s_context(server):
+    container, base = server
+    data, service = container.project_data_service, container.copilot_service
+    data.save_context("acme", "convenzioni", "# Convenzioni\n\n## Branch\nI branch si chiamano feature/<ticket>.")
+    container.rag_service.reindex("acme")
+    session = service.start("acme", _task(data), "api")
+    body = {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "search_context", "arguments": {"question": "Come si chiamano i branch?"}}}
+    headers = {"Accept": "application/json, text/event-stream", "Authorization": f"Bearer {session.mcp_token}"}
+
+    result = httpx.post(f"{base}/mcp/", json=body, headers=headers, timeout=10).json()["result"]
+
+    [hit] = result["structuredContent"]["result"]
+    assert (hit["path"], hit["section"]) == ("context/convenzioni.md", "Branch")
+
+
 def test_the_server_refuses_a_wrong_token(server):
     _, base = server
     body = {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "read_task", "arguments": {}}}
@@ -275,4 +302,5 @@ def test_the_server_refuses_a_wrong_token(server):
 
     assert result["isError"] and "Token MCP non valido" in result["content"][0]["text"]
     tools = httpx.post(f"{base}/mcp/", json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"}, headers=headers, timeout=10).json()
-    assert sorted(tool["name"] for tool in tools["result"]["tools"]) == ["ask_user", "finish", "list_references", "read_reference", "read_task"]
+    assert sorted(tool["name"] for tool in tools["result"]["tools"]) == [
+        "ask_user", "finish", "list_references", "read_reference", "read_task", "search_context"]

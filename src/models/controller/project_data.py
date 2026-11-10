@@ -78,6 +78,8 @@ class ActivityBody(BaseModel):
     """The agent tasks born from it, by name."""
     references: list[str] = []
     """The linked reference notes, by name."""
+    learned: str = ""
+    """What was learned (``## Imparato``): a done activity with it enters the context index."""
 
     def to_activity(self) -> Activity:
         return Activity(**self.model_dump(exclude={"items"}), items=[TodoItem(**item.model_dump()) for item in self.items])
@@ -144,3 +146,15 @@ class CodeTodoScanResponse(BaseModel):
     comments: int
     malformed: int = 0
     """Comments written wrong: listed in the note, to fix."""
+
+
+# ------------------------------------------------------------------ context
+
+class ContextSavedResponse(BaseModel):
+    name: str
+    index_error: str | None = None
+    """Why the document could not be indexed (e.g. no embedder key); None when it was (or did not change)."""
+
+
+class ContextSearchRequest(BaseModel):
+    question: str

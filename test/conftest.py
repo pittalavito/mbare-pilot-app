@@ -63,6 +63,7 @@ def config(tmp_path):
         mbare_pilot_home=str(tmp_path / "home"),
         mbare_pilot_secret_key=Fernet.generate_key().decode(),
         copilot_command="copilot-disabled-in-tests",  # never the real CLI (it spends AI credits): tests use test/fake_copilot.py
+        rag_embedder="hashing",  # the context index never calls a real embedder in the tests
     )
     test_config.definitions_root.mkdir(parents=True)
     (test_config.definitions_root / "global-agent.yml").write_text(HELLO_AGENT, encoding="utf-8")
@@ -148,6 +149,11 @@ def atlassian_store(stores):
 @pytest.fixture
 def copilot_store(stores):
     return stores.copilot
+
+
+@pytest.fixture
+def rag_store(stores):
+    return stores.rag
 
 
 @pytest.fixture

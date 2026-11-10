@@ -23,13 +23,16 @@ from starlette.applications import Starlette
 
 from core.error import AppError
 from models.domain.note import TaskLink
+from models.domain.rag import RagHit
 
 if TYPE_CHECKING:
     from service.copilot_service import CopilotService
+    from service.rag_service import RagService
 
 _INSTRUCTIONS = (
     "Server dell'app mbare-pilot per l'agent task che ti è stato affidato. read_task: il task completo; list_references e "
-    "read_reference: i riferimenti collegati; ask_user: una domanda all'utente durante l'esecuzione (aspetta la risposta); "
+    "read_reference: i riferimenti collegati; search_context: il contesto del progetto (architettura, convenzioni, decisioni); "
+    "ask_user: una domanda all'utente durante l'esecuzione (aspetta la risposta); "
     "finish: quando hai finito, con un riassunto."
 )
 
@@ -52,8 +55,8 @@ def _reported[**P, R](tool: Callable[P, R]) -> Callable[P, R]:
     return call
 
 
-def build_mcp_server(copilot: Callable[[], "CopilotService"]) -> MCPServer:
-    """The server and its tools; ``copilot`` gives the service at call time (the Container is built at startup)."""
+def build_mcp_server(copilot: Callable[[], "CopilotService"], rag: Callable[[], "RagService"]) -> MCPServer:
+    """The server and its tools; ``copilot`` and ``rag`` give the services at call time (the Container is built at startup)."""
     server = MCPServer("mbare-pilot", instructions=_INSTRUCTIONS)
 
     @server.tool(description="The agent task you work on: title, type, objective, context, acceptance criteria, constraints, and the "
@@ -72,6 +75,12 @@ def build_mcp_server(copilot: Callable[[], "CopilotService"]) -> MCPServer:
     @_reported
     def read_reference(name: Annotated[str, Field(description="The name, as list_references gives it.")], ctx: Context) -> str:
         return copilot().mcp_link(_token(ctx), name)
+
+    @server.tool(description="Search the project's context (architecture, conventions, decisions, runbooks, lessons of done "
+                             "activities): the best pieces with their document and section. Ask a specific question.")
+    @_reported
+    def search_context(question: Annotated[str, Field(description="What you want to know, in a sentence.")], ctx: Context) -> list[RagHit]:
+        return rag().search(copilot().mcp_session(_token(ctx)).project_name, question)
 
     @server.tool(description="During the execution: ask the user something you cannot decide alone. The question appears in the "
                              "app's chat and this waits for the answer (minutes); without an answer in time, decide yourself and "

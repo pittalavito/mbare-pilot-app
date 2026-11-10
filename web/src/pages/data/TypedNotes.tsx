@@ -142,7 +142,7 @@ export function Activities({ project }: { project: string }) {
           </Group>
         );
       }}
-      create={(title, done) => save.mutate({ body: { title, status: "todo", description: "", items: [], agent_tasks: [], references: [] } }, done)}
+      create={(title, done) => save.mutate({ body: { title, status: "todo", description: "", items: [], agent_tasks: [], references: [], learned: "" } }, done)}
       creating={save.isPending}
       renderEditor={(activity) => <ActivityEditor key={activity.name} project={project} activity={activity} />}
     />
@@ -527,7 +527,7 @@ function ActivityEditor({ project, activity }: { project: string; activity: Acti
         </div>
         {!!items.length && done === items.length && form.status !== "done" && (
           <Button size="xs" variant="light" color="green" loading={save.isPending}
-            onClick={() => write({ ...form, status: "done" }, `${form.title}: fatta.`)}>
+            onClick={() => write({ ...form, status: "done" }, form.learned?.trim() ? `${form.title}: fatta, «Imparato» nel contesto.` : `${form.title}: fatta. Scrivi «Imparato» se c'è una lezione da ricordare.`)}>
             ✅ Tutte le voci sono fatte: segna fatta
           </Button>
         )}
@@ -538,6 +538,11 @@ function ActivityEditor({ project, activity }: { project: string; activity: Acti
         <Text size="sm" fw={500} mb={4}>Todo <Text span size="xs" c="dimmed">· {done} di {items.length} fatte</Text></Text>
         <ChecklistEditor items={items} onChange={(next) => set({ items: next })} withDetails addLabel="Voce" />
       </div>
+      <Textarea
+        label="Imparato" autosize minRows={2}
+        description="Cosa hai imparato: quando l'attività è fatta entra nel contesto del progetto, che il Refiner e Copilot consultano."
+        value={form.learned ?? ""} onChange={(event) => set({ learned: event.currentTarget.value })}
+      />
       <LinkedAgentTasks
         project={project}
         value={form.agent_tasks ?? []}
