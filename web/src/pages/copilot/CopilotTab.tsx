@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 
 import {
-  type CopilotMessage, type CopilotSession, isExecuting, useApproveCopilot, useCancelCopilot, useCopilotMessages, useCopilotSessionUsage,
+  type CopilotMessage, type CopilotSession, isExecuting, pendingQuestion, useAnswerCopilot, useApproveCopilot, useCancelCopilot,
+  useCopilotMessages, useCopilotSessionUsage,
   useCopilotSessions, useCopilotStatus, useDeleteCopilotSession, useSaveCopilotNote, useSendCopilotMessage,
 } from "../../api/copilot";
 import { useAgentTasks } from "../../api/projectData";
@@ -113,11 +114,15 @@ function SessionView({ project, session, onDeleted, planOnly }: {
   const saveNote = useSaveCopilotNote(project);
   const cancel = useCancelCopilot(project);
   const remove = useDeleteCopilotSession(project);
+  const answer = useAnswerCopilot(project);
   const [text, setText] = useState("");
   const [pending, setPending] = useState<string>();
   const bottom = useRef<HTMLDivElement>(null);
   const list = messages.data ?? [];
   const answered = list.some((message) => message.role === "copilot");
+  /** During an execution Copilot may ask (MCP ask_user) and wait: then the box answers it. */
+  const question = executing ? pendingQuestion(list) : undefined;
+  const locked = executing && !question;
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: "end" }); // braces: browsers may return a promise, not a cleanup
@@ -125,9 +130,13 @@ function SessionView({ project, session, onDeleted, planOnly }: {
 
   const submit = () => {
     const message = text.trim();
-    if (!message || send.isPending || executing) return;
-    setPending(message);
+    if (!message || send.isPending || answer.isPending || locked) return;
     setText("");
+    if (question) {
+      answer.mutate({ id: session.id, text: message }, { onError: () => setText(message) });
+      return;
+    }
+    setPending(message);
     send.mutate({ id: session.id, text: message }, { onError: () => setText(message), onSettled: () => setPending(undefined) });
   };
 
@@ -215,7 +224,8 @@ function SessionView({ project, session, onDeleted, planOnly }: {
           </Stack>
         </ScrollArea>
       </Card>
-      {send.error && <Alert color="red">{send.error.message}</Alert>}
+      {(send.error || answer.error) && <Alert color="red">{(send.error ?? answer.error)!.message}</Alert>}
+      {question && <Alert color="yellow" p="xs">❓ Copilot ti ha fatto una domanda e aspetta la risposta per andare avanti.</Alert>}
       {session.status === "queued" && <QueueHint />}
       <Group align="flex-end" wrap="nowrap">
         <Textarea
@@ -223,8 +233,9 @@ function SessionView({ project, session, onDeleted, planOnly }: {
           autosize
           minRows={1}
           maxRows={8}
-          disabled={executing}
-          placeholder={executing ? "Copilot sta eseguendo: aspetta che finisca o annulla." : "Rispondi a Copilot… (Invio per mandare, Maiusc+Invio per andare a capo)"}
+          disabled={locked}
+          placeholder={question ? "Rispondi alla domanda di Copilot…" : locked ? "Copilot sta eseguendo: aspetta che finisca o annulla."
+            : "Rispondi a Copilot… (Invio per mandare, Maiusc+Invio per andare a capo)"}
           value={text}
           onChange={(event) => setText(event.currentTarget.value)}
           onKeyDown={(event) => {
@@ -234,7 +245,9 @@ function SessionView({ project, session, onDeleted, planOnly }: {
             }
           }}
         />
-        <Button onClick={submit} loading={send.isPending} disabled={!text.trim() || executing}>Invia</Button>
+        <Button onClick={submit} loading={send.isPending || answer.isPending} disabled={!text.trim() || locked}>
+          {question ? "Rispondi" : "Invia"}
+        </Button>
       </Group>
     </Stack>
   );
@@ -268,6 +281,17 @@ function MessageItem({ message }: { message: CopilotMessage }) {
   }
   if (message.role === "event") {
     return <Text size="xs" c="dimmed" ta="center" style={{ whiteSpace: "pre-wrap" }}>{message.content}</Text>;
+  }
+  if (message.role === "question") {
+    return (
+      <Group align="flex-start" wrap="nowrap" gap="sm" maw="90%">
+        <Avatar size="sm" radius="xl" color="yellow">❓</Avatar>
+        <Paper withBorder px="md" py="xs" radius="md" bg="var(--mantine-color-yellow-light)">
+          <Text size="xs" c="dimmed">Copilot chiede, mentre esegue</Text>
+          <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>{message.content}</Text>
+        </Paper>
+      </Group>
+    );
   }
   return (
     <Group align="flex-start" wrap="nowrap" gap="sm" maw="90%">

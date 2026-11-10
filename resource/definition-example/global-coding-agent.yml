@@ -6,17 +6,18 @@
 # Altri prompt di preparazione da scegliere quando deleghi: i file .md di definition/coding-agent/
 # (e di definition/project/<slug>/coding-agent/), ognuno con {task_folder}.
 #
-# Il task non va nel prompt: l'app lo scrive come file nel repository, in mbare-pilot/<nome del task>/
-# (task.md e i riferimenti collegati), prima di ogni turno. {task_folder} = quella cartella, relativa al
-# repository (es. mbare-pilot/agent-task-login). La cartella resta dopo la sessione ed è visibile a git:
-# ignorala (.gitignore) o committala, come preferisci.
+# Il task non va nel prompt. Nel repository l'app scrive solo mbare-pilot/<nome del task>/task.md, minimo
+# (titolo, tipo, dove trovare il resto), prima di ogni turno: {task_folder} = quella cartella, relativa al
+# repository (es. mbare-pilot/agent-task-login). Il task completo e i riferimenti Copilot li legge con i
+# tool MCP del server «mbare-pilot» dell'app (read_task, list_references, read_reference); in esecuzione può
+# chiedere con ask_user e chiude con finish. La cartella resta dopo la sessione ed è visibile a git.
 
 # Primo turno della preparazione (modalità piano, sola lettura).
 plan_prompt: |
-  Ti affido il task descritto in {task_folder}/task.md, sul repository in cui ti trovi. Nella stessa cartella
-  trovi i riferimenti collegati al task (codice e contesto, elencati nella sezione «Riferimenti» di task.md).
+  Ti affido il task indicato in {task_folder}/task.md, sul repository in cui ti trovi. Il task completo lo leggi
+  con il tool MCP read_task del server «mbare-pilot», i riferimenti collegati con list_references e read_reference.
   Prima di cambiare qualcosa:
-  1. leggi task.md, i riferimenti e il codice che ti serve;
+  1. leggi il task, i riferimenti e il codice che ti serve;
   2. fammi le domande necessarie per chiarire il task, poche e precise;
   3. quando non hai più domande, proponi un piano breve e aspetta il mio ok.
   Parliamo attraverso un'app, a turni: ogni mio messaggio ti arriva come un nuovo turno, quindi fai pure le tue domande e aspetta la risposta. Adesso sei in modalità piano e non puoi modificare niente: è giusto così. Il via lo do io con il pulsante «Ok, parti» dell'app, che ti riattiva per eseguire il piano; non chiedermi di uscire dalla modalità piano né di premere tasti. Anche dopo l'ok non farai commit, push né altre operazioni git che cambiano la storia, l'indice o i branch: il commit lo faccio io.
@@ -25,7 +26,9 @@ plan_prompt: |
 # Turno che avvia l'esecuzione (dopo «Ok, parti»).
 execute_prompt: >-
   Ok, procedi con il piano concordato. Non fare commit, push né altre operazioni git che cambiano la storia,
-  l'indice o i branch. Alla fine riassumi cosa hai cambiato (file e motivo) e se i criteri di accettazione sono soddisfatti.
+  l'indice o i branch. Se ti serve una mia decisione chiedimela con il tool ask_user (aspetto e ti rispondo).
+  Alla fine chiama il tool finish con un riassunto di cosa hai cambiato (file e motivo) e se i criteri di
+  accettazione sono soddisfatti, e scrivi lo stesso riassunto nella risposta.
 
 # Il prompt di preparazione di ogni tipo di task, quando alla delega non se ne sceglie uno (facoltativo):
 # il nome di un file .md di coding-agent/ ("" = plan_prompt). Tipi: development, analysis, confluence, jira;

@@ -31,6 +31,13 @@ class DbCopilotSessionRepository(SqlRepository[CopilotSessionTable]):
         with self._session() as session:
             return list(session.exec(statement).all())
 
+    def find_by_token(self, token: str) -> CopilotSessionTable | None:
+        """The session whose MCP token is ``token`` (never an empty one)."""
+        if not token:
+            return None
+        with self._session() as session:
+            return session.exec(select(CopilotSessionTable).where(CopilotSessionTable.mcp_token == token)).first()
+
     def list_by_status(self, status: str) -> list[CopilotSessionTable]:
         with self._session() as session:
             return list(session.exec(select(CopilotSessionTable).where(CopilotSessionTable.status == status)).all())

@@ -52,16 +52,16 @@ def test_a_new_column_with_a_default_is_added_and_rows_are_kept():
         connection.execute(text("INSERT INTO project (name, description, source, root_path, embedding_model, created_at) "
                                 "VALUES ('p', '', 'folder', '/p', 'x', CURRENT_TIMESTAMP)"))
         connection.execute(text("INSERT INTO copilot_session (project_name, task_note, repository, copilot_session_id, status, "
-                                "cancel_requested, changed_files, premium_requests, created_at, updated_at, model, prompt, next_prompt) "
-                                "VALUES ('p', 't.md', '', 'u1', 'done', 0, '[]', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'x', 'y', 'z')"))
-        for column in ("model", "prompt", "next_prompt"):
+                                "cancel_requested, changed_files, premium_requests, created_at, updated_at, model, prompt, next_prompt, mcp_token) "
+                                "VALUES ('p', 't.md', '', 'u1', 'done', 0, '[]', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'x', 'y', 'z', 't')"))
+        for column in ("model", "prompt", "next_prompt", "mcp_token"):
             connection.execute(text(f"ALTER TABLE copilot_session DROP COLUMN {column}"))
 
     Engine._add_missing_columns(engine)
     Engine._drop_outdated_empty_tables(engine)  # nothing left to recreate
 
     with engine.connect() as connection:
-        assert connection.execute(text("SELECT task_note, model, prompt, next_prompt FROM copilot_session")).one() == ("t.md", "", "", "")
+        assert connection.execute(text("SELECT task_note, model, prompt, next_prompt, mcp_token FROM copilot_session")).one() == ("t.md", "", "", "", "")
 
 
 def test_up_to_date_schema_is_left_alone(outdated):

@@ -43,6 +43,14 @@ denied_tools: ["shell(git commit)", "shell(git push)", "shell(git reset)"]
 
 
 @pytest.fixture(autouse=True)
+def mcp_answers(monkeypatch):
+    """The app's MCP server counts as reachable: a Container's CopilotService
+    pings it before every turn, and no API listens in the tests (the tests of
+    the ping itself use the original, imported at collection)."""
+    monkeypatch.setattr("service.copilot_service.mcp_unreachable", lambda url, timeout=5.0: None)
+
+
+@pytest.fixture(autouse=True)
 def config(tmp_path):
     """The app-wide Config for every test: no .env, fake URLs and keys, no real
     Copilot CLI (a Container's client finds none until a test gives it the fake), data in

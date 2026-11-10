@@ -18,7 +18,6 @@ from domain.project.data_paths import (
     NOTE_PREFIXES,
     NOTE_SUFFIX,
     NOTES_DIR,
-    TASK_FILE,
     data_file_name,
     file_link,
     is_file_link,
@@ -35,7 +34,7 @@ from domain.project.note_templates import (
     render_agent_task,
     render_reference,
 )
-from models.domain.note import Activity, AgentTask, NoteType, Reference
+from models.domain.note import Activity, AgentTask, NoteType, Reference, TaskLink
 from models.domain.project import DEFAULT_VISIBLE_NOTE_TYPES, ProjectDataFile, ProjectDataKind
 from models.store.files import StoredFile
 from service.store.project_file_store import ProjectFileStore
@@ -248,22 +247,40 @@ class ProjectDataService:
         self.save_note(project_name, name, content)
 
     # ---------------------------------------------------------- copilot folder
-    def copilot_files(self, project_name: str, task_note: str) -> dict[str, bytes]:
-        """The agent task (``task.md``) and what it links (references and notes
-        by their names, uploaded files as ``files/<name>``), as they are now: name → content, for the task's folder in
-        the repository (domain/project/task_folder.py). References that no
-        longer exist are skipped. NotFoundError when the task is gone."""
-        task_name = note_file_name(task_note)
-        task = self.agent_task(project_name, task_name)
-        files = {TASK_FILE: self.read_note(project_name, task_name).encode("utf-8")}
-        for name in task.references:
-            if is_file_link(name):  # an uploaded file: files/<name>, as task.md links it
-                stored, key = self._id(project_name, FILES_DIR, data_file_name(name)), file_link(name)
-            else:  # a reference or a note
-                stored, key = self._id(project_name, NOTES_DIR, note_file_name(name)), note_file_name(name)
-            if self._files.get(stored) is not None:
-                files[key] = self._files.read(stored)
-        return files
+    def task_links(self, project_name: str, task_note: str) -> list[TaskLink]:
+        """What an agent task links (references, notes, uploaded files), in
+        its order, with a title: what Copilot lists through MCP. NotFoundError
+        when the task is gone."""
+        links = []
+        for name in self.agent_task(project_name, task_note).references:
+            if is_file_link(name):
+                found = self._files.get(self._id(project_name, FILES_DIR, data_file_name(name))) is not None
+                links.append(TaskLink(name=name, kind="file", title=data_file_name(name), found=found))
+                continue
+            note = note_file_name(name)
+            kind = note_type(note)
+            try:
+                text = self.read_note(project_name, note)
+            except NotFoundError:
+                links.append(TaskLink(name=name, kind=_LINK_KINDS.get(kind, "note"), title=_title(note), found=False))
+                continue
+            title = parse_reference(text, _title(note)).title if kind.is_reference else _heading(text) or note
+            links.append(TaskLink(name=name, kind=_LINK_KINDS.get(kind, "note"), title=title))
+        return links
+
+    def task_link_text(self, project_name: str, task_note: str, name: str) -> str:
+        """The content of something the task links, as text: a note as it is,
+        an uploaded file decoded as UTF-8 (a binary one: a line saying so).
+        NotFoundError when the task does not link ``name`` or it no longer exists."""
+        if name.strip() not in self.agent_task(project_name, task_note).references:
+            raise NotFoundError(f"{name} non è collegato al task: usa i nomi che dà list_references.")
+        if is_file_link(name):
+            data = self._files.read(self._id(project_name, FILES_DIR, data_file_name(name)))
+            try:
+                return data.decode("utf-8")
+            except UnicodeDecodeError:
+                return f"(file binario di {len(data)} byte: non leggibile come testo)"
+        return self.read_note(project_name, name)
 
     # -------------------------------------------------------------- settings
     def visible_note_types(self, project_name: str) -> list[NoteType]:
@@ -364,6 +381,14 @@ def _check_references(names: list[str]) -> None:
                 raise ValidationError(f"Collegamento a un file non valido: {name!r} (files/<nome>).")
         elif note_type(note_file_name(name)) not in (NoteType.GENERIC, NoteType.CODE_REFERENCE, NoteType.CONTEXT_REFERENCE):
             raise ValidationError(f"{name} non si può collegare come riferimento: solo riferimenti, note e file (files/<nome>).")
+
+
+_LINK_KINDS = {NoteType.CODE_REFERENCE: "code", NoteType.CONTEXT_REFERENCE: "context"}
+
+
+def _heading(text: str) -> str:
+    """The ``# title`` of a markdown note; ``""`` without one."""
+    return next((line[2:].strip() for line in text.splitlines() if line.startswith("# ")), "")
 
 
 def _title(note_name: str) -> str:

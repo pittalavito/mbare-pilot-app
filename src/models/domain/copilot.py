@@ -36,6 +36,8 @@ class CopilotMessageRole(StrEnum):
     COPILOT = "copilot"
     EVENT = "event"
     """Written by the app: queued, started, finished, warnings."""
+    QUESTION = "question"
+    """Copilot asks the user during an execution (MCP tool ask_user): the next user message answers it."""
 
 
 class CopilotSession(BaseModel):
@@ -55,6 +57,9 @@ class CopilotSession(BaseModel):
     next_prompt: str = ""
     """The turn that starts the next execution; ``""`` = the definition's
     ``execute_prompt``. Set when the user sends the task back to Copilot."""
+    mcp_token: str = ""
+    """The session's token for the app's MCP server: valid only for this
+    session's task, gone with the session."""
     cancel_requested: bool = False
     """Set by the API, read by the worker that is running it."""
     head_before: str | None = None

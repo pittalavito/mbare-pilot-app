@@ -666,12 +666,13 @@ def test_deleting_a_tasks_sessions_keeps_the_others_and_the_usage(data, project,
 
 # --------------------------------------------------------------- task folder
 
-def test_copilot_reads_the_task_and_its_references_from_a_folder_in_the_repository(data, project, tmp_path, stores):
+def test_the_repository_gets_only_a_minimal_task_md_the_rest_is_read_through_mcp(data, project, tmp_path, stores):
     from models.domain.note import NoteType, Reference
 
     service = _service(stores, data)
     ref = data.create_reference("acme", NoteType.CODE_REFERENCE, Reference(title="Login", path="src/a.py", content="v1"))
-    note = data.create_agent_task("acme", AgentTask(title="Con riferimenti", references=[ref, "context-reference-sparito.md"]))
+    note = data.create_agent_task("acme", AgentTask(title="Con riferimenti", objective="Segreto dell'obiettivo",
+                                                    references=[ref, "context-reference-sparito.md"]))
     other = project / "api" / "mbare-pilot" / "agent-task-altro"
     other.mkdir(parents=True)
     (other / "task.md").write_text("di un altro task", encoding="utf-8")
@@ -682,21 +683,22 @@ def test_copilot_reads_the_task_and_its_references_from_a_folder_in_the_reposito
     turn = _turns(tmp_path, session)[0]
     assert f"mbare-pilot/{folder.name}/task.md" in turn["prompt"]
     assert turn["args"].count("--add-dir") == 1  # only the repository: the task is inside it
-    assert sorted(item.name for item in folder.iterdir()) == ["code-reference-login.md", "task.md"]  # the missing one is skipped
-    assert "# Con riferimenti" in (folder / "task.md").read_text(encoding="utf-8")
+    assert [item.name for item in folder.iterdir()] == ["task.md"]  # no copies of the references
+    task_md = (folder / "task.md").read_text(encoding="utf-8")
+    assert task_md.startswith("# Con riferimenti\n\nTipo: sviluppo · Task: agent-task-con-riferimenti.md")
+    assert "read_task" in task_md and "Segreto dell'obiettivo" not in task_md  # the rest through MCP
 
-    data.save_reference("acme", ref, Reference(title="Login", path="src/a.py", content="v2"))
+    data.save_agent_task("acme", note, data.agent_task("acme", note).model_copy(update={"title": "Titolo nuovo"}))
     (folder / "appunti-di-copilot.md").write_text("vecchio", encoding="utf-8")
     service.send(session.id, "e adesso?")
-    assert "v2" in (folder / "code-reference-login.md").read_text(encoding="utf-8")  # always current
-    assert sorted(item.name for item in folder.iterdir()) == ["code-reference-login.md", "task.md"]  # rebuilt from scratch
+    assert [item.name for item in folder.iterdir()] == ["task.md"]  # rebuilt from scratch
+    assert (folder / "task.md").read_text(encoding="utf-8").startswith("# Titolo nuovo")  # always current
     assert (other / "task.md").read_text(encoding="utf-8") == "di un altro task"  # other tasks' folders untouched
 
     session = service.approve(session.id)
     assert not any("già" in message.content for message in service.messages(session.id))  # mbare-pilot/ is not a change
     session = service.run_next()
     assert session.changed_files == ["copilot.txt"]
-    assert "Stato: in corso" in (folder / "task.md").read_text(encoding="utf-8")  # rewritten for the execution
 
     service.delete(session.id)
     assert (folder / "task.md").is_file()  # the folder stays after the session

@@ -12,12 +12,18 @@ Two modes:
 Every turn also asks for the usage file (``--usage-output-file``, in a temp
 folder): the session's totals come back in ``CopilotTurn.usage``.
 
+With ``mcp`` the turn gets the app's MCP server (``--additional-mcp-config``,
+a file in the same temp folder, so the token is not on the command line) and
+its tools are allowed in both modes (``--allow-tool mbare-pilot``).
+
 Finding the CLI is in cli.py, running it in process.py, reading its output
 in output.py and its usage file in usage.py."""
+import json
 import os
 import subprocess
 import tempfile
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
@@ -30,9 +36,26 @@ from models.domain.copilot import CopilotTurn
 NOT_FOUND = "Copilot CLI non trovato: installalo (npm install -g @github/copilot) e fai il login."
 
 
+MCP_SERVER = "mbare-pilot"
+"""The name Copilot knows the app's MCP server by (its tools: ``mbare-pilot/read_task``...)."""
+
+
 class CopilotMode(StrEnum):
     PLAN = "plan"
     EXECUTE = "execute"
+
+
+@dataclass(frozen=True)
+class McpAccess:
+    """The app's MCP server for one session: where it answers and the session's token."""
+    url: str
+    token: str
+
+    def config(self) -> dict:
+        """What ``--additional-mcp-config`` reads."""
+        return {"mcpServers": {MCP_SERVER: {
+            "type": "http", "url": self.url, "headers": {"Authorization": f"Bearer {self.token}"}, "tools": ["*"],
+        }}}
 
 
 class CopilotClient:
@@ -74,15 +97,21 @@ class CopilotClient:
         denied_tools: Sequence[str] = (),
         should_cancel: Callable[[], bool] = lambda: False,
         model: str = "",
+        mcp: McpAccess | None = None,
     ) -> CopilotTurn:
         """One message to the session and Copilot's answer. ``denied_tools``
-        count only in execute mode; ``model`` overrides the default. Never raises for Copilot's own failures: they come back in ``error``."""
+        count only in execute mode; ``model`` overrides the default; ``mcp``:
+        the app's MCP server for this session. Never raises for Copilot's own failures: they come back in ``error``."""
         if self._command is None:
             return CopilotTurn(message="", exit_code=-1, error=NOT_FOUND)
         with tempfile.TemporaryDirectory(prefix="mbare-copilot-") as folder:
             usage_file = Path(folder) / "usage.json"
             argv = [*self._command, *self._arguments(cwd, session_id, prompt, mode, denied_tools, model or self._model),
                     "--usage-output-file", str(usage_file)]
+            if mcp is not None:
+                config = Path(folder) / "mcp.json"
+                config.write_text(json.dumps(mcp.config()), encoding="utf-8")
+                argv += ["--additional-mcp-config", f"@{config}", "--allow-tool", MCP_SERVER]
             try:
                 result = process.run(argv, cwd, self._environment(), timeout_seconds, should_cancel)
             except OSError as exc:

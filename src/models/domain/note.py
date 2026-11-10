@@ -116,6 +116,17 @@ class Activity(BaseModel):
     """The linked reference notes, by name."""
 
 
+class TaskLink(BaseModel):
+    """Something an agent task links in ``## Riferimenti``, as Copilot lists it (MCP)."""
+    name: str
+    """As the task writes it: a note's name or ``files/<name>``."""
+    kind: str
+    """``code``, ``context`` (references), ``note`` (a generic note) or ``file`` (an uploaded file)."""
+    title: str
+    found: bool = True
+    """False when it no longer exists (deleted by hand)."""
+
+
 class Reference(BaseModel):
     """A code or context reference. ``source``: where it was copied from
     (``""`` = written by hand; e.g. ``jira``, ``confluence``, ``dynatrace``);
