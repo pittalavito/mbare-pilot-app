@@ -57,6 +57,11 @@ class Chatbot(BaseModel):
     model: ModelKey
     max_steps: int = Field(default=4, ge=1, le=50)
     tool_names: list[str] = Field(default_factory=list)
+    wip_prompt: str = ""
+    """Only a secretary: the instructions of «Elabora WIP» (one structured
+    call, see service/wip_service.py); ``""`` = the default in the code."""
+    wip_prompt_version: int = Field(default=1, ge=1)
+    """Incremented whenever ``wip_prompt`` changes (recorded with every «Elabora WIP»)."""
     rag_enabled: bool = False
     """NOTE: placeholder, how a chatbot uses the project data is still to be defined."""
     created_at: datetime = Field(default_factory=_utc_now)

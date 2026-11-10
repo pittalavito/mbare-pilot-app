@@ -1,0 +1,11 @@
+{
+  "wip": "il tag della 2.0 l'ho fatto. per il rilascio mancano le note entro venerdì, sentire mask{Marco} per i log.\n\nil login è lento: scrivere a ada@acme.it e guardare https://grafana.acme.it/d/login",
+  "activities": [{"title": "Rilascio v2", "items": [{"text": "Aggiornare le dipendenze", "done": true}, {"text": "Taggare il commit", "done": false}]}],
+  "map": [],
+  "sensitive": ["Marco", "ada@acme.it", "https://grafana.acme.it/d/login"],
+  "expected": [
+    {"kind": "check_item", "activity_title": "Rilascio v2", "item": 2},
+    {"kind": "add_item", "activity_title": "Rilascio v2", "text": "Note di rilascio"},
+    {"kind": "new_activity", "title": "Login lento"}
+  ]
+}

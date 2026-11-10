@@ -12,6 +12,7 @@ Schema overview (project-centric):
            ├─ document ── chunk (pgvector embedding)
            ├─ copilot_session (also the worker queue) ── copilot_message
            ├─ copilot_turn                                  (usage per turn, no FK: kept after deletion)
+           ├─ wip_run                                       («Elabora WIP»: what the user did with the proposals)
            └─ agent_run ── tool_call                        (+ verbatim trace in Redis)
   tool, function, chat_model: global catalogs.
 """
@@ -157,6 +158,9 @@ class ChatbotTable(SQLModel, table=True):
     model: str
     max_steps: int
     tool_names: list[str] = Field(default_factory=list, sa_type=JSON)
+    wip_prompt: str = Field(default="", sa_type=Text)
+    """Only a secretary: the instructions of «Elabora WIP»; ``""`` = the default in the code."""
+    wip_prompt_version: int = 1
     rag_enabled: bool = False
     """NOTE: RAG behaviour of chatbots still to be defined (see README)."""
     created_at: datetime = _timestamp()
@@ -327,6 +331,26 @@ class CopilotSessionTable(SQLModel, table=True):
     updated_at: datetime = _timestamp()
     started_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
     finished_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
+
+
+class WipRunTable(SQLModel, table=True):
+    """One «Elabora WIP» and what the user did with its proposals (metrics);
+    the call itself is the agent run with the same ``run_id``."""
+    __tablename__ = "wip_run"
+
+    id: int | None = Field(default=None, primary_key=True)
+    run_id: str = Field(unique=True)
+    project_name: str = _project_fk(nullable=False)
+    model: str
+    prompt_version: int
+    proposed: int
+    processed: str = Field(default="", sa_type=Text)
+    applied_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
+    accepted: int = 0
+    corrected: int = 0
+    discarded: int = 0
+    skipped: int = 0
+    created_at: datetime = _timestamp(index=True)
 
 
 class CopilotMessageTable(SQLModel, table=True):

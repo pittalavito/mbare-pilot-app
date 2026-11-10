@@ -19,7 +19,8 @@ chatbots:
       Se nessuna automation è adatta, dimmelo; se non sai, non inventare.
   - name: Segretario
     # secretary: tool fissi (list_activities, read_activity, create_activity, update_activity, list_agent_tasks,
-    # list_references, create_agent_task); dei riferimenti vede solo i titoli
+    # list_references, create_agent_task); dei riferimenti vede solo i titoli. wip_prompt: le istruzioni di
+    # «📥 Elabora WIP» (una chiamata con risposta strutturata sulla nota wip.md)
     kind: secretary
     description: Attività, stato degli agent task e nuovi agent task
     model: openrouter/google/gemini-3.1-flash-lite-preview
@@ -39,6 +40,19 @@ chatbots:
       e collega i riferimenti che c'entrano, scelti per titolo con list_references (il loro contenuto non lo leggi).
       Il task nasce «in rifinitura»: dimmelo e dammi il suo link.
       Se non sai, non inventare.
+    wip_prompt: |
+      Leggi il testo nuovo della mia nota WIP (appunti scritti di getto sul progetto) e trasformalo in proposte
+      per le mie attività. Rispondi solo con le proposte, nello schema dato; il testo resta in italiano.
+      Puoi proporre solo:
+      - new_activity: un'attività nuova (titolo breve, una o due frasi di descrizione, le prime voci);
+      - add_item: una voce da aggiungere a un'attività dell'elenco;
+      - check_item: una voce dell'elenco che il testo dice fatta (usa il suo numero);
+      - set_item: priorità (high, medium, low) o scadenza di una voce dell'elenco.
+      Prima di creare un'attività nuova guarda se il testo parla di una dell'elenco: in quel caso aggiungi o spunta voci lì.
+      Per ogni proposta copia in source la frase del testo da cui nasce. Le date relative («entro venerdì», «domani»)
+      calcolale dalla data di oggi che ti do, nel formato YYYY-MM-DD.
+      Le parole come PERSONA_1, REPO_2, TERMINE_3, MAIL_1, URL_1 sono nomi nascosti: usale così come sono.
+      Niente stati, niente agent task, niente note. Se il testo non chiede niente, nessuna proposta. Non inventare.
   - name: Refiner
     # refiner: tool fissi (create_code_reference, read_agent_task, update_agent_task, finish_refinement), solo sul
     # task aperto accanto alla chat; nella UI sta accanto agli agent task, non nella scheda Chat

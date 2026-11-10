@@ -1666,6 +1666,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/wip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Wip State
+         * @description The note (``""`` when missing) and how many words of new text it has.
+         */
+        get: operations["wip_state_projects__project__wip_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/wip/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Wip Runs
+         * @description Every «Elabora WIP» of the project, newest first, with what the user did with its proposals.
+         */
+        get: operations["wip_runs_projects__project__wip_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/wip/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Wip Preview
+         * @description The text the model would get, masked, with its aliases; ``mask{}`` terms are added to the map.
+         */
+        post: operations["wip_preview_projects__project__wip_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/wip/process": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Wip Process
+         * @description One call to the secretary's model: the proposals, in clear (502 when the model fails).
+         */
+        post: operations["wip_process_projects__project__wip_process_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/wip/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Wip Apply
+         * @description The chosen proposals, then the sign in the note (409 when the WIP changed meanwhile).
+         */
+        post: operations["wip_apply_projects__project__wip_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2632,12 +2732,31 @@ export interface components {
             /** Manual */
             manual: boolean;
         };
+        /**
+         * MaskOrigin
+         * @description Where an alias of a masked free text comes from (domain/masking/preview.py).
+         * @enum {string}
+         */
+        MaskOrigin: "map" | "tag" | "auto";
         /** MaskRequest */
         MaskRequest: {
             /** @default term */
             category: components["schemas"]["MaskCategory"];
             /** Value */
             value: string;
+        };
+        /**
+         * MaskSpan
+         * @description An alias in a masked text: ``text[start:end] == alias``.
+         */
+        MaskSpan: {
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /** Alias */
+            alias: string;
+            origin: components["schemas"]["MaskOrigin"];
         };
         /** MessageRequest */
         MessageRequest: {
@@ -2821,6 +2940,16 @@ export interface components {
             /** Created */
             created: boolean;
         };
+        /**
+         * ProposalKind
+         * @enum {string}
+         */
+        ProposalKind: "new_activity" | "add_item" | "check_item" | "set_item";
+        /**
+         * ProposalPriority
+         * @enum {string}
+         */
+        ProposalPriority: "high" | "medium" | "low";
         /** ReferenceBody */
         ReferenceBody: {
             /** Title */
@@ -3269,6 +3398,174 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** WipApplied */
+        WipApplied: {
+            /** Applied */
+            applied: string[];
+            /** Skipped */
+            skipped: string[];
+        };
+        /** WipApplyRequest */
+        WipApplyRequest: {
+            /** Run Id */
+            run_id: string;
+            /** Choices */
+            choices: components["schemas"]["WipChoice"][];
+        };
+        /**
+         * WipChoice
+         * @description A proposal the user chose, maybe edited (``edited``).
+         */
+        WipChoice: {
+            proposal: components["schemas"]["WipProposal"];
+            /**
+             * Edited
+             * @default false
+             */
+            edited: boolean;
+        };
+        /** WipParagraphsRequest */
+        WipParagraphsRequest: {
+            /** Paragraphs */
+            paragraphs?: number | null;
+        };
+        /**
+         * WipPreview
+         * @description What the model would get, exactly: the masked text with its aliases.
+         */
+        WipPreview: {
+            /** Text */
+            text: string;
+            /** Spans */
+            spans: components["schemas"]["MaskSpan"][];
+            /** Words */
+            words: number;
+            /** Paragraphs */
+            paragraphs: number;
+            /** Processing */
+            processing: number;
+            /** Over Limit */
+            over_limit: boolean;
+        };
+        /**
+         * WipProposal
+         * @description A proposal as the user sees and edits it (values in clear). ``item_text``
+         *     is the item as it was when proposed (from the list sent to the model):
+         *     applying skips the proposal when the item changed meanwhile.
+         */
+        WipProposal: {
+            /** Id */
+            id: number;
+            kind: components["schemas"]["ProposalKind"];
+            /** Source */
+            source: string;
+            /**
+             * Activity
+             * @default
+             */
+            activity: string;
+            /**
+             * Activity Title
+             * @default
+             */
+            activity_title: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Items */
+            items?: string[];
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /**
+             * Item
+             * @default 0
+             */
+            item: number;
+            /**
+             * Item Text
+             * @default
+             */
+            item_text: string;
+            priority?: components["schemas"]["ProposalPriority"] | null;
+            /** Due */
+            due?: string | null;
+        };
+        /** WipResult */
+        WipResult: {
+            /** Run Id */
+            run_id: string;
+            /** Proposals */
+            proposals: components["schemas"]["WipProposal"][];
+        };
+        /**
+         * WipRun
+         * @description One «Elabora WIP»: the call and, once applied, what the user did with
+         *     its proposals (for the metrics). The call itself (tokens, cost, latency)
+         *     is an agent run (origin ``wip``) with the same ``run_id``.
+         */
+        WipRun: {
+            /** Id */
+            id?: number | null;
+            /** Run Id */
+            run_id: string;
+            /** Project Name */
+            project_name: string;
+            /** Model */
+            model: string;
+            /** Prompt Version */
+            prompt_version: number;
+            /** Proposed */
+            proposed: number;
+            /**
+             * Processed
+             * @default
+             */
+            processed: string;
+            /** Applied At */
+            applied_at?: string | null;
+            /**
+             * Accepted
+             * @default 0
+             */
+            accepted: number;
+            /**
+             * Corrected
+             * @default 0
+             */
+            corrected: number;
+            /**
+             * Discarded
+             * @default 0
+             */
+            discarded: number;
+            /**
+             * Skipped
+             * @default 0
+             */
+            skipped: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at?: string;
+        };
+        /** WipState */
+        WipState: {
+            /** Content */
+            content: string;
+            /** Pending Words */
+            pending_words: number;
         };
         /** WorkerResponse */
         WorkerResponse: {
@@ -6877,6 +7174,173 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CopilotSessionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    wip_state_projects__project__wip_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WipState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    wip_runs_projects__project__wip_runs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WipRun"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    wip_preview_projects__project__wip_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WipParagraphsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WipPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    wip_process_projects__project__wip_process_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WipParagraphsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WipResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    wip_apply_projects__project__wip_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WipApplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WipApplied"];
                 };
             };
             /** @description Validation Error */

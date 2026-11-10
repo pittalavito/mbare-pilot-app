@@ -21,15 +21,17 @@ const inProject = (path: string, ui: React.ReactElement) =>
 const json = async (request: Request) => request.json();
 
 describe("DataTab", () => {
-  it("opens the first note and saves the edited text", async () => {
+  it("opens a note and saves the edited text", async () => {
     const saved = vi.fn(async (request: Request) => ({ name: "idee.md", kind: "note", size: 9, modified_at: "2026-10-25T10:00:00Z", ...(await json(request)) }));
     mockApi({
       "GET /projects/acme/notes": [{ name: "idee.md", kind: "note", size: 8, modified_at: "2026-10-25T10:00:00Z" }],
       "GET /projects/acme/notes/idee.md": { name: "idee.md", content: "# Idee\n" },
       "PUT /projects/acme/notes/idee.md": saved,
+      "GET /projects/acme/wip": { content: "", pending_words: 0 },
     });
     inProject("data", <DataTab />);
 
+    fireEvent.click(await screen.findByText("idee.md")); // the WIP note comes first
     const editor = await screen.findByDisplayValue(/# Idee/);
     expect(screen.getByRole("button", { name: "Salva" })).toBeDisabled(); // nothing changed yet
     fireEvent.change(editor, { target: { value: "# Idee\n- una" } });

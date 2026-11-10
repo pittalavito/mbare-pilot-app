@@ -141,9 +141,13 @@ describe("agent task status and type", () => {
 
 describe("typed notes", () => {
   it("the generic notes leave out the typed ones", async () => {
-    mockApi({ "GET /projects/acme/notes": NOTES, "GET /projects/acme/notes/decisioni.md": { name: "decisioni.md", content: "# Decisioni" } });
+    mockApi({
+      "GET /projects/acme/notes": NOTES, "GET /projects/acme/notes/decisioni.md": { name: "decisioni.md", content: "# Decisioni" },
+      "GET /projects/acme/wip": { content: "", pending_words: 0 },
+    });
     renderData();
 
+    fireEvent.click(await screen.findByText("decisioni.md"));
     expect(await screen.findByDisplayValue("# Decisioni")).toBeInTheDocument();
     expect(screen.queryByText("agent-task-fix-porto.md")).not.toBeInTheDocument();
   });

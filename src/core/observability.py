@@ -36,6 +36,7 @@ class LogPrefix(StrEnum):
     BACKUP_SERVICE = "BACKUP_SERVICE"
     COPILOT_SERVICE = "COPILOT_SERVICE"
     CODE_TODO_SERVICE = "CODE_TODO_SERVICE"
+    WIP_SERVICE = "WIP_SERVICE"
 
 
 def configure_logging(log_level: str) -> None:

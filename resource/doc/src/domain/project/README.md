@@ -10,6 +10,7 @@ src/domain/project/
   code_todos.py       i commenti todoMbarePilot{…} del codice e la nota che diventano (vedi CodeTodoService)
   folder_browser.py   FolderBrowser: navigare e creare cartelle, solo dentro PROJECT_ROOTS
   coding_agent.py     prompt e divieti di Copilot dai file di definition/ (vedi definitions.md)
+  wip.py              la nota WIP (wip.md): testo nuovo dopo l'ultimo segno, paragrafi, il segno (vedi WipService)
 ```
 
 Un progetto ha **due posti** distinti:
@@ -30,6 +31,10 @@ Solo funzioni pure: decidono nomi e percorsi, non toccano il disco.
 - **`typed_note_file_name(tipo, titolo)`**: il nome di una nota tipizzata nuova, dal titolo (`agent-task-refactor-login.md`).
 - **`data_file_name(nome)`**: il nome di un file caricato, senza cartelle davanti (`C:\x\report.pdf` → `report.pdf`).
 - **Nomi rifiutati** (`ValidationError`): vuoti, `.` e `..`, che iniziano con `.`, con caratteri non validi su Windows (`< > : " / \ | ? *`). Così un nome non può mai uscire dalla cartella del progetto.
+
+## La nota WIP (`wip.py`)
+
+`wip.md` è una nota generica, una per progetto, sempre **la prima** nella sotto-scheda «📝 Note» (anche prima di esistere: salvandola si crea). Testo libero; «📥 Elabora WIP» ([service](../../service/README.md#elabora-wip)) ne legge solo il **testo nuovo**, cioè quello dopo l'ultima riga `—— elaborato il 05/11 14:30 ——` (`pending`). Applicando le proposte, `with_sign` scrive il segno dopo i paragrafi elaborati (il resto resta nuovo) e riscrive i paragrafi elaborati separati da una riga vuota; il diario sopra l'ultimo segno resta com'è. `with_sign` restituisce `None` se il testo nuovo non comincia più con quello elaborato (la nota è cambiata nel frattempo).
 
 ## Note tipizzate (`note_templates.py`)
 

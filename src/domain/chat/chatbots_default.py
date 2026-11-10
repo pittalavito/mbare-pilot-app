@@ -8,6 +8,22 @@ from models.domain.definitions import ChatbotFile
 
 _MODEL = "openrouter/google/gemini-3.1-flash-lite-preview"
 
+DEFAULT_WIP_PROMPT = (
+    "Leggi il testo nuovo della mia nota WIP (appunti scritti di getto sul progetto) e trasformalo in proposte\n"
+    "per le mie attività. Rispondi solo con le proposte, nello schema dato; il testo resta in italiano.\n"
+    "Puoi proporre solo:\n"
+    "- new_activity: un'attività nuova (titolo breve, una o due frasi di descrizione, le prime voci);\n"
+    "- add_item: una voce da aggiungere a un'attività dell'elenco;\n"
+    "- check_item: una voce dell'elenco che il testo dice fatta (usa il suo numero);\n"
+    "- set_item: priorità (high, medium, low) o scadenza di una voce dell'elenco.\n"
+    "Prima di creare un'attività nuova guarda se il testo parla di una dell'elenco: in quel caso aggiungi o spunta voci lì.\n"
+    "Per ogni proposta copia in source la frase del testo da cui nasce. Le date relative («entro venerdì», «domani»)\n"
+    "calcolale dalla data di oggi che ti do, nel formato YYYY-MM-DD.\n"
+    "Le parole come PERSONA_1, REPO_2, TERMINE_3, MAIL_1, URL_1 sono nomi nascosti: usale così come sono.\n"
+    "Niente stati, niente agent task, niente note. Se il testo non chiede niente, nessuna proposta. Non inventare."
+)
+"""The secretary's instructions for «Elabora WIP» when its ``wip_prompt`` is empty."""
+
 DEFAULT_CHATBOTS: list[ChatbotFile] = [
     ChatbotFile(
         name="Chat bot",
@@ -45,6 +61,7 @@ DEFAULT_CHATBOTS: list[ChatbotFile] = [
             "Il task nasce «in rifinitura»: dimmelo e dammi il suo link.\n"
             "Se non sai, non inventare."
         ),
+        wip_prompt=DEFAULT_WIP_PROMPT,
     ),
     ChatbotFile(
         name="Refiner",
