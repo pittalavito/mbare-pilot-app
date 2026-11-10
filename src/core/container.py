@@ -34,6 +34,7 @@ from service.project_service import ProjectService
 from service.rag_service import RagService
 from service.run_service import RunService
 from service.store.stores import Stores
+from service.today_service import TodayService
 from service.wip_service import WipService
 
 
@@ -109,6 +110,7 @@ class Container:
             agent_service=self.agent_service,
             automation_cache=self.automation_cache_service,
         )
+        self.today_service = TodayService(project_data=self.project_data_service, copilot=self.copilot_service)
         self.metrics_service = MetricsService(runs=stores.runs, copilot=stores.copilot, wip_runs=stores.wip)
         self.evaluation_service = EvaluationService(catalog=stores.catalog, chat=self.chat_service, evaluations=stores.evaluations,
                                                     data_root=config.eval_data_root, reports_root=config.evaluations_root)

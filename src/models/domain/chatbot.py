@@ -38,7 +38,7 @@ KIND_TOOLS: dict[ChatbotKind, list[str]] = {
     ChatbotKind.AUTOMATION: ["list_automations", "run_automation", "automation_status"],
     ChatbotKind.SECRETARY: [
         "list_activities", "read_activity", "create_activity", "update_activity",
-        "list_agent_tasks", "list_references", "create_agent_task",
+        "list_agent_tasks", "list_references", "create_agent_task", "today",
     ],
     ChatbotKind.REFINER: ["create_code_reference", "read_agent_task", "update_agent_task", "finish_refinement", "search_context"],
 }

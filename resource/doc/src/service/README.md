@@ -25,6 +25,7 @@ src/service/
   rag_service.py            contesto del progetto (RAG): indicizzazione mascherata, ricerca ibrida con le fonti
   metrics_service.py        pagina Metriche: costo e latenza per chi, Copilot a parte, accettazione di Elabora WIP
   evaluation_service.py     valutazioni sui set di prova (Elabora WIP, RAG): report, coda del worker
+  today_service.py          «📌 Oggi»: chi aspetta, voci scadute e in scadenza, attività da chiudere; Spunta e Rimanda
 ```
 
 Chi crea i service e li collega tra loro è il [Container](../core/README.md) (`core/container.py`): ogni service riceve nel costruttore **gli store e i service che usa, e solo quelli**. Così la firma dice cosa legge e scrive.
@@ -219,6 +220,16 @@ L'utente mette in cache un **suo** messaggio scegliendo un'automation del proget
 - **RAG** (`run_rag(embedder)`): il contesto del set diviso e calcolato in memoria (come `RagService`, niente nel DB) con ogni embedder (`hashing`, `openrouter/<modello>`); ogni domanda cercata **con e senza** il bonus delle parole (`score`): hit@1, hit@5, MRR sulle domande con risposta, il miglior punteggio medio su quelle senza (deve restare sotto quello delle altre).
 - **Report**: `<nome>.md` (per una persona, per lo speech) e `<nome>.json` in `<MBARE_PILOT_HOME>/evaluations/` (`wip-20261110-143000`…). `reports()`, `report(nome, md|json)`.
 - **Da dove si lanciano**: dalla pagina (`POST /observability/evaluations`: `enqueue`, poi il **worker** la prende con `run_next` dopo automation e Copilot; lo stato in `evaluation_run`) o da terminale (`resource/scripts/eval-wip.py`, `eval-rag.py` → `src/evaluation_cli.py`, che le esegue subito). Una valutazione fallita resta con il motivo e il worker va avanti.
+
+## Oggi
+
+**`TodayService`** (il pannello «📌 Oggi» in cima alla sotto-scheda 📋 Attività, `GET /projects/{p}/today`, e il tool `today` del segretario): calcolato nel codice, senza LLM, sul progetto aperto.
+
+- **Aspettano te**: gli agent task creati, in rifinitura o da verificare (in quest'ordine); le sessioni Copilot che aspettano: in preparazione con l'ultimo messaggio (eventi esclusi) di Copilot (`answer`), in esecuzione con una domanda di `ask_user` senza risposta (`question`), dalla più recente. Una sessione di un task che non c'è più non conta.
+- **Scadute** / **In scadenza**: le voci non fatte con una scadenza passata / entro `due_soon_days` giorni da oggi (oggi compreso), delle attività non fatte, per data. I giorni sono un'impostazione del progetto (`Project.due_soon_days`, default 3, da 0 a 60; ⚙️ Impostazioni della scheda Dati).
+- **Da chiudere**: le attività non fatte con tutte le voci fatte (almeno una).
+- **Azioni su una voce**: `check_item` (✅ Spunta) e `set_due` (📅 Rimanda), per numero **e testo**: se la voce è cambiata nel frattempo è un `ConflictError` (ricarica), un numero che non c'è un `ValidationError`, una voce già fatta un conflitto. «Segna fatta» di un'attività usa il salvataggio normale (con «Imparato» facoltativo).
+- Restano fuori (backlog): attività ferme da giorni, testo nuovo nella WIP, urgenti.
 
 ## Elabora WIP
 

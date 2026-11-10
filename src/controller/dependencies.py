@@ -21,6 +21,7 @@ from service.project_data_service import ProjectDataService
 from service.project_service import ProjectService
 from service.rag_service import RagService
 from service.run_service import RunService
+from service.today_service import TodayService
 from service.wip_service import WipService
 
 
@@ -102,3 +103,7 @@ def metrics_service(request: Request) -> MetricsService:
 
 def evaluation_service(request: Request) -> EvaluationService:
     return request.app.state.container.evaluation_service
+
+
+def today_service(request: Request) -> TodayService:
+    return request.app.state.container.today_service

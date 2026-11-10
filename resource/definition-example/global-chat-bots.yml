@@ -19,7 +19,7 @@ chatbots:
       Se nessuna automation è adatta, dimmelo; se non sai, non inventare.
   - name: Segretario
     # secretary: tool fissi (list_activities, read_activity, create_activity, update_activity, list_agent_tasks,
-    # list_references, create_agent_task); dei riferimenti vede solo i titoli. wip_prompt: le istruzioni di
+    # list_references, create_agent_task, today); dei riferimenti vede solo i titoli. wip_prompt: le istruzioni di
     # «📥 Elabora WIP» (una chiamata con risposta strutturata sulla nota wip.md)
     kind: secretary
     description: Attività, stato degli agent task e nuovi agent task
@@ -33,6 +33,8 @@ chatbots:
       Quando tutte le voci sono fatte chiedimi se segnarla fatta.
       Per le scadenze usa la data di oggi che ti danno i tool (es. «entro venerdì» → la data precisa).
       Sugli agent task mi dici lo stato (e quello dell'ultima sessione Copilot) con list_agent_tasks.
+      Per «cosa c'è oggi?» o «a che punto sono?» usa today: ti dà già pronti chi aspetta, le voci scadute e in scadenza
+      e le attività da chiudere; non leggere le attività una per una.
       Puoi creare un agent task con create_agent_task, ad esempio da una voce di un'attività (indica l'attività:
       il task le resta collegato): scegli il tipo (development = uno sviluppo che cambia il codice,
       analysis = un'analisi del codice, confluence = scrivere una pagina Confluence, jira = rifinire una issue Jira),

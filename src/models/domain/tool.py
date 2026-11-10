@@ -272,3 +272,12 @@ class AgentTaskDetailResponse(BaseModel):
     references: list[LinkedReferenceInfo] = Field(..., description="The linked references with their content; missing ones are left out.")
     checklist: list[str] = Field([], description="What a refined task of this type should have: check it before proposing todo.")
     link: str = Field(..., description="Link to the task in the app.")
+
+
+class TodayResponse(BaseModel):
+    date: str = Field(..., description="Today, YYYY-MM-DD.")
+    waiting: list[str] = Field(..., description="Agent tasks waiting for the user (created, refinement, to_verify) and Copilot sessions waiting for an answer.")
+    overdue: list[str] = Field(..., description="Items not done past their due date, the oldest first.")
+    due_soon: list[str] = Field(..., description="Items not done due within due_soon_days days.")
+    to_close: list[str] = Field(..., description="Activities whose items are all done: ask the user whether to mark them done.")
+    due_soon_days: int

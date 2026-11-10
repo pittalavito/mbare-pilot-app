@@ -295,6 +295,14 @@ class ProjectDataService:
         self._projects.save(project.model_copy(update={"visible_note_types": ordered}))
         return ordered
 
+    def due_soon_days(self, project_name: str) -> int:
+        """«📌 Oggi»: items due within this many days are «In scadenza» (default 3)."""
+        return self._projects.get(self._project(project_name)).due_soon_days
+
+    def save_due_soon_days(self, project_name: str, days: int) -> int:
+        project = self._projects.get(self._project(project_name))
+        return self._projects.save(project.model_copy(update={"due_soon_days": days})).due_soon_days
+
     def files_visible(self, project_name: str) -> bool:
         """Whether the Dati tab shows the uploaded files."""
         return self._projects.get(self._project(project_name)).files_visible

@@ -118,9 +118,11 @@ def test_references_linked_from_a_task_and_an_activity(client):
 
 
 def test_data_settings(client):
-    assert client.get("/projects/acme/data-settings").json() == {"visible_note_types": ["generic", "agent_task", "activity"], "files_visible": True}
+    assert client.get("/projects/acme/data-settings").json() == {
+        "visible_note_types": ["generic", "agent_task", "activity"], "files_visible": True, "due_soon_days": 3}
+    assert client.put("/projects/acme/data-settings", json={"visible_note_types": ["generic"], "due_soon_days": 5}).json()["due_soon_days"] == 5
     saved = client.put("/projects/acme/data-settings", json={"visible_note_types": ["code_reference", "generic"]})
-    assert saved.json() == {"visible_note_types": ["generic", "code_reference"], "files_visible": True}  # files_visible: default
+    assert saved.json() == {"visible_note_types": ["generic", "code_reference"], "files_visible": True, "due_soon_days": 5}  # kept
     hidden = client.put("/projects/acme/data-settings", json={"visible_note_types": ["generic"], "files_visible": False})
     assert hidden.json()["files_visible"] is False and client.get("/projects/acme/data-settings").json()["files_visible"] is False
     assert client.put("/projects/acme/data-settings", json={"visible_note_types": ["boh"]}).status_code == 422

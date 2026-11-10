@@ -36,6 +36,8 @@ class Project(BaseModel):
 
     files_visible: bool = True
     """The Dati tab shows the uploaded files (they stay on disk either way)."""
+    due_soon_days: int = Field(default=3, ge=0, le=60)
+    """«📌 Oggi»: items due within this many days are «In scadenza»."""
 
     @field_validator("visible_note_types", mode="before")
     @classmethod

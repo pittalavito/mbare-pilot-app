@@ -19,6 +19,7 @@ class Adapter:
             embedding_model=EmbeddingModelName(row.embedding_model),
             visible_note_types=_note_types(row.visible_note_types) if row.visible_note_types is not None else None,
             files_visible=row.files_visible,
+            due_soon_days=row.due_soon_days,
             created_at=as_utc(row.created_at),
         )
 
@@ -36,6 +37,7 @@ class Factory:
             embedding_model=project.embedding_model.value,
             visible_note_types=[kind.value for kind in project.visible_note_types] if project.visible_note_types is not None else None,
             files_visible=project.files_visible,
+            due_soon_days=project.due_soon_days,
             created_at=project.created_at,
         )
 
