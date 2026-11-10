@@ -1,4 +1,4 @@
-import { ActionIcon, Alert, Anchor, Badge, Button, Card, Group, Modal, SegmentedControl, Select, Stack, Text, TextInput, Textarea } from "@mantine/core";
+import { ActionIcon, Alert, Anchor, Badge, Button, Card, Group, Modal, SegmentedControl, Select, Stack, Tabs, Text, TextInput, Textarea } from "@mantine/core";
 import { useEffect, useState } from "react";
 
 import { useSearchParams } from "react-router-dom";
@@ -9,6 +9,8 @@ import {
 } from "../../api/projectData";
 import { size } from "../../format";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { useAtlassianConfigured } from "../../api/projects";
+import { JiraImport, ConfluenceImport } from "./AtlassianImport";
 import { CodeTodoHelp, TODO_EXAMPLE } from "./CodeTodoHelp";
 
 /** The code and context references of an agent task or an activity. A
@@ -161,6 +163,8 @@ export function ReferenceModal({ project, reference, opened, onClose, onCreated,
 }) {
   const save = useSaveReference(project);
   const remove = useDeleteReference(project);
+  /** With Atlassian configured a new reference can be copied from Jira or Confluence too. */
+  const atlassian = useAtlassianConfigured(project);
   const [kind, setKind] = useState<ReferenceKind>("context_reference");
   const [form, setForm] = useState<ReferenceBody>(EMPTY);
   const set = (patch: Partial<ReferenceBody>) => setForm((current) => ({ ...current, ...patch }));
@@ -181,8 +185,7 @@ export function ReferenceModal({ project, reference, opened, onClose, onCreated,
       { onSuccess: (saved) => { if (!reference) onCreated(saved.name); onClose(); } },
     );
 
-  return (
-    <Modal opened={opened} onClose={onClose} title={reference ? `Riferimento: ${reference.title}` : "Nuovo riferimento"} size="lg">
+  const manual = (
       <Stack gap="sm">
         {reference ? <Text size="xs" c="dimmed"><code>{reference.name}</code></Text> : (
           <SegmentedControl
@@ -224,6 +227,24 @@ export function ReferenceModal({ project, reference, opened, onClose, onCreated,
           )}
         </Group>
       </Stack>
+  );
+  const imported = (name: string) => { onCreated(name); onClose(); };
+  const copyLabel = createLabel.replace("Crea", "Copia");
+
+  return (
+    <Modal opened={opened} onClose={onClose} title={reference ? `Riferimento: ${reference.title}` : "Nuovo riferimento"} size="lg">
+      {reference || !atlassian ? manual : (
+        <Tabs defaultValue="manual" keepMounted={false}>
+          <Tabs.List mb="sm">
+            <Tabs.Tab value="manual">✍️ A mano</Tabs.Tab>
+            <Tabs.Tab value="jira">Jira</Tabs.Tab>
+            <Tabs.Tab value="confluence">Confluence</Tabs.Tab>
+          </Tabs.List>
+          <Tabs.Panel value="manual">{manual}</Tabs.Panel>
+          <Tabs.Panel value="jira"><JiraImport project={project} copyLabel={copyLabel} onCopied={imported} /></Tabs.Panel>
+          <Tabs.Panel value="confluence"><ConfluenceImport project={project} copyLabel={copyLabel} onCopied={imported} /></Tabs.Panel>
+        </Tabs>
+      )}
     </Modal>
   );
 }

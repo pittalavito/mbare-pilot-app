@@ -1030,6 +1030,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/atlassian/jira/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Issues
+         * @description For the «Nuovo riferimento» window: an issue key (also in a pasted link)
+         *     gives that issue, any other text searches summary and description in
+         *     ``jira_project`` (omitted = every project); at most 20, most recently updated first.
+         */
+        get: operations["search_issues_projects__project__atlassian_jira_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project}/atlassian/jira/issues/{issue_key}/reference": {
         parameters: {
             query?: never;
@@ -3035,6 +3057,28 @@ export interface components {
             description: string;
             /** Url */
             url: string;
+            /**
+             * Related
+             * @default []
+             */
+            related: components["schemas"]["JiraRelatedIssue"][];
+        };
+        /**
+         * JiraRelatedIssue
+         * @description A sub-issue or a linked issue, as an issue shows it.
+         */
+        JiraRelatedIssue: {
+            /** Key */
+            key: string;
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
+            /** Status */
+            status?: string | null;
+            /** Relation */
+            relation: string;
         };
         /** LogResponse */
         LogResponse: {
@@ -6399,6 +6443,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JiraIssueResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_issues_projects__project__atlassian_jira_search_get: {
+        parameters: {
+            query: {
+                q: string;
+                jira_project?: string | null;
+            };
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JiraIssueResponse"][];
                 };
             };
             /** @description Validation Error */

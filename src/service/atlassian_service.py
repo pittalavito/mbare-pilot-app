@@ -32,6 +32,10 @@ from service.store.project_store import ProjectStore
 _PROJECT_KEY = re.compile(r"^[A-Z][A-Z0-9_]{1,9}$")
 _ISSUE_KEY = re.compile(r"^[A-Z][A-Z0-9_]{1,9}-\d+$")
 _SPACE_KEY = re.compile(r"^~?[A-Za-z0-9_]{1,255}$")
+_KEY_IN_TEXT = re.compile(r"\b[A-Z][A-Z0-9_]{1,9}-\d+\b")
+"""An issue key inside a text or a link (``…/browse/NAV-7``, ``…?selectedIssue=NAV-7``)."""
+_PAGE_IN_LINK = re.compile(r"/pages/(?:viewpage\.action\?pageId=)?(\d+)|[?&]pageId=(\d+)")
+"""A Confluence page's id inside a link (``…/wiki/spaces/DOC/pages/123/Titolo``, ``…?pageId=123``)."""
 
 
 class AtlassianService:
@@ -164,11 +168,14 @@ class AtlassianService:
 
 
 def issue_reference(issue: JiraIssue) -> Reference:
-    """``NAV-7 · summary``, its facts, then the description."""
+    """``NAV-7 · summary``, its facts, the description, then its sub-issues and linked issues."""
     facts = [f"{label}: {value}" for label, value in (
         ("Tipo", issue.issue_type), ("Stato", issue.status), ("Priorità", issue.priority), ("Assegnata a", issue.assignee),
     ) if value]
-    content = "\n\n".join(part for part in (" · ".join(facts), issue.description.strip()) if part)
+    related = "\n".join(f"- {item.key} · {item.summary}" + (f" ({item.status})" if item.status else "") + f" — {item.relation}"
+                        for item in issue.related)
+    content = "\n\n".join(part for part in (" · ".join(facts), issue.description.strip(),
+                                             f"### Sotto-issue e issue collegate\n{related}" if related else "") if part)
     return Reference(title=f"{issue.key} · {issue.summary}", source="jira", source_url=issue.url, content=content)
 
 
@@ -223,6 +230,20 @@ class AtlassianSite:
         jql = f'project = "{key}"' + (" AND statusCategory != Done" if open_only else "") + " ORDER BY updated DESC"
         return self._jira.search_issues(jql, limit=limit)
 
+    def find_issues(self, text: str, project_key: str | None = None, limit: int = 20) -> list[JiraIssue]:
+        """For the «Nuovo riferimento» window: an issue key in ``text`` (also
+        inside a pasted link) opens that issue; otherwise a text search in
+        summary and description, in ``project_key`` (None = every project),
+        most recently updated first."""
+        if not text.strip():
+            raise ValidationError("Il testo da cercare è vuoto.")
+        key = _KEY_IN_TEXT.search(text.upper())
+        if key and (text.strip().upper() == key.group(0) or "/BROWSE/" in text.upper() or "SELECTEDISSUE=" in text.upper()):
+            return [self.get_issue(key.group(0))]
+        quoted = text.strip().replace("\\", "\\\\").replace('"', '\\"')
+        scope = f'project = "{_project_key(project_key)}" AND ' if project_key else ""
+        return self._jira.search_issues(f'{scope}text ~ "{quoted}" ORDER BY updated DESC', limit=limit)
+
     def get_issue(self, issue_key: str) -> JiraIssue:
         key = issue_key.strip().upper()
         if not _ISSUE_KEY.match(key):
@@ -247,9 +268,14 @@ class AtlassianSite:
         return self._confluence.get_page(page_id.strip())
 
     def search_pages(self, text: str, space_key: str | None = None, limit: int = 25) -> list[ConfluenceSearchHit]:
-        """Full-text search, in one space or (``space_key`` None) in all of them."""
+        """Full-text search, in one space or (``space_key`` None) in all of
+        them. A pasted link to a page (``/pages/<id>``, ``pageId=<id>``) gives that page."""
         if not text.strip():
             raise ValidationError("Il testo da cercare è vuoto.")
+        linked = _PAGE_IN_LINK.search(text)
+        if linked:
+            page = self.get_page(linked.group(1) or linked.group(2))
+            return [ConfluenceSearchHit(id=page.id, title=page.title, excerpt=page.body[:200], url=page.url)]
         return self._confluence.search_pages(text.strip(), space_key=space_key or None, limit=limit)
 
     @staticmethod

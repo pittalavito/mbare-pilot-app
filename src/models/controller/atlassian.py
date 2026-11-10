@@ -5,7 +5,16 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from models.domain.atlassian import AtlassianFavorite, AtlassianSettings, AtlassianUser, ConfluencePage, ConfluenceSearchHit, FavoriteKind, JiraIssue
+from models.domain.atlassian import (
+    AtlassianFavorite,
+    AtlassianSettings,
+    AtlassianUser,
+    ConfluencePage,
+    ConfluenceSearchHit,
+    FavoriteKind,
+    JiraIssue,
+    JiraRelatedIssue,
+)
 
 
 class AtlassianSettingsResponse(BaseModel):
@@ -52,6 +61,8 @@ class JiraIssueResponse(BaseModel):
     description: str
     """Plain text."""
     url: str
+    related: list[JiraRelatedIssue] = []
+    """Its sub-issues and linked issues."""
 
     @classmethod
     def from_issue(cls, issue: JiraIssue) -> "JiraIssueResponse":

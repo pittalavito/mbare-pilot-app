@@ -40,6 +40,15 @@ class JiraProject(BaseModel):
     url: str
 
 
+class JiraRelatedIssue(BaseModel):
+    """A sub-issue or a linked issue, as an issue shows it."""
+    key: str
+    summary: str = ""
+    status: str | None = None
+    relation: str
+    """``sotto-issue``, or the link as Jira names it from this issue (``blocks``, ``is blocked by``, ``relates to``...)."""
+
+
 class JiraIssue(BaseModel):
     key: str
     summary: str
@@ -51,6 +60,8 @@ class JiraIssue(BaseModel):
     description: str = ""
     """Plain text extracted from the Atlassian Document Format body."""
     url: str
+    related: list[JiraRelatedIssue] = []
+    """Its sub-issues and linked issues."""
 
 
 # ---------------------------------------------------------------- Confluence
