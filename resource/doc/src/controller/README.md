@@ -18,12 +18,30 @@ src/controller/
   atlassian_controller.py     /projects/{progetto}/atlassian
   masking_controller.py       /projects/{progetto}/masking
   wip_controller.py           /projects/{progetto}/wip
+  mcp_server.py               /mcp: il server MCP per Copilot (non è un router: un'app MCP montata da core/app.py)
   definition_controller.py    /projects/{progetto}/definitions (anteprima), .../sync
   process_controller.py       /admin/worker, /admin/logs/{processo}
   admin_controller.py         /admin/config, /observability
 ```
 
 Tutti i path qui sotto stanno sotto `/api` (`core/server.py` monta l'API lì e serve il frontend altrove). Documentazione interattiva con tutti gli endpoint: `<API_URL>/api/docs` (Swagger), con l'API accesa.
+
+## Server MCP per Copilot
+
+`mcp_server.py` costruisce il server MCP dell'app (SDK `mcp`, `MCPServer`) e `core/app.py` lo monta su **`/mcp`** (quindi `<API_URL>/api/mcp/`): trasporto *streamable HTTP*, senza stato tra le chiamate, risposte JSON. Lo usa **GitHub Copilot** mentre lavora su un agent task: l'app glielo passa a ogni turno con il token della sessione (vedi [service](../service/README.md#copilot)).
+
+| Tool | Cosa fa |
+|---|---|
+| `read_task()` | il task della sessione: titolo, tipo, obiettivo, contesto, criteri, vincoli, checklist del tipo |
+| `list_references()` | quello che il task collega (riferimenti, note, file) con nome, tipo, titolo, se esiste ancora |
+| `read_reference(name)` | il contenuto di uno di loro, come testo |
+| `ask_user(question)` | in esecuzione: la domanda va nella chat e il tool aspetta la risposta (fino al timeout) |
+| `finish(summary)` | in esecuzione: «ho finito», il riassunto in chat; uno sviluppo passa a «da verificare» |
+
+- **Token**: ogni chiamata porta `Authorization: Bearer <token della sessione>`; i tool vedono solo il task di quella sessione. Un token sconosciuto (o di una sessione cancellata) è un errore del tool con il suo messaggio. Il controllo dell'Host (DNS rebinding) è spento: ogni tool vuole comunque il token.
+- **Niente mascheramento**: Copilot legge già il codice in chiaro.
+- **Tool sincroni in un thread**: `ask_user` può aspettare minuti senza fermare il server, e un turno di preparazione (che gira dentro una richiesta dell'API) può richiamare l'API stessa (provato da `test/unit/service/test_copilot_mcp.py`, con uvicorn vero e il Copilot finto).
+- **Fuori dallo schema OpenAPI**: è un'app montata, non un router.
 
 ## Endpoint
 
@@ -44,7 +62,7 @@ Tutti i path qui sotto stanno sotto `/api` (`core/server.py` monta l'API lì e s
 | Elabora WIP | `GET /projects/{p}/wip` (la nota e le parole del testo nuovo), `GET /projects/{p}/wip/runs` (le elaborazioni con l'esito), `POST /projects/{p}/wip/preview` (il testo che riceve il modello, mascherato, con gli alias), `POST /projects/{p}/wip/process` (una chiamata: le proposte in chiaro; 502 se il modello non risponde), `POST /projects/{p}/wip/apply` (le proposte scelte e il segno nella nota; 409 se la WIP è cambiata o le proposte sono già applicate o annullate), `POST /projects/{p}/wip/dismiss` (proposte chiuse senza applicarne nessuna: tutte scartate, niente segno) |
 | Processi | `GET /admin/worker`, `POST /admin/worker/start`, `POST /admin/worker/stop` (409 se ne gira uno avviato altrove), `GET /admin/logs/{api\|worker}?lines=` |
 | Definizioni da file | `GET /projects/{p}/definitions` (anteprima), `POST /projects/{p}/definitions/sync` (tutto, o `only` gli elementi scelti; vedi [definitions](../../definitions.md)) |
-| Copilot | `GET /copilot/status[?project=]` (CLI, coding agent, prompt e modelli da scegliere con prezzo e costo medio per turno), `GET /copilot-sessions/{id}/turns` (uso per turno e totale), `GET /observability/copilot/turns[?limit=&project=]`, `GET /observability/copilot/models[?days=&project=]`, `GET/POST/DELETE /projects/{p}/copilot-sessions` (DELETE `?task_note=`: le sessioni di un task), `GET/DELETE /copilot-sessions/{id}`, `GET/POST /copilot-sessions/{id}/messages`, `POST /copilot-sessions/{id}/approve`, `POST /copilot-sessions/{id}/send-back` (un task «da verificare» rimandato a Copilot con un messaggio), `POST /copilot-sessions/{id}/save-note` (la risposta di un task che lavora solo in piano diventa una nota collegata), `POST /copilot-sessions/{id}/cancel` |
+| Copilot | `GET /copilot/status[?project=]` (CLI, coding agent, prompt e modelli da scegliere con prezzo e costo medio per turno), `GET /copilot-sessions/{id}/turns` (uso per turno e totale), `GET /observability/copilot/turns[?limit=&project=]`, `GET /observability/copilot/models[?days=&project=]`, `GET/POST/DELETE /projects/{p}/copilot-sessions` (DELETE `?task_note=`: le sessioni di un task), `GET/DELETE /copilot-sessions/{id}`, `GET/POST /copilot-sessions/{id}/messages`, `POST /copilot-sessions/{id}/approve`, `POST /copilot-sessions/{id}/answer` (la risposta alla domanda che Copilot fa durante l'esecuzione, tool MCP `ask_user`; 409 senza domanda in attesa), `POST /copilot-sessions/{id}/send-back` (un task «da verificare» rimandato a Copilot con un messaggio), `POST /copilot-sessions/{id}/save-note` (la risposta di un task che lavora solo in piano diventa una nota collegata), `POST /copilot-sessions/{id}/cancel` |
 | Admin | `GET /admin/config`, `GET /observability/runs`, `GET /observability/runs/{run_id}/trace`, `GET /observability/tool-calls`, `GET/POST /admin/backups`, `GET /admin/backups/{nome}` |
 
 ## Convenzioni

@@ -1,5 +1,5 @@
-Ti affido un'analisi, descritta in {task_folder}/task.md, sul repository in cui ti trovi. Nella stessa cartella trovi i riferimenti collegati al task. Non devi cambiare il codice: devi capirlo e rispondere.
-1. leggi task.md, i riferimenti e il codice coinvolto;
+Ti affido un'analisi, indicata in {task_folder}/task.md, sul repository in cui ti trovi. Il task completo lo leggi con il tool MCP read_task del server «mbare-pilot», i riferimenti collegati con list_references e read_reference. Non devi cambiare il codice: devi capirlo e rispondere.
+1. leggi il task, i riferimenti e il codice coinvolto;
 2. fammi le domande necessarie, poche e precise;
 3. poi rispondimi con l'analisi completa, in markdown: cosa hai trovato, dove (file e righe), rischi e opzioni, con la tua raccomandazione.
 

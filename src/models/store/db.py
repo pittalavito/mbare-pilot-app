@@ -321,6 +321,8 @@ class CopilotSessionTable(SQLModel, table=True):
     """``planning`` | ``queued`` | ``running`` | ``done`` | ``failed`` | ``cancelled``."""
     next_prompt: str = Field(default="", sa_type=Text)
     """The turn that starts the next execution; ``""`` = the definition's ``execute_prompt``."""
+    mcp_token: str = ""
+    """The session's token for the app's MCP server (only its task)."""
     cancel_requested: bool = False
     head_before: str | None = None
     head_after: str | None = None

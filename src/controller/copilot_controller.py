@@ -98,6 +98,12 @@ def approve(session_id: int, service: CopilotService = Depends(copilot_service))
     return CopilotSessionResponse.from_session(service.approve(session_id))
 
 
+@router.post("/copilot-sessions/{session_id}/answer")
+def answer(session_id: int, request: CopilotMessageRequest, service: CopilotService = Depends(copilot_service)) -> CopilotSessionResponse:
+    """The answer to Copilot's question during an execution (MCP ask_user); 409 when it asked nothing."""
+    return CopilotSessionResponse.from_session(service.answer(session_id, request.text))
+
+
 @router.post("/copilot-sessions/{session_id}/send-back")
 def send_back(session_id: int, request: CopilotMessageRequest, service: CopilotService = Depends(copilot_service)) -> CopilotSessionResponse:
     """A task to verify needs more work: the message starts a new execution of the same session (in the worker's queue)."""

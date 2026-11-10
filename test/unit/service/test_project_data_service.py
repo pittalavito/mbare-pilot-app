@@ -3,7 +3,7 @@ import pytest
 from core.error import ConflictError, NotFoundError, ValidationError
 from domain.project.data_paths import data_file_name, note_file_name, project_slug
 from domain.project.folder_browser import FolderBrowser
-from models.domain.note import Activity, ActivityStatus, AgentTask, ChecklistItem, NoteType, TaskStatus, TodoItem, TodoPriority
+from models.domain.note import Activity, ActivityStatus, AgentTask, ChecklistItem, NoteType, Reference, TaskStatus, TodoItem, TodoPriority
 from models.domain.project import Project, ProjectDataKind, ProjectSource
 from service.project_service import ProjectService
 
@@ -230,9 +230,11 @@ def test_notes_and_files_are_linked_as_references_and_unlinked_when_deleted(data
     activity = data_service.create_activity("My App", Activity(title="Rilascio", references=["decisioni.md", "files/specifiche.pdf"]))
     task = data_service.create_agent_task("My App", AgentTask(title="Fix", references=["decisioni.md", "files/specifiche.pdf"]))
 
-    assert data_service.copilot_files("My App", task) == {
-        "task.md": data_service.read_note("My App", task).encode("utf-8"), "decisioni.md": b"# Decisioni", "files/specifiche.pdf": b"%PDF",
-    }
+    assert [(link.name, link.kind, link.title, link.found) for link in data_service.task_links("My App", task)] == [
+        ("decisioni.md", "note", "Decisioni", True), ("files/specifiche.pdf", "file", "specifiche.pdf", True),
+    ]
+    assert data_service.task_link_text("My App", task, "decisioni.md") == "# Decisioni"
+    assert data_service.task_link_text("My App", task, "files/specifiche.pdf") == "%PDF"
     for wrong in ("files/../x", "files/", "agent-task-fix.md"):
         with pytest.raises(ValidationError):
             data_service.save_agent_task("My App", task, AgentTask(title="Fix", references=[wrong]))
@@ -242,6 +244,29 @@ def test_notes_and_files_are_linked_as_references_and_unlinked_when_deleted(data
     assert data_service.activity("My App", activity).references == ["decisioni.md"]
     assert data_service.delete_note("My App", "decisioni")
     assert data_service.agent_task("My App", task).references == [] == data_service.activity("My App", activity).references
+
+
+def test_what_a_task_links_as_copilot_lists_and_reads_it(data_service):
+    code = data_service.create_reference("My App", NoteType.CODE_REFERENCE, Reference(title="Login", content="def login(): ..."))
+    data_service.save_note("My App", "senza-titolo", "testo senza titolo")
+    data_service.save_file("My App", "dump.bin", bytes([0xff, 0xfe, 0x00]))
+    data_service.save_file("My App", "sparito.txt", b"x")
+    task = data_service.create_agent_task("My App", AgentTask(title="Fix", references=[
+        code, "senza-titolo.md", "files/dump.bin", "files/sparito.txt", "context-reference-cancellato.md"]))
+    data_service.delete_file("My App", "sparito.txt")  # unlinked from the task
+    data_service.save_agent_task("My App", task, data_service.agent_task("My App", task).model_copy(
+        update={"references": [*data_service.agent_task("My App", task).references, "files/sparito.txt"]}))
+
+    links = data_service.task_links("My App", task)
+
+    assert [(link.name, link.kind, link.title, link.found) for link in links] == [
+        (code, "code", "Login", True), ("senza-titolo.md", "note", "senza-titolo.md", True), ("files/dump.bin", "file", "dump.bin", True),
+        ("context-reference-cancellato.md", "context", "cancellato", False), ("files/sparito.txt", "file", "sparito.txt", False),
+    ]
+    assert data_service.task_link_text("My App", task, code).startswith("# Login")
+    assert data_service.task_link_text("My App", task, "files/dump.bin") == "(file binario di 3 byte: non leggibile come testo)"
+    with pytest.raises(NotFoundError, match="non è collegato"):
+        data_service.task_link_text("My App", task, "altro.md")
 
 
 def test_the_dati_tab_can_hide_the_files(data_service, project_store):

@@ -9,7 +9,11 @@ directory):
 - default: plan turns answer with a question; the execution writes ``copilot.txt``;
 - ``COMMIT``: the execution also commits (a broken rule, for the HEAD check);
 - ``SLEEP``: the execution sleeps (for cancellation and timeouts);
-- ``FAIL``: the execution fails (exit code 1, message on stderr).
+- ``FAIL``: the execution fails (exit code 1, message on stderr);
+- ``VIAMCP`` (with ``--additional-mcp-config``): it uses the app's MCP server as
+  the real one would. Plan turns read the task (``read_task``) and quote its
+  objective; the execution asks the user (``ask_user``, with ``ASK`` too),
+  writes the answer in ``copilot.txt`` and calls ``finish``.
 
 In plan mode it never writes in the working directory, as the real CLI. With
 ``--usage-output-file`` it writes the session's cumulative usage like the real
@@ -21,6 +25,7 @@ import re
 import subprocess
 import sys
 import time
+import urllib.request
 from pathlib import Path
 
 
@@ -39,6 +44,12 @@ def main() -> int:
 
     usage_file = args[args.index("--usage-output-file") + 1] if "--usage-output-file" in args else None
     model = args[args.index("--model") + 1] if "--model" in args else "fake-default"
+    mcp = _mcp_config(args) if "VIAMCP" in task else None
+    if mode == "plan" and mcp:
+        task_data = _call(mcp, "read_task", {})
+        _answer(f"Ho letto via MCP: {task_data['objective']} ({len(_call(mcp, 'list_references', {}))} riferimenti)", len(turns))
+        _usage(usage_file, len(turns), model)
+        return 0
     if mode == "plan":
         _answer(f"Domanda {len(turns)}: confermi? (turni in questa sessione: {len(turns)})", len(turns))
         _usage(usage_file, len(turns), model)
@@ -50,6 +61,13 @@ def main() -> int:
         return 1
     if "SLEEP" in task:
         time.sleep(60)
+    if mcp:
+        name = _call(mcp, "ask_user", {"question": "Che nome uso?"}) if "ASK" in task else "nessuna domanda"
+        Path("copilot.txt").write_text(f"scritto da Copilot via MCP: {name}\n", encoding="utf-8")
+        _call(mcp, "finish", {"summary": f"Creato copilot.txt ({name})."})
+        _answer("Fatto via MCP.", len(turns))
+        _usage(usage_file, len(turns), model)
+        return 0
     Path("copilot.txt").write_text("scritto da Copilot\n", encoding="utf-8")
     if "COMMIT" in task:
         subprocess.run(["git", "add", "copilot.txt"], check=True, capture_output=True)
@@ -58,6 +76,33 @@ def main() -> int:
     _answer("Ho creato copilot.txt. Criteri soddisfatti.", len(turns))
     _usage(usage_file, len(turns), model)
     return 0
+
+
+def _mcp_config(args: list[str]) -> dict | None:
+    """The app's MCP server from ``--additional-mcp-config @file``, as the real CLI reads it."""
+    if "--additional-mcp-config" not in args:
+        return None
+    value = args[args.index("--additional-mcp-config") + 1]
+    config = json.loads(Path(value[1:]).read_text(encoding="utf-8") if value.startswith("@") else value)
+    return config["mcpServers"]["mbare-pilot"]
+
+
+def _call(server: dict, tool: str, arguments: dict):
+    """One MCP tool call (JSON-RPC over HTTP); the structured result, or the text."""
+    body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": tool, "arguments": arguments}}).encode()
+    headers = {**server["headers"], "Content-Type": "application/json", "Accept": "application/json, text/event-stream"}
+    with urllib.request.urlopen(urllib.request.Request(server["url"], data=body, headers=headers), timeout=60) as response:
+        result = json.loads(response.read())["result"]
+    if result.get("isError"):
+        raise SystemExit(f"MCP {tool}: {result['content'][0]['text']}")
+    structured = result.get("structuredContent")
+    if structured is None:  # an unstructured answer: its text (JSON when it is data)
+        text = result["content"][0]["text"] if result.get("content") else ""
+        try:
+            return json.loads(text)
+        except ValueError:
+            return text
+    return structured.get("result", structured) if isinstance(structured, dict) and set(structured) == {"result"} else structured
 
 
 def _task(first_prompt: str) -> str:

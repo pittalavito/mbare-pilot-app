@@ -41,6 +41,11 @@ class CopilotStore:
         row = self._sessions.get(session_id)
         return Adapter.to_copilot_session(row) if row else None
 
+    def get_session_by_token(self, token: str) -> CopilotSession | None:
+        """The session of an MCP token; None for an unknown or empty one."""
+        row = self._sessions.find_by_token(token)
+        return Adapter.to_copilot_session(row) if row else None
+
     def list_sessions(self, project_name: str) -> list[CopilotSession]:
         """Newest first."""
         return [Adapter.to_copilot_session(row) for row in self._sessions.list_for_project(project_name)]

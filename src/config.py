@@ -86,6 +86,11 @@ class Config(BaseSettings):
     """A turn of the planning chat (the API waits for it)."""
     copilot_execution_timeout_minutes: float = 60
     """An execution in the worker."""
+    copilot_ask_user_timeout_minutes: float = 10
+    """How long Copilot's ``ask_user`` (MCP) waits for the user's answer during an execution."""
+    api_url: str = "http://127.0.0.1:8000"
+    """Where the server answers (the same API_URL of resource/scripts): Copilot reaches the app's MCP
+    server at ``<api_url>/api/mcp/``, also from the worker."""
 
     # --- Datapizza tracing ---
     datapizza_trace_summary: bool = False

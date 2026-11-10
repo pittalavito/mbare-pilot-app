@@ -120,6 +120,25 @@ export function useApproveCopilot(project: string) {
   });
 }
 
+/** The answer to Copilot's question during an execution (MCP ask_user): Copilot is waiting for it. */
+export function useAnswerCopilot(project: string) {
+  const refresh = useRefresh(project);
+  return useMutation({
+    mutationFn: ({ id, text }: { id: number; text: string }) =>
+      unwrap(api.POST("/copilot-sessions/{session_id}/answer", { params: { path: { session_id: id } }, body: { text } })),
+    onSettled: (_, __, { id }) => refresh(id),
+  });
+}
+
+/** Copilot's last question when you have not answered it yet. */
+export const pendingQuestion = (messages: CopilotMessage[]) => {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].role === "user") return undefined;
+    if (messages[index].role === "question") return messages[index];
+  }
+  return undefined;
+};
+
 /** A task to verify needs more work: the message starts a new execution of the same session. */
 export function useSendBackCopilot(project: string) {
   const refresh = useRefresh(project);

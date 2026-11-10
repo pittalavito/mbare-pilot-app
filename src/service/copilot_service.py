@@ -13,11 +13,19 @@ A session lives in two phases:
 The prompts and the denied tools come from the coding-agent definition in the
 data folder (domain/project/coding_agent.py), read at every use.
 
-The task and its linked references reach Copilot as files in the repository,
-``mbare-pilot/<task note>/`` (domain/project/task_folder.py), rebuilt before
-every turn and left there afterwards; the prompt only says where they are
-(``{task_folder}``). The app keeps that folder out of its lists of changed
-files (the warning before an execution, the files changed by it).
+The task reaches Copilot through the app's **MCP server**
+(controller/mcp_server.py): every session has its own token, valid only for
+its task; each turn gives Copilot the server and the token (``McpAccess``),
+after checking that the server answers (no answer = the turn does not start).
+In the repository there is only a minimal ``mbare-pilot/<task note>/task.md``
+(domain/project/task_folder.py): title, type and where the rest is; the
+prompt says where it is (``{task_folder}``). The app keeps that folder out of
+its lists of changed files.
+
+The MCP tools are methods here: ``mcp_task``, ``mcp_links``, ``mcp_link``,
+``ask_user`` (during an execution: the question goes in the chat and the tool
+waits for the user's answer, ``answer``, up to a timeout) and ``finish``
+(Copilot's summary; a development becomes «to verify»).
 
 One execution at a time per repository (the queue waits); after an execution
 the chat can go on and a new ok starts a new one. The task's status follows:
@@ -28,19 +36,22 @@ execution of the same session), back to todo otherwise.
 Only a development task is executed. The other types (analysis, Confluence,
 Jira: ``TaskType.plan_only``) stay in planning: Copilot reads and answers, and
 the user saves its last answer as a note linked to the task, which becomes done."""
+import secrets
 import time
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
+import httpx
+
 from config import Config
 from core.error import AppError, ConflictError, NotFoundError, UpstreamError, ValidationError
 from core.observability import LogPrefix, log_exception, observed
-from domain.client.copilot.client import NOT_FOUND, CopilotClient, CopilotMode
+from domain.client.copilot.client import NOT_FOUND, CopilotClient, CopilotMode, McpAccess
 from domain.project import coding_agent, task_folder
 from domain.project.data_paths import note_file_name, slug
-from domain.project.note_templates import NOTE_PREFIXES_BY_TYPE, STATUS_LABELS
+from domain.project.note_templates import NOTE_PREFIXES_BY_TYPE, STATUS_LABELS, TYPE_LABELS
 from models.domain.copilot import (
     CodingAgentSettings,
     CopilotMessage,
@@ -54,7 +65,7 @@ from models.domain.copilot import (
     CopilotTurnRecord,
     CopilotUsage,
 )
-from models.domain.note import AgentTask, TaskStatus, TaskType
+from models.domain.note import AgentTask, TaskLink, TaskStatus, TaskType
 from service.git_service import GitService
 from service.project_data_service import ProjectDataService
 from service.store.copilot_store import CopilotStore
@@ -98,7 +109,20 @@ class CopilotService:
         client: CopilotClient,
         planning_timeout_seconds: float,
         execution_timeout_seconds: float,
+        mcp_url: str | None = None,
+        mcp_check: Callable[[str], str | None] | None = None,
+        ask_user_timeout_seconds: float = 600.0,
+        poll_seconds: float = 1.0,
     ):
+        """``mcp_url``: the app's MCP server as Copilot reaches it (None = the
+        turns go without it, e.g. in tests); ``mcp_check(url)``: why it does
+        not answer, None when it does (None = not checked);
+        ``ask_user_timeout_seconds``: how long ``ask_user`` waits for the
+        answer, reading the DB every ``poll_seconds``."""
+        self._mcp_url = mcp_url
+        self._mcp_check = mcp_check
+        self._ask_timeout = ask_user_timeout_seconds
+        self._poll = poll_seconds
         self._definitions = definitions
         self._copilot = copilot
         self._git = git_service
@@ -123,6 +147,9 @@ class CopilotService:
             client=CopilotClient(config.copilot_command, config.copilot_model, token),
             planning_timeout_seconds=config.copilot_planning_timeout_minutes * 60,
             execution_timeout_seconds=config.copilot_execution_timeout_minutes * 60,
+            mcp_url=mcp_url(config.api_url),
+            mcp_check=mcp_unreachable,
+            ask_user_timeout_seconds=config.copilot_ask_user_timeout_minutes * 60,
         )
 
     # ------------------------------------------------------------------ read
@@ -199,7 +226,8 @@ class CopilotService:
         folder = self._git.repository_folder(project_name, repository)
         prompt = coding_agent.task_prompt(settings, task.type, prompt)
         first_turn = coding_agent.plan_prompt(settings, task_folder.relative_folder(task_note), prompt)
-        task_folder.write(folder, task_note, self._data.copilot_files(project_name, task_note))  # before the session: errors stop here
+        self._require_mcp()
+        task_folder.write(folder, task_note, task_folder.minimal_task(task_note, task.title, TYPE_LABELS[task.type]))  # errors stop here
         session = self._copilot.save_session(CopilotSession(
             project_name=project_name,
             task_note=task_note,
@@ -207,6 +235,7 @@ class CopilotService:
             copilot_session_id=str(uuid4()),
             prompt=prompt,
             model=model,
+            mcp_token=secrets.token_urlsafe(32),
         ))
         if (warning := not_refined_warning(task.status)):
             self._message(session, CopilotMessageRole.EVENT, warning)
@@ -228,6 +257,7 @@ class CopilotService:
         if not text.strip():
             raise ValidationError("Il messaggio è vuoto.")
         folder = self._git.repository_folder(session.project_name, session.repository)
+        self._require_mcp()
         return self._plan_turn(session, folder, text.strip())
 
     def _plan_turn(self, session: CopilotSession, folder: Path, prompt: str, refresh: bool = True) -> CopilotSession:
@@ -237,7 +267,8 @@ class CopilotService:
         self._message(session, CopilotMessageRole.USER, prompt)
         session = self._update(session, status=CopilotSessionStatus.PLANNING, error=None)
         started = time.monotonic()
-        turn = self._client.turn(folder, session.copilot_session_id, prompt, CopilotMode.PLAN, self._planning_timeout, model=session.model)
+        turn = self._client.turn(folder, session.copilot_session_id, prompt, CopilotMode.PLAN, self._planning_timeout, model=session.model,
+                                 mcp=self._access(session))
         self._record_usage(session, turn, CopilotPhase.PLAN, started)
         return self._record(session, turn)
 
@@ -336,6 +367,98 @@ class CopilotService:
             self._copilot.delete_session(session.id)
         return len(sessions)
 
+    # ------------------------------------------------------------------- mcp
+    def mcp_session(self, token: str) -> CopilotSession:
+        """The session of an MCP token; ValidationError for an unknown one (a
+        deleted session's token is gone with it)."""
+        session = self._copilot.get_session_by_token(token.strip())
+        if session is None:
+            raise ValidationError("Token MCP non valido: vale solo per la sua sessione Copilot.")
+        return session
+
+    def mcp_task(self, token: str) -> dict:
+        """The session's task, every field, with the checklist of its type."""
+        session = self.mcp_session(token)
+        task = self._data.agent_task(session.project_name, session.task_note)
+        settings, _ = self.coding_agent_or_error(session.project_name)
+        return {
+            "task": session.task_note, "title": task.title, "type": task.type.value, "status": task.status.value,
+            "objective": task.objective, "context": task.context, "acceptance_criteria": [item.text for item in task.criteria],
+            "constraints": task.constraints, "checklist": coding_agent.task_checklist(settings, task.type) if settings else [],
+        }
+
+    def mcp_links(self, token: str) -> list[TaskLink]:
+        """What the session's task links (references, notes, files), by name."""
+        session = self.mcp_session(token)
+        return self._data.task_links(session.project_name, session.task_note)
+
+    def mcp_link(self, token: str, name: str) -> str:
+        """The content of one of them, as text."""
+        session = self.mcp_session(token)
+        return self._data.task_link_text(session.project_name, session.task_note, name)
+
+    def ask_user(self, token: str, question: str) -> str:
+        """During an execution: the question goes in the chat and this waits
+        for the user's answer (``answer``), reading the DB every few seconds,
+        up to the timeout or until the execution is cancelled. While planning
+        Copilot asks in its answer instead."""
+        session = self.mcp_session(token)
+        if not question.strip():
+            raise ValidationError("La domanda è vuota.")
+        if session.status != CopilotSessionStatus.RUNNING:
+            return "Non sei in esecuzione: scrivi la domanda nella tua risposta, ti rispondo nella chat."
+        asked = self._copilot.add_message(CopilotMessage(session_id=session.id, role=CopilotMessageRole.QUESTION, content=question.strip()))
+        deadline = time.monotonic() + self._ask_timeout
+        while True:
+            current = self._copilot.get_session(session.id)
+            if current is None or current.cancel_requested:
+                return "Esecuzione annullata: fermati."
+            answer = next((message.content for message in self._copilot.list_messages(session.id)
+                           if message.role == CopilotMessageRole.USER and (message.id or 0) > (asked.id or 0)), None)
+            if answer is not None:
+                return answer
+            if time.monotonic() >= deadline:
+                self._message(session, CopilotMessageRole.EVENT, "⏱️ Nessuna risposta in tempo: Copilot decide da solo.")
+                return "Nessuna risposta: decidi tu e scrivilo nel riassunto di finish."
+            time.sleep(self._poll)
+
+    @observed(LogPrefix.COPILOT_SERVICE)
+    def answer(self, session_id: int, text: str) -> CopilotSession:
+        """The user's answer to Copilot's pending question (``ask_user``)
+        during an execution. ConflictError when there is no question waiting."""
+        session = self.session(session_id)
+        if not text.strip():
+            raise ValidationError("La risposta è vuota.")
+        if session.status != CopilotSessionStatus.RUNNING or self.pending_question(session.id) is None:
+            raise ConflictError("Copilot non ti ha fatto domande: non c'è niente a cui rispondere.")
+        self._message(session, CopilotMessageRole.USER, text.strip())
+        return self.session(session.id)
+
+    def pending_question(self, session_id: int) -> CopilotMessage | None:
+        """Copilot's last question when no user message came after it."""
+        for message in reversed(self._copilot.list_messages(session_id)):
+            if message.role == CopilotMessageRole.USER:
+                return None
+            if message.role == CopilotMessageRole.QUESTION:
+                return message
+        return None
+
+    def finish(self, token: str, summary: str) -> str:
+        """Copilot says it is done: the summary goes in the chat and, during
+        the execution of a development, the task becomes «to verify» (the end
+        of the turn does the same when Copilot does not call this)."""
+        session = self.mcp_session(token)
+        if session.status != CopilotSessionStatus.RUNNING:
+            return "Non sei in esecuzione: rispondi nella chat."
+        self._message(session, CopilotMessageRole.COPILOT, f"🏁 {summary.strip() or 'Fatto.'}")
+        try:
+            task = self._data.agent_task(session.project_name, session.task_note)
+        except AppError:
+            return "Ricevuto (il task non esiste più)."
+        if not task.type.plan_only:
+            self._set_task_status(session, TaskStatus.TO_VERIFY)
+        return "Ricevuto: l'utente controlla il lavoro."
+
     # ---------------------------------------------------------------- worker
     def run_next(self, on_claim: Callable[[CopilotSession], None] | None = None) -> CopilotSession | None:
         """Execute the next queued session whose repository is free; None when there is none."""
@@ -348,6 +471,7 @@ class CopilotService:
             settings = self.coding_agent(session.project_name)
             folder = self._git.repository_folder(session.project_name, session.repository)
             head_before = self._git.head(session.project_name, session.repository)
+            self._require_mcp()
         except AppError as exc:
             self._message(session, CopilotMessageRole.EVENT, f"❌ Non partita: {exc}")
             return self._update(session, status=CopilotSessionStatus.FAILED, error=str(exc), finished_at=_now())
@@ -359,7 +483,8 @@ class CopilotService:
         self._message(session, CopilotMessageRole.USER, prompt)
         started = time.monotonic()
         turn = self._client.turn(folder, session.copilot_session_id, prompt, CopilotMode.EXECUTE,
-                                 self._execution_timeout, settings.denied_tools, self._cancel_check(session.id), model=session.model)
+                                 self._execution_timeout, settings.denied_tools, self._cancel_check(session.id), model=session.model,
+                                 mcp=self._access(session))
         self._record_usage(session, turn, CopilotPhase.EXECUTE, started)
         session = self._record(session, turn)
         return self._finish(session, turn)
@@ -433,14 +558,25 @@ class CopilotService:
             log_exception(LogPrefix.COPILOT_SERVICE, "Uso del turno non registrato (sessione %s)", session.id)
 
     def _refresh_task_folder(self, session: CopilotSession, folder: Path) -> None:
-        """The task and its references rewritten in the repository (they may
-        have changed since the last turn). Best effort: when the task was
-        deleted meanwhile (or the folder cannot be written) the last copy
-        stays and the chat goes on."""
+        """The minimal task.md rewritten in the repository (the title may have
+        changed since the last turn). Best effort: when the task was deleted
+        meanwhile (or the folder cannot be written) the last copy stays and
+        the chat goes on."""
         try:
-            task_folder.write(folder, session.task_note, self._data.copilot_files(session.project_name, session.task_note))
+            task = self._data.agent_task(session.project_name, session.task_note)
+            task_folder.write(folder, session.task_note, task_folder.minimal_task(session.task_note, task.title, TYPE_LABELS[task.type]))
         except (AppError, OSError):
             log_exception(LogPrefix.COPILOT_SERVICE, "Cartella del task %s non aggiornata", session.task_note)
+
+    def _access(self, session: CopilotSession) -> McpAccess | None:
+        """The MCP server and the session's token for a turn; None without a server (or a token)."""
+        return McpAccess(self._mcp_url, session.mcp_token) if self._mcp_url and session.mcp_token else None
+
+    def _require_mcp(self) -> None:
+        """UpstreamError when the app's MCP server does not answer: without it Copilot cannot read the task."""
+        if self._mcp_url and self._mcp_check and (reason := self._mcp_check(self._mcp_url)):
+            raise UpstreamError(f"Il server MCP dell'app non risponde su {self._mcp_url}: {reason}. "
+                                "Copilot non leggerebbe il task: controlla API_URL e che l'API sia accesa.")
 
     def _refuse_plan_only(self, session: CopilotSession) -> None:
         """ConflictError when the session's task is plan-only (it is never
@@ -489,3 +625,18 @@ class CopilotService:
         """Writes only ``changes``: the API and the worker write the same
         session at the same time (e.g. a cancel while the execution starts)."""
         return self._copilot.update_session(session.id, **changes, updated_at=_now())
+
+
+def mcp_url(api_url: str) -> str:
+    """Where Copilot reaches the app's MCP server: the API is under /api, the server under /mcp."""
+    return f"{api_url.rstrip('/')}/api/mcp/"
+
+
+def mcp_unreachable(url: str, timeout: float = 5.0) -> str | None:
+    """Why the MCP server at ``url`` does not answer a ping; None when it does."""
+    try:
+        response = httpx.post(url, timeout=timeout, json={"jsonrpc": "2.0", "id": 0, "method": "ping"},
+                              headers={"Accept": "application/json, text/event-stream"})
+    except httpx.HTTPError as exc:
+        return str(exc) or type(exc).__name__
+    return None if response.status_code == 200 else f"risposta {response.status_code}"

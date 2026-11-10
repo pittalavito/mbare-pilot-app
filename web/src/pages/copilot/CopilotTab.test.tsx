@@ -75,6 +75,31 @@ describe("CopilotTab", () => {
     await waitFor(() => expect(saved).toHaveBeenCalled());
   });
 
+  it("during an execution Copilot's question unlocks the box, which answers it", async () => {
+    const answered = vi.fn(async (request: Request) => ({ ...session({ status: "running" }), ...(await request.json()) }));
+    mockApi({
+      "GET /copilot/status": { installed: true, version: "x" },
+      "GET /projects/acme/copilot-sessions": [session({ status: "running" })],
+      "GET /copilot-sessions/4/messages": [
+        ...MESSAGES,
+        { id: 3, role: "event", content: "▶️ Esecuzione partita", created_at: "2026-10-26T10:01:00Z" },
+        { id: 4, role: "question", content: "Che nome uso per il file?", created_at: "2026-10-26T10:02:00Z" },
+      ],
+      "POST /copilot-sessions/4/answer": answered,
+    });
+    renderTab();
+
+    expect(await screen.findByText("Che nome uso per il file?")).toBeInTheDocument();
+    expect(screen.getByText(/aspetta la risposta per andare avanti/)).toBeInTheDocument();
+    const box = screen.getByPlaceholderText(/Rispondi alla domanda di Copilot/);
+    expect(box).toBeEnabled();
+    fireEvent.change(box, { target: { value: "calcoli.py" } });
+    fireEvent.click(screen.getByRole("button", { name: "Rispondi" }));
+
+    await waitFor(() => expect(answered).toHaveBeenCalled());
+    expect(await answered.mock.results[0].value).toMatchObject({ text: "calcoli.py" });
+  });
+
   it("while Copilot executes the chat waits and the execution can be cancelled; at the end the changed files show", async () => {
     const cancelled = vi.fn(() => session({ status: "running", cancel_requested: true }));
     mockApi({
