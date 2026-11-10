@@ -61,6 +61,15 @@ def get_issue(project: str, issue_key: str,
     return JiraIssueResponse.from_issue(service.site(project).get_issue(issue_key))
 
 
+@router.get("/jira/search")
+def search_issues(project: str, q: str, jira_project: str | None = None,
+                  service: AtlassianService = Depends(atlassian_service)) -> list[JiraIssueResponse]:
+    """For the «Nuovo riferimento» window: an issue key (also in a pasted link)
+    gives that issue, any other text searches summary and description in
+    ``jira_project`` (omitted = every project); at most 20, most recently updated first."""
+    return [JiraIssueResponse.from_issue(issue) for issue in service.site(project).find_issues(q, jira_project)]
+
+
 @router.post("/jira/issues/{issue_key}/reference")
 def issue_reference(project: str, issue_key: str, request: ReferenceImportRequest,
                     response: Response, service: AtlassianService = Depends(atlassian_service)) -> ReferenceImportResponse:

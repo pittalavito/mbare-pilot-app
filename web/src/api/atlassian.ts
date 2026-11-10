@@ -56,6 +56,27 @@ export function useJiraIssue(project: string) {
   });
 }
 
+/** «Nuovo riferimento»: an issue key (also in a pasted link) gives that issue,
+ * other text searches summary and description in ``jiraProject`` (omitted = everywhere). */
+export function useJiraSearch(project: string) {
+  return useMutation({
+    mutationFn: ({ text, jiraProject }: { text: string; jiraProject?: string }) =>
+      unwrap(api.GET("/projects/{project}/atlassian/jira/search", {
+        params: { path: { project }, query: { q: text.trim(), jira_project: jiraProject || undefined } },
+      })),
+  });
+}
+
+/** «Nuovo riferimento»: full-text search in ``space`` (omitted = every space); a pasted page link gives that page. */
+export function useConfluenceSearch(project: string) {
+  return useMutation({
+    mutationFn: ({ text, space }: { text: string; space?: string }) =>
+      unwrap(api.GET("/projects/{project}/atlassian/confluence/search", {
+        params: { path: { project }, query: { q: text.trim(), space: space || undefined } },
+      })),
+  });
+}
+
 export function useConfluencePage(project: string) {
   return useMutation({
     mutationFn: (pageId: string) =>

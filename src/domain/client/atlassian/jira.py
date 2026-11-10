@@ -6,9 +6,9 @@ from typing import Any
 
 from domain.client.atlassian.http import AtlassianHttp
 from domain.client.atlassian.markdown import fenced, inline_code, join_blocks, prefix_lines, table, tidy
-from models.domain.atlassian import AtlassianUser, JiraIssue, JiraProject
+from models.domain.atlassian import AtlassianUser, JiraIssue, JiraProject, JiraRelatedIssue
 
-_ISSUE_FIELDS = "summary,status,issuetype,priority,assignee,updated,description"
+_ISSUE_FIELDS = "summary,status,issuetype,priority,assignee,updated,description,subtasks,issuelinks"
 
 
 class JiraClient:
@@ -70,7 +70,24 @@ class JiraClient:
             updated=datetime.strptime(updated, "%Y-%m-%dT%H:%M:%S.%f%z") if updated else None,
             description=adf_to_markdown(fields.get("description")),
             url=f"{self._http.base_url}/browse/{raw['key']}",
+            related=[_related(item, "sotto-issue") for item in fields.get("subtasks") or [] if item.get("key")]
+                    + [link for link in (_linked(item) for item in fields.get("issuelinks") or []) if link],
         )
+
+
+def _related(raw: dict[str, Any], relation: str) -> JiraRelatedIssue:
+    fields = raw.get("fields") or {}
+    return JiraRelatedIssue(key=raw["key"], summary=fields.get("summary", ""), status=_name(fields.get("status")), relation=relation)
+
+
+def _linked(link: dict[str, Any]) -> JiraRelatedIssue | None:
+    """An issue link seen from this issue: the other issue and how it is linked."""
+    kind = link.get("type") or {}
+    if link.get("outwardIssue", {}).get("key"):
+        return _related(link["outwardIssue"], kind.get("outward") or kind.get("name") or "collegata")
+    if link.get("inwardIssue", {}).get("key"):
+        return _related(link["inwardIssue"], kind.get("inward") or kind.get("name") or "collegata")
+    return None
 
 
 def _name(value: dict[str, Any] | None) -> str | None:

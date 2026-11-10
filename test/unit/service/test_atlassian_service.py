@@ -226,3 +226,93 @@ def test_favorites_follow_the_site(service):
 
     _save(service, base_url="https://beta.atlassian.net")  # another site: gone
     assert service.list_favorites("Alpha") == []
+
+
+# ------------------------------------------- «Nuovo riferimento»: search and links
+
+_ISSUE = {
+    "key": "NAV-7",
+    "fields": {
+        "summary": "Login lento", "status": {"name": "In corso"}, "issuetype": {"name": "Bug"},
+        "description": {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Ci mette 10 s."}]}]},
+        "subtasks": [{"key": "NAV-8", "fields": {"summary": "Profilare la query", "status": {"name": "Da fare"}}}],
+        "issuelinks": [
+            {"type": {"name": "Blocks", "inward": "is blocked by", "outward": "blocks"},
+             "outwardIssue": {"key": "NAV-9", "fields": {"summary": "Rilascio 2.0", "status": {"name": "Da fare"}}}},
+            {"type": {"name": "Relates"}, "inwardIssue": {"key": "OPS-1", "fields": {"summary": "Monitoraggio"}}},
+            {"type": {"name": "Rotto"}},
+        ],
+    },
+}
+
+
+def test_find_issues_searches_text_in_a_project_or_everywhere_with_quotes_escaped():
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.params["jql"])
+        return httpx.Response(200, json={"issues": [_ISSUE], "isLast": True})
+
+    [issue] = _site(handler).find_issues('login "lento"', "nav")
+    _site(handler).find_issues("login lento")
+
+    assert seen == ['project = "NAV" AND text ~ "login \\"lento\\"" ORDER BY updated DESC', 'text ~ "login lento" ORDER BY updated DESC']
+    assert [(item.key, item.relation, item.status) for item in issue.related] == [
+        ("NAV-8", "sotto-issue", "Da fare"), ("NAV-9", "blocks", "Da fare"), ("OPS-1", "Relates", None),
+    ]
+
+
+@pytest.mark.parametrize("text", ["nav-7", " NAV-7 ", "https://acme.atlassian.net/browse/NAV-7", "https://acme.atlassian.net/jira/software/projects/NAV/boards/1?selectedIssue=NAV-7"])
+def test_an_issue_key_or_link_opens_the_issue(text):
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.path)
+        return httpx.Response(200, json=_ISSUE)
+
+    assert [issue.key for issue in _site(handler).find_issues(text, "OTHER")] == ["NAV-7"]
+    assert seen == ["/rest/api/3/issue/NAV-7"]
+
+
+def test_a_key_inside_ordinary_text_is_searched_as_text():
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.params.get("jql"))
+        return httpx.Response(200, json={"issues": [], "isLast": True})
+
+    _site(handler).find_issues("regressione di NAV-7 sul login")
+
+    assert seen == ['text ~ "regressione di NAV-7 sul login" ORDER BY updated DESC']
+    with pytest.raises(ValidationError):
+        _site(handler).find_issues("  ")
+
+
+@pytest.mark.parametrize("link", ["https://acme.atlassian.net/wiki/spaces/DOC/pages/123456/Architettura",
+                                  "https://acme.atlassian.net/wiki/pages/viewpage.action?pageId=123456"])
+def test_a_pasted_confluence_link_gives_that_page(link):
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/wiki/api/v2/pages/123456"
+        return httpx.Response(200, json={"id": "123456", "title": "Architettura", "body": {"storage": {"value": "<p>Monolite modulare.</p>"}},
+                                         "_links": {"webui": "/spaces/DOC/pages/123456"}})
+
+    [hit] = _site(handler).search_pages(link)
+
+    assert (hit.id, hit.title, hit.excerpt, hit.url) == ("123456", "Architettura", "Monolite modulare.", "https://acme.atlassian.net/wiki/spaces/DOC/pages/123456")
+
+
+def test_a_copied_issue_lists_its_sub_issues_and_linked_issues():
+    from domain.client.atlassian.client import JiraClient as Client
+    from service.atlassian_service import issue_reference
+
+    http = AtlassianHttp("https://acme.atlassian.net", "me@acme.com", "t", transport=httpx.MockTransport(lambda request: httpx.Response(200, json=_ISSUE)))
+    reference = issue_reference(Client(http).get_issue("NAV-7"))
+
+    assert reference.title == "NAV-7 · Login lento"
+    assert reference.content.endswith(
+        "### Sotto-issue e issue collegate\n- NAV-8 · Profilare la query (Da fare) — sotto-issue\n"
+        "- NAV-9 · Rilascio 2.0 (Da fare) — blocks\n- OPS-1 · Monitoraggio — Relates"
+    )
+    plain = _ISSUE | {"fields": {"summary": "Senza legami"}}
+    http = AtlassianHttp("https://acme.atlassian.net", "me@acme.com", "t", transport=httpx.MockTransport(lambda request: httpx.Response(200, json=plain)))
+    assert "Sotto-issue" not in issue_reference(Client(http).get_issue("NAV-7")).content

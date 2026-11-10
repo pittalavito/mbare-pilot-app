@@ -274,6 +274,12 @@ def test_atlassian_settings_never_return_the_token(client):
 
 
 class _FakeJira:
+    jql: list[str] = []
+
+    def search_issues(self, jql, limit):
+        _FakeJira.jql.append(jql)
+        return [self.get_issue("PROJ-3")]
+
     def get_issue(self, key):
         return JiraIssue(key=key, summary="Login rotto", status="To Do", description="Non entra.",
                          url=f"https://acme.atlassian.net/browse/{key}")
@@ -300,6 +306,9 @@ def test_jira_and_confluence_reads(client, monkeypatch):
     issue = client.get("/projects/acme/atlassian/jira/issues/proj-12").json()
     assert (issue["key"], issue["summary"], issue["description"]) == ("PROJ-12", "Login rotto", "Non entra.")
     assert client.get("/projects/acme/atlassian/jira/issues/nope").status_code == 400
+    [found] = client.get("/projects/acme/atlassian/jira/search", params={"q": "login", "jira_project": "PROJ"}).json()
+    assert found["key"] == "PROJ-3" and _FakeJira.jql[-1] == 'project = "PROJ" AND text ~ "login" ORDER BY updated DESC'
+    assert [item["key"] for item in client.get("/projects/acme/atlassian/jira/search", params={"q": "proj-12"}).json()] == ["PROJ-12"]
 
     assert [p["title"] for p in client.get("/projects/acme/atlassian/confluence/pages").json()] == ["Setup"]
     assert client.get("/projects/acme/atlassian/confluence/pages/1").json()["body"] == "Installa tutto."
