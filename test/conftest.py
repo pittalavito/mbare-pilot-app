@@ -152,6 +152,11 @@ def copilot_store(stores):
 
 
 @pytest.fixture
+def evaluation_store(stores):
+    return stores.evaluations
+
+
+@pytest.fixture
 def rag_store(stores):
     return stores.rag
 

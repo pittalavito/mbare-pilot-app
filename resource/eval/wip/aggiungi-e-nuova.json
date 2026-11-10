@@ -1,0 +1,10 @@
+{
+  "wip": "alla documentazione manca la guida di installazione.\n\npoi c'è da organizzare la retrospettiva del team.",
+  "activities": [{"title": "Documentazione", "items": [{"text": "Scrivere il README", "done": true}]}],
+  "map": [],
+  "sensitive": [],
+  "expected": [
+    {"kind": "add_item", "activity_title": "Documentazione", "text": "Guida di installazione"},
+    {"kind": "new_activity", "title": "Retrospettiva del team"}
+  ]
+}

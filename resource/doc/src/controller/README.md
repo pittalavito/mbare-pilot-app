@@ -19,6 +19,7 @@ src/controller/
   masking_controller.py       /projects/{progetto}/masking
   wip_controller.py           /projects/{progetto}/wip
   context_controller.py       /projects/{progetto}/context, /context-index (RAG)
+  metrics_controller.py       /observability/metrics, /observability/evaluations
   mcp_server.py               /mcp: il server MCP per Copilot (non è un router: un'app MCP montata da core/app.py)
   definition_controller.py    /projects/{progetto}/definitions (anteprima), .../sync
   process_controller.py       /admin/worker, /admin/logs/{processo}
@@ -61,6 +62,7 @@ Tutti i path qui sotto stanno sotto `/api` (`core/server.py` monta l'API lì e s
 | Automation | `GET/POST /projects/{p}/pipelines`, `PUT/DELETE /pipelines/{id}`, `GET/POST /pipelines/{id}/runs`, `DELETE /pipeline-runs/{id}`, `GET /functions`, `GET /workers`, `GET /workers/health` |
 | Atlassian | `GET/PUT/DELETE /projects/{p}/atlassian`, `POST .../atlassian/check`, `GET .../atlassian/jira/issues/{chiave}`, `GET .../atlassian/confluence/pages`, `GET .../atlassian/confluence/pages/{id}`, `GET .../atlassian/confluence/search?q=`, `POST .../atlassian/jira/issues/{chiave}/reference` e `POST .../atlassian/confluence/pages/{id}/reference` (copia in un riferimento di contesto, `{"link_to": [...]}`: 201 creato, 200 aggiornato, 409 nome preso da un altro), `GET/POST .../atlassian/favorites`, `DELETE .../atlassian/favorites/{id}` |
 | Mascheramento | `GET/POST /projects/{p}/masking`, `DELETE /projects/{p}/masking/{alias}` |
+| Metriche | `GET /observability/metrics[?days=&project=]` (costo e latenza per chi, Copilot, accettazione di Elabora WIP), `GET /observability/evaluations` (valutazioni lanciate e report), `POST /observability/evaluations` (`{kind: wip|rag, models, embedders}`: in coda per il worker), `GET /observability/evaluations/reports/{nome}[?format=md|json]` |
 | Contesto (RAG) | `GET /projects/{p}/context`, `GET/PUT/DELETE /projects/{p}/context/{nome}` (salvare indicizza: `index_error` dice se non ci è riuscito; cancellare toglie dall'indice), `GET /projects/{p}/context-index` (documenti, pezzi, embedder), `POST /projects/{p}/context-index/reindex`, `POST /projects/{p}/context-index/search` (quello che `search_context` dà a Refiner e Copilot) |
 | Elabora WIP | `GET /projects/{p}/wip` (la nota e le parole del testo nuovo), `GET /projects/{p}/wip/runs` (le elaborazioni con l'esito), `POST /projects/{p}/wip/preview` (il testo che riceve il modello, mascherato, con gli alias), `POST /projects/{p}/wip/process` (una chiamata: le proposte in chiaro; 502 se il modello non risponde), `POST /projects/{p}/wip/apply` (le proposte scelte e il segno nella nota; 409 se la WIP è cambiata o le proposte sono già applicate o annullate), `POST /projects/{p}/wip/dismiss` (proposte chiuse senza applicarne nessuna: tutte scartate, niente segno) |
 | Processi | `GET /admin/worker`, `POST /admin/worker/start`, `POST /admin/worker/stop` (409 se ne gira uno avviato altrove), `GET /admin/logs/{api\|worker}?lines=` |

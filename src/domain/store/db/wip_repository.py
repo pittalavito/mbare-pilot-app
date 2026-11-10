@@ -1,4 +1,6 @@
 """The «Elabora WIP» runs of each project (table wip_run)."""
+from datetime import datetime
+
 from sqlalchemy.engine import Engine
 from sqlmodel import col, select
 
@@ -14,6 +16,15 @@ class DbWipRunRepository(SqlRepository[WipRunTable]):
     def find(self, run_id: str) -> WipRunTable | None:
         with self._session() as session:
             return session.exec(select(WipRunTable).where(WipRunTable.run_id == run_id)).first()
+
+    def list_since(self, since: datetime | None, project_name: str | None) -> list[WipRunTable]:
+        statement = select(WipRunTable)
+        if since is not None:
+            statement = statement.where(col(WipRunTable.created_at) >= since)
+        if project_name is not None:
+            statement = statement.where(WipRunTable.project_name == project_name)
+        with self._session() as session:
+            return list(session.exec(statement).all())
 
     def list_for_project(self, project_name: str) -> list[WipRunTable]:
         """Newest first."""

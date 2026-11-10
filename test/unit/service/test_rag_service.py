@@ -1,7 +1,6 @@
 """The context index (RAG): pieces by heading, masking before an embedder
 that is not local, documents reindexed only when changed, the hybrid
 search, the done activities with «Imparato», and hit@5 on the data set."""
-import json
 from pathlib import Path
 
 import pytest
@@ -15,7 +14,7 @@ from models.domain.note import Activity, ActivityStatus
 from models.domain.project import Project, ProjectSource
 from service.rag_service import KEYWORD_BONUS, RagService
 
-DATA = Path(__file__).parents[2] / "data" / "rag"
+DATA = Path(__file__).parents[3] / "resource" / "eval" / "rag"
 
 
 class RemoteEmbedder(Embedder):
@@ -132,9 +131,9 @@ def test_reindex_takes_everything_and_drops_what_is_gone(rag, data, rag_store):
 
     state = rag.reindex("acme")
 
-    assert (state.documents, state.embedder, state.error) == (6, "hashing-512", None) and state.pieces > 10
+    assert (state.documents, state.embedder, state.error) == (9, "hashing-512", None) and state.pieces > 20  # 8 documents, 1 activity
     data.delete_context("acme", "decisioni.md")  # deleted by hand, without the API
-    assert rag.reindex("acme").documents == 5
+    assert rag.reindex("acme").documents == 8
     assert "context/decisioni.md" not in [document.path for document in rag_store.list_documents("acme")]
 
 
@@ -182,14 +181,3 @@ def test_the_search_cites_document_and_section_and_rewards_exact_words(rag, data
 
 def test_an_empty_index_finds_nothing(rag):
     assert rag.search("acme", "qualsiasi cosa") == []
-
-
-def test_hit_at_5_on_the_data_set(rag, data):
-    _load_corpus(data)
-    rag.reindex("acme")
-    questions = json.loads((DATA / "questions.json").read_text(encoding="utf-8"))
-
-    found = [any((hit.path, hit.section) == (item["path"], item["section"]) for hit in rag.search("acme", item["question"]))
-             for item in questions]
-
-    assert sum(found) / len(found) >= 0.9, [item["question"] for item, ok in zip(questions, found, strict=True) if not ok]

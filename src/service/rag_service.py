@@ -176,13 +176,11 @@ class RagService:
             raise ValidationError("La domanda è vuota.")
         embedder = self.embedder(project_name)
         query = embedder.embed(self._for_embedder(project_name, embedder, question))
-        keywords = _keywords(question)
+        words = keywords(question)
         hits = []
         for piece, document in self._rag.pieces(project_name, embedder.name):
-            words = set(_WORD.findall(_plain(f"{document.title} {piece.section} {piece.text}")))
-            bonus = KEYWORD_BONUS * len(keywords & words) / len(keywords) if keywords else 0.0
-            score = (cosine_similarity(query, piece.embedding) if query and piece.embedding else 0.0) + bonus
-            hits.append(RagHit(path=document.path, title=document.title, section=piece.section, text=piece.text, score=round(score, 4)))
+            value = score(query, words, f"{document.title} {piece.section} {piece.text}", piece.embedding)
+            hits.append(RagHit(path=document.path, title=document.title, section=piece.section, text=piece.text, score=round(value, 4)))
         return sorted(hits, key=lambda hit: hit.score, reverse=True)[:limit]
 
 
@@ -200,5 +198,14 @@ def _plain(text: str) -> str:
     return "".join(char for char in unicodedata.normalize("NFKD", text.lower()) if not unicodedata.combining(char))
 
 
-def _keywords(question: str) -> set[str]:
+def keywords(question: str) -> set[str]:
+    """The words of a question that count for the bonus: at least 3 letters, not common, lowercase without accents."""
     return {word for word in _WORD.findall(_plain(question)) if len(word) >= 3 and word not in _STOPWORDS}
+
+
+def score(query: list[float], words: set[str], text: str, embedding: list[float], bonus: float = KEYWORD_BONUS) -> float:
+    """A piece's score for a question: cosine similarity plus ``bonus`` × the
+    share of the question's ``words`` found in ``text`` (title, section, piece)."""
+    found = set(_WORD.findall(_plain(text)))
+    extra = bonus * len(words & found) / len(words) if words else 0.0
+    return (cosine_similarity(query, embedding) if query and embedding else 0.0) + extra

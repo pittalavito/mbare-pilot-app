@@ -65,6 +65,16 @@ Export del DB in `../mbare-pilot-back-up/db/` (anche da **Admin → Backup**):
 python resource/scripts/export-db.py
 ```
 
+Valutazioni con i modelli veri sui set di prova di `resource/eval/` (anche da **Admin → Observability → Metriche**); il report, markdown e JSON, va in `<MBARE_PILOT_HOME>/evaluations/`:
+
+```bash
+python resource/scripts/eval-wip.py --model openrouter/google/gemini-3.1-flash-lite-preview
+```
+
+```bash
+python resource/scripts/eval-rag.py --embedder hashing --embedder openrouter/openai/text-embedding-3-small
+```
+
 ## Frontend
 
 React + Vite + Mantine in `web/` ([web/README.md](web/README.md)): parla **solo** con l'API, sotto `/api`.

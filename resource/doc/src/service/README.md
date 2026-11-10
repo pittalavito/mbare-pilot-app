@@ -23,6 +23,8 @@ src/service/
   copilot_service.py        agent task delegati a GitHub Copilot CLI: chat di preparazione, esecuzione nel worker
   wip_service.py            «Elabora WIP»: anteprima mascherata, una chiamata strutturata, proposte applicate senza LLM
   rag_service.py            contesto del progetto (RAG): indicizzazione mascherata, ricerca ibrida con le fonti
+  metrics_service.py        pagina Metriche: costo e latenza per chi, Copilot a parte, accettazione di Elabora WIP
+  evaluation_service.py     valutazioni sui set di prova (Elabora WIP, RAG): report, coda del worker
 ```
 
 Chi crea i service e li collega tra loro è il [Container](../core/README.md) (`core/container.py`): ogni service riceve nel costruttore **gli store e i service che usa, e solo quelli**. Così la firma dice cosa legge e scrive.
@@ -40,6 +42,7 @@ La persistenza è divisa per **aggregato**: uno store per gruppo di dati che viv
 | `ChatbotStore` | chatbot, conversazioni, messaggi, cache delle automation | Postgres | `ChatbotService`, `AutomationCacheService` |
 | `PipelineStore` | automation (step, collegamenti) e run (step delle run); tiene l'engine per `transaction` | Postgres | `PipelineService`, `PipelineRunner` |
 | `CopilotStore` | sessioni, messaggi e turni di Copilot (anche la coda del worker) | Postgres | `CopilotService` |
+| `EvaluationStore` | le valutazioni lanciate dalla pagina Metriche (anche la coda del worker) | Postgres | `EvaluationService` |
 | `RagStore` | l'indice del contesto (`document`, `chunk` con gli embedding pgvector) | Postgres | `RagService` |
 | `WipStore` | le «Elabora WIP» (`wip_run`): modello, versione del prompt, proposte e cosa ne ha fatto l'utente | Postgres | `WipService` |
 | `AtlassianStore` | sito e preferiti Atlassian; cifra e decifra il token con `SecretBox` | Postgres | `AtlassianService` |
@@ -199,7 +202,22 @@ L'utente mette in cache un **suo** messaggio scegliendo un'automation del proget
 - **Ricerca** (`search(progetto, domanda, limit=5)`): coseno tra la domanda e ogni pezzo fatto con lo stesso embedder, più un bonus (`KEYWORD_BONUS`, 0,15 × la quota di parole della domanda presenti nel pezzo: nomi tecnici, sigle). Il punteggio si calcola in Python sui pezzi del progetto (una cartella di contesto è piccola): uguale su Postgres e sul SQLite dei test.
 - **L'embedder** del progetto (`embedder`): `RAG_EMBEDDER` se c'è (`hashing`: quello finto, gratis e offline), altrimenti il suo `embedding_model` via OpenRouter (`openai/text-embedding-3-small` → `openrouter/openai/text-embedding-3-small`); `ollama/…` non è ancora supportato. `state(progetto)` dice documenti, pezzi, embedder e perché non si può costruire.
 - **Il RAG «con memoria»**: il Refiner ha la conversazione e scrive lui la domanda di ricerca a partire da quella.
-- **Set di prova**: `test/data/rag/` (un contesto finto e 12 domande con la sezione attesa); il test misura hit@5.
+- **Set di prova**: `resource/eval/rag/` (un contesto finto, 16 domande riformulate con la sezione attesa e 4 senza risposta): lo misura la [valutazione](#metriche-e-valutazioni).
+
+## Metriche e valutazioni
+
+**`MetricsService`** (Admin → Observability → 📊 Metriche, `GET /observability/metrics?days=&project=`): sul periodo scelto (7 o 30 giorni, tutto) e per un progetto o tutti.
+
+- **Per chi**: le run raggruppate per `config_name` (un chatbot, un agente della Libreria, `wip/<segretario>`…): chiamate, errori, token, costo in euro, latenza **media e p95** (rango più vicino), modelli usati. Calcolate in Python sulle righe del periodo, uguali su Postgres e SQLite.
+- **Copilot** a parte (`usage_by_model`): turni, crediti AI, token. Si paga in crediti, non in euro: non si somma agli agenti.
+- **Elabora WIP**: dalle righe di `wip_run`, quante proposte sono state accettate così com'erano, corrette, scartate, saltate, e il **tasso di accettazione** (accettate sulle proposte decise, cioè delle elaborazioni applicate o annullate).
+
+**`EvaluationService`**: le valutazioni sui set di prova di `resource/eval/`, con i modelli veri (costano: fuori dai test automatici, che usano un modello e un embedder finti).
+
+- **Elabora WIP** (`run_wip(modelli)`): ogni caso passa dalla stessa strada dell'app (`model_input`, mascheramento, una `structured_response`, `to_proposals`) con ogni modello scelto. Le proposte si giudicano **con regole nel codice** (`domain/evaluation/scoring.py`): stesso tipo, stessa attività, stessa voce o testo simile (almeno metà delle parole attese, per radice). Per modello: giuste, attese, proposte, precisione, richiamo, costo (prezzi del catalogo), latenza media, errori, e il dettaglio per caso.
+- **RAG** (`run_rag(embedder)`): il contesto del set diviso e calcolato in memoria (come `RagService`, niente nel DB) con ogni embedder (`hashing`, `openrouter/<modello>`); ogni domanda cercata **con e senza** il bonus delle parole (`score`): hit@1, hit@5, MRR sulle domande con risposta, il miglior punteggio medio su quelle senza (deve restare sotto quello delle altre).
+- **Report**: `<nome>.md` (per una persona, per lo speech) e `<nome>.json` in `<MBARE_PILOT_HOME>/evaluations/` (`wip-20261110-143000`…). `reports()`, `report(nome, md|json)`.
+- **Da dove si lanciano**: dalla pagina (`POST /observability/evaluations`: `enqueue`, poi il **worker** la prende con `run_next` dopo automation e Copilot; lo stato in `evaluation_run`) o da terminale (`resource/scripts/eval-wip.py`, `eval-rag.py` → `src/evaluation_cli.py`, che le esegue subito). Una valutazione fallita resta con il motivo e il worker va avanti.
 
 ## Elabora WIP
 
@@ -211,7 +229,7 @@ L'utente mette in cache un **suo** messaggio scegliendo un'automation del proget
 - **`process(progetto, paragrafi)`**: lo stesso testo, mascherato di nuovo allo stesso modo, a `client.structured_response` con il `wip_prompt` del Segretario (vuoto = `DEFAULT_WIP_PROMPT`) come system prompt. Il modello può proporre solo: attività nuova, voce da aggiungere, voce da spuntare, priorità o scadenza di una voce; ogni proposta riporta la frase da cui nasce. Le proposte tornano **in chiaro** (alias della mappa e temporanei rimessi a posto); quelle su un'attività o una voce che non è nell'elenco mandato al modello si scartano. La chiamata si registra come **run** (origine `wip`, `wip/<segretario>`: token, costo, latenza, in Osservabilità) e come `WipRun` (modello, versione del prompt, proposte, testo elaborato). Se il modello non risponde: `UpstreamError` (502) e la run fallita resta registrata.
 - **`apply(progetto, run_id, scelte)`** (senza LLM): le proposte scelte, come le ha corrette l'utente, nell'ordine. Una su un'attività o una voce cambiata nel frattempo (voce già fatta, cambiata o sparita, attività cancellata, nome già preso) si **salta** e lo dice l'esito. Poi il segno nella nota, e il `WipRun` registra accettate, corrette (`edited`), scartate e saltate. Nessuna scelta: errore, niente segno. Rifiutato (409) se le proposte sono già applicate o annullate, o se il testo nuovo della WIP non comincia più con quello elaborato.
 - **`dismiss(progetto, run_id)`**: l'utente chiude le proposte senza applicarne nessuna («Annulla», la ✕ della finestra, «Chiudi» quando non ce ne sono). Il `WipRun` si segna annullato (`dismissed_at`) con **tutte le proposte scartate**, così le metriche contano anche le elaborazioni rifiutate; niente segno, la WIP resta da elaborare. Rifiutato (409) se già applicate o annullate.
-- **Set di prova**: `test/data/wip/` ha WIP finte con i valori sensibili e le proposte attese; i test controllano che nessun valore sensibile arrivi al modello (con un client finto) e che l'anteprima sia proprio il testo inviato.
+- **Set di prova**: `resource/eval/wip/` (11 casi) ha WIP finte con i valori sensibili e le proposte attese; i test controllano che nessun valore sensibile arrivi al modello (con un client finto) e che l'anteprima sia proprio il testo inviato.
 
 ## Backup
 

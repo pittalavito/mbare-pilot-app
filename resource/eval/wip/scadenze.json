@@ -1,0 +1,8 @@
+{
+  "today": "2026-11-10",
+  "wip": "le slide della demo vanno finite entro venerdì, sono urgenti.",
+  "activities": [{"title": "Demo cliente", "items": [{"text": "Preparare le slide", "done": false}, {"text": "Provare l'ambiente", "done": false}]}],
+  "map": [],
+  "sensitive": [],
+  "expected": [{"kind": "set_item", "activity_title": "Demo cliente", "item": 1}]
+}

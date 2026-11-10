@@ -1,4 +1,6 @@
 """The «Elabora WIP» runs and what the user did with their proposals (Postgres)."""
+from datetime import datetime
+
 from sqlalchemy.engine import Engine
 
 from domain.store.db.wip_mapper import Adapter, Factory
@@ -18,6 +20,10 @@ class WipStore:
     def get_run(self, run_id: str) -> WipRun | None:
         row = self._runs.find(run_id)
         return Adapter.to_wip_run(row) if row else None
+
+    def list_since(self, since: datetime | None = None, project_name: str | None = None) -> list[WipRun]:
+        """Every «Elabora WIP» after ``since`` (None = ever), of ``project_name`` (None = every project)."""
+        return [Adapter.to_wip_run(row) for row in self._runs.list_since(since, project_name)]
 
     def list_runs(self, project_name: str) -> list[WipRun]:
         """Newest first."""

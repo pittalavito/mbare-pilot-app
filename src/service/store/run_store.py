@@ -1,6 +1,8 @@
 """The agents' runs: the facts (tokens, costs, latency, tool calls) in SQL, to
 be queried and summed, and the verbatim trace (input, output, LLM
 generations) in Redis, by the same ``run_id``."""
+from datetime import datetime
+
 import redis
 from sqlalchemy.engine import Engine
 
@@ -26,6 +28,10 @@ class RunStore:
     def list_runs(self, limit: int = 100) -> list[AgentRunSummary]:
         """Newest first."""
         return [Adapter.to_run_summary(row) for row in self._runs.list_recent(limit)]
+
+    def list_since(self, since: datetime | None = None, project_name: str | None = None) -> list[AgentRunSummary]:
+        """Every run after ``since`` (None = ever), of ``project_name`` (None = every project): for the metrics."""
+        return [Adapter.to_run_summary(row) for row in self._runs.list_since(since, project_name)]
 
     def list_tool_calls(self, limit: int = 100) -> list[ToolCallSummary]:
         """Newest first."""

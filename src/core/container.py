@@ -21,8 +21,10 @@ from service.chatbot_service import ChatbotService
 from service.code_todo_service import CodeTodoService
 from service.copilot_service import CopilotService
 from service.definition_service import DefinitionService
+from service.evaluation_service import EvaluationService
 from service.git_service import GitService
 from service.masking_service import MaskingService
+from service.metrics_service import MetricsService
 from service.model_service import ModelService
 from service.pipeline_runner import PipelineRunner
 from service.pipeline_service import PipelineService
@@ -107,6 +109,9 @@ class Container:
             agent_service=self.agent_service,
             automation_cache=self.automation_cache_service,
         )
+        self.metrics_service = MetricsService(runs=stores.runs, copilot=stores.copilot, wip_runs=stores.wip)
+        self.evaluation_service = EvaluationService(catalog=stores.catalog, chat=self.chat_service, evaluations=stores.evaluations,
+                                                    data_root=config.eval_data_root, reports_root=config.evaluations_root)
         self.wip_service = WipService(
             project_data=self.project_data_service,
             masking=self.masking_service,

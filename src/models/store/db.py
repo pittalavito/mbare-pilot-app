@@ -15,6 +15,7 @@ Schema overview (project-centric):
            ├─ wip_run                                       («Elabora WIP»: what the user did with the proposals)
            └─ agent_run ── tool_call                        (+ verbatim trace in Redis)
   tool, function, chat_model: global catalogs.
+  evaluation_run: the evaluations launched from the Metriche page (also the worker's queue).
 """
 from datetime import datetime
 
@@ -354,6 +355,23 @@ class WipRunTable(SQLModel, table=True):
     skipped: int = 0
     dismissed_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
     created_at: datetime = _timestamp(index=True)
+
+
+class EvaluationRunTable(SQLModel, table=True):
+    """An evaluation launched from the Metriche page: also the worker's queue (``queued`` rows)."""
+    __tablename__ = "evaluation_run"
+
+    id: int | None = Field(default=None, primary_key=True)
+    kind: str
+    """``wip`` | ``rag``."""
+    models: list[str] = Field(default_factory=list, sa_type=JSON)
+    embedders: list[str] = Field(default_factory=list, sa_type=JSON)
+    status: str = Field(index=True)
+    """``queued`` | ``running`` | ``done`` | ``failed``."""
+    report: str = ""
+    error: str | None = Field(default=None, sa_type=Text)
+    created_at: datetime = _timestamp(index=True)
+    finished_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
 
 
 class CopilotMessageTable(SQLModel, table=True):

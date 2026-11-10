@@ -62,7 +62,7 @@ _WEEKDAYS = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabat
 _PRIORITIES = {ProposalPriority.HIGH: TodoPriority.HIGH, ProposalPriority.MEDIUM: TodoPriority.MEDIUM, ProposalPriority.LOW: TodoPriority.LOW}
 
 
-class _Listing:
+class Listing:
     """The open activities as the model sees them: name → (title, {number: item text}) of the items not done."""
 
     def __init__(self, activities: list[tuple[str, Activity]]):
@@ -152,7 +152,7 @@ class WipService:
         latency_ms = round((perf_counter() - start) * 1000, 1)
 
         entries = self._masking.entries(project_name)
-        proposals = self._proposals(answer, listing, entries, masked.temporary) if answer else []
+        proposals = to_proposals(answer, listing, entries, masked.temporary) if answer else []
         run_id = str(uuid4())
         self._runs.save(AgentRunRecord(
             run_id=run_id, project_name=project_name, origin=RunOrigin.WIP, config_name=f"wip/{secretary.name}", role_name="wip",
@@ -228,7 +228,7 @@ class WipService:
             raise ValidationError("Nessun segretario nel progetto: il chatbot di default si crea all'avvio dell'API (se manca, guarda il log).")
         return secretary
 
-    def _masked(self, project_name: str, processed: str, today: date) -> tuple[MaskedText, _Listing]:
+    def _masked(self, project_name: str, processed: str, today: date) -> tuple[MaskedText, Listing]:
         """The whole input of the call, masked: the ``mask{}`` terms are added to the map first."""
         tagged = tagged_terms(processed)
         short = [term for term in tagged if len(term) < MIN_LENGTH]
@@ -236,36 +236,8 @@ class WipService:
             raise ValidationError(f"mask{{}} vuole almeno {MIN_LENGTH} caratteri: {', '.join(short)}.")
         for term in tagged:
             self._masking.add_term(project_name, MaskCategory.TERM, term)
-        listing = _Listing(self._data.activities(project_name))
-        text = (f"Oggi: {today.isoformat()} ({_WEEKDAYS[today.weekday()]})\n\nAttività aperte:\n{listing.text()}\n\n"
-                f"Testo nuovo della WIP:\n{without_tags(processed)}")
-        return masked_text(text, self._masking.entries(project_name), tagged), listing
-
-    def _proposals(self, answer: WipAnswer, listing: _Listing, entries: list[MaskEntry], temporary: dict[str, str]) -> list[WipProposal]:
-        """In clear; one on an activity or an item not in the list is left out."""
-        clear = lambda text: unmask(text, entries, temporary).strip()  # noqa: E731
-        proposals: list[WipProposal] = []
-        for raw in answer.proposals:
-            proposal = WipProposal(
-                id=len(proposals) + 1, kind=raw.kind, source=clear(raw.source), activity=raw.activity.strip(), title=clear(raw.title),
-                description=clear(raw.description), items=[clear(item) for item in raw.items if item.strip()], text=clear(raw.text),
-                item=raw.item, priority=raw.priority, due=raw.due,
-            )
-            if proposal.kind == ProposalKind.NEW_ACTIVITY:
-                if proposal.title:
-                    proposals.append(proposal)
-                continue
-            found = listing.items.get(proposal.activity)
-            if found is None:
-                continue
-            proposal.activity_title = found[0]
-            if proposal.kind == ProposalKind.ADD_ITEM:
-                if proposal.text:
-                    proposals.append(proposal)
-            elif proposal.item in found[1] and (proposal.kind == ProposalKind.CHECK_ITEM or proposal.priority or proposal.due):
-                proposal.item_text = found[1][proposal.item]
-                proposals.append(proposal)
-        return proposals
+        listing = Listing(self._data.activities(project_name))
+        return masked_text(model_input(today, listing, processed), self._masking.entries(project_name), tagged), listing
 
     def _apply(self, project_name: str, proposal: WipProposal) -> str:
         """One proposal; _Skipped (or an AppError) when it cannot be applied anymore."""
@@ -308,6 +280,40 @@ class WipService:
         items = [*activity.items[:index], changed, *activity.items[index + 1:]]
         self._data.save_activity(project_name, proposal.activity, activity.model_copy(update={"items": items}))
         return message
+
+
+def model_input(today: date, listing: Listing, processed: str) -> str:
+    """The text the model gets, before masking: today's date, the open activities, the WIP's text without its tags."""
+    return (f"Oggi: {today.isoformat()} ({_WEEKDAYS[today.weekday()]})\n\nAttività aperte:\n{listing.text()}\n\n"
+            f"Testo nuovo della WIP:\n{without_tags(processed)}")
+
+
+def to_proposals(answer: WipAnswer, listing: Listing, entries: list[MaskEntry], temporary: dict[str, str]) -> list[WipProposal]:
+    """The model's answer as proposals in clear (map and temporary aliases);
+    one on an activity or an item not in the list is left out."""
+    clear = lambda text: unmask(text, entries, temporary).strip()  # noqa: E731
+    proposals: list[WipProposal] = []
+    for raw in answer.proposals:
+        proposal = WipProposal(
+            id=len(proposals) + 1, kind=raw.kind, source=clear(raw.source), activity=raw.activity.strip(), title=clear(raw.title),
+            description=clear(raw.description), items=[clear(item) for item in raw.items if item.strip()], text=clear(raw.text),
+            item=raw.item, priority=raw.priority, due=raw.due,
+        )
+        if proposal.kind == ProposalKind.NEW_ACTIVITY:
+            if proposal.title:
+                proposals.append(proposal)
+            continue
+        found = listing.items.get(proposal.activity)
+        if found is None:
+            continue
+        proposal.activity_title = found[0]
+        if proposal.kind == ProposalKind.ADD_ITEM:
+            if proposal.text:
+                proposals.append(proposal)
+        elif proposal.item in found[1] and (proposal.kind == ProposalKind.CHECK_ITEM or proposal.priority or proposal.due):
+            proposal.item_text = found[1][proposal.item]
+            proposals.append(proposal)
+    return proposals
 
 
 class _Skipped(Exception):
