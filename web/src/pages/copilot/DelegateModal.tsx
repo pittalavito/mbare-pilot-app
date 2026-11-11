@@ -5,7 +5,9 @@ import { useNavigate } from "react-router-dom";
 import { type CopilotModelOption, useCopilotStatus, useStartCopilot } from "../../api/copilot";
 import { credits } from "../../format";
 import { useRepositories } from "../../api/git";
+import { useDevSettings } from "../../api/dev";
 import { useAgentTasks } from "../../api/projectData";
+import { type PrepareRow, PrepareSection, toTargets } from "./PrepareSection";
 
 const repoLabel = (path: string) => path || "(cartella del progetto)";
 /** The Select's value for "the default" (the API's ``""``). */
@@ -30,6 +32,10 @@ export function DelegateModal({ project, task, opened, onClose }: { project: str
   const [repository, setRepository] = useState<string | null>(null);
   const [prompt, setPrompt] = useState<string | null>(DEFAULT);
   const [model, setModel] = useState<string | null>(DEFAULT);
+  const dev = useDevSettings(project);
+  const [preparing, setPreparing] = useState(true);
+  const [rows, setRows] = useState<PrepareRow[]>([]);
+  const canPrepare = !!dev.data?.prepare_automation;
 
   useEffect(() => {
     if (!opened) return;
@@ -37,7 +43,16 @@ export function DelegateModal({ project, task, opened, onClose }: { project: str
     setChosenTask(task ?? null);
     setPrompt(DEFAULT);
     setModel(DEFAULT);
+    setPreparing(true);
+    setRows([]);
   }, [opened, task]); // a fresh form each time it opens
+  useEffect(() => { // the task's repository is the first one to prepare (a new row: its branch is read again)
+    if (repository === null) return;
+    setRows((current) => [
+      { key: Math.max(0, ...current.map((row) => row.key)) + 1, repository, branch: "", base: "" },
+      ...current.slice(1).filter((row) => row.repository !== repository),
+    ]);
+  }, [repository]);
   useEffect(() => {
     if (repository === null && repositories.data?.length === 1) setRepository(repositories.data[0].path);
   }, [repositories.data, repository]);
@@ -51,7 +66,10 @@ export function DelegateModal({ project, task, opened, onClose }: { project: str
   const delegate = () =>
     chosenTask !== null && repository !== null &&
     start.mutate(
-      { task_note: chosenTask, repository, prompt: fromSelect(prompt), model: fromSelect(model) },
+      {
+        task_note: chosenTask, repository, prompt: fromSelect(prompt), model: fromSelect(model),
+        prepare: canPrepare && preparing ? toTargets(rows) : [],
+      },
       {
         onSuccess: (session) => {
           onClose();
@@ -87,6 +105,11 @@ export function DelegateModal({ project, task, opened, onClose }: { project: str
           error={repositories.error?.message}
         />
         {repositories.data && !repositories.data.length && <Alert color="orange">Nessun repository git nella cartella del progetto.</Alert>}
+        {canPrepare && repository !== null && repositories.data && (
+          <PrepareSection
+            project={project} repositories={repositories.data} enabled={preparing} onEnabled={setPreparing} rows={rows} onChange={setRows}
+          />
+        )}
         <Group grow align="flex-start">
           <Select
             label="Prompt"
@@ -117,7 +140,9 @@ export function DelegateModal({ project, task, opened, onClose }: { project: str
         {start.isPending && (
           <Group gap="xs">
             <Loader size="xs" type="dots" />
-            <Text size="sm" c="dimmed">Copilot sta leggendo il task e il codice: può volerci qualche decina di secondi…</Text>
+            <Text size="sm" c="dimmed">
+              {canPrepare && preparing ? "Preparo i repository, poi " : ""}Copilot legge il task e il codice: può volerci qualche decina di secondi…
+            </Text>
           </Group>
         )}
         <Group justify="flex-end">

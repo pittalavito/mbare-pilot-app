@@ -5,13 +5,17 @@ A function file under function/list/ declares its ``Params`` (pydantic), a
 spec here to make it selectable in the step editor.
 """
 from core.error import ValidationError
+from function.list.clean_mbare_pilot import CLEAN_MBARE_PILOT
 from function.list.coverage_new_code import COVERAGE_NEW_CODE
+from function.list.git_check_clean import GIT_CHECK_CLEAN
+from function.list.git_checkout_branches import GIT_CHECKOUT_BRANCHES
 from function.list.git_fetch import GIT_FETCH
 from function.list.git_log import GIT_LOG
 from function.list.git_pull_all_repo_by_branch import GIT_PULL_ALL_REPO_BY_BRANCH
 from function.list.git_pull_repo_by_branch import GIT_PULL_REPO_BY_BRANCH
 from function.list.git_status import GIT_STATUS
 from function.list.maven_parent_alignment import MAVEN_PARENT_ALIGNMENT
+from function.list.run_tests import RUN_TESTS
 from function.list.save_note import SAVE_NOTE
 from function.spec import FunctionSpec
 
@@ -26,6 +30,10 @@ FUNCTION_REGISTRY: dict[str, FunctionSpec] = {
         MAVEN_PARENT_ALIGNMENT,
         COVERAGE_NEW_CODE,
         SAVE_NOTE,
+        GIT_CHECK_CLEAN,
+        GIT_CHECKOUT_BRANCHES,
+        CLEAN_MBARE_PILOT,
+        RUN_TESTS,
     )
 }
 """Every function implemented in code, keyed by name."""

@@ -12,6 +12,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
+from models.domain.dev import TestScope
+
 
 class NoteType(StrEnum):
     GENERIC = "generic"
@@ -84,6 +86,8 @@ class AgentTask(BaseModel):
     constraints: str = ""
     references: list[str] = []
     """The linked reference notes, by name (``code-reference-<title>.md``...)."""
+    tests: TestScope | None = None
+    """«Verifica sviluppo»: every test or only the touched ones; None = the project's default."""
 
 
 class TodoPriority(StrEnum):

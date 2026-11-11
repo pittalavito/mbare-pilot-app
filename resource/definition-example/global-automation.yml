@@ -32,3 +32,39 @@ automations:
     edges:
       - {from: input, to: Coverage}
       - {from: Coverage, to: Nota, if: contains, value: "sotto soglia"}
+
+  - name: Prepara sviluppo
+    description: >-
+      La lancia l'app alla delega a Copilot, prima della chat (non serve lanciarla a mano): ferma tutto se ci sono
+      modifiche non committate, porta ogni repository sul suo branch (lo crea dal base se manca) e lo aggiorna solo in
+      fast-forward, poi controlla l'allineamento dei pom.xml (solo un avviso). Se uno step fallisce Copilot non parte.
+      Input: una riga per repository, «<repository> <branch> [<base>]» (. = la cartella del progetto).
+    steps:
+      - name: Pulito
+        function: git_check_clean
+      - name: Branch
+        function: git_checkout_branches
+      - name: POM
+        function: maven_parent_alignment
+        params: {parent_artifact_id: "", property: "*.libraries.version"}
+    edges:
+      - {from: input, to: Pulito}
+      - {from: Pulito, to: Branch}
+      - {from: Branch, to: POM}
+
+  - name: Verifica sviluppo
+    description: >-
+      La lancia l'app quando un task di sviluppo finito da Copilot va «da verificare» (non serve lanciarla a mano):
+      toglie la cartella mbare-pilot del task e i commenti todoMbarePilot dai file cambiati, poi lancia i test (tutti o
+      solo quelli toccati, come dice il task o il progetto). L'esito va nella chat di Copilot; se fallisce decidi tu se
+      rimandare il task a Copilot. Input: «<repository> <task> [all|touched]».
+    steps:
+      - name: Pulizia
+        function: clean_mbare_pilot
+        params: {remove_todos: true}
+      - name: Test
+        function: run_tests
+        params: {timeout_minutes: 20}
+    edges:
+      - {from: input, to: Pulizia}
+      - {from: Pulizia, to: Test}

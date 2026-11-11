@@ -47,6 +47,24 @@ def write(repository: Path, task_note: str, files: dict[str, bytes]) -> Path:
     return target
 
 
+def remove(repository: Path, task_note: str) -> bool:
+    """The task's folder out of ``repository`` (the «Verifica sviluppo»
+    cleanup), and ``mbare-pilot/`` too when nothing else is left in it.
+    False when there was none; ValidationError for a link or a file there."""
+    root = repository.resolve()
+    base = root / REPO_TASKS_DIR
+    target = root / relative_folder(task_note)
+    for path in (base, target):
+        if path.is_symlink() or (path.exists() and not path.is_dir()):
+            raise ValidationError(f"{path} non è una cartella: non la tocco.")
+    if not target.exists():
+        return False
+    shutil.rmtree(target)
+    if not any(base.iterdir()):
+        base.rmdir()
+    return True
+
+
 def minimal_task(task_note: str, title: str, kind: str) -> dict[str, bytes]:
     """The task's folder content: ``task.md`` with the title, the type (its
     label), the task's name and how to read the rest (MCP)."""

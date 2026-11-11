@@ -48,3 +48,11 @@ class StatusResponse(BaseModel):
     @classmethod
     def from_status(cls, status: GitStatus) -> "StatusResponse":
         return cls(**status.model_dump(), is_clean=status.is_clean)
+
+
+class GitBranchesResponse(BaseModel):
+    current: str | None
+    """None when HEAD is detached."""
+    local: list[str]
+    remote: list[str]
+    """Remote-tracking branches, e.g. ``origin/develop``."""

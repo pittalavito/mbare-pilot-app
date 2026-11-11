@@ -72,6 +72,7 @@ link notes by name."""
 import re
 from datetime import date
 
+from domain.dev.tests import SCOPE_LABELS
 from domain.project.data_paths import NOTE_PREFIXES
 from models.domain.note import (
     Activity,
@@ -100,6 +101,7 @@ ACTIVITY_STATUS_LABELS = {ActivityStatus.TODO: "da fare", ActivityStatus.IN_PROG
 
 _STATUS = "Stato:"
 _TYPE = "Tipo:"
+_TESTS = "Test:"
 _SECTIONS = {"objective": "Obiettivo", "context": "Contesto", "criteria": "Criteri di accettazione", "constraints": "Vincoli"}
 _REFERENCES = "Riferimenti"
 _DESCRIPTION, _TODO, _AGENT_TASKS, _LEARNED = "Descrizione", "Todo", "Agent task", "Imparato"
@@ -116,6 +118,7 @@ _DETAILS = re.compile(r"^(.*?)\s+\((?:(alta|media|bassa)(?:,\s*)?)?(\d{4}-\d{2}-
 
 def render_agent_task(task: AgentTask) -> str:
     lines = [f"# {_line(task.title)}", "", f"{_STATUS} {STATUS_LABELS[task.status]}", f"{_TYPE} {TYPE_LABELS[task.type]}"]
+    lines += [f"{_TESTS} {SCOPE_LABELS[task.tests]}"] if task.tests else []
     for field, heading in _SECTIONS.items():
         lines += ["", f"## {heading}"]
         if field == "criteria":
@@ -139,6 +142,7 @@ def parse_agent_task(text: str, fallback_title: str) -> AgentTask:
         criteria=[ChecklistItem(text=text, done=done) for done, text in _checks(fields.get("criteria", []))],
         constraints=_text(fields.get("constraints", [])),
         references=_bullets(sections.get(_REFERENCES.lower(), [])),
+        tests=next((key for key, label in SCOPE_LABELS.items() if label == _value(head, _TESTS).lower()), None),
     )
 
 

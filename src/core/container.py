@@ -21,6 +21,7 @@ from service.chatbot_service import ChatbotService
 from service.code_todo_service import CodeTodoService
 from service.copilot_service import CopilotService
 from service.definition_service import DefinitionService
+from service.dev_checks_service import DevChecksService
 from service.evaluation_service import EvaluationService
 from service.git_service import GitService
 from service.masking_service import MaskingService
@@ -138,6 +139,9 @@ class Container:
             project_data_service=self.project_data_service,
             masking_service=self.masking_service,
         )
+        self.dev_checks_service = DevChecksService(pipelines=stores.pipelines, runner=self.pipeline_runner, git=self.git_service,
+                                                   project_data=self.project_data_service)
+        self.copilot_service.use_dev_checks(self.dev_checks_service)
         self.project_service = ProjectService(
             projects=stores.projects,
             masks=stores.masks,

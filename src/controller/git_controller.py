@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends
 
 from controller.dependencies import git_service
-from models.controller.git import CommitResponse, RepositoryResponse, StatusResponse
+from models.controller.git import CommitResponse, GitBranchesResponse, RepositoryResponse, StatusResponse
 from service.git_service import GitService
 
 router = APIRouter(prefix="/projects/{project}/git", tags=["git"])
@@ -25,3 +25,10 @@ def git_log(project: str, path: str = "", limit: int = 50, author: str = "", mes
 @router.get("/status")
 def git_status(project: str, path: str = "", service: GitService = Depends(git_service)) -> StatusResponse:
     return StatusResponse.from_status(service.status(project, path))
+
+
+@router.get("/branches")
+def git_branches(project: str, path: str = "", service: GitService = Depends(git_service)) -> GitBranchesResponse:
+    """The current branch and the names of the local and remote branches (as of the last fetch), e.g. to pick one when delegating."""
+    branches = service.branches(project, path)
+    return GitBranchesResponse(current=branches.current, local=[branch.name for branch in branches.local], remote=branches.remote)

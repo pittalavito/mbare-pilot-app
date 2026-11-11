@@ -15,6 +15,7 @@ import { Markdown } from "../../components/Markdown";
 import { count, credits } from "../../format";
 import { isPlanOnly } from "../data/TypedNotes";
 import { DelegateModal } from "./DelegateModal";
+import { DevSettingsModal } from "./DevSettingsModal";
 
 /** The Copilot tab of a project: the agent tasks delegated to GitHub Copilot
  * (sessions on the left, ``?session=`` the open one) and the open session's
@@ -42,6 +43,7 @@ export function CopilotTab() {
   const taskNames = tasks.data && new Set(tasks.data.map((task) => task.name));
   const status = useCopilotStatus(project);
   const [delegating, setDelegating] = useState(false);
+  const [settingUp, setSettingUp] = useState(false);
   const requested = Number(search.get("session"));
   const selected = sessions.data?.find((session) => session.id === requested) ?? sessions.data?.[0];
 
@@ -52,6 +54,7 @@ export function CopilotTab() {
           <Button onClick={() => setDelegating(true)} disabled={status.data && (!status.data.installed || !!status.data.definition_error)}>
             🤖 Delega un task
           </Button>
+          <Button size="xs" variant="subtle" onClick={() => setSettingUp(true)}>⚙️ Verifiche dello sviluppo</Button>
           {status.data && !status.data.installed && (
             <Alert color="orange" p="xs">
               <Text size="xs">Copilot CLI non è installato: <code>npm install -g @github/copilot</code>, poi <code>copilot</code> → <code>/login</code>.</Text>
@@ -97,6 +100,7 @@ export function CopilotTab() {
         )}
       </Grid.Col>
       <DelegateModal project={project} opened={delegating} onClose={() => setDelegating(false)} />
+      <DevSettingsModal project={project} opened={settingUp} onClose={() => setSettingUp(false)} />
     </Grid>
   );
 }

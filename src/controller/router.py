@@ -11,6 +11,7 @@ from controller.chatbot_controller import router as chatbot_router
 from controller.context_controller import router as context_router
 from controller.copilot_controller import router as copilot_router
 from controller.definition_controller import router as definition_router
+from controller.dev_controller import router as dev_router
 from controller.folder_controller import router as folder_router
 from controller.git_controller import router as git_router
 from controller.masking_controller import router as masking_router
@@ -51,3 +52,4 @@ router.include_router(wip_router)
 router.include_router(context_router)
 router.include_router(metrics_router)
 router.include_router(today_router)
+router.include_router(dev_router)

@@ -10,6 +10,7 @@ import { useCopilotSessions, useDeleteTaskSessions } from "../../api/copilot";
 import {
   type Activity, type ActivityBody, type AgentTask, type AgentTaskBody, useActivities, useAgentTasks, useCreateTaskFromItem, useDeleteNote, useSaveActivity, useSaveAgentTask,
 } from "../../api/projectData";
+import { SCOPE_LABELS, type TestScope } from "../../api/dev";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { DelegateModal } from "../copilot/DelegateModal";
 import { SendBackModal } from "../copilot/SendBackModal";
@@ -47,6 +48,8 @@ export const TYPES = [
 export const isPlanOnly = (type?: string) => (type ?? "development") !== "development";
 
 const ALL = "all";
+/** The tests' choice of a task that follows the project. */
+const PROJECT_DEFAULT = "project";
 
 /** The statuses in which the task is the Refiner's: it sits next to them. */
 const REFINABLE: readonly string[] = ["created", "refinement"];
@@ -484,6 +487,18 @@ function AgentTaskEditor({ project, task, onRefine }: { project: string; task: A
           onChange={(value) => set({ type: value as AgentTaskBody["type"] })}
         />
       </div>
+      {!isPlanOnly(form.type) && (
+        <div>
+          <Text size="sm" fw={500} mb={4}>Test della verifica</Text>
+          <SegmentedControl
+            aria-label="Test della verifica"
+            data={[{ value: PROJECT_DEFAULT, label: "Come il progetto" }, ...(Object.keys(SCOPE_LABELS) as TestScope[]).map((value) => ({ value, label: SCOPE_LABELS[value] }))]}
+            value={form.tests ?? PROJECT_DEFAULT}
+            onChange={(value) => set({ tests: value === PROJECT_DEFAULT ? null : value as TestScope })}
+          />
+          <Text size="xs" c="dimmed" mt={4}>Quando Copilot finisce, la «Verifica sviluppo» lancia questi test (il default è in Copilot → ⚙️ Verifiche).</Text>
+        </div>
+      )}
       <Textarea label="Obiettivo" description="Cosa deve ottenere l'agente." autosize minRows={2} value={form.objective ?? ""} onChange={(event) => set({ objective: event.currentTarget.value })} />
       <Textarea label="Contesto" description="Repository, file, decisioni già prese." autosize minRows={2} value={form.context ?? ""} onChange={(event) => set({ context: event.currentTarget.value })} />
       <div>

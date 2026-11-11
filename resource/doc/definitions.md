@@ -124,6 +124,8 @@ automations:
       - {from: Stato, to: Riassumi, if: otherwise}
 ```
 
+**«Prepara sviluppo» e «Verifica sviluppo»** (blocco 09): due automation con questi nomi esatti le lancia **l'app**, non tu. La prima alla delega a Copilot, prima della chat, con una riga `<repository> <branch> [<base>]` per ogni repository scelto nella finestra (se fallisce Copilot non parte); la seconda quando uno sviluppo finito da Copilot va «da verificare», con `<repository> <task> [all|touched]` (l'esito va nella chat di Copilot). Quelle di `global-automation.yml` usano `git_check_clean`, `git_checkout_branches`, `maven_parent_alignment` e `clean_mbare_pilot`, `run_tests` ([funzioni](src/function/README.md)); un progetto le cambia scrivendone una con lo stesso nome, o le spegne con `active: false`. Senza l'automation il controllo si salta.
+
 - **Step**: uno solo tra `function` (con `params`), `agent`, `system_prompt` (con `model`, e facoltativi `tools` e `max_steps`).
 - **Collegamenti**: `if` è `always` (default), `contains`, `not_contains`, `matches` (regex) o `otherwise`; `value` per le prime tre. `from: input` è l'input dell'esecuzione.
 - **Gli step restano gli stessi**: in aggiornamento uno step con lo stesso nome tiene il suo id (storico, versioni del prompt) e la sua **posizione nel grafo** dell'editor. Uno step tolto dal file sparisce dall'automation.

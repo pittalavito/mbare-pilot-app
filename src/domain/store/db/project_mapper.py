@@ -1,6 +1,7 @@
 """Projects: domain ``Project`` <-> ``project`` rows."""
 from domain.store.db.mapper import as_utc
 from models.domain.chat import EmbeddingModelName
+from models.domain.dev import TestScope
 from models.domain.note import NoteType
 from models.domain.project import Project, ProjectSource
 from models.store.db import ProjectTable
@@ -20,6 +21,8 @@ class Adapter:
             visible_note_types=_note_types(row.visible_note_types) if row.visible_note_types is not None else None,
             files_visible=row.files_visible,
             due_soon_days=row.due_soon_days,
+            test_scope=TestScope(row.test_scope) if row.test_scope in set(TestScope) else TestScope.ALL,
+            test_commands=dict(row.test_commands or {}),
             created_at=as_utc(row.created_at),
         )
 
@@ -38,6 +41,8 @@ class Factory:
             visible_note_types=[kind.value for kind in project.visible_note_types] if project.visible_note_types is not None else None,
             files_visible=project.files_visible,
             due_soon_days=project.due_soon_days,
+            test_scope=project.test_scope.value,
+            test_commands=dict(project.test_commands) or None,
             created_at=project.created_at,
         )
 

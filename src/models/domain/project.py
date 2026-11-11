@@ -6,6 +6,7 @@ from typing import Annotated, Any
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from models.domain.chat import EmbeddingModelName
+from models.domain.dev import TestScope
 from models.domain.note import NoteType
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
@@ -38,6 +39,10 @@ class Project(BaseModel):
     """The Dati tab shows the uploaded files (they stay on disk either way)."""
     due_soon_days: int = Field(default=3, ge=0, le=60)
     """«📌 Oggi»: items due within this many days are «In scadenza»."""
+    test_scope: TestScope = TestScope.ALL
+    """«Verifica sviluppo»: every test or only the touched ones, unless the task says otherwise."""
+    test_commands: dict[str, str] = {}
+    """«Verifica sviluppo»: the tests' command per repository (folder → command); missing = detected."""
 
     @field_validator("visible_note_types", mode="before")
     @classmethod

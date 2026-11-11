@@ -850,6 +850,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/git/branches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Git Branches
+         * @description The current branch and the names of the local and remote branches (as of the last fetch), e.g. to pick one when delegating.
+         */
+        get: operations["git_branches_projects__project__git_branches_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project}/pipelines": {
         parameters: {
             query?: never;
@@ -2077,6 +2097,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/dev-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dev Settings
+         * @description Each repository's tests (tool, detected command, the one written), the default scope, the two automations.
+         */
+        get: operations["dev_settings_projects__project__dev_settings_get"];
+        /** Save Dev Settings */
+        put: operations["save_dev_settings_projects__project__dev_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2258,6 +2299,7 @@ export interface components {
              * @default []
              */
             references: string[];
+            tests?: components["schemas"]["TestScope"] | null;
         };
         /** AgentTaskResponse */
         AgentTaskResponse: {
@@ -2292,6 +2334,7 @@ export interface components {
              * @default []
              */
             references: string[];
+            tests?: components["schemas"]["TestScope"] | null;
             /** Name */
             name: string;
         };
@@ -2328,6 +2371,7 @@ export interface components {
              * @default []
              */
             references: string[];
+            tests?: components["schemas"]["TestScope"] | null;
             /** Name */
             name: string;
             /**
@@ -2764,6 +2808,11 @@ export interface components {
              * @default
              */
             model: string;
+            /**
+             * Prepare
+             * @default []
+             */
+            prepare: components["schemas"]["PrepareTarget"][];
         };
         /** CopilotSessionResponse */
         CopilotSessionResponse: {
@@ -2974,6 +3023,32 @@ export interface components {
          * @enum {string}
          */
         DefinitionKind: "agent" | "chatbot" | "automation";
+        /** DevSettingsRequest */
+        DevSettingsRequest: {
+            /** @default all */
+            test_scope: components["schemas"]["TestScope"];
+            /**
+             * Commands
+             * @default {}
+             */
+            commands: {
+                [key: string]: string;
+            };
+        };
+        /** DevSettingsResponse */
+        DevSettingsResponse: {
+            /** @default all */
+            test_scope: components["schemas"]["TestScope"];
+            /**
+             * Repositories
+             * @default []
+             */
+            repositories: components["schemas"]["RepositoryTests"][];
+            /** Prepare Automation */
+            prepare_automation: boolean;
+            /** Verify Automation */
+            verify_automation: boolean;
+        };
         /** DueRequest */
         DueRequest: {
             /** Text */
@@ -3166,6 +3241,15 @@ export interface components {
             description: string;
             /** Params */
             params: components["schemas"]["FunctionParamResponse"][];
+        };
+        /** GitBranchesResponse */
+        GitBranchesResponse: {
+            /** Current */
+            current: string | null;
+            /** Local */
+            local: string[];
+            /** Remote */
+            remote: string[];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -3416,6 +3500,24 @@ export interface components {
             steps: components["schemas"]["StepBody"][];
             /** Edges */
             edges: components["schemas"]["EdgeBody"][];
+        };
+        /**
+         * PrepareTarget
+         * @description A repository to get ready, on ``branch``: an existing one, or a new one from ``base``.
+         */
+        PrepareTarget: {
+            /**
+             * Repository
+             * @default
+             */
+            repository: string;
+            /** Branch */
+            branch: string;
+            /**
+             * Base
+             * @default
+             */
+            base: string;
         };
         /**
          * ProcessName
@@ -3679,6 +3781,19 @@ export interface components {
             /** Name */
             name: string;
         };
+        /**
+         * RepositoryTests
+         * @description The tests of one repository of the project, for the settings.
+         */
+        RepositoryTests: {
+            /** Repository */
+            repository: string;
+            kind: components["schemas"]["TestKind"];
+            /** Detected Command */
+            detected_command: string;
+            /** Command */
+            command: string;
+        };
         /** RoleCreateRequest */
         RoleCreateRequest: {
             /** Name */
@@ -3911,6 +4026,17 @@ export interface components {
          * @enum {string}
          */
         TaskType: "development" | "analysis" | "confluence" | "jira";
+        /**
+         * TestKind
+         * @enum {string}
+         */
+        TestKind: "maven" | "python" | "node" | "unknown";
+        /**
+         * TestScope
+         * @description Which tests the «Verifica sviluppo» runs.
+         * @enum {string}
+         */
+        TestScope: "all" | "touched";
         /** Today */
         Today: {
             /**
@@ -6297,6 +6423,39 @@ export interface operations {
             };
         };
     };
+    git_branches_projects__project__git_branches_get: {
+        parameters: {
+            query?: {
+                path?: string;
+            };
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitBranchesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_pipelines_projects__project__pipelines_get: {
         parameters: {
             query?: never;
@@ -8635,6 +8794,72 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dev_settings_projects__project__dev_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_dev_settings_projects__project__dev_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DevSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevSettingsResponse"];
+                };
             };
             /** @description Validation Error */
             422: {
