@@ -137,7 +137,7 @@ def test_clean_removes_the_task_folder_and_the_comment_lines(shop, git_service, 
     api = shop / "shop" / "api"
     (api / "mbare-pilot" / "agent-task-login").mkdir(parents=True)
     (api / "mbare-pilot" / "agent-task-login" / "task.md").write_text("# Login", encoding="utf-8")
-    (api / "main.py").write_text("x = 1\n    # todoMbarePilot{rifare}\ny = 2  # todoMbarePilot{anche qui}\n", encoding="utf-8")
+    (api / "main.py").write_bytes(b"x = 1\r\n    # todoMbarePilot{rifare}\r\ny = 2  # todoMbarePilot{anche qui}\r\n")
     (api / "logo.bin").write_bytes(b"\xff\xfe\x00")
 
     text = _call("clean_mbare_pilot", _context(git_service, project_data_service, "api agent-task-login.md")).text
@@ -145,7 +145,7 @@ def test_clean_removes_the_task_folder_and_the_comment_lines(shop, git_service, 
     assert "- cartella mbare-pilot/agent-task-login: tolta" in text
     assert "tolti 1" in text and "main.py:3" in text
     assert not (api / "mbare-pilot").exists()
-    assert (api / "main.py").read_text(encoding="utf-8") == "x = 1\ny = 2  # todoMbarePilot{anche qui}\n"
+    assert (api / "main.py").read_bytes() == b"x = 1\r\ny = 2  # todoMbarePilot{anche qui}\r\n"  # CRLF kept
     again = _call("clean_mbare_pilot", _context(git_service, project_data_service, "api agent-task-login.md"), {"remove_todos": False}).text
     assert again == "Pulizia:\n- cartella mbare-pilot/agent-task-login: non c'era"
 
@@ -185,7 +185,8 @@ def test_run_tests_all_touched_and_failed(shop, git_service, project_data_servic
 
 def test_detect_and_default_commands():
     assert tests.detect({"pom.xml", "mvnw"}) is TestKind.MAVEN
-    assert tests.default_command(TestKind.MAVEN, {"pom.xml", "mvnw"}) == "./mvnw -B test"
+    assert tests.default_command(TestKind.MAVEN, {"pom.xml", "mvnw"}, windows=False) == "./mvnw -B test"
+    assert tests.default_command(TestKind.MAVEN, {"pom.xml", "mvnw", "mvnw.cmd"}, windows=True) == "mvnw.cmd -B test"
     assert tests.default_command(TestKind.MAVEN, {"pom.xml"}) == "mvn -B test"
     assert tests.detect({"pyproject.toml", "uv.lock"}) is TestKind.PYTHON
     assert tests.default_command(TestKind.PYTHON, {"pyproject.toml", "uv.lock"}) == "uv run pytest"
@@ -205,6 +206,15 @@ def test_touched_tests_and_commands():
     assert tests.command("pytest", TestKind.PYTHON, []) == ["pytest"]
     assert tests.touched_tests(TestKind.PYTHON, ["app/x.py"], ["app/x_test.py", "tests/test_x.py"]) == ["app/x_test.py", "tests/test_x.py"]
     assert tests.touched_tests(TestKind.UNKNOWN, ["a"], ["a"]) == [] and not tests.is_test_file(TestKind.UNKNOWN, "a")
+
+
+def test_commands_split_as_the_system_does():
+    windows = r'D:\a\venv\python.exe -c "print(1); raise SystemExit(1)" -k ' + "'x y'"
+    assert tests.split(windows, windows=True) == [r"D:\a\venv\python.exe", "-c", "print(1); raise SystemExit(1)", "-k", "x y"]
+    assert tests.split("pytest -k 'a b' tests/x\\ y.py", windows=False) == ["pytest", "-k", "a b", "tests/x y.py"]
+    assert tests.command(r"C:\mvn\mvn.cmd -B test", TestKind.MAVEN, ["ATest"], windows=True)[0] == r"C:\mvn\mvn.cmd"
+    with pytest.raises(ValueError):
+        tests.split("pytest 'unclosed", windows=True)
 
 
 def test_failures_per_tool():
