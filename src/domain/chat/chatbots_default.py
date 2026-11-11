@@ -7,6 +7,11 @@ from models.domain.chatbot import ChatbotKind
 from models.domain.definitions import ChatbotFile
 
 _MODEL = "openrouter/google/gemini-3.1-flash-lite-preview"
+_ARCHITECT_MODEL = "openrouter/google/gemini-2.5-pro"
+"""The Architect reasons over the engine's rules: not the small model of the others."""
+ARCHITECT = "Architetto"
+OLD_AUTOMATION_BOT = "Chat bot"
+"""The automation chatbot's name before it became the Architect: renamed at startup (blocco 05)."""
 
 DEFAULT_WIP_PROMPT = (
     "Leggi il testo nuovo della mia nota WIP (appunti scritti di getto sul progetto) e trasformalo in proposte\n"
@@ -26,17 +31,29 @@ DEFAULT_WIP_PROMPT = (
 
 DEFAULT_CHATBOTS: list[ChatbotFile] = [
     ChatbotFile(
-        name="Chat bot",
+        name=ARCHITECT,
         kind=ChatbotKind.AUTOMATION,
-        description="Lancia le automation del progetto e ne controlla lo stato",
-        model=_MODEL,
-        max_steps=4,
+        description="Progetta con te le automation del progetto, le valida e le salvi con un clic",
+        model=_ARCHITECT_MODEL,
+        max_steps=10,
         system_prompt=(
-            "Sei il mio assistente sulle automation del progetto. Rispondi in italiano, breve.\n"
-            "Per ogni richiesta guarda quali automation ci sono con list_automations, lancia quella adatta con\n"
-            "run_automation, dimmi quale e con che id, e non aspettare.\n"
-            "Se chiedo come è andata, controlla con automation_status.\n"
-            "Se nessuna automation è adatta, dimmelo; se non sai, non inventare."
+            "Sei l'Architetto delle automation del progetto: le progetti con me. Rispondi in italiano, chiaro e breve.\n"
+            "Un'automation è un grafo di step: funzioni (senza LLM) o agenti, collegati da un nodo «input» (l'input della run).\n"
+            "Funzioni, parametri e agenti non li sai a memoria: leggili con list_functions e list_agents; le automation che ci sono\n"
+            "con list_automations e read_automation. Non inventare funzioni, parametri o agenti.\n"
+            "Fammi le domande che servono finché l'automation non è chiara (input, repository, cosa salvare in una nota).\n"
+            "Scrivila in YAML, nel formato delle definizioni: name, description, steps (ognuno con name e uno tra\n"
+            "function con params, agent, oppure system_prompt con model), edges facoltativi ({from, to, if, value}: if è contains,\n"
+            "not_contains, matches o otherwise; senza edges gli step sono una catena). Niente cicli; nell'input di uno step puoi\n"
+            "usare {input}, {pipeline_input} e {nodo:Nome}.\n"
+            "Prima di mostrarmela validala con validate_automation e correggi tu gli errori, finché è valida.\n"
+            "Quando è valida spiegami in poche righe cosa fa, passo per passo, e mettila in un blocco di codice con linguaggio\n"
+            "automation (```automation … ```): l'app la mostra con il grafo e il pulsante «Salva». La salvo io: non dire che\n"
+            "è salvata. Per cambiarne una che c'è, leggila con read_automation e tieni lo stesso name.\n"
+            "Se validate_automation dice system, avvisami: «Prepara sviluppo» e «Verifica sviluppo» le lancia l'app da sola.\n"
+            "Se serve una funzione che non c'è, dimmelo e proponimi un agent task di sviluppo (titolo, obiettivo, criteri):\n"
+            "crealo con create_function_task solo dopo il mio sì, nell'attività che ti dico (o in nessuna).\n"
+            "Non lanci automation. Se non sai, non inventare."
         ),
     ),
     ChatbotFile(

@@ -12,7 +12,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 const bot = (id: number, name: string, kind: Chatbot["kind"]): Chatbot => ({
   id, project_name: "acme", name, kind, description: kind === "refiner" ? "Ti aiuta a rifinire gli agent task" : "", system_prompt: "x",
-  prompt_version: 1, model: "mock/echo", max_steps: 4, tool_names: kind === "refiner" ? ["create_code_reference"] : [],
+  prompt_version: 1, model: "mock/echo", max_steps: 4, tool_names: kind === "refiner" ? ["create_code_reference"] : [], automation_cache: false,
 });
 const REFINER = bot(7, "Refiner", "refiner");
 const SECRETARY = bot(8, "Segretario", "secretary");

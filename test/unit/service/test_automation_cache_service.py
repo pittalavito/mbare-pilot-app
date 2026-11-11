@@ -75,6 +75,12 @@ def pipelines(pipeline_service, project_store):
     return pipeline_service
 
 
+@pytest.fixture(autouse=True)
+def cache_on(monkeypatch):
+    """No chatbot kind uses the cache now (blocco 05): it stays in the code, tested on the automation kind."""
+    monkeypatch.setattr("models.domain.chatbot.CACHE_KINDS", {ChatbotKind.AUTOMATION})
+
+
 @pytest.fixture
 def cache(pipelines, chatbot_store):
     return AutomationCacheService(chatbot_store, pipelines, HashingEmbedder(), threshold=0.9)
@@ -216,11 +222,13 @@ def test_only_an_automation_chatbot_has_the_cache_and_each_kind_its_fixed_tools(
     report = _automation(pipelines)
     custom = chat.create_chatbot("acme", "Libero", system_prompt="Fai tu.", model=MODEL, tool_names=["git_status"])
     talk = chat.new_conversation(custom.id)
-    with pytest.raises(ValidationError, match="solo dei chatbot di tipo automation"):
+    with pytest.raises(ValidationError, match="non è attiva"):
         cache.add(_user_message(chat, talk, "lancia il report").id, report.id)
 
     automation = chat.get_chatbot(conversation.chatbot_id)
-    assert automation.tool_names == ["list_automations", "run_automation", "automation_status"]
+    assert automation.tool_names == [
+        "list_functions", "list_agents", "list_automations", "read_automation", "validate_automation", "create_function_task",
+    ]
     edited = chat.update_chatbot(automation.id, name="Bot", system_prompt="Sei l'assistente.", model=MODEL, tool_names=["git_status"])
     assert edited.kind is ChatbotKind.AUTOMATION and edited.tool_names == automation.tool_names  # imposed, whatever is asked
     assert chat.update_chatbot(custom.id, name="Libero", system_prompt="Fai tu.", model=MODEL, tool_names=["git_status"]).tool_names == ["git_status"]
@@ -231,5 +239,5 @@ def test_only_an_automation_chatbot_has_the_cache_and_each_kind_its_fixed_tools(
         "list_activities", "read_activity", "create_activity", "update_activity", "list_agent_tasks", "list_references", "create_agent_task",
         "today",
     ]
-    with pytest.raises(ValidationError, match="solo dei chatbot di tipo automation"):
+    with pytest.raises(ValidationError, match="non è attiva"):
         cache.add(_user_message(chat, chat.new_conversation(secretary.id), "lancia il report").id, report.id)

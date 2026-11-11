@@ -12,24 +12,26 @@ class ChatbotResponse(BaseModel):
     project_name: str
     name: str
     kind: ChatbotKind
-    """``automation``: fixed tools (``tool_names``) and the automation cache; ``custom``: tools chosen freely."""
+    """``automation`` (the Architect), ``secretary``, ``refiner``: fixed tools (``tool_names``); ``custom``: tools chosen freely."""
     description: str
     system_prompt: str
     prompt_version: int
     model: str
     max_steps: int
     tool_names: list[str]
+    automation_cache: bool = False
+    """It uses the automation cache (none does since blocco 05: the cache stays in the code)."""
 
     @classmethod
     def from_chatbot(cls, chatbot: Chatbot) -> "ChatbotResponse":
-        return cls(**chatbot.model_dump())
+        return cls(**chatbot.model_dump(), automation_cache=chatbot.has_automation_cache)
 
 
 class ChatbotRequest(BaseModel):
     """Create and update: the project comes from the URL and never changes."""
     name: str
     kind: ChatbotKind = ChatbotKind.CUSTOM
-    """``automation``: ``tool_names`` is ignored, its tools are the fixed ones."""
+    """A kind with fixed tools (``automation``, ``secretary``, ``refiner``): ``tool_names`` is ignored."""
     description: str = ""
     system_prompt: str
     model: str

@@ -11,6 +11,7 @@ afterEach(() => vi.unstubAllGlobals());
 const CHATBOT: Chatbot = {
   id: 5, project_name: "acme", name: "Navi bot", kind: "automation", description: "", system_prompt: "Rispondi breve.",
   prompt_version: 2, model: "mock/echo", max_steps: 4, tool_names: ["run_automation"],
+  automation_cache: true, // no kind uses the cache since blocco 05: here it is on, to test the cache controls kept in the code
 };
 const CONVERSATION = { id: 9, chatbot_id: 5, title: "Stato del repo", created_at: "2026-10-25T10:00:00Z", updated_at: "2026-10-25T10:00:00Z" };
 const message = (id: number, role: string, content: string): Message => ({
@@ -78,7 +79,7 @@ describe("ChatTab", () => {
   it("a custom chatbot has no automation cache; in its details only the model changes", async () => {
     mockApi({
       ...BASE,
-      "GET /projects/acme/chatbots": [{ ...CHATBOT, kind: "custom", tool_names: ["git_status"] }],
+      "GET /projects/acme/chatbots": [{ ...CHATBOT, kind: "custom", tool_names: ["git_status"], automation_cache: false }],
       "GET /conversations/9/messages": [message(10, "user", "ciao"), message(12, "assistant", "Ciao!")],
     });
     renderChat("/projects/acme/chat?c=9");

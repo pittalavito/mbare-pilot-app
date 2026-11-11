@@ -17,8 +17,10 @@ def _utc_now() -> datetime:
 
 class ChatbotKind(StrEnum):
     AUTOMATION = "automation"
-    """Launches the project's automations and checks how they went: only
-    KIND_TOOLS' tools (whatever is saved), and the automation cache."""
+    """The Architect (blocco 05): designs the project's automations with the
+    user, reading functions, agents and automations from its tools and
+    validating the YAML in the code; the user saves a proposal with a click
+    in the chat. Only KIND_TOOLS' tools; it does not launch automations."""
     SECRETARY = "secretary"
     """Helps with the notes: reads, creates and updates the activities (their
     description, status and todo list), reads the
@@ -35,7 +37,9 @@ class ChatbotKind(StrEnum):
 
 
 KIND_TOOLS: dict[ChatbotKind, list[str]] = {
-    ChatbotKind.AUTOMATION: ["list_automations", "run_automation", "automation_status"],
+    ChatbotKind.AUTOMATION: [
+        "list_functions", "list_agents", "list_automations", "read_automation", "validate_automation", "create_function_task",
+    ],
     ChatbotKind.SECRETARY: [
         "list_activities", "read_activity", "create_activity", "update_activity",
         "list_agent_tasks", "list_references", "create_agent_task", "today",
@@ -43,6 +47,11 @@ KIND_TOOLS: dict[ChatbotKind, list[str]] = {
     ChatbotKind.REFINER: ["create_code_reference", "read_agent_task", "update_agent_task", "finish_refinement", "search_context"],
 }
 """The tools a kind imposes on its chatbots; a kind not here lets them be chosen."""
+
+CACHE_KINDS: set[ChatbotKind] = set()
+"""The kinds whose chatbots use the automation cache (service/automation_cache_service.py):
+none since the automation chatbot became the Architect; the cache stays in the code
+for whoever will launch automations from a chat (backlog)."""
 
 
 class Chatbot(BaseModel):
@@ -69,7 +78,7 @@ class Chatbot(BaseModel):
 
     @property
     def has_automation_cache(self) -> bool:
-        return self.kind is ChatbotKind.AUTOMATION
+        return self.kind in CACHE_KINDS
 
     def with_kind_tools(self) -> "Chatbot":
         """The chatbot with the tools its kind imposes (unchanged for a free kind)."""

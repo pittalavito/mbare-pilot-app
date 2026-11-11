@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from core.error import ConflictError, NotFoundError, ValidationError
 from core.observability import LogPrefix, observed
+from domain.pipeline import yaml_format
 from domain.pipeline.graph import linear_edges, validate_graph
 from function.registry import FUNCTION_REGISTRY, get_function
 from function.spec import FunctionSpec
@@ -112,6 +113,36 @@ class PipelineService:
     def delete_pipeline(self, pipeline_id: int) -> bool:
         """With its runs. The agent runs of its steps stay in the history."""
         return self._pipelines.delete_pipeline(pipeline_id)
+
+    # ------------------------------------------------------------------ YAML
+    def check_yaml(self, project_name: str, text: str) -> tuple[Pipeline, Pipeline | None]:
+        """An automation written in YAML (the definitions' format), validated
+        with the same rules as a save, without saving: the automation as it
+        would be (edges completed with the chain) and the project's one with
+        the same name, which a save would replace (None = a new one)."""
+        if self._projects.get(project_name) is None:
+            raise NotFoundError(f"Progetto non trovato: {project_name}")
+        spec = yaml_format.parse(text)
+        current = next((item for item in self.list_pipelines(project_name) if item.name.lower() == spec.name.lower()), None)
+        steps, edges = yaml_format.steps_and_edges(spec, current)
+        pipeline = Pipeline(id=current.id if current else None, project_name=project_name, name=spec.name, description=spec.description.strip(),
+                            active=spec.active, steps=[step.model_dump() for step in steps],
+                            edges=[edge.model_dump() for edge in edges or linear_edges(steps)])
+        self._validate(pipeline)
+        return pipeline, current
+
+    @observed(LogPrefix.PIPELINE_SERVICE)
+    def save_yaml(self, project_name: str, text: str) -> Pipeline:
+        """Create the automation, or update the project's one with the same name (its steps keep their ids)."""
+        pipeline, current = self.check_yaml(project_name, text)
+        values = dict(description=pipeline.description, active=pipeline.active, steps=pipeline.steps, edges=pipeline.edges)
+        if current is None or current.id is None:
+            return self.create_pipeline(project_name, pipeline.name, **values)
+        return self.update_pipeline(current.id, name=pipeline.name, **values)
+
+    def export_yaml(self, pipeline_id: int) -> str:
+        """The automation in the definitions' format, to paste under ``automations:``."""
+        return yaml_format.dump(self.get_pipeline(pipeline_id))
 
     def runnable_pipelines(self, project_name: str) -> list[Pipeline]:
         """The project's automations that can be started: active, with steps."""

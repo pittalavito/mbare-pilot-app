@@ -33,8 +33,9 @@ import yaml
 from pydantic import BaseModel, ValidationError as PydanticValidationError
 
 from core.error import AppError, NotFoundError, ValidationError
-from core.observability import LogPrefix, log_warning, observed
-from domain.chat.chatbots_default import DEFAULT_CHATBOTS
+from core.observability import LogPrefix, log_info, log_warning, observed
+from domain.chat.chatbots_default import ARCHITECT, DEFAULT_CHATBOTS, OLD_AUTOMATION_BOT
+from domain.pipeline import yaml_format
 from domain.pipeline.graph import linear_edges
 from domain.project.data_paths import (
     AGENTS_FILE,
@@ -49,7 +50,7 @@ from domain.project.data_paths import (
     project_definitions,
 )
 from models.domain.agent import AgentConfig, AgentRole
-from models.domain.chatbot import KIND_TOOLS
+from models.domain.chatbot import KIND_TOOLS, ChatbotKind
 from models.domain.definitions import (
     AgentFile,
     AutomationFile,
@@ -58,12 +59,11 @@ from models.domain.definitions import (
     DefinitionKey,
     DefinitionKind,
     DefinitionState,
-    StepFile,
     SyncItem,
     SyncOutcome,
     SyncReport,
 )
-from models.domain.pipeline import Pipeline, PipelineEdge, PipelineStep, StepAgent, StepKind
+from models.domain.pipeline import Pipeline
 from service.agent_config_service import AgentConfigService
 from service.chatbot_service import ChatbotService
 from service.pipeline_service import PipelineService
@@ -152,6 +152,7 @@ class DefinitionService:
         Returns how many were created."""
         created = 0
         for project_name in project_names:
+            self._architect_from_old_bot(project_name)
             names = {bot.name.lower() for bot in self._chatbots.list_chatbots(project_name)}
             for spec in DEFAULT_CHATBOTS:
                 if spec.name.lower() in names:
@@ -162,6 +163,23 @@ class DefinitionService:
                 except Exception as exc:  # also the API and the worker starting together: the name is unique in the DB
                     log_warning(LogPrefix.DEFINITION_SERVICE, "chatbot di default %s · %s: %s", project_name, spec.name, exc)
         return created
+
+    def _architect_from_old_bot(self, project_name: str) -> None:
+        """Blocco 05: the default automation chatbot «Chat bot» becomes the
+        «Architetto» (name, prompt, model, tools), its conversations kept;
+        nothing when there is no such bot or an Architect exists already."""
+        bots = {bot.name.lower(): bot for bot in self._chatbots.list_chatbots(project_name)}
+        old = bots.get(OLD_AUTOMATION_BOT.lower())
+        if old is None or old.id is None or old.kind is not ChatbotKind.AUTOMATION or ARCHITECT.lower() in bots:
+            return
+        spec = next(spec for spec in DEFAULT_CHATBOTS if spec.name == ARCHITECT)
+        try:
+            self._chatbots.update_chatbot(old.id, name=ARCHITECT, kind=spec.kind, system_prompt=(spec.system_prompt or "").strip(),
+                                          model=spec.model, description=spec.description, max_steps=spec.max_steps,
+                                          tool_names=list(KIND_TOOLS[spec.kind]), wip_prompt="")
+            log_info(LogPrefix.DEFINITION_SERVICE, "%s: «%s» è diventato «%s»", project_name, OLD_AUTOMATION_BOT, ARCHITECT)
+        except Exception as exc:  # e.g. the model not in the catalog: logged, the app starts anyway
+            log_warning(LogPrefix.DEFINITION_SERVICE, "%s: «%s» non diventato «%s»: %s", project_name, OLD_AUTOMATION_BOT, ARCHITECT, exc)
 
     # ---------------------------------------------------------------- files
     def _list(self, kind: DefinitionKind, path: str, key: str, schema: type[BaseModel], sync: Callable[[Any], SyncOutcome],
@@ -291,9 +309,7 @@ class DefinitionService:
         """Steps are matched by name with the saved ones: they keep their id
         (history, prompt versions) and their place in the graph editor."""
         current = next((p for p in self._pipelines.list_pipelines(project_name) if p.name.lower() == spec.name.lower()), None)
-        previous = {step.name.lower(): step for step in current.steps} if current else {}
-        steps = [_step(step, previous.get(step.name.lower())) for step in spec.steps]
-        edges = [PipelineEdge(source=e.source, target=e.target, condition=e.condition, value=e.value) for e in spec.edges or []]
+        steps, edges = yaml_format.steps_and_edges(spec, current)
         values = dict(name=spec.name, description=spec.description, active=spec.active, steps=steps, edges=edges)
         if current is None:
             self._pipelines.create_pipeline(project_name, **values)
@@ -345,22 +361,6 @@ class _Element:
         except AppError as exc:
             return SyncItem(kind=self.kind, file=self.file, name=self.name, outcome=SyncOutcome.ERROR, message=str(exc))
         return SyncItem(kind=self.kind, file=self.file, name=spec.name, outcome=outcome)
-
-
-def _step(spec: StepFile, previous: PipelineStep | None) -> PipelineStep:
-    common = dict(
-        id=previous.id if previous else None,
-        name=spec.name,
-        input_template=spec.input,
-        position_x=previous.position_x if previous else 0.0,
-        position_y=previous.position_y if previous else 0.0
-    )
-    if spec.function is not None:
-        return PipelineStep(kind=StepKind.FUNCTION, function_name=spec.function, params=spec.params, **common)
-    if spec.agent is not None:
-        return PipelineStep(kind=StepKind.AGENT_CONFIG, agent_config_name=spec.agent, **common)
-    agent = StepAgent(system_prompt=spec.system_prompt, model=spec.model, max_steps=spec.max_steps, tool_names=spec.tools)
-    return PipelineStep(kind=StepKind.AGENT, agent=agent, **common)
 
 
 def _shape(pipeline: Pipeline) -> tuple:

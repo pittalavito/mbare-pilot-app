@@ -1,7 +1,7 @@
 import "@xyflow/react/dist/style.css";
 
 import {
-  Alert, Button, Card, Checkbox, CloseButton, Group, Loader, MultiSelect, NumberInput, Select, Stack, Text, TextInput, Textarea, Title,
+  Alert, Button, Card, Checkbox, CloseButton, Code, CopyButton, Group, Loader, Modal, MultiSelect, NumberInput, Select, Stack, Text, TextInput, Textarea, Title,
   useComputedColorScheme,
 } from "@mantine/core";
 import {
@@ -10,7 +10,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { type Pipeline, type Step, useDeletePipeline, usePipelines, useSavePipeline } from "../../api/automation";
+import { type Pipeline, type Step, useDeletePipeline, useExportAutomationYaml, usePipelines, useSavePipeline } from "../../api/automation";
 import { type FunctionSpec, useFunctions, useModelChoices, useStepAgents, useTools } from "../../api/catalog";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { ModelSelect } from "../../components/ModelSelect";
@@ -120,7 +120,10 @@ function EditorBody({ project, pipeline }: { project: string; pipeline?: Pipelin
     <Stack gap="md">
       <Group justify="space-between">
         <Title order={3}>{pipeline ? `Modifica «${pipeline.name}»` : "Nuova automation"}</Title>
-        <Button variant="default" component={Link} to={pipeline ? `${back}?id=${pipeline.id}` : back}>← Torna alle automation</Button>
+        <Group gap="xs">
+          {pipeline && <ExportYaml pipeline={pipeline} />}
+          <Button variant="default" component={Link} to={pipeline ? `${back}?id=${pipeline.id}` : back}>← Torna alle automation</Button>
+        </Group>
       </Group>
       <Group align="flex-end">
         <TextInput label="Nome" required style={{ flex: 1 }} value={name} onChange={(event) => setName(event.currentTarget.value)} />
@@ -447,5 +450,32 @@ function DeletePipeline({ project, pipeline, onDeleted }: { project: string; pip
     >
       🗑️ Elimina automation
     </ConfirmButton>
+  );
+}
+
+/** «Esporta YAML»: the saved automation in the definitions' format, to paste under ``automations:`` of
+ * global-automation.yml or of the project's automation.yml (then synced). */
+function ExportYaml({ pipeline }: { pipeline: Pipeline }) {
+  const exported = useExportAutomationYaml();
+  const [opened, setOpened] = useState(false);
+  return (
+    <>
+      <Button variant="default" onClick={() => { setOpened(true); exported.mutate(pipeline.id); }}>📄 Esporta YAML</Button>
+      <Modal opened={opened} onClose={() => setOpened(false)} title={`YAML di «${pipeline.name}»`} size="xl">
+        <Stack gap="sm">
+          <Text size="sm" c="dimmed">Il formato delle definizioni: incollalo in global-automation.yml (o in automation.yml del progetto) e sincronizza. È l'automation salvata, non le modifiche non salvate.</Text>
+          {exported.isPending && <Loader size="sm" />}
+          {exported.error && <Alert color="red">{exported.error.message}</Alert>}
+          {exported.data && (
+            <>
+              <Code block>{exported.data.yaml}</Code>
+              <Group justify="flex-end">
+                <CopyButton value={exported.data.yaml}>{({ copied, copy }) => <Button onClick={copy}>{copied ? "Copiato" : "Copia"}</Button>}</CopyButton>
+              </Group>
+            </>
+          )}
+        </Stack>
+      </Modal>
+    </>
   );
 }

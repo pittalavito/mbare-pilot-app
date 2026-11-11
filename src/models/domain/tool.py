@@ -21,10 +21,12 @@ class RunAutomationResponse(BaseModel):
 class AutomationInfo(BaseModel):
     name: str
     description: str = Field("", description="What it does: read it to choose.")
+    active: bool = True
+    steps: int = 0
 
 
 class ListAutomationsResponse(BaseModel):
-    automations: list[AutomationInfo] = Field(..., description="Active, with steps: the ones run_automation can start.")
+    automations: list[AutomationInfo] = Field(..., description="Every automation of the project; only the active ones with steps can start.")
 
 
 class AutomationStepStatus(BaseModel):
@@ -282,3 +284,34 @@ class TodayResponse(BaseModel):
     due_soon: list[str] = Field(..., description="Items not done due within due_soon_days days.")
     to_close: list[str] = Field(..., description="Activities whose items are all done: ask the user whether to mark them done.")
     due_soon_days: int
+
+
+# ----------------------------------------------------------------- architect
+
+class FunctionsResponse(BaseModel):
+    functions: list[str] = Field(..., description="One per function: name — what it does; params: name (type, default): description.")
+
+
+class AgentsResponse(BaseModel):
+    agents: list[str] = Field(..., description="One per agent a step can use: name — description (Library or project).")
+
+
+class AutomationYamlResponse(BaseModel):
+    name: str
+    yaml: str = Field(..., description="The automation in the definitions' format (automations: with one element).")
+
+
+class AutomationValidationResponse(BaseModel):
+    valid: bool
+    error: str = Field(default="", description="What is wrong (fix it and validate again); empty when valid.")
+    replaces: bool = Field(default=False, description="True: saving updates the project's automation with this name.")
+    system: bool = Field(default=False, description="True: «Prepara sviluppo» or «Verifica sviluppo», which the app runs by itself: warn the user.")
+    steps: list[str] = Field(default_factory=list, description="The steps as they would be saved, in order.")
+    edges: list[str] = Field(default_factory=list, description="The edges as they would be saved (the chain when none were written).")
+
+
+class FunctionTaskResponse(BaseModel):
+    task: str
+    title: str
+    activity: str | None = None
+    link: str = Field(..., description="Link to the task in the app: give it to the user as a markdown link.")
