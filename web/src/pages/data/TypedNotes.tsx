@@ -8,7 +8,7 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import { useCopilotSessions, useDeleteTaskSessions } from "../../api/copilot";
 import {
-  type Activity, type ActivityBody, type AgentTask, type AgentTaskBody, useActivities, useAgentTasks, useDeleteNote, useSaveActivity, useSaveAgentTask,
+  type Activity, type ActivityBody, type AgentTask, type AgentTaskBody, useActivities, useAgentTasks, useCreateTaskFromItem, useDeleteNote, useSaveActivity, useSaveAgentTask,
 } from "../../api/projectData";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { DelegateModal } from "../copilot/DelegateModal";
@@ -540,7 +540,12 @@ function ActivityEditor({ project, activity }: { project: string; activity: Acti
         onChange={(event) => set({ description: event.currentTarget.value })} />
       <div>
         <Text size="sm" fw={500} mb={4}>Todo <Text span size="xs" c="dimmed">· {done} di {items.length} fatte</Text></Text>
-        <ChecklistEditor items={items} onChange={(next) => set({ items: next })} withDetails addLabel="Voce" />
+        <ChecklistEditor
+          items={items} onChange={(next) => set({ items: next })} withDetails addLabel="Voce"
+          extra={(item, index) => (
+            <ItemTask project={project} activity={activity.name} item={item} number={index + 1} saved={base.items?.[index]?.text === item.text && !dirty} />
+          )}
+        />
       </div>
       <Textarea
         label="Imparato" autosize minRows={2}
@@ -555,6 +560,51 @@ function ActivityEditor({ project, activity }: { project: string; activity: Acti
       />
       <ReferencesSection project={project} value={form.references ?? []} onChange={(references) => set({ references })} />
     </EditorShell>
+  );
+}
+
+/** The agent task born from an item: its status as a badge (a click opens it);
+ * none: the «🤖» menu creates one of the chosen type and opens it (only on a
+ * saved item, since the activity is rewritten). */
+function ItemTask({ project, activity, item, number, saved }: {
+  project: string; activity: string; item: NonNullable<ActivityBody["items"]>[number]; number: number; saved: boolean;
+}) {
+  const tasks = useAgentTasks(project);
+  const create = useCreateTaskFromItem(project);
+  const [, setSearch] = useSearchParams();
+  const open = (note: string) => setSearch({ note }, { replace: true });
+  if (item.agent_task) {
+    const task = tasks.data?.find((candidate) => candidate.name === item.agent_task);
+    const status = STATUS.find((candidate) => candidate.value === (task?.status ?? "created")) ?? STATUS[0];
+    return (
+      <Badge
+        component="button" type="button" size="sm" variant="light" color={task ? status.color : "gray"} style={{ cursor: "pointer", flexShrink: 0 }}
+        title={`${task?.title ?? item.agent_task}: apri il task`} onClick={() => open(item.agent_task!)} aria-label={`Task della voce ${number}`}
+      >
+        🤖 {task ? status.label : "task"}
+      </Badge>
+    );
+  }
+  return (
+    <Menu position="bottom-end" withinPortal>
+      <Menu.Target>
+        <ActionIcon variant="subtle" size="sm" disabled={!saved || !item.text.trim()} loading={create.isPending}
+          title={saved ? "Crea un agent task da questa voce" : "Salva prima l'attività"} aria-label={`Crea un agent task dalla voce ${number}`}>
+          🤖
+        </ActionIcon>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Label>Agent task da «{item.text}»</Menu.Label>
+        {TYPES.map((type) => (
+          <Menu.Item key={type.value} onClick={() => create.mutate({ activity, item: number, text: item.text, type: type.value }, {
+            onSuccess: (task) => { notifications.show({ message: `Agent task «${task.title}» creato e collegato alla voce.` }); open(task.name); },
+            onError: (error) => notifications.show({ color: "red", message: error.message }),
+          })}>
+            {type.label}
+          </Menu.Item>
+        ))}
+      </Menu.Dropdown>
+    </Menu>
   );
 }
 

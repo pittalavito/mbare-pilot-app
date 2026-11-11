@@ -34,7 +34,7 @@ from domain.project.note_templates import (
     render_agent_task,
     render_reference,
 )
-from models.domain.note import Activity, AgentTask, NoteType, Reference, TaskLink
+from models.domain.note import Activity, AgentTask, ItemChange, NoteType, Reference, TaskLink, TaskStatus, TaskType
 from models.domain.project import DEFAULT_VISIBLE_NOTE_TYPES, ProjectDataFile, ProjectDataKind
 from models.store.files import StoredFile
 from service.store.project_file_store import ProjectFileStore
@@ -64,11 +64,12 @@ class ProjectDataService:
         a note (or a reference) from the tasks and activities that link it."""
         name = note_file_name(note_name)
         kind = note_type(name)
-        if kind == NoteType.AGENT_TASK:
+        if kind == NoteType.AGENT_TASK:  # out of the activities and off their items (the items stay)
             for activity_name, activity in self.activities(project_name):
-                if name in activity.agent_tasks:
+                if name in activity.agent_tasks or any(item.agent_task == name for item in activity.items):
+                    items = [item.model_copy(update={"agent_task": None}) if item.agent_task == name else item for item in activity.items]
                     self.save_activity(project_name, activity_name, activity.model_copy(
-                        update={"agent_tasks": [task for task in activity.agent_tasks if task != name]}))
+                        update={"agent_tasks": [task for task in activity.agent_tasks if task != name], "items": items}))
         elif kind == NoteType.GENERIC or kind.is_reference:
             self._unlink(project_name, name)
         return self._files.delete(self._id(project_name, NOTES_DIR, name))
@@ -90,10 +91,38 @@ class ProjectDataService:
         _check_references(task.references)
         return self._create_typed(project_name, NoteType.AGENT_TASK, task.title, render_agent_task(task))
 
-    def save_agent_task(self, project_name: str, note_name: str, task: AgentTask) -> None:
-        """Rewrite an existing agent task (its name stays, also when the title changes)."""
+    def save_agent_task(self, project_name: str, note_name: str, task: AgentTask) -> list[ItemChange]:
+        """Rewrite an existing agent task (its name stays, also when the title changes).
+
+        The one place where a task's status changes (UI, Copilot, Refiner,
+        secretary): getting to «done» checks the items born from it, leaving it
+        unchecks them («to verify» does not count). Returns those items."""
         _check_references(task.references)
+        name = note_file_name(note_name)
+        try:
+            before: TaskStatus | None = self.agent_task(project_name, name).status
+        except NotFoundError:
+            before = None
         self._save_typed(project_name, NoteType.AGENT_TASK, note_name, render_agent_task(task))
+        done = task.status == TaskStatus.DONE
+        if before is None or (before == TaskStatus.DONE) == done:
+            return []
+        return self._sync_items(project_name, name, done)
+
+    def _sync_items(self, project_name: str, task_name: str, done: bool) -> list[ItemChange]:
+        changes = []
+        for activity_name, activity in self.activities(project_name):
+            touched = [number for number, item in enumerate(activity.items, 1) if item.agent_task == task_name and item.done != done]
+            if not touched:
+                continue
+            items = [item.model_copy(update={"done": done}) if number in touched else item for number, item in enumerate(activity.items, 1)]
+            self.save_activity(project_name, activity_name, activity.model_copy(update={"items": items}))
+            changes += [ItemChange(activity=activity_name, activity_title=activity.title, item=number, text=activity.items[number - 1].text,
+                                   done=done) for number in touched]
+        if changes:
+            log_info(LogPrefix.PROJECT_SERVICE, "%s: %d voci %s dal task %s", project_name, len(changes), "spuntate" if done else "despuntate",
+                     task_name)
+        return changes
 
     def activities(self, project_name: str) -> list[tuple[str, Activity]]:
         """The activities, as (note name, activity)."""
@@ -108,13 +137,52 @@ class ProjectDataService:
 
     def create_activity(self, project_name: str, activity: Activity) -> str:
         """A new note named after the title (``attivita-<title>.md``); returns its name."""
+        activity = _with_item_tasks(activity)
         _check_links(activity)
         return self._create_typed(project_name, NoteType.ACTIVITY, activity.title, render_activity(activity))
 
     def save_activity(self, project_name: str, note_name: str, activity: Activity) -> None:
         """Rewrite an existing activity (its name stays, also when the title changes)."""
+        activity = _with_item_tasks(activity)
         _check_links(activity)
         self._save_typed(project_name, NoteType.ACTIVITY, note_name, render_activity(activity))
+
+    def create_task_from_item(self, project_name: str, activity_name: str, item: int, text: str, task_type: TaskType) -> str:
+        """«🤖» on an item: a new agent task «created», titled as the item, with
+        the activity's title and description as context and its references,
+        linked to the activity and to the item. Returns its name. Checked
+        against the item's text (ConflictError when it changed or already has a task)."""
+        name = note_file_name(activity_name)
+        activity = self.activity(project_name, name)
+        index = self.item_index(activity, item, text)
+        if activity.items[index].agent_task:
+            raise ConflictError(f"La voce ha già un agent task: {activity.items[index].agent_task}.")
+        context = f"Nasce dalla voce {item} dell'attività «{activity.title}»." + (f"\n\n{activity.description.strip()}" if activity.description.strip() else "")
+        task = self.create_agent_task(project_name, AgentTask(
+            title=activity.items[index].text, status=TaskStatus.CREATED, type=task_type, context=context, references=activity.references))
+        self.link_item(project_name, name, item, task)
+        return task
+
+    def link_item(self, project_name: str, activity_name: str, item: int, task_name: str) -> None:
+        """The agent task on the item's line (replacing another one) and among the activity's tasks; both must exist."""
+        task = note_file_name(task_name)
+        self.agent_task(project_name, task)
+        activity = self.activity(project_name, activity_name)
+        index = self.item_index(activity, item)
+        items = [*activity.items]
+        items[index] = items[index].model_copy(update={"agent_task": task})
+        self.save_activity(project_name, activity_name, activity.model_copy(update={"items": items}))
+
+    @staticmethod
+    def item_index(activity: Activity, item: int, text: str | None = None) -> int:
+        """The 0-based index of item ``item`` (1-based); ValidationError when there is none,
+        ConflictError when ``text`` is given and the item's differs (it changed meanwhile)."""
+        index = item - 1
+        if not 0 <= index < len(activity.items):
+            raise ValidationError(f"Voce {item} non trovata.")
+        if text is not None and activity.items[index].text != text:
+            raise ConflictError("La voce è cambiata nel frattempo: ricarica.")
+        return index
 
     def link_agent_task(self, project_name: str, activity_name: str, task_name: str) -> None:
         """The agent task among the activity's ones (once); both must exist."""
@@ -376,6 +444,13 @@ def _to_data_file(stored: StoredFile, kind: ProjectDataKind) -> ProjectDataFile:
 
 _OLD_TODO_LIST_PREFIX = "todo-list-"
 """The name of a todo list before they became activities (migrate_todo_lists)."""
+
+
+def _with_item_tasks(activity: Activity) -> Activity:
+    """An item's agent task is also among the activity's ones (added once, at the end)."""
+    tasks = [*activity.agent_tasks]
+    tasks += [name for name in dict.fromkeys(item.agent_task for item in activity.items if item.agent_task) if name not in tasks]
+    return activity.model_copy(update={"agent_tasks": tasks}) if tasks != activity.agent_tasks else activity
 
 
 def _check_links(activity: Activity) -> None:

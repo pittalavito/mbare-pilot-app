@@ -143,7 +143,7 @@ def test_agent_tasks_and_activities(client):
             "agent_tasks": ["agent-task-fix-porto.md"]}
     assert client.post("/projects/acme/activities", json=todo).json()["name"] == "attivita-rilascio.md"
     [activity] = client.get("/projects/acme/activities").json()
-    assert activity["items"] == [{"text": "tag", "done": False, "priority": "high", "due": "2026-11-02"}]
+    assert activity["items"] == [{"text": "tag", "done": False, "priority": "high", "due": "2026-11-02", "agent_task": None}]
     assert (activity["status"], activity["description"], activity["agent_tasks"]) == ("todo", "La 2.0", ["agent-task-fix-porto.md"])
     assert client.put("/projects/acme/activities/attivita-rilascio.md", json={**todo, "status": "done"}).json()["status"] == "done"
     assert client.put("/projects/acme/activities/agent-task-fix-porto.md", json=todo).status_code == 400

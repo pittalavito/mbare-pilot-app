@@ -52,7 +52,8 @@ def build_create(run: ToolContext) -> Tool:
     @tool(name="create_agent_task", description=(
         "Create an agent task, e.g. from an item of an activity's todo list: title, type, objective, context, acceptance "
         "criteria, constraints, the references to link (names from list_references) and the activity it is born from "
-        "(it is linked to it). It is created in refinement: the user refines it and makes it ready. Write only what you "
+        "(it is linked to it) with the number of the item it comes from, if any (the item is checked by itself when the "
+        "task is done). It is created in refinement: the user refines it and makes it ready. Write only what you "
         "know: leave a field empty rather than invent it."
     ))
     def create_agent_task(
@@ -64,6 +65,7 @@ def build_create(run: ToolContext) -> Tool:
         constraints: Annotated[str, "What must not be done or touched; '' = none."],
         references: References,
         activity: Annotated[str, "The activity it is born from (name from list_activities): it is linked to it; '' = none."],
+        item: Annotated[int, "The number of the activity's item it comes from (from read_activity); 0 = none."] = 0,
     ) -> AgentTaskCreatedResponse | ToolErrorResponse:
         if not notes_run(run):
             return ToolErrorResponse(error=_ONLY_IN_CHAT)
@@ -77,20 +79,26 @@ def build_create(run: ToolContext) -> Tool:
             if unknown:
                 return ToolErrorResponse(error=f"Riferimenti inesistenti: {', '.join(unknown)}. Usa i nomi che dà list_references.")
             parent = note_file_name(activity.strip()) if activity.strip() else None
+            if item and parent is None:
+                return ToolErrorResponse(error="Per collegare una voce serve anche l'attività.")
             if parent is not None:
-                project_data.activity(project_name, parent)  # exists, before creating the task
+                born_from = project_data.activity(project_name, parent)  # exists, before creating the task
+                if item:
+                    project_data.item_index(born_from, item)
             task = AgentTask(
                 title=title.strip(), status=TaskStatus.REFINEMENT, type=type, objective=objective.strip(),
                 context=context.strip(), criteria=[ChecklistItem(text=text.strip()) for text in criteria if text.strip()],
                 constraints=constraints.strip(), references=names,
             )
             name = project_data.create_agent_task(project_name, task)
-            if parent is not None:
+            if parent is not None and item:
+                project_data.link_item(project_name, parent, item, name)
+            elif parent is not None:
                 project_data.link_agent_task(project_name, parent, name)
         except AppError as exc:
             return ToolErrorResponse(error=str(exc))
         return AgentTaskCreatedResponse(
-            task=name, title=task.title, type=task.type.value, status=task.status.value, references=names, activity=parent,
+            task=name, title=task.title, type=task.type.value, status=task.status.value, references=names, activity=parent, item=item or None,
             link=f"/projects/{quote(project_name)}/data?note={quote(name)}",
         )
 

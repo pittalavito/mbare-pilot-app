@@ -594,7 +594,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Save Agent Task */
+        /**
+         * Save Agent Task
+         * @description With the items checked or unchecked because the task got or left «done».
+         */
         put: operations["save_agent_task_projects__project__agent_tasks__note__put"];
         post?: never;
         delete?: never;
@@ -618,6 +621,28 @@ export interface paths {
          * @description A new note ``attivita-<title>.md``; 409 when one with that name exists.
          */
         post: operations["create_activity_projects__project__activities_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/activities/{note}/items/{item}/agent-task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Task From Item
+         * @description «🤖» on item ``item`` (1-based): a task «created» titled as the item, with
+         *     the activity's context and references, linked to the activity and the item.
+         *     409 when the item changed meanwhile, already has a task or the name is taken.
+         */
+        post: operations["create_task_from_item_projects__project__activities__note__items__item__agent_task_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2270,6 +2295,47 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** AgentTaskSavedResponse */
+        AgentTaskSavedResponse: {
+            /** Title */
+            title: string;
+            /** @default created */
+            status: components["schemas"]["TaskStatus"];
+            /** @default development */
+            type: components["schemas"]["TaskType"];
+            /**
+             * Objective
+             * @default
+             */
+            objective: string;
+            /**
+             * Context
+             * @default
+             */
+            context: string;
+            /**
+             * Criteria
+             * @default []
+             */
+            criteria: components["schemas"]["ChecklistItemBody"][];
+            /**
+             * Constraints
+             * @default
+             */
+            constraints: string;
+            /**
+             * References
+             * @default []
+             */
+            references: string[];
+            /** Name */
+            name: string;
+            /**
+             * Items Changed
+             * @default []
+             */
+            items_changed: components["schemas"]["ItemChange"][];
+        };
         /**
          * AgentUpdateRequest
          * @description Everything but the name and the scope, which are fixed at creation.
@@ -3106,10 +3172,36 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * ItemChange
+         * @description An item checked or unchecked by itself, because its agent task got or left «done».
+         */
+        ItemChange: {
+            /** Activity */
+            activity: string;
+            /** Activity Title */
+            activity_title: string;
+            /** Item */
+            item: number;
+            /** Text */
+            text: string;
+            /** Done */
+            done: boolean;
+        };
         /** ItemRequest */
         ItemRequest: {
             /** Text */
             text: string;
+        };
+        /**
+         * ItemTaskBody
+         * @description «🤖» on an item: the task to create from it (checked against the item's text).
+         */
+        ItemTaskBody: {
+            /** Text */
+            text: string;
+            /** @default development */
+            type: components["schemas"]["TaskType"];
         };
         /** JiraIssueResponse */
         JiraIssueResponse: {
@@ -3907,6 +3999,8 @@ export interface components {
             priority?: components["schemas"]["TodoPriority"] | null;
             /** Due */
             due?: string | null;
+            /** Agent Task */
+            agent_task?: string | null;
         };
         /**
          * TodoPriority
@@ -5595,7 +5689,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AgentTaskResponse"];
+                    "application/json": components["schemas"]["AgentTaskSavedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -5662,6 +5756,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActivityResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_task_from_item_projects__project__activities__note__items__item__agent_task_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                note: string;
+                item: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemTaskBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentTaskResponse"];
                 };
             };
             /** @description Validation Error */
