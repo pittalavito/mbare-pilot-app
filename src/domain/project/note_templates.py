@@ -72,7 +72,19 @@ link notes by name."""
 import re
 from datetime import date
 
-from models.domain.note import Activity, ActivityStatus, AgentTask, ChecklistItem, Reference, TaskStatus, TaskType, TodoItem, TodoPriority
+from domain.project.data_paths import NOTE_PREFIXES
+from models.domain.note import (
+    Activity,
+    ActivityStatus,
+    AgentTask,
+    ChecklistItem,
+    NoteType,
+    Reference,
+    TaskStatus,
+    TaskType,
+    TodoItem,
+    TodoPriority,
+)
 
 STATUS_LABELS = {
     TaskStatus.CREATED: "creato", TaskStatus.REFINEMENT: "in rifinitura",
@@ -96,6 +108,7 @@ _CODE_FIELDS = {"repository": "Repository:", "path": "File:", "lines": "Righe:"}
 _CONTENT = "Contenuto"
 _CHECK = re.compile(r"^\s*[-*]\s+\[([ xX])\]\s?(.*)$")
 _BULLET = re.compile(r"^\s*[-*]\s+(?!\[[ xX]\])(\S.*?)\s*$")
+_TASK_ARROW = re.compile(r"^(.*?)\s+→\s+(\S+)$")
 _DETAILS = re.compile(r"^(.*?)\s+\((?:(alta|media|bassa)(?:,\s*)?)?(\d{4}-\d{2}-\d{2})?\)$", re.IGNORECASE)
 
 
@@ -138,7 +151,8 @@ def render_activity(activity: Activity) -> str:
     for item in activity.items:
         details = [PRIORITY_LABELS[item.priority]] if item.priority else []
         details += [item.due.isoformat()] if item.due else []
-        lines.append(_check(item) + (f"  ({', '.join(details)})" if details else ""))
+        task = _line(item.agent_task or "")
+        lines.append(_check(item) + (f"  ({', '.join(details)})" if details else "") + (f"  → {task}" if task else ""))
     lines += _links(_AGENT_TASKS, activity.agent_tasks)
     lines += ["", f"## {_LEARNED}", activity.learned.strip()] if activity.learned.strip() else []
     return "\n".join(lines + _references(activity.references)) + "\n"
@@ -168,12 +182,16 @@ def parse_todo_item(text: str) -> TodoItem:
 
 
 def _todo_item(text: str, done: bool) -> TodoItem:
+    """``text  (priority, due)  → agent-task-….md``: details and the task's arrow both optional."""
+    task = None
+    if (arrow := _TASK_ARROW.match(text)) and arrow.group(2).startswith(NOTE_PREFIXES[NoteType.AGENT_TASK]):
+        text, task = arrow.group(1), arrow.group(2)
     match = _DETAILS.match(text)
     if match is None or not (match.group(2) or match.group(3)):
-        return TodoItem(text=text, done=done)
+        return TodoItem(text=text, done=done, agent_task=task)
     priority = next((key for key, label in PRIORITY_LABELS.items() if label == (match.group(2) or "").lower()), None)
     due = _date(match.group(3))
-    return TodoItem(text=match.group(1), done=done, priority=priority, due=due)
+    return TodoItem(text=match.group(1), done=done, priority=priority, due=due, agent_task=task)
 
 
 # ---------------------------------------------------------------- reference

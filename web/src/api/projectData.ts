@@ -1,3 +1,4 @@
+import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ApiError, api, detail, unwrap } from "./client";
@@ -13,6 +14,9 @@ export type AgentTask = components["schemas"]["AgentTaskResponse"];
 export type AgentTaskBody = components["schemas"]["AgentTaskBody"];
 export type Activity = components["schemas"]["ActivityResponse"];
 export type ActivityBody = components["schemas"]["ActivityBody"];
+export type TaskType = AgentTaskBody["type"];
+/** An item checked or unchecked by itself, because its agent task got or left «done». */
+export type ItemChange = components["schemas"]["ItemChange"];
 export type Reference = components["schemas"]["ReferenceResponse"];
 export type ReferenceBody = components["schemas"]["ReferenceBody"];
 export type ReferenceKind = components["schemas"]["ReferenceCreateBody"]["kind"];
@@ -83,18 +87,34 @@ export function useAgentTasks(project: string) {
   });
 }
 
-/** Create (``name`` undefined: the note is named after the title) or rewrite an agent task. */
+/** What a save says about the items born from the task: a notification each. */
+function notifyItems(changes: ItemChange[]) {
+  for (const change of changes) {
+    notifications.show({
+      color: change.done ? "green" : "orange",
+      message: change.done
+        ? `Voce «${change.text}» di «${change.activity_title}» spuntata: il task è fatto.`
+        : `Voce «${change.text}» di «${change.activity_title}»: tolta la spunta, il task non è più fatto.`,
+    });
+  }
+}
+
+/** Create (``name`` undefined: the note is named after the title) or rewrite an agent task.
+ * A rewrite may check or uncheck the items born from it (notified; activities refreshed). */
 export function useSaveAgentTask(project: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ name, body }: { name?: string; body: AgentTaskBody }) =>
-      unwrap(
-        name === undefined
-          ? api.POST("/projects/{project}/agent-tasks", { params: { path: { project } }, body })
-          : api.PUT("/projects/{project}/agent-tasks/{note}", { params: { path: { project, note: name } }, body }),
-      ),
+    mutationFn: async ({ name, body }: { name?: string; body: AgentTaskBody }): Promise<AgentTask> => {
+      if (name === undefined) return unwrap(api.POST("/projects/{project}/agent-tasks", { params: { path: { project } }, body }));
+      const { items_changed: changes = [], ...task } = await unwrap(
+        api.PUT("/projects/{project}/agent-tasks/{note}", { params: { path: { project, note: name } }, body }),
+      );
+      notifyItems(changes);
+      return task;
+    },
     onSuccess: () =>
       Promise.all([
+        queryClient.invalidateQueries({ queryKey: dataKeys.activities(project) }),
         queryClient.invalidateQueries({ queryKey: dataKeys.agentTasks(project) }),
         queryClient.invalidateQueries({ queryKey: dataKeys.notes(project), exact: true }),
         queryClient.invalidateQueries({ queryKey: ["projects", project, "today"] }), // «📌 Oggi» lists them
@@ -106,6 +126,18 @@ export function useActivities(project: string) {
   return useQuery({
     queryKey: dataKeys.activities(project),
     queryFn: () => unwrap(api.GET("/projects/{project}/activities", { params: { path: { project } } })),
+  });
+}
+
+/** «🤖» on an item (1-based, checked against its text): a task «created» from it, linked to the item. */
+export function useCreateTaskFromItem(project: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ activity, item, text, type }: { activity: string; item: number; text: string; type: TaskType }) =>
+      unwrap(api.POST("/projects/{project}/activities/{note}/items/{item}/agent-task", {
+        params: { path: { project, note: activity, item } }, body: { text, type },
+      })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: dataKeys.typed(project) }),
   });
 }
 

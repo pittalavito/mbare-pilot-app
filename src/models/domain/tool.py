@@ -249,6 +249,7 @@ class AgentTaskCreatedResponse(BaseModel):
     status: str = Field(..., description="Always refinement: the user refines it, then sets it to todo.")
     references: list[str] = Field(..., description="The linked references, by name.")
     activity: str | None = Field(None, description="The activity it is born from, linked to it; null = none.")
+    item: int | None = Field(None, description="The activity's item it comes from: checked when the task is done; null = none.")
     link: str = Field(..., description="Link to the task in the app: give it to the user as a markdown link.")
 
 

@@ -1,18 +1,23 @@
 import { ActionIcon, Button, Checkbox, Group, Select, Stack, Text, TextInput } from "@mantine/core";
+import type { ReactNode } from "react";
 
-/** A checklist item; ``priority`` and ``due`` only in the activities' todo lists. */
-export type ChecklistRow = { text: string; done?: boolean; priority?: "high" | "medium" | "low" | null; due?: string | null };
+/** A checklist item; ``priority``, ``due`` and ``agent_task`` only in the activities' todo lists. */
+export type ChecklistRow = {
+  text: string; done?: boolean; priority?: "high" | "medium" | "low" | null; due?: string | null; agent_task?: string | null;
+};
 
 export const PRIORITY_LABELS = { high: "alta", medium: "media", low: "bassa" } as const;
 const PRIORITY_COLORS = { high: "red", medium: "orange", low: "gray" } as const;
 
-/** Items to tick, edit, reorder and remove; ``withDetails`` adds priority and due date. */
-export function ChecklistEditor<T extends ChecklistRow>({ items, onChange, withDetails = false, addLabel, placeholder }: {
+/** Items to tick, edit, reorder and remove; ``withDetails`` adds priority and due date,
+ * ``extra`` something more on each row (the activities: the item's agent task). */
+export function ChecklistEditor<T extends ChecklistRow>({ items, onChange, withDetails = false, addLabel, placeholder, extra }: {
   items: T[];
   onChange: (items: T[]) => void;
   withDetails?: boolean;
   addLabel: string;
   placeholder?: string;
+  extra?: (item: T, index: number) => ReactNode;
 }) {
   const set = (index: number, patch: Partial<T>) => onChange(items.map((item, i) => (i === index ? { ...item, ...patch } : item)));
   const move = (index: number, to: number) => {
@@ -59,6 +64,7 @@ export function ChecklistEditor<T extends ChecklistRow>({ items, onChange, withD
               />
             </>
           )}
+          {extra?.(item, index)}
           <ActionIcon variant="subtle" size="sm" disabled={index === 0} onClick={() => move(index, index - 1)} title="Su">↑</ActionIcon>
           <ActionIcon variant="subtle" size="sm" disabled={index === items.length - 1} onClick={() => move(index, index + 1)} title="Giù">↓</ActionIcon>
           <ActionIcon variant="subtle" size="sm" color="red" onClick={() => onChange(items.filter((_, i) => i !== index))} title="Togli la voce">✕</ActionIcon>

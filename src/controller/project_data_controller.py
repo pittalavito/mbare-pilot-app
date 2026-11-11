@@ -16,9 +16,11 @@ from models.controller.project_data import (
     ActivityResponse,
     AgentTaskBody,
     AgentTaskResponse,
+    AgentTaskSavedResponse,
     CodeTodoScanResponse,
     DataFileResponse,
     DataSettingsBody,
+    ItemTaskBody,
     NoteRequest,
     NoteResponse,
     ReferenceBody,
@@ -71,10 +73,12 @@ def create_agent_task(project: str, request: AgentTaskBody, service: ProjectData
 
 
 @router.put("/agent-tasks/{note}")
-def save_agent_task(project: str, note: str, request: AgentTaskBody, service: ProjectDataService = Depends(project_data_service)) -> AgentTaskResponse:
+def save_agent_task(project: str, note: str, request: AgentTaskBody,
+                    service: ProjectDataService = Depends(project_data_service)) -> AgentTaskSavedResponse:
+    """With the items checked or unchecked because the task got or left «done»."""
     task = request.to_task()
-    service.save_agent_task(project, note, task)
-    return AgentTaskResponse.from_task(note, task)
+    changed = service.save_agent_task(project, note, task)
+    return AgentTaskSavedResponse(**AgentTaskResponse.from_task(note, task).model_dump(), items_changed=changed)
 
 
 @router.get("/activities")
@@ -87,6 +91,16 @@ def create_activity(project: str, request: ActivityBody, service: ProjectDataSer
     """A new note ``attivita-<title>.md``; 409 when one with that name exists."""
     activity = request.to_activity()
     return ActivityResponse.from_activity(service.create_activity(project, activity), activity)
+
+
+@router.post("/activities/{note}/items/{item}/agent-task", status_code=status.HTTP_201_CREATED)
+def create_task_from_item(project: str, note: str, item: int, request: ItemTaskBody,
+                          service: ProjectDataService = Depends(project_data_service)) -> AgentTaskResponse:
+    """«🤖» on item ``item`` (1-based): a task «created» titled as the item, with
+    the activity's context and references, linked to the activity and the item.
+    409 when the item changed meanwhile, already has a task or the name is taken."""
+    name = service.create_task_from_item(project, note, item, request.text, request.type)
+    return AgentTaskResponse.from_task(name, service.agent_task(project, name))
 
 
 @router.put("/activities/{note}")

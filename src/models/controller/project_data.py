@@ -5,7 +5,19 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from models.domain.note import Activity, ActivityStatus, AgentTask, ChecklistItem, NoteType, Reference, TaskStatus, TaskType, TodoItem, TodoPriority
+from models.domain.note import (
+    Activity,
+    ActivityStatus,
+    AgentTask,
+    ChecklistItem,
+    ItemChange,
+    NoteType,
+    Reference,
+    TaskStatus,
+    TaskType,
+    TodoItem,
+    TodoPriority,
+)
 from models.domain.project import ProjectDataFile
 
 
@@ -63,9 +75,22 @@ class AgentTaskResponse(AgentTaskBody):
         return cls(name=name, **task.model_dump())
 
 
+class AgentTaskSavedResponse(AgentTaskResponse):
+    items_changed: list[ItemChange] = []
+    """The items checked (the task got «done») or unchecked (it left it) by this save."""
+
+
 class TodoItemBody(ChecklistItemBody):
     priority: TodoPriority | None = None
     due: date | None = None
+    agent_task: str | None = None
+    """The agent task born from the item (by name): it is checked when the task gets «done»."""
+
+
+class ItemTaskBody(BaseModel):
+    """«🤖» on an item: the task to create from it (checked against the item's text)."""
+    text: str
+    type: TaskType = TaskType.DEVELOPMENT
 
 
 class ActivityBody(BaseModel):

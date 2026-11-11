@@ -56,7 +56,7 @@ def test_a_new_task_is_in_refinement_with_its_fields_and_references(context):
     assert result == {
         "task": "agent-task-rilascio-automatico.md", "title": "Rilascio automatico", "type": "analysis", "status": "refinement",
         "references": ["context-reference-procedura-di-rilascio.md", "code-reference-login.md"],  # .md added, once each
-        "activity": None,
+        "activity": None, "item": None,
         "link": "/projects/Acme%20Srl/data?note=agent-task-rilascio-automatico.md",
     }
     task = context.project_data.agent_task("Acme Srl", result["task"])
@@ -108,3 +108,17 @@ def test_a_task_born_from_an_activity_is_linked_to_it(context):
     assert context.project_data.activity("Acme Srl", activity).agent_tasks == [result["task"]]
     assert "not found" in _create(context, title="Orfano", activity="attivita-manca.md")["error"].lower()
     assert [name for name, _ in context.project_data.agent_tasks("Acme Srl")] == [result["task"]]  # the orphan was not created
+
+
+def test_a_task_born_from_an_item_is_linked_to_it(context):
+    from models.domain.note import Activity, TodoItem
+
+    activity = context.project_data.create_activity("Acme Srl", Activity(title="Rilascio", items=[TodoItem(text="Note")]))
+
+    result = _create(context, title="Note di rilascio", activity=activity, item=1)
+
+    assert result["item"] == 1
+    assert context.project_data.activity("Acme Srl", activity).items[0].agent_task == result["task"]
+    assert "attività" in _create(context, title="Senza attività", item=1)["error"]
+    assert "Voce 5" in _create(context, title="Voce che manca", activity=activity, item=5)["error"]
+    assert len(context.project_data.agent_tasks("Acme Srl")) == 1  # nothing created when the item is wrong

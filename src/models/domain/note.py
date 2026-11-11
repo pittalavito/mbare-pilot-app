@@ -95,6 +95,18 @@ class TodoPriority(StrEnum):
 class TodoItem(ChecklistItem):
     priority: TodoPriority | None = None
     due: date | None = None
+    agent_task: str | None = None
+    """The agent task born from the item (``→ agent-task-….md`` on its line): when it gets done the item is checked."""
+
+
+class ItemChange(BaseModel):
+    """An item checked or unchecked by itself, because its agent task got or left «done»."""
+    activity: str
+    activity_title: str
+    item: int
+    """1-based."""
+    text: str
+    done: bool
 
 
 class ActivityStatus(StrEnum):

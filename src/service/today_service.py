@@ -12,7 +12,7 @@ Two quick actions on an item, checked against its text (the panel shows a
 number: the item may have changed meanwhile): ``check_item`` and ``set_due``."""
 from datetime import date, timedelta
 
-from core.error import ConflictError, ValidationError
+from core.error import ConflictError
 from domain.project.data_paths import note_file_name
 from models.domain.copilot import CopilotMessageRole, CopilotSessionStatus
 from models.domain.note import ActivityStatus, TaskStatus
@@ -85,12 +85,7 @@ class TodayService:
 
     def _item(self, project_name: str, activity_name: str, item: int, text: str):
         activity = self._data.activity(project_name, note_file_name(activity_name))
-        index = item - 1
-        if not 0 <= index < len(activity.items):
-            raise ValidationError(f"Voce {item} non trovata.")
-        if activity.items[index].text != text:
-            raise ConflictError("La voce è cambiata nel frattempo: ricarica.")
-        return activity, index
+        return activity, self._data.item_index(activity, item, text)
 
     def _replace(self, project_name: str, activity_name: str, activity, index: int, update: dict) -> None:
         items = [*activity.items]
