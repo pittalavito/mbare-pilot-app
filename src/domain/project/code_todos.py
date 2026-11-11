@@ -33,6 +33,25 @@ def find(text: str) -> list[CodeTodo]:
     return found
 
 
+_COMMENT_TOKENS = re.compile(r"(//|/\*|\*/|<!--|-->|--|#|;|\*|\s)+")
+
+
+def strip(text: str) -> tuple[str, int, list[int]]:
+    """``text`` without the lines that are only a ``todoMbarePilot{...}``
+    comment (whatever the comment syntax). Returns the new text, how many lines
+    went and the numbers of the lines that also hold code (left as they are)."""
+    kept, removed, mixed = [], 0, []
+    for number, line in enumerate(text.splitlines(keepends=True), start=1):
+        if not _PATTERN.search(line):
+            kept.append(line)
+        elif _COMMENT_TOKENS.fullmatch(_PATTERN.sub("", line)) or not _PATTERN.sub("", line).strip():
+            removed += 1
+        else:
+            kept.append(line)
+            mixed.append(number)
+    return "".join(kept), removed, mixed
+
+
 def find_malformed(text: str) -> list[MalformedTodo]:
     """What looks like the marker in ``text`` but is not collected by ``find``, in order."""
     found = []

@@ -1,9 +1,12 @@
 import { Alert, Button, Group, Modal, Stack, Text, Textarea } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { useCopilotSessions, useSendBackCopilot } from "../../api/copilot";
+import { useCopilotMessages, useCopilotSessions, useSendBackCopilot } from "../../api/copilot";
+
+/** How the chat event of a failed «Verifica sviluppo» starts (the backend's VERIFY_FAILED). */
+export const VERIFY_FAILED = "🔍 Verifica fallita.";
 
 /** A task to verify sent back to Copilot: what to fix starts a new execution
  * of the task's latest Copilot session (Copilot remembers the plan and its
@@ -13,6 +16,13 @@ export function SendBackModal({ project, task, opened, onClose }: { project: str
   const sendBack = useSendBackCopilot(project);
   const [text, setText] = useState("");
   const session = sessions.data?.find((item) => item.task_note === task); // newest first
+  const messages = useCopilotMessages(opened ? session?.id : undefined, false);
+  const failed = [...(messages.data ?? [])].reverse().find((message) => message.role === "event")?.content;
+  useEffect(() => { // the failed verification, ready to send (the latest event of the chat)
+    if (opened && !text && failed?.startsWith(VERIFY_FAILED)) {
+      setText(`La verifica dopo le tue modifiche è fallita:\n\n${failed.slice(VERIFY_FAILED.length).trim()}\n\nSistema e riprova.`);
+    }
+  }, [opened, failed]); // eslint-disable-line react-hooks/exhaustive-deps
   const submit = () => session && sendBack.mutate({ id: session.id, text: text.trim() }, {
     onSuccess: () => {
       notifications.show({ message: "Rimandato a Copilot: parte appena il worker è libero." });

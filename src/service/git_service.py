@@ -244,10 +244,13 @@ class GitService:
         return GitCheckoutResult(previous=status.branch, branch=branch, created=created, upstream=self._git.status(toplevel).upstream)
 
     @observed(LogPrefix.GIT_SERVICE)
-    def create_branch(self, project_name: str, subpath: str = "", name: str = "", start_point: str = "") -> GitCheckoutResult:
+    def create_branch(self, project_name: str, subpath: str = "", name: str = "", start_point: str = "",
+                      track: bool = True) -> GitCheckoutResult:
         """Create the branch ``name`` and switch to it (``git switch -c``), from
         ``start_point`` (a branch, ``origin/<branch>``, a commit hash; ``""`` =
-        the current commit). Uncommitted changes come along to the new branch."""
+        the current commit). Uncommitted changes come along to the new branch.
+        Not ``track``: a new branch from a remote one does not track it (a
+        feature branch from ``origin/develop``)."""
         _, toplevel = self._repository(project_name, subpath)
         name = self._branch_name(toplevel, name)
         if name in {item.name for item in self._git.branches(toplevel)}:
@@ -256,7 +259,7 @@ class GitService:
         if start_point and (start_point.startswith("-") or not self._git.commit_exists(toplevel, start_point)):
             raise NotFoundError(f"Punto di partenza non trovato: {start_point!r} (un branch, origin/<branch> o un hash).")
         previous = self._git.status(toplevel).branch
-        self._git.create_branch(toplevel, name, start_point or None)
+        self._git.create_branch(toplevel, name, start_point or None, track=track)
         return GitCheckoutResult(previous=previous, branch=name, created=True, upstream=self._git.status(toplevel).upstream)
 
     @observed(LogPrefix.GIT_SERVICE)

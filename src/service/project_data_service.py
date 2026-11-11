@@ -34,6 +34,7 @@ from domain.project.note_templates import (
     render_agent_task,
     render_reference,
 )
+from models.domain.dev import TestScope
 from models.domain.note import Activity, AgentTask, ItemChange, NoteType, Reference, TaskLink, TaskStatus, TaskType
 from models.domain.project import DEFAULT_VISIBLE_NOTE_TYPES, ProjectDataFile, ProjectDataKind
 from models.store.files import StoredFile
@@ -370,6 +371,24 @@ class ProjectDataService:
     def save_due_soon_days(self, project_name: str, days: int) -> int:
         project = self._projects.get(self._project(project_name))
         return self._projects.save(project.model_copy(update={"due_soon_days": days})).due_soon_days
+
+    def test_scope(self, project_name: str) -> TestScope:
+        """«Verifica sviluppo»: the project's default (a task can change it)."""
+        return self._projects.get(self._project(project_name)).test_scope
+
+    def test_commands(self, project_name: str) -> dict[str, str]:
+        """«Verifica sviluppo»: the tests' commands written per repository (folder → command)."""
+        return dict(self._projects.get(self._project(project_name)).test_commands)
+
+    def test_command(self, project_name: str, repository: str) -> str:
+        """The repository's command in the settings; ``""`` = use the detected one."""
+        return self.test_commands(project_name).get(repository.strip("/\\"), "")
+
+    def save_test_settings(self, project_name: str, scope: TestScope, commands: dict[str, str]) -> None:
+        """The default scope and the commands (empty ones are dropped: the detected command is used)."""
+        project = self._projects.get(self._project(project_name))
+        cleaned = {repository.strip("/\\"): command.strip() for repository, command in commands.items() if command.strip()}
+        self._projects.save(project.model_copy(update={"test_scope": scope, "test_commands": cleaned}))
 
     def files_visible(self, project_name: str) -> bool:
         """Whether the Dati tab shows the uploaded files."""

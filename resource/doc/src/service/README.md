@@ -26,6 +26,7 @@ src/service/
   metrics_service.py        pagina Metriche: costo e latenza per chi, Copilot a parte, accettazione di Elabora WIP
   evaluation_service.py     valutazioni sui set di prova (Elabora WIP, RAG): report, coda del worker
   today_service.py          «📌 Oggi»: chi aspetta, voci scadute e in scadenza, attività da chiudere; Spunta e Rimanda
+  dev_checks_service.py     «Prepara sviluppo» alla delega e «Verifica sviluppo» dopo Copilot; impostazioni dei test
 ```
 
 Chi crea i service e li collega tra loro è il [Container](../core/README.md) (`core/container.py`): ogni service riceve nel costruttore **gli store e i service che usa, e solo quelli**. Così la firma dice cosa legge e scrive.
@@ -140,6 +141,7 @@ L'utente mette in cache un **suo** messaggio scegliendo un'automation del proget
 - **File cambiati**: il `git status` del repository a fine esecuzione.
 - **Una esecuzione alla volta per repository**: le altre aspettano in coda (`claim_next` salta i repository occupati); la preparazione intanto si può fare.
 - **Annullamento** (`cancel`): una sessione in coda non parte; una in esecuzione la ferma il worker, che legge `cancel_requested` ogni pochi secondi. Timeout: `COPILOT_EXECUTION_TIMEOUT_MINUTES` (esecuzione), `COPILOT_PLANNING_TIMEOUT_MINUTES` (un turno di preparazione).
+- **Verifiche dello sviluppo**: con `prepare` la delega prepara prima i repository, a fine esecuzione di uno sviluppo parte la verifica ([sotto](#verifiche-dello-sviluppo-devchecksservice-blocco-09)).
 - **Il task segue**: in corso durante l'esecuzione, **da verificare** se va a buon fine (l'ultimo messaggio della chat lo dice), da fare altrimenti. L'esito resta nella sessione, non nella nota. «Fatto» lo mette l'utente («Conferma» nel form del task: solo lo stato, commit e push restano suoi).
 - **Rimanda a Copilot** (`send_back(id, testo)`): un task «da verificare» che ha bisogno di altro lavoro. Il testo diventa il turno che avvia una nuova esecuzione della **stessa sessione** (Copilot ricorda piano e modifiche): si salva in `next_prompt`, la sessione va in coda come dopo un ok, e `run_next` usa `next_prompt` al posto di `execute_prompt` (poi lo svuota). Rifiutato (409) se il task non è «da verificare», se la sessione è già in coda o in esecuzione, o se il task lavora solo in piano; testo vuoto: 400.
 - **Task non ancora pronto** (creato o in rifinitura): si delega comunque, ma il primo messaggio della chat è un avviso (`not_refined_warning`); `delegate_task` lo restituisce in `warning`, perché il chatbot lo dica.
@@ -158,6 +160,15 @@ L'utente mette in cache un **suo** messaggio scegliendo un'automation del proget
 - **Cartella del task, nel repository**: prima di ogni turno (preparazione ed esecuzione) il servizio riscrive `<repository>/mbare-pilot/<nome del task>/` (`domain/project/task_folder.py`) con il solo `task.md` **minimo** (`minimal_task`: titolo, tipo, nome del task, i tool MCP da usare); niente copie dei riferimenti. Il prompt dice dove sta (`{task_folder}`); Copilot non riceve altre cartelle (`--add-dir` è solo il repository). Al primo turno un errore di scrittura (es. `mbare-pilot` è un file) ferma la delega prima di salvare la sessione; nei turni dopo la cartella è best effort: un task cancellato nel frattempo lascia l'ultima copia e la chat continua. La cartella **resta** anche cancellando la sessione o le sessioni del task. `mbare-pilot/` è visibile a git ma esce dagli elenchi dell'app (`_changed_files`: avviso prima dell'esecuzione, file cambiati).
 - **Prompt e modello scelti**: `start(progetto, task, repository, prompt, model)`. `prompt` è uno dei `coding-agent/<nome>.md` (`""` = `plan_prompt`) e serve solo per il primo turno. `model` è uno dei `models:` (`""` = `COPILOT_MODEL`) e vale per ogni turno, esecuzione compresa. Entrambi restano salvati nella sessione; un valore fuori elenco è un errore.
 - **Costruzione**: il Container chiama `CopilotService.from_config(...)`, che crea il `CopilotClient` e i timeout dalle impostazioni `COPILOT_*`. Dipende da `GitService` per la cartella del repository (controllata), l'HEAD prima e dopo e il `git status`; da `ProjectDataService` per il task e il suo stato.
+
+### Verifiche dello sviluppo: `DevChecksService` (blocco 09)
+
+Controlli deterministici attorno a un task delegato, fatti da due automation del progetto con quei nomi esatti (`global-automation.yml`, modificabili per progetto; [funzioni](../function/README.md)). Ognuna gira **subito** nel processo che la chiede: la run nasce `running` e la esegue il `PipelineRunner` (il worker non la prende mai); resta nello storico dell'automation. Senza l'automation (o spenta) il controllo si salta. Il testo del risultato è l'output di ogni step, o dove si è fermata e perché.
+
+- **`prepare(progetto, repository e branch)`**: dalla delega (`CopilotService.start(..., prepare=[...])`), **prima** di scrivere la cartella del task e del primo turno, nell'API. Nella finestra «Delega a Copilot» scegli i repository (quello del task e altri del progetto, es. le librerie) e per ognuno il branch, esistente o nuovo da un base. Se fallisce: `ConflictError` («Preparazione non riuscita, Copilot non è partito.» e il motivo), nessuna sessione; se va bene, il primo evento della chat è `🧰 Preparazione ok.` con l'esito.
+- **`verify(progetto, repository, task)`**: nel worker, a fine esecuzione di uno **sviluppo** andata bene (dopo «da verificare»). I test sono quelli del task (`AgentTask.tests`) o il default del progetto (`Project.test_scope`). L'esito è un evento della chat: `🔍 Verifica ok.` o `🔍 Verifica fallita.` con i test falliti; il task resta «da verificare» e «Rimanda a Copilot» propone già gli errori come messaggio. Best effort: un errore (es. task cancellato) diventa una verifica fallita.
+- **Impostazioni** (`settings`, `save_settings`; Copilot → ⚙️ Verifiche dello sviluppo): per ogni repository lo strumento e il comando rilevati, e quello scritto al suo posto (`Project.test_commands`, JSON); il default `test_scope`.
+- Il `CopilotService` la riceve dopo la costruzione (`use_dev_checks`): le automation hanno bisogno degli agenti, che hanno bisogno di Copilot.
 
 ## Definizioni da file
 

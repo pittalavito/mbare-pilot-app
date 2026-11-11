@@ -4,6 +4,7 @@ from datetime import datetime
 from pydantic import BaseModel
 
 from models.domain.copilot import CopilotMessage, CopilotModel, CopilotModelUsage, CopilotSession, CopilotTurnRecord, CopilotUsage
+from models.domain.dev import PrepareTarget
 
 
 class CopilotSessionRequest(BaseModel):
@@ -15,6 +16,8 @@ class CopilotSessionRequest(BaseModel):
     """One of the status' ``prompts``; ``""`` = the definition's ``plan_prompt``."""
     model: str = ""
     """One of the status' ``models``; ``""`` = the default."""
+    prepare: list[PrepareTarget] = []
+    """«Prepara sviluppo» first: the repositories to get ready, each on its branch (empty = none); 409 when it fails."""
 
 
 class CopilotMessageRequest(BaseModel):

@@ -51,6 +51,8 @@ class ProjectTable(SQLModel, table=True):
     files_visible: bool = Field(default=True, sa_column_kwargs={"server_default": true()})
     """The Dati tab shows the uploaded files."""
     due_soon_days: int = Field(default=3, sa_column_kwargs={"server_default": "3"})
+    test_scope: str = Field(default="all", sa_column_kwargs={"server_default": "all"})
+    test_commands: dict[str, str] | None = Field(default=None, sa_type=JSON)
     """«📌 Oggi»: items due within this many days are «In scadenza»."""
 
 

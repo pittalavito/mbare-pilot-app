@@ -134,9 +134,9 @@ class GitClient:
         changes would be overwritten."""
         self._run(cwd, ["switch", "--quiet", branch])
 
-    def create_branch(self, cwd: Path, name: str, start_point: str | None = None) -> None:
-        """``git switch -c <name> [<start_point>]``: from a remote branch it tracks it."""
-        self._run(cwd, ["switch", "--quiet", "-c", name, *([start_point] if start_point else [])])
+    def create_branch(self, cwd: Path, name: str, start_point: str | None = None, track: bool = True) -> None:
+        """``git switch -c <name> [<start_point>]``: from a remote branch it tracks it, unless not ``track``."""
+        self._run(cwd, ["switch", "--quiet", *([] if track else ["--no-track"]), "-c", name, *([start_point] if start_point else [])])
 
     def diff_files(self, cwd: Path, staged: bool = False, revision: str | None = None, only_here: bool = False) -> list[GitDiffFile]:
         """``--numstat`` of the working tree against the index, of the index

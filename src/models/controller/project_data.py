@@ -5,6 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from models.domain.dev import TestScope
 from models.domain.note import (
     Activity,
     ActivityStatus,
@@ -61,6 +62,8 @@ class AgentTaskBody(BaseModel):
     constraints: str = ""
     references: list[str] = []
     """The linked reference notes, by name."""
+    tests: TestScope | None = None
+    """«Verifica sviluppo»: ``all`` or ``touched`` tests; null = the project's default."""
 
     def to_task(self) -> AgentTask:
         return AgentTask(**self.model_dump(exclude={"criteria"}), criteria=[ChecklistItem(**item.model_dump()) for item in self.criteria])
