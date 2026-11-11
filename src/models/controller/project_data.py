@@ -135,6 +135,8 @@ class DataSettingsBody(BaseModel):
     """The note types the Dati tab shows: ``generic``, ``agent_task``, ``activity``, ``code_reference``, ``context_reference``."""
     files_visible: bool = True
     """It shows the uploaded files too (they stay on disk either way)."""
+    due_soon_days: int | None = Field(default=None, ge=0, le=60)
+    """«📌 Oggi»: items due within this many days are «In scadenza»; omitted in a save = unchanged."""
 
 
 class CodeTodoScanResponse(BaseModel):

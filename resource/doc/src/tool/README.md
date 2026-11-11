@@ -26,6 +26,7 @@ I tool che un agente può chiamare durante una run:
 | `read_activity` | **con contesto**, solo chatbot | un'attività: stato, descrizione, le voci numerate della sua todo list (fatta, priorità, scadenza) e gli agent task nati da lei, senza i riferimenti |
 | `create_activity` | **con contesto**, solo chatbot | crea un'attività con descrizione e todo list |
 | `update_activity` | **con contesto**, solo chatbot | cambia descrizione e stato, aggiunge voci in fondo e spunta o despunta per numero; non cancella né rinomina, riferimenti e agent task collegati restano |
+| `today` | **con contesto**, solo chatbot | «📌 Oggi» in righe brevi: chi aspetta, voci scadute e in scadenza, attività da chiudere, i giorni di «In scadenza» ([TodayService](../service/README.md#oggi)) |
 | `list_agent_tasks` | **con contesto**, solo chatbot | gli agent task del progetto (nome, titolo, stato) con lo stato dell'ultima sessione Copilot, se c'è Copilot: quelli che si possono delegare |
 | `delegate_task` | **con contesto**, solo chatbot | delega un agent task a Copilot su un repository: apre la chat di preparazione e restituisce il link |
 | `copilot_status` | **con contesto**, solo chatbot | stato di un task delegato: solo lo stato, quanti file ha cambiato e se l'HEAD si è mosso |
@@ -44,6 +45,7 @@ src/tool/
       list_automations.py   automation lanciabili del progetto
     notes/
       activities.py     attività del segretario: elenco, lettura, creazione, descrizione, stato, voci e spunte
+      today.py          «📌 Oggi» per il segretario, in righe brevi
     copilot/
       list_agent_tasks.py  agent task del progetto, con lo stato Copilot
       delegate_task.py  delega un agent task a Copilot (apre la chat)
@@ -80,7 +82,7 @@ run:    AgentService ──build_tools(nomi, ToolContext)──► tool datapizz
 ```
 
 - **I tool stanno sopra i service**: un tool usa i service (es. `GitService`) attraverso il `ToolContext`, mai il Container.
-- **Solo chatbot**: una `ToolSpec` con `chatbot_only=True` (`list_automations`, `run_automation`, `automation_status`, `list_agent_tasks`, `delegate_task`, `copilot_status`, `list_activities`, `read_activity`, `create_activity`, `update_activity`) funziona solo nelle run del chatbot; `/tools` lo riporta (`chatbot_only`, calcolato dal codice, non salvato) e la UI la propone solo nel form del chatbot.
+- **Solo chatbot**: una `ToolSpec` con `chatbot_only=True` (`list_automations`, `run_automation`, `automation_status`, `list_agent_tasks`, `delegate_task`, `copilot_status`, `list_activities`, `read_activity`, `create_activity`, `update_activity`, `today`) funziona solo nelle run del chatbot; `/tools` lo riporta (`chatbot_only`, calcolato dal codice, non salvato) e la UI la propone solo nel form del chatbot.
 - **Catalogo**: all'avvio il registry viene copiato nella tabella `tool`. Un tool tolto dal codice resta nel catalogo con `available = False`: non si può più scegliere, e gli agenti che lo usano non partono finché non lo tolgono.
 - **`build_tools(nomi, context)`**: costruisce i tool scelti per una run, nell'ordine dato; `ValidationError` se un nome non ha implementazione.
 
@@ -132,6 +134,10 @@ Gli altri tool del chatbot `secretary`, in `notes/agent_tasks.py`:
 - **`list_references()`**: i riferimenti del progetto (codice e contesto) con **solo** nome, titolo e tipo (`code` / `context`), mai il contenuto: servono a scegliere quali collegare.
 - **`create_agent_task(title, type, objective, context, criteria, constraints, references, activity)`**: un agent task nuovo, ad esempio da una voce di un'attività: con `activity` (nome da `list_activities`) il task nasce collegato a lei (un'attività che non c'è è un errore, e il task non si crea). Nasce **in rifinitura** (`refinement`): lo rifinisci tu e lo porti a «da fare». `type` è `refinement`, `development` o `analysis`; `criteria` una voce per stringa (le vuote si saltano). I riferimenti sono nomi di `list_references` (`.md` aggiunto se manca, ripetuti una volta): uno che non esiste è un errore, più severo dell'editor, perché il modello potrebbe inventare un nome. Restituisce il nome del task, i riferimenti collegati e il **link** al task (`/projects/<progetto>/data?note=<task>`), che apre la sotto-scheda Agent task con quel task. Un titolo già usato è un errore.
 - Solo nel chatbot di un progetto (`notes_run()`), come i tool delle attività.
+
+## Note: `today()` del segretario
+
+Per «cosa c'è oggi?» il segretario non legge le attività una per una: `today()` gli dà le sezioni di «📌 Oggi» già calcolate, una riga per cosa (`Rilascio · voce 1 «Note» · scaduta il 2026-11-08`, `Nuovo (agent-task-nuovo.md): created`). Solo nel chatbot di un progetto (`notes_run()`); senza Copilot le sessioni non contano.
 
 ## Refiner: `create_code_reference()`
 

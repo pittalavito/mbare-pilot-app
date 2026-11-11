@@ -16,6 +16,7 @@ import { SendBackModal } from "../copilot/SendBackModal";
 import { ChecklistEditor } from "./ChecklistEditor";
 import { ReferencesSection } from "./ReferencesSection";
 import { RefinerPanel } from "./RefinerPanel";
+import { TodayPanel } from "./TodayPanel";
 
 /** The typed notes of the Dati tab: activities and agent tasks. On disk they
  * are notes (``attivita-<title>.md``, ``agent-task-<title>.md``) written with
@@ -126,26 +127,29 @@ export function Activities({ project }: { project: string }) {
   const activities = useActivities(project);
   const save = useSaveActivity(project);
   return (
-    <TypedNotes
-      project={project}
-      items={activities.data}
-      error={activities.error?.message}
-      newLabel="Nuova attività"
-      intro="Un'attività è una cosa da fare: una descrizione, la sua todo list (priorità e scadenza facoltative per voce) e gli agent task che ne nascono. È una nota attivita-<titolo>.md."
-      describe={(activity) => {
-        const status = ACTIVITY_STATUS.find((item) => item.value === activity.status) ?? ACTIVITY_STATUS[0];
-        const done = activity.items.filter((item) => item.done).length;
-        return (
-          <Group gap={4} wrap="nowrap">
-            {!!activity.items.length && <Text size="xs" c="dimmed">{done}/{activity.items.length}</Text>}
-            <Badge size="xs" variant="light" color={status.color}>{status.label}</Badge>
-          </Group>
-        );
-      }}
-      create={(title, done) => save.mutate({ body: { title, status: "todo", description: "", items: [], agent_tasks: [], references: [], learned: "" } }, done)}
-      creating={save.isPending}
-      renderEditor={(activity) => <ActivityEditor key={activity.name} project={project} activity={activity} />}
-    />
+    <>
+      <TodayPanel project={project} />
+      <TypedNotes
+        project={project}
+        items={activities.data}
+        error={activities.error?.message}
+        newLabel="Nuova attività"
+        intro="Un'attività è una cosa da fare: una descrizione, la sua todo list (priorità e scadenza facoltative per voce) e gli agent task che ne nascono. È una nota attivita-<titolo>.md."
+        describe={(activity) => {
+          const status = ACTIVITY_STATUS.find((item) => item.value === activity.status) ?? ACTIVITY_STATUS[0];
+          const done = activity.items.filter((item) => item.done).length;
+          return (
+            <Group gap={4} wrap="nowrap">
+              {!!activity.items.length && <Text size="xs" c="dimmed">{done}/{activity.items.length}</Text>}
+              <Badge size="xs" variant="light" color={status.color}>{status.label}</Badge>
+            </Group>
+          );
+        }}
+        create={(title, done) => save.mutate({ body: { title, status: "todo", description: "", items: [], agent_tasks: [], references: [], learned: "" } }, done)}
+        creating={save.isPending}
+        renderEditor={(activity) => <ActivityEditor key={activity.name} project={project} activity={activity} />}
+      />
+    </>
   );
 }
 

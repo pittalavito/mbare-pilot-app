@@ -1995,6 +1995,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Today
+         * @description What waits for the user, the items overdue and due soon, the activities to close.
+         */
+        get: operations["today_projects__project__today_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/activities/{note}/items/{item}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check Item */
+        post: operations["check_item_projects__project__activities__note__items__item__check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/activities/{note}/items/{item}/due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Due
+         * @description «Rimanda»: the item's new due date.
+         */
+        post: operations["set_due_projects__project__activities__note__items__item__due_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2820,6 +2877,8 @@ export interface components {
              * @default true
              */
             files_visible: boolean;
+            /** Due Soon Days */
+            due_soon_days?: number | null;
         };
         /** DefinitionEntryResponse */
         DefinitionEntryResponse: {
@@ -2849,6 +2908,16 @@ export interface components {
          * @enum {string}
          */
         DefinitionKind: "agent" | "chatbot" | "automation";
+        /** DueRequest */
+        DueRequest: {
+            /** Text */
+            text: string;
+            /**
+             * Due
+             * Format: date
+             */
+            due: string;
+        };
         /**
          * EdgeBody
          * @description An edge of the graph, both ways.
@@ -3036,6 +3105,11 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** ItemRequest */
+        ItemRequest: {
+            /** Text */
+            text: string;
         };
         /** JiraIssueResponse */
         JiraIssueResponse: {
@@ -3745,6 +3819,82 @@ export interface components {
          * @enum {string}
          */
         TaskType: "development" | "analysis" | "confluence" | "jira";
+        /** Today */
+        Today: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Due Soon Days */
+            due_soon_days: number;
+            /** Waiting */
+            waiting: components["schemas"]["TodayWaiting"][];
+            /** Overdue */
+            overdue: components["schemas"]["TodayItem"][];
+            /** Due Soon */
+            due_soon: components["schemas"]["TodayItem"][];
+            /** To Close */
+            to_close: components["schemas"]["TodayActivity"][];
+        };
+        /**
+         * TodayActivity
+         * @description An activity whose items are all done, not done itself.
+         */
+        TodayActivity: {
+            /** Activity */
+            activity: string;
+            /** Title */
+            title: string;
+            /** Items */
+            items: number;
+        };
+        /**
+         * TodayItem
+         * @description An item not done with a due date.
+         */
+        TodayItem: {
+            /**
+             * Activity
+             * @description The activity's note name.
+             */
+            activity: string;
+            /** Activity Title */
+            activity_title: string;
+            /**
+             * Item
+             * @description Its number in the activity's todo list (1-based).
+             */
+            item: number;
+            /** Text */
+            text: string;
+            /**
+             * Due
+             * Format: date
+             */
+            due: string;
+        };
+        /** TodayWaiting */
+        TodayWaiting: {
+            kind: components["schemas"]["WaitingKind"];
+            /**
+             * Task
+             * @description The agent task's note name.
+             */
+            task: string;
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @description The task's status (created, refinement, to_verify) or why Copilot waits (answer, question).
+             */
+            status: string;
+            /**
+             * Session Id
+             * @description The Copilot session, for kind copilot.
+             */
+            session_id?: number | null;
+        };
         /** TodoItemBody */
         TodoItemBody: {
             /** Text */
@@ -3824,6 +3974,11 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /**
+         * WaitingKind
+         * @enum {string}
+         */
+        WaitingKind: "task" | "copilot";
         /** WipApplied */
         WipApplied: {
             /** Applied */
@@ -8248,6 +8403,107 @@ export interface operations {
                 content: {
                     "text/plain": string;
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    today_projects__project__today_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Today"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_item_projects__project__activities__note__items__item__check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                note: string;
+                item: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_due_projects__project__activities__note__items__item__due_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                note: string;
+                item: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DueRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

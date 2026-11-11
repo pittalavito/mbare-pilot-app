@@ -50,6 +50,8 @@ class ProjectTable(SQLModel, table=True):
     """The note types the Dati tab shows (NoteType values); NULL = the default ones."""
     files_visible: bool = Field(default=True, sa_column_kwargs={"server_default": true()})
     """The Dati tab shows the uploaded files."""
+    due_soon_days: int = Field(default=3, sa_column_kwargs={"server_default": "3"})
+    """«📌 Oggi»: items due within this many days are «In scadenza»."""
 
 
 class ProjectAtlassianTable(SQLModel, table=True):

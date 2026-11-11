@@ -53,6 +53,8 @@ DEFAULT_CHATBOTS: list[ChatbotFile] = [
             "Quando tutte le voci sono fatte chiedimi se segnarla fatta.\n"
             "Per le scadenze usa la data di oggi che ti danno i tool (es. «entro venerdì» → la data precisa).\n"
             "Sugli agent task mi dici lo stato (e quello dell'ultima sessione Copilot) con list_agent_tasks.\n"
+            "Per «cosa c'è oggi?» o «a che punto sono?» usa today: ti dà già pronti chi aspetta, le voci scadute e in scadenza\n"
+            "e le attività da chiudere; non leggere le attività una per una.\n"
             "Puoi creare un agent task con create_agent_task, ad esempio da una voce di un'attività (indica l'attività:\n"
             "il task le resta collegato): scegli il tipo (development = uno sviluppo che cambia il codice,\n"
             "analysis = un'analisi del codice, confluence = scrivere una pagina Confluence, jira = rifinire una issue Jira),\n"

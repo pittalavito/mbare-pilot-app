@@ -24,7 +24,7 @@ def test_only_the_automation_copilot_and_notes_tools_are_for_chatbots_and_the_ca
     assert {name for name, spec in TOOL_REGISTRY.items() if spec.chatbot_only} == {
         "list_automations", "run_automation", "automation_status", "list_agent_tasks", "delegate_task", "copilot_status",
         "list_activities", "read_activity", "create_activity", "update_activity", "create_code_reference",
-        "list_references", "create_agent_task",
+        "list_references", "create_agent_task", "today",
         "read_agent_task", "update_agent_task", "finish_refinement",
     }
 

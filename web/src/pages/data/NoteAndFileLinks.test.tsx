@@ -90,7 +90,7 @@ describe("notes and files as references", () => {
     fireEvent.click(screen.getByRole("button", { name: "Salva" }));
 
     await waitFor(() => expect(saved).toHaveBeenCalled());
-    expect(await saved.mock.results[0].value).toEqual({ visible_note_types: ["generic", "agent_task"], files_visible: false });
+    expect(await saved.mock.results[0].value).toEqual({ visible_note_types: ["generic", "agent_task"], files_visible: false, due_soon_days: 3 });
     await waitFor(() => expect(screen.queryByRole("tab", { name: /^📎 File$/ })).not.toBeInTheDocument());
     expect(within(screen.getByRole("tablist")).getByRole("tab", { name: /Impostazioni/ })).toBeInTheDocument();
   });

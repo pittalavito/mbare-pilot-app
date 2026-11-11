@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Group, Loader, Stack, Text } from "@mantine/core";
+import { Alert, Button, Card, Checkbox, Group, Loader, NumberInput, Stack, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useEffect, useState } from "react";
 
@@ -25,12 +25,15 @@ export function DataSettings({ project }: { project: string }) {
   const save = useSaveDataSettings(project);
   const [chosen, setChosen] = useState<NoteType[]>([]);
   const [files, setFiles] = useState(true);
+  const [days, setDays] = useState(3);
   const saved = settings.data?.visible_note_types ?? [];
   useEffect(() => { // the saved choice, once loaded
     setChosen(settings.data?.visible_note_types ?? []);
     setFiles(settings.data?.files_visible ?? true);
+    setDays(settings.data?.due_soon_days ?? 3);
   }, [settings.data]);
-  const dirty = JSON.stringify([...chosen].sort()) !== JSON.stringify([...saved].sort()) || files !== (settings.data?.files_visible ?? true);
+  const dirty = JSON.stringify([...chosen].sort()) !== JSON.stringify([...saved].sort()) || files !== (settings.data?.files_visible ?? true)
+    || days !== (settings.data?.due_soon_days ?? 3);
 
   if (settings.isPending) return <Loader size="sm" />;
   if (settings.error) return <Alert color="red">{settings.error.message}</Alert>;
@@ -55,12 +58,21 @@ export function DataSettings({ project }: { project: string }) {
         checked={files}
         onChange={(event) => setFiles(event.currentTarget.checked)}
       />
+      <NumberInput
+        label="📌 Giorni di «In scadenza»"
+        description="Nel pannello Oggi, le voci che scadono entro questi giorni (oggi compreso)."
+        min={0}
+        max={60}
+        maw={260}
+        value={days}
+        onChange={(value) => setDays(typeof value === "number" ? value : 0)}
+      />
       {save.error && <Alert color="red">{save.error.message}</Alert>}
       <Group>
         <Button
           disabled={!dirty}
           loading={save.isPending}
-          onClick={() => save.mutate({ visible_note_types: chosen, files_visible: files }, { onSuccess: () => notifications.show({ message: "Impostazioni salvate." }) })}
+          onClick={() => save.mutate({ visible_note_types: chosen, files_visible: files, due_soon_days: days }, { onSuccess: () => notifications.show({ message: "Impostazioni salvate." }) })}
         >
           Salva
         </Button>

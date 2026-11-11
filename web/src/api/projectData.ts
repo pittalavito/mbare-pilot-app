@@ -97,6 +97,7 @@ export function useSaveAgentTask(project: string) {
       Promise.all([
         queryClient.invalidateQueries({ queryKey: dataKeys.agentTasks(project) }),
         queryClient.invalidateQueries({ queryKey: dataKeys.notes(project), exact: true }),
+        queryClient.invalidateQueries({ queryKey: ["projects", project, "today"] }), // «📌 Oggi» lists them
       ]),
   });
 }
@@ -122,6 +123,7 @@ export function useSaveActivity(project: string) {
       Promise.all([
         queryClient.invalidateQueries({ queryKey: dataKeys.activities(project) }),
         queryClient.invalidateQueries({ queryKey: dataKeys.notes(project), exact: true }),
+        queryClient.invalidateQueries({ queryKey: ["projects", project, "today"] }), // «📌 Oggi» lists them
       ]),
   });
 }
