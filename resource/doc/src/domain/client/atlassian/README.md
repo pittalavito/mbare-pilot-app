@@ -18,6 +18,7 @@ I modelli (`JiraProject`, `JiraIssue`, `ConfluenceSpace`, `ConfluencePage`, …)
 
 - Un client httpx per sito, con **email + API token** in basic auth. Il token si crea su [id.atlassian.com](https://id.atlassian.com/manage-profile/security/api-tokens).
 - Timeout: 20 s (5 s per connettersi).
+- **Scrittura** (blocco 10): `post` e `put` con un corpo JSON; una risposta vuota (il 204 di Jira) dà None. Si usa lo stesso token: se non ha il permesso, 403 → `ValidationError` «credenziali o permessi rifiutati».
 - **Paginazione**: `paginate_offset` (Jira, `startAt`/`maxResults`) e `paginate_cursor` (Confluence, link `next`); entrambe si fermano al `limit` richiesto.
 
 Errori HTTP tradotti in errori dell'app:
@@ -32,11 +33,13 @@ Errori HTTP tradotti in errori dell'app:
 
 ## Jira (`jira.py`)
 
-`myself()` (verifica connessione), elenco dei progetti, ricerca di issue con JQL (paginazione con token), singola issue. Le descrizioni in formato ADF (Atlassian Document Format) diventano Markdown (`adf_to_markdown`: titoli, liste, tabelle, blocchi di codice con il linguaggio, citazioni e pannelli, link e formattazione).
+`myself()` (verifica connessione), elenco dei progetti, ricerca di issue con JQL (paginazione con token), singola issue; per pubblicare una bozza: `issue_types(progetto)` (i tipi creabili, sotto-task esclusi), `create_issue(progetto, tipo, titolo, descrizione ADF)` (la chiave), `update_description(chiave, ADF)` (solo la descrizione), `issue_url`. Le descrizioni in formato ADF (Atlassian Document Format) diventano Markdown (`adf_to_markdown`: titoli, liste, tabelle, blocchi di codice con il linguaggio, citazioni e pannelli, link e formattazione).
 
 ## Confluence (`confluence.py`)
 
-Spazi e pagine con l'API v2; la ricerca di testo usa l'endpoint CQL della v1, perché la v2 non ha ricerca. Il testo cercato viene messo in sicurezza nella query CQL. Il corpo delle pagine (XHTML "storage") diventa Markdown (`storage_to_markdown`: anche tabelle, macro `code`/`noformat` come blocchi di codice, pannelli `info`/`note`/`warning` come citazioni, task list). I pezzi comuni (tabelle GFM, blocchi di codice) stanno in `markdown.py`.
+Spazi e pagine con l'API v2; la ricerca di testo usa l'endpoint CQL della v1, perché la v2 non ha ricerca. Il testo cercato viene messo in sicurezza nella query CQL. Per pubblicare una bozza: `create_page(spazio, titolo, storage, padre)` e `update_page(id, titolo, storage)`, che legge la versione attuale e scrive la successiva. Il corpo delle pagine (XHTML "storage") diventa Markdown (`storage_to_markdown`: anche tabelle, macro `code`/`noformat` come blocchi di codice, pannelli `info`/`note`/`warning` come citazioni, task list). I pezzi comuni (tabelle GFM, blocchi di codice) stanno in `markdown.py`.
+
+Il verso opposto (Markdown → storage e → ADF) sta in `domain/atlassian/publish_format.py` (vedi [service](../../../service/README.md#pubblicare-una-bozza-publishservice-blocco-10)).
 
 ## Test
 

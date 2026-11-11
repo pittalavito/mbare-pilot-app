@@ -61,6 +61,12 @@ def get_issue(project: str, issue_key: str,
     return JiraIssueResponse.from_issue(service.site(project).get_issue(issue_key))
 
 
+@router.get("/jira/issue-types")
+def issue_types(project: str, project_key: str | None = None, service: AtlassianService = Depends(atlassian_service)) -> list[str]:
+    """The issue types that can be created in a Jira project (default: the project's), sub-tasks excluded."""
+    return service.site(project).issue_types(project_key)
+
+
 @router.get("/jira/search")
 def search_issues(project: str, q: str, jira_project: str | None = None,
                   service: AtlassianService = Depends(atlassian_service)) -> list[JiraIssueResponse]:

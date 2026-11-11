@@ -5,13 +5,15 @@ import { type ReactNode, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 
 import {
-  type DataFile, NOTE_PREFIXES, fileUrl, useDataSettings, useDeleteFile, useDeleteNote, useFiles, useNote, useNotes, useSaveNote, useUploadFiles,
+  type DataFile, NOTE_PREFIXES, fileUrl, useAgentTasks, useDataSettings, useDeleteFile, useDeleteNote, useFiles, useNote, useNotes, useSaveNote, useUploadFiles,
 } from "../../api/projectData";
+import { isDraft } from "../../api/publish";
 import { WIP_NOTE, useWipState, wipKeys } from "../../api/wip";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Markdown } from "../../components/Markdown";
 import { localTime, size } from "../../format";
 import { DEFAULT_VISIBLE, DataSettings, REFERENCE_TYPES, References } from "./DataSettings";
+import { PublishButton } from "./PublishModal";
 import { Activities, AgentTasks } from "./TypedNotes";
 import { ContextTab } from "./ContextTab";
 import { WipModal } from "./WipModal";
@@ -109,7 +111,14 @@ function NoteEditor({ project, name }: { project: string; name: string }) {
   const note = useNote(project, name);
   if (note.error) return <Alert color="red">{note.error.message}</Alert>;
   if (note.isPending) return <Loader size="sm" />;
-  return <NoteForm project={project} name={name} saved={note.data.content} />;
+  return <NoteForm project={project} name={name} saved={note.data.content} extra={isDraft(name) ? () => <DraftPublish project={project} draft={name} /> : undefined} />;
+}
+
+/** A draft (``bozza-<task>.md``) is published from here too, for the task that links it. */
+function DraftPublish({ project, draft }: { project: string; draft: string }) {
+  const tasks = useAgentTasks(project);
+  const task = tasks.data?.find((item) => (item.references ?? []).includes(draft));
+  return task ? <PublishButton project={project} task={task} /> : null;
 }
 
 /** The WIP note: written freely, «📥 Elabora WIP» turns its new text (after

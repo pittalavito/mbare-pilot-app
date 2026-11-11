@@ -250,7 +250,43 @@ class AtlassianSite:
             raise ValidationError(f"Chiave issue non valida: {issue_key!r} (es. PROJ-123).")
         return self._jira.get_issue(key)
 
+    def issue_types(self, project_key: str | None = None) -> list[str]:
+        """The issue types that can be created in a Jira project (default: the project's)."""
+        return self._jira.issue_types(_project_key(self._default(project_key, self.jira_project_key, "progetto Jira")))
+
+    @observed(LogPrefix.ATLASSIAN_SERVICE)
+    def create_issue(self, project_key: str | None, issue_type: str, summary: str, description: dict) -> tuple[str, str]:
+        """A new issue (ADF description); its key and link."""
+        if not issue_type.strip() or not summary.strip():
+            raise ValidationError("Servono il tipo di issue e il titolo.")
+        key = self._jira.create_issue(_project_key(self._default(project_key, self.jira_project_key, "progetto Jira")),
+                                      issue_type.strip(), summary.strip(), description)
+        return key, self._jira.issue_url(key)
+
+    @observed(LogPrefix.ATLASSIAN_SERVICE)
+    def update_issue_description(self, issue_key: str, description: dict) -> str:
+        """Only the description changes; the issue's link."""
+        key = self.get_issue(issue_key).key  # exists, and the key is valid
+        self._jira.update_description(key, description)
+        return self._jira.issue_url(key)
+
     # ---------------------------------------------------------- Confluence
+    @observed(LogPrefix.ATLASSIAN_SERVICE)
+    def create_page(self, space_key: str | None, parent_id: str | None, title: str, storage: str) -> ConfluencePage:
+        """A new page in a space (default: the project's), under ``parent_id`` when given."""
+        key = _space_key(self._default(space_key, self.confluence_space_key, "spazio Confluence"))
+        space = self._confluence.get_space(key)
+        if space is None:
+            raise NotFoundError(f"Spazio Confluence non trovato: {key}")
+        if parent_id and not parent_id.strip().isdigit():
+            raise ValidationError(f"Id della pagina padre non valido: {parent_id!r}")
+        return self._confluence.create_page(space.id, title.strip(), storage, parent_id.strip() if parent_id else None)
+
+    @observed(LogPrefix.ATLASSIAN_SERVICE)
+    def update_page(self, page_id: str, title: str, storage: str) -> ConfluencePage:
+        """A new version of the page, with title and body replaced."""
+        return self._confluence.update_page(self.get_page(page_id).id, title.strip(), storage)
+
     def list_spaces(self, limit: int = 100) -> list[ConfluenceSpace]:
         return self._confluence.list_spaces(limit=limit)
 

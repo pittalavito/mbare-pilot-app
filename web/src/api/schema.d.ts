@@ -1075,6 +1075,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/atlassian/jira/issue-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Issue Types
+         * @description The issue types that can be created in a Jira project (default: the project's), sub-tasks excluded.
+         */
+        get: operations["issue_types_projects__project__atlassian_jira_issue_types_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project}/atlassian/jira/search": {
         parameters: {
             query?: never;
@@ -2112,6 +2132,30 @@ export interface paths {
         /** Save Dev Settings */
         put: operations["save_dev_settings_projects__project__dev_settings_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/agent-tasks/{note}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview
+         * @description What «Pubblica» would do; changes nothing.
+         */
+        get: operations["preview_projects__project__agent_tasks__note__publish_get"];
+        put?: never;
+        /**
+         * Publish
+         * @description Create or update the page / issue; the task goes «done» and the page / issue is a reference linked to it.
+         */
+        post: operations["publish_projects__project__agent_tasks__note__publish_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3601,6 +3645,97 @@ export interface components {
          * @enum {string}
          */
         ProposalPriority: "high" | "medium" | "low";
+        /**
+         * PublishKind
+         * @enum {string}
+         */
+        PublishKind: "confluence" | "jira";
+        /**
+         * PublishMode
+         * @enum {string}
+         */
+        PublishMode: "create" | "update";
+        /**
+         * PublishPreview
+         * @description What «Pubblica» would do, shown before the user confirms.
+         */
+        PublishPreview: {
+            kind: components["schemas"]["PublishKind"];
+            mode: components["schemas"]["PublishMode"];
+            /** Draft */
+            draft: string;
+            /** Title */
+            title: string;
+            /** Body */
+            body: string;
+            /**
+             * Unmasked
+             * @default []
+             */
+            unmasked: string[];
+            /** Reference */
+            reference?: string | null;
+            /**
+             * Target Title
+             * @default
+             */
+            target_title: string;
+            /**
+             * Target Body
+             * @default
+             */
+            target_body: string;
+            /**
+             * Target Url
+             * @default
+             */
+            target_url: string;
+            /**
+             * Space Key
+             * @default
+             */
+            space_key: string;
+            /**
+             * Project Key
+             * @default
+             */
+            project_key: string;
+        };
+        /**
+         * PublishRequest
+         * @description For a new page or issue (ignored when the task links one to update); empty = the project's default.
+         */
+        PublishRequest: {
+            /**
+             * Space Key
+             * @default
+             */
+            space_key: string;
+            /**
+             * Parent Id
+             * @default
+             */
+            parent_id: string;
+            /**
+             * Project Key
+             * @default
+             */
+            project_key: string;
+            /**
+             * Issue Type
+             * @default
+             */
+            issue_type: string;
+        };
+        /** PublishResult */
+        PublishResult: {
+            kind: components["schemas"]["PublishKind"];
+            mode: components["schemas"]["PublishMode"];
+            /** Url */
+            url: string;
+            /** Reference */
+            reference: string;
+        };
         /**
          * RagHit
          * @description A search result: the piece and where it comes from (to cite it).
@@ -6901,6 +7036,39 @@ export interface operations {
             };
         };
     };
+    issue_types_projects__project__atlassian_jira_issue_types_get: {
+        parameters: {
+            query?: {
+                project_key?: string | null;
+            };
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     search_issues_projects__project__atlassian_jira_search_get: {
         parameters: {
             query: {
@@ -8859,6 +9027,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DevSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_projects__project__agent_tasks__note__publish_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                note: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_projects__project__agent_tasks__note__publish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                note: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishResult"];
                 };
             };
             /** @description Validation Error */

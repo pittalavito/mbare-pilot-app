@@ -47,6 +47,26 @@ class JiraClient:
     def get_issue(self, key: str) -> JiraIssue:
         return self._to_issue(self._http.get(f"/rest/api/3/issue/{key}", {"fields": _ISSUE_FIELDS}))
 
+    def issue_types(self, project_key: str) -> list[str]:
+        """The names of the issue types that can be created in the project (sub-tasks excluded)."""
+        body = self._http.get(f"/rest/api/3/issue/createmeta/{project_key}/issuetypes")
+        raw = body.get("issueTypes") or body.get("values") or []
+        return [item["name"] for item in raw if not item.get("subtask")]
+
+    def create_issue(self, project_key: str, issue_type: str, summary: str, description: dict[str, Any]) -> str:
+        """A new issue; returns its key."""
+        created = self._http.post("/rest/api/3/issue", {"fields": {
+            "project": {"key": project_key}, "issuetype": {"name": issue_type}, "summary": summary, "description": description,
+        }})
+        return str(created["key"])
+
+    def update_description(self, key: str, description: dict[str, Any]) -> None:
+        """Only the description (ADF) changes."""
+        self._http.put(f"/rest/api/3/issue/{key}", {"fields": {"description": description}})
+
+    def issue_url(self, key: str) -> str:
+        return f"{self._http.base_url}/browse/{key}"
+
     # ------------------------------------------------------------ mapping
     def _to_project(self, raw: dict[str, Any]) -> JiraProject:
         return JiraProject(

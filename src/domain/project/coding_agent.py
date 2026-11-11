@@ -7,7 +7,10 @@ The planning prompts to choose from when delegating are the ``<name>.md`` of
 the user does not choose; ``task_checklists`` say, per task type, what a
 refined task should have (the Refiner checks it). Every planning prompt says where the task is with
 ``{task_folder}``: the task and its references are files in the repository
-(domain/project/task_folder.py), not text of the prompt.
+(domain/project/task_folder.py), not text of the prompt. The drafts' templates
+(blocco 10) are ``coding-agent/templates/<type>.md`` (``confluence.md``,
+``jira.md``; the project's win by name): a prompt puts the template of the
+task's type where it writes ``{template}``.
 
 The global file is required: a missing or broken file is an error, never a
 fallback to built-in texts (a wrong file must not loosen the denied tools)."""
@@ -23,6 +26,8 @@ from models.domain.definitions import CodingAgentFile, ModelFile
 from models.domain.note import TaskType
 
 TASK_FOLDER_PLACEHOLDER = "{task_folder}"
+TEMPLATE_PLACEHOLDER = "{template}"
+TEMPLATES_DIR = "templates"
 _PROMPTS = ("plan_prompt", "execute_prompt")
 
 
@@ -38,11 +43,12 @@ def load(files: DefinitionFiles, project_name: str | None = None) -> CodingAgent
     """The global definition, with the project's fields and prompts over it
     (``project_name`` None = only the global one)."""
     values = _values(files, GLOBAL_CODING_AGENT_FILE, "", required=True)
-    prompts = _prompts(files, "")
+    prompts, templates = _prompts(files, ""), _templates(files, "")
     if project_name is not None:
         folder = project_definitions(project_name)
         values |= _values(files, f"{folder}/{CODING_AGENT_FILE}", folder, required=False)
         prompts |= _prompts(files, folder)
+        templates |= _templates(files, folder)
     missing = [name for name in (*_PROMPTS, "denied_tools") if name not in values]
     if missing:
         raise ValidationError(f"definition/{GLOBAL_CODING_AGENT_FILE}: manca {', '.join(missing)}.")
@@ -51,7 +57,7 @@ def load(files: DefinitionFiles, project_name: str | None = None) -> CodingAgent
     if unknown:
         raise ValidationError(f"type_prompts: prompt non trovati: {', '.join(unknown)}. "
                               f"Disponibili: {', '.join(sorted(prompts)) or 'nessuno'} (i file .md di coding-agent/).")
-    return CodingAgentSettings(**values, prompts=dict(sorted(prompts.items())))
+    return CodingAgentSettings(**values, prompts=dict(sorted(prompts.items())), templates=templates)
 
 
 def task_prompt(settings: CodingAgentSettings, task_type: TaskType, prompt: str = "") -> str:
@@ -60,13 +66,15 @@ def task_prompt(settings: CodingAgentSettings, task_type: TaskType, prompt: str 
     return prompt.strip() or settings.type_prompts.get(task_type, "")
 
 
-def plan_prompt(settings: CodingAgentSettings, task_folder: str, prompt: str = "") -> str:
+def plan_prompt(settings: CodingAgentSettings, task_folder: str, prompt: str = "", task_type: TaskType | None = None) -> str:
     """The first planning turn, ``{task_folder}`` = where the task is in the
     repository (other braces stay as they are); ``prompt`` = one of
     ``settings.prompts``, ``""`` = ``plan_prompt``."""
     if prompt and prompt not in settings.prompts:
         raise ValidationError(f"Prompt non trovato: {prompt}. Disponibili: {', '.join(settings.prompts) or 'nessuno'}.")
-    return (settings.prompts[prompt] if prompt else settings.plan_prompt).replace(TASK_FOLDER_PLACEHOLDER, task_folder)
+    text = (settings.prompts[prompt] if prompt else settings.plan_prompt).replace(TASK_FOLDER_PLACEHOLDER, task_folder)
+    template = settings.templates.get(task_type, "") if task_type is not None else ""
+    return text.replace(TEMPLATE_PLACEHOLDER, template or "(nessun template: scegli tu le sezioni)")
 
 
 def task_checklist(settings: CodingAgentSettings, task_type: TaskType) -> list[str]:
@@ -146,6 +154,17 @@ def _prompts(files: DefinitionFiles, folder: str) -> dict[str, str]:
         _check_placeholder(f"definition/{path}", text)
         prompts[name[: -len(NOTE_SUFFIX)]] = text
     return prompts
+
+
+def _templates(files: DefinitionFiles, folder: str) -> dict[TaskType, str]:
+    """The ``<type>.md`` of ``<folder>/coding-agent/templates/``: task type → text (other names are ignored)."""
+    templates = {}
+    for path in files.list_definitions(f"{folder}/{CODING_AGENT_PROMPTS_DIR}/{TEMPLATES_DIR}".lstrip("/")):
+        name = path.rsplit("/", 1)[-1]
+        stem = name[: -len(NOTE_SUFFIX)] if name.lower().endswith(NOTE_SUFFIX) else ""
+        if stem in {kind.value for kind in TaskType} and (text := _text(files, path)):
+            templates[TaskType(stem)] = text
+    return templates
 
 
 def _text(files: DefinitionFiles, path: str) -> str:

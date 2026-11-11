@@ -16,6 +16,7 @@ import { DelegateModal } from "../copilot/DelegateModal";
 import { SendBackModal } from "../copilot/SendBackModal";
 import { ChecklistEditor } from "./ChecklistEditor";
 import { ReferencesSection } from "./ReferencesSection";
+import { PublishButton } from "./PublishModal";
 import { RefinerPanel } from "./RefinerPanel";
 import { TodayPanel } from "./TodayPanel";
 
@@ -476,6 +477,7 @@ function AgentTaskEditor({ project, task, onRefine }: { project: string; task: A
         project={project} status={form.status ?? "created"} planOnly={isPlanOnly(form.type)} missing={missing} busy={save.isPending} dirty={dirty}
         onStatus={moveTo} onRefine={onRefine} onDelegate={() => setDelegating(true)} onSendBack={() => setSendingBack(true)}
       />
+      <Group><PublishButton project={project} task={task} /></Group>
       <BornFrom project={project} task={task.name} />
       <TextInput label="Titolo" value={form.title} onChange={(event) => set({ title: event.currentTarget.value })} />
       <div>

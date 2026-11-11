@@ -36,6 +36,22 @@ class AtlassianHttp:
         self._raise_for_status(response)
         return response.json()
 
+    def post(self, path: str, body: dict[str, Any]) -> Any:
+        """POST a JSON body; the JSON answer (None when empty)."""
+        return self._send("POST", path, body)
+
+    def put(self, path: str, body: dict[str, Any]) -> Any:
+        """PUT a JSON body; the JSON answer (None when empty, e.g. Jira's 204)."""
+        return self._send("PUT", path, body)
+
+    def _send(self, method: str, path: str, body: dict[str, Any]) -> Any:
+        try:
+            response = self._client.request(method, path, json=body)
+        except httpx.HTTPError as exc:
+            raise UpstreamError(f"Atlassian non raggiungibile ({self.base_url}): {exc}") from exc
+        self._raise_for_status(response)
+        return response.json() if response.content else None
+
     def paginate_offset(self, path: str, params: dict[str, Any], limit: int, page_size: int = 50) -> Iterator[dict]:
         """``startAt``/``maxResults`` pagination (Jira): yields up to ``limit`` items of ``values``."""
         start, yielded = 0, 0
