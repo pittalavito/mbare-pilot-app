@@ -32,6 +32,7 @@ from service.pipeline_service import PipelineService
 from service.process_service import ProcessService
 from service.project_data_service import ProjectDataService
 from service.project_service import ProjectService
+from service.publish_service import PublishService
 from service.rag_service import RagService
 from service.run_service import RunService
 from service.store.stores import Stores
@@ -142,6 +143,8 @@ class Container:
         self.dev_checks_service = DevChecksService(pipelines=stores.pipelines, runner=self.pipeline_runner, git=self.git_service,
                                                    project_data=self.project_data_service)
         self.copilot_service.use_dev_checks(self.dev_checks_service)
+        self.publish_service = PublishService(project_data=self.project_data_service, atlassian=self.atlassian_service,
+                                              masking=self.masking_service)
         self.project_service = ProjectService(
             projects=stores.projects,
             masks=stores.masks,

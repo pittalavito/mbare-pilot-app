@@ -20,6 +20,7 @@ from service.pipeline_service import PipelineService
 from service.process_service import ProcessService
 from service.project_data_service import ProjectDataService
 from service.project_service import ProjectService
+from service.publish_service import PublishService
 from service.rag_service import RagService
 from service.run_service import RunService
 from service.today_service import TodayService
@@ -92,6 +93,10 @@ def copilot_service(request: Request) -> CopilotService:
 
 def dev_checks_service(request: Request) -> DevChecksService:
     return request.app.state.container.dev_checks_service
+
+
+def publish_service(request: Request) -> PublishService:
+    return request.app.state.container.publish_service
 
 
 def wip_service(request: Request) -> WipService:

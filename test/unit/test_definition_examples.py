@@ -40,6 +40,7 @@ def test_copying_the_examples_never_overwrites(tmp_path):
 
     assert "global-coding-agent.yml" not in copied and (target / "global-coding-agent.yml").read_text(encoding="utf-8") == "il mio"
     assert copied == ["coding-agent/analisi.md", "coding-agent/bugfix.md", "coding-agent/confluence.md", "coding-agent/jira.md",
+                      "coding-agent/templates/confluence.md", "coding-agent/templates/jira.md",
                       "global-agent.yml", "global-automation.yml", "global-chat-bots.yml"]
     assert not (target / "README.md").exists()
     assert copy_missing(target) == []

@@ -10,6 +10,7 @@ mbare-pilot-data/
     global-automation.yml     automation di ogni progetto (salvo stesso nome)       automations: [...]
     global-coding-agent.yml   prompt e divieti di Copilot (obbligatorio per usarlo) un coding agent
     coding-agent/<nome>.md    prompt di preparazione da scegliere quando deleghi    testo con {task_folder}
+    coding-agent/templates/   template delle bozze: confluence.md, jira.md          markdown (le sezioni)
     project/
       <slug>/                 es. gestionali-navi
         chat-bots.yml         i chatbot del progetto                                chatbots: [...]
@@ -17,6 +18,7 @@ mbare-pilot-data/
         automation.yml        le automation del progetto                            automations: [...]
         coding-agent.yml      campi che sostituiscono quelli globali di Copilot     un coding agent
         coding-agent/<nome>.md  prompt del progetto (vince sul globale con lo stesso nome)
+        coding-agent/templates/ template del progetto (vincono per nome)
   project/
     <slug>/
       notes/                  note scritte dall'app: generiche, agent-task-<titolo>.md, attivita-<titolo>.md
@@ -162,6 +164,7 @@ models:                            # facoltativo: i modelli tra cui scegliere qu
 
 - **Prompt**: «Predefinito» è `plan_prompt`; le altre opzioni sono i file `<nome>.md` di `definition/coding-agent/` e di `definition/project/<slug>/coding-agent/` (a parità di nome vince quello del progetto). Ognuno deve contenere `{task_folder}`: un file senza è un errore come un yml rotto.
 - **Prompt del tipo**: con `type_prompts` il «Predefinito» dipende dal tipo del task (`development`, `analysis`, `confluence`, `jira`): la finestra mostra «Predefinito del tipo (analisi)». Vale anche per il chatbot (`delegate_task`), che non sceglie il prompt. Un nome che non è tra i prompt, o un tipo che non esiste, è un errore. Analisi, Confluence e Jira lavorano **solo in piano**: il loro prompt chiede a Copilot di rispondere con il documento, che l'utente salva come nota («Salva come nota»).
+- **Template delle bozze** (blocco 10): `coding-agent/templates/confluence.md` e `jira.md` (quelli di `project/<slug>/coding-agent/templates/` vincono per nome; altri nomi ignorati). Un prompt mette il template del tipo del task dove scrive `{template}` (senza template: «nessun template: scegli tu le sezioni»). La bozza salvata si pubblica con «📤 Pubblica su Confluence/Jira» ([service](src/service/README.md#pubblicare-una-bozza-publishservice-blocco-10)). I prompt `confluence.md` e `jira.md` già copiati nella cartella dei dati non si aggiornano da soli: per usare i template va aggiunto `{template}`.
 - **Checklist del tipo**: `task_checklists` dice, per tipo, cosa deve avere un task rifinito (un elenco di punti, nessuno vuoto). Il Refiner riceve solo quella del tipo del task aperto (con `read_agent_task`) e la controlla prima di proporre «da fare»; il codice non blocca niente. Un tipo assente: niente checklist. Come `type_prompts`, l'override del progetto la sostituisce per intero.
 - **Il vecchio tipo `refinement`** (rifinire una storia) in `type_prompts` e `task_checklists` si legge come `jira`.
 - **Modello**: «Predefinito» è `COPILOT_MODEL` (vuoto = quello di Copilot); le altre opzioni sono `models:`, **dalla più economica** (prezzo di input + output; quelle senza prezzo in fondo, nell'ordine del file). Per il modello scelto la finestra mostra il prezzo completo, la nota e quanto è costato davvero finora (crediti AI medi per turno, da `copilot_turn`). Un modello fuori elenco viene rifiutato.

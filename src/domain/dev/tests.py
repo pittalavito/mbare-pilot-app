@@ -14,6 +14,7 @@ A test is «touched» when its own file changed, or when it is the test of a
 changed source file: ``FooTest``/``FooTests``/``FooIT`` for ``Foo.java``,
 ``test_foo.py``/``foo_test.py`` for ``foo.py``, ``foo.test.ts``/``foo.spec.ts``
 (any js/ts extension) for ``foo.ts``."""
+import os
 import re
 import shlex
 from pathlib import PurePosixPath
@@ -40,9 +41,12 @@ def detect(root_files: set[str]) -> TestKind:
     return TestKind.UNKNOWN
 
 
-def default_command(kind: TestKind, root_files: set[str]) -> str:
-    """``""`` when the tool is unknown: the user writes it in the settings."""
+def default_command(kind: TestKind, root_files: set[str], windows: bool = os.name == "nt") -> str:
+    """``""`` when the tool is unknown: the user writes it in the settings.
+    On Windows the Maven wrapper is ``mvnw.cmd``."""
     if kind is TestKind.MAVEN:
+        if windows:
+            return "mvnw.cmd -B test" if "mvnw.cmd" in root_files else "mvn -B test"
         return "./mvnw -B test" if "mvnw" in root_files else "mvn -B test"
     if kind is TestKind.PYTHON:
         return "uv run pytest" if "uv.lock" in root_files else "pytest"
@@ -90,10 +94,12 @@ def _tests_source(kind: TestKind, test: str, source: str) -> bool:
     return False
 
 
-def command(base: str, kind: TestKind, selectors: list[str]) -> list[str]:
+def command(base: str, kind: TestKind, selectors: list[str], windows: bool = os.name == "nt") -> list[str]:
     """``base`` (a shell-like command) as arguments, narrowed to ``selectors``
-    (none = every test). ValueError for a command that does not parse."""
-    arguments = shlex.split(base)
+    (none = every test). ValueError for a command that does not parse. On
+    Windows backslashes are path separators, not escapes: only the quotes
+    around an argument are taken away."""
+    arguments = split(base, windows)
     if not selectors:
         return arguments
     if kind is TestKind.MAVEN:
@@ -101,6 +107,14 @@ def command(base: str, kind: TestKind, selectors: list[str]) -> list[str]:
     if kind is TestKind.NODE:
         return [*arguments, *([] if "--" in arguments else ["--"]), *selectors]
     return [*arguments, *selectors]
+
+
+def split(text: str, windows: bool = os.name == "nt") -> list[str]:
+    if not windows:
+        return shlex.split(text)
+    lexer = shlex.shlex(text, posix=False)
+    lexer.whitespace_split = True
+    return [part[1:-1] if len(part) > 1 and part[0] == part[-1] and part[0] in "\"'" else part for part in lexer]
 
 
 _FAILURE_PATTERNS = {

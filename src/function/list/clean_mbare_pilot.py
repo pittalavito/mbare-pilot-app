@@ -44,12 +44,14 @@ def _todos(context: FunctionContext, repository: str, root: Path) -> list[str]:
     for path in changed:
         file = root / path
         try:
-            text = file.read_text(encoding="utf-8")
+            with file.open(encoding="utf-8", newline="") as handle:  # line endings as they are (no CRLF ↔ LF)
+                text = handle.read()
         except (OSError, UnicodeDecodeError):  # a binary or unreadable file has no comments to remove
             continue
         cleaned, count, left = code_todos.strip(text)
         if count:
-            file.write_text(cleaned, encoding="utf-8")
+            with file.open("w", encoding="utf-8", newline="") as handle:
+                handle.write(cleaned)
             removed += count
         mixed += [f"{path}:{number}" for number in left]
     found = [f"- commenti {code_todos.MARKER}: " + (f"tolti {removed}" if removed else "nessuno nei file cambiati")]

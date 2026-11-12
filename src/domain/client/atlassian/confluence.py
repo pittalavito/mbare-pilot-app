@@ -41,6 +41,23 @@ class ConfluenceClient:
         body = self._http.get("/wiki/rest/api/search", {"cql": cql, "limit": min(limit, 100)})
         return [self._to_hit(raw) for raw in body.get("results", []) if raw.get("content")]
 
+    def create_page(self, space_id: str, title: str, storage: str, parent_id: str | None = None) -> ConfluencePage:
+        """A new page (storage XHTML body) in the space, under ``parent_id`` when given."""
+        body: dict[str, Any] = {"spaceId": space_id, "status": "current", "title": title,
+                                "body": {"representation": "storage", "value": storage}}
+        if parent_id:
+            body["parentId"] = parent_id
+        return self._to_page(self._http.post("/wiki/api/v2/pages", body))
+
+    def update_page(self, page_id: str, title: str, storage: str) -> ConfluencePage:
+        """A new version of the page: title and body replaced."""
+        current = self._http.get(f"/wiki/api/v2/pages/{page_id}")
+        version = int((current.get("version") or {}).get("number", 0)) + 1
+        return self._to_page(self._http.put(f"/wiki/api/v2/pages/{page_id}", {
+            "id": page_id, "status": "current", "title": title, "body": {"representation": "storage", "value": storage},
+            "version": {"number": version, "message": "mbare-pilot"},
+        }))
+
     # ------------------------------------------------------------ mapping
     def _url(self, webui: str | None) -> str:
         return f"{self._http.base_url}/wiki{webui}" if webui else f"{self._http.base_url}/wiki"

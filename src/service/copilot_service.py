@@ -241,7 +241,7 @@ class CopilotService:
         task = self._data.agent_task(project_name, task_note)  # exists and is an agent task
         folder = self._git.repository_folder(project_name, repository)
         prompt = coding_agent.task_prompt(settings, task.type, prompt)
-        first_turn = coding_agent.plan_prompt(settings, task_folder.relative_folder(task_note), prompt)
+        first_turn = coding_agent.plan_prompt(settings, task_folder.relative_folder(task_note), prompt, task.type)
         self._require_mcp()
         prepared = self._prepare(project_name, prepare or [])
         task_folder.write(folder, task_note, task_folder.minimal_task(task_note, task.title, TYPE_LABELS[task.type]))  # errors stop here

@@ -125,6 +125,8 @@ class CodingAgentSettings(BaseModel):
     prompts: dict[str, str] = Field(default_factory=dict)
     """The planning prompts to choose from instead of ``plan_prompt``: name
     (file name without ``.md``) → text, from ``coding-agent/`` folders."""
+    templates: dict[TaskType, str] = Field(default_factory=dict)
+    """The drafts' templates (``coding-agent/templates/<type>.md``): a prompt puts its type's one at ``{template}``."""
 
 
 class CopilotUsage(BaseModel):
