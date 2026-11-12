@@ -74,3 +74,32 @@ export function useDeletePipeline(project: string) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: automationKeys.pipelines(project) }),
   });
 }
+
+// -------------------------------------------------------------------- YAML
+
+export type AutomationCheck = components["schemas"]["AutomationYamlCheckResponse"];
+
+/** An automation in YAML (the Architect's proposal) validated as a save would; nothing saved. */
+export function useCheckAutomationYaml(project: string, yaml: string) {
+  return useQuery({
+    queryKey: ["projects", project, "pipelines", "yaml-check", yaml],
+    queryFn: () => unwrap(api.POST("/projects/{project}/pipelines/yaml/check", { params: { path: { project } }, body: { yaml } })),
+    retry: false,
+  });
+}
+
+/** «Salva» of a proposal: created, or the automation with the same name updated. */
+export function useSaveAutomationYaml(project: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (yaml: string) => unwrap(api.POST("/projects/{project}/pipelines/yaml", { params: { path: { project } }, body: { yaml } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: automationKeys.pipelines(project) }),
+  });
+}
+
+/** «Esporta YAML»: the automation in the definitions' format. */
+export function useExportAutomationYaml() {
+  return useMutation({
+    mutationFn: (pipelineId: number) => unwrap(api.GET("/pipelines/{pipeline_id}/yaml", { params: { path: { pipeline_id: pipelineId } } })),
+  });
+}

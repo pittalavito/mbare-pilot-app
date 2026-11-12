@@ -1010,6 +1010,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/pipelines/yaml/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Pipeline Yaml
+         * @description Validated as a save would (400 with the reason), nothing saved: the Architect's proposal in the chat.
+         */
+        post: operations["check_pipeline_yaml_projects__project__pipelines_yaml_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/pipelines/yaml": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save Pipeline Yaml
+         * @description «Salva» of a proposal: created, or the automation with the same name updated.
+         */
+        post: operations["save_pipeline_yaml_projects__project__pipelines_yaml_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pipelines/{pipeline_id}/yaml": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Pipeline Yaml
+         * @description «Esporta YAML»: to paste under ``automations:`` of a definitions file.
+         */
+        get: operations["export_pipeline_yaml_pipelines__pipeline_id__yaml_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project}/atlassian": {
         parameters: {
             query?: never;
@@ -2528,6 +2588,33 @@ export interface components {
              */
             created_at: string;
         };
+        /** AutomationYamlCheckResponse */
+        AutomationYamlCheckResponse: {
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Active */
+            active: boolean;
+            /** Steps */
+            steps: components["schemas"]["StepBody"][];
+            /** Edges */
+            edges: components["schemas"]["EdgeBody"][];
+            /** Replaces */
+            replaces: number | null;
+            /** System */
+            system: boolean;
+        };
+        /** AutomationYamlRequest */
+        AutomationYamlRequest: {
+            /** Yaml */
+            yaml: string;
+        };
+        /** AutomationYamlResponse */
+        AutomationYamlResponse: {
+            /** Yaml */
+            yaml: string;
+        };
         /** BackupResponse */
         BackupResponse: {
             /** Name */
@@ -2650,6 +2737,11 @@ export interface components {
             max_steps: number;
             /** Tool Names */
             tool_names: string[];
+            /**
+             * Automation Cache
+             * @default false
+             */
+            automation_cache: boolean;
         };
         /** ChecklistItemBody */
         ChecklistItemBody: {
@@ -6874,6 +6966,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    check_pipeline_yaml_projects__project__pipelines_yaml_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutomationYamlRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutomationYamlCheckResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_pipeline_yaml_projects__project__pipelines_yaml_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutomationYamlRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PipelineResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_pipeline_yaml_pipelines__pipeline_id__yaml_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pipeline_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutomationYamlResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

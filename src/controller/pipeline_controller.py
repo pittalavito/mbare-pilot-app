@@ -2,10 +2,12 @@
 /pipelines/{id}), their runs (queued here, executed by the worker), the
 running workers (/workers) and the functions a FUNCTION step can call (/functions)."""
 from fastapi import APIRouter, Depends, Response, status
+from pydantic import BaseModel
 
 from controller.dependencies import pipeline_service
 from core.error import NotFoundError
-from models.controller.pipeline import FunctionResponse, PipelineRequest, PipelineResponse, RunRequest, RunResponse, WorkerResponse
+from models.controller.pipeline import EdgeBody, FunctionResponse, PipelineRequest, PipelineResponse, RunRequest, RunResponse, StepBody, WorkerResponse
+from models.domain.dev import PREPARE_AUTOMATION, VERIFY_AUTOMATION
 from service.pipeline_service import PipelineService
 
 router = APIRouter(tags=["automation"])
@@ -87,3 +89,48 @@ def workers_health(service: PipelineService = Depends(pipeline_service)) -> Resp
     """200 when at least one worker is running, 503 otherwise (for monitoring)."""
     alive = bool(service.workers())
     return Response(status_code=status.HTTP_200_OK if alive else status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
+# --------------------------------------------------------------------- YAML
+
+class AutomationYamlRequest(BaseModel):
+    yaml: str
+    """One automation in the definitions' format (its fields, or ``automations:`` with one element)."""
+
+
+class AutomationYamlCheckResponse(BaseModel):
+    name: str
+    description: str
+    active: bool
+    steps: list[StepBody]
+    edges: list[EdgeBody]
+    """As they would be saved (empty in the YAML = the chain of the steps)."""
+    replaces: int | None
+    """The project's automation with this name, which a save updates; None = a new one."""
+    system: bool
+    """It is «Prepara sviluppo» or «Verifica sviluppo»: the app runs them by itself."""
+
+
+class AutomationYamlResponse(BaseModel):
+    yaml: str
+
+
+@router.post("/projects/{project}/pipelines/yaml/check")
+def check_pipeline_yaml(project: str, request: AutomationYamlRequest,
+                        service: PipelineService = Depends(pipeline_service)) -> AutomationYamlCheckResponse:
+    """Validated as a save would (400 with the reason), nothing saved: the Architect's proposal in the chat."""
+    pipeline, current = service.check_yaml(project, request.yaml)
+    return AutomationYamlCheckResponse(**pipeline.model_dump(include={"name", "description", "active", "steps", "edges"}),
+                                       replaces=current.id if current else None, system=pipeline.name in (PREPARE_AUTOMATION, VERIFY_AUTOMATION))
+
+
+@router.post("/projects/{project}/pipelines/yaml")
+def save_pipeline_yaml(project: str, request: AutomationYamlRequest, service: PipelineService = Depends(pipeline_service)) -> PipelineResponse:
+    """«Salva» of a proposal: created, or the automation with the same name updated."""
+    return PipelineResponse.from_pipeline(service.save_yaml(project, request.yaml))
+
+
+@router.get("/pipelines/{pipeline_id}/yaml")
+def export_pipeline_yaml(pipeline_id: int, service: PipelineService = Depends(pipeline_service)) -> AutomationYamlResponse:
+    """«Esporta YAML»: to paste under ``automations:`` of a definitions file."""
+    return AutomationYamlResponse(yaml=service.export_yaml(pipeline_id))

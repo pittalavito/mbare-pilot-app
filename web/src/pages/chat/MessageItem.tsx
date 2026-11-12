@@ -1,9 +1,11 @@
 import { ActionIcon, Alert, Avatar, Button, Group, Paper, Popover, Select, Stack, Text, TextInput } from "@mantine/core";
 import { useState } from "react";
+import { useParams } from "react-router-dom";
 
 import type { Pipeline } from "../../api/automation";
 import { CACHE_MARK, type AutomationCacheEntry, type Message, useAddToAutomationCache, useRemoveFromAutomationCache } from "../../api/chat";
 import { Markdown } from "../../components/Markdown";
+import { AutomationProposal } from "./AutomationProposal";
 
 type Props = {
   chatbotId: number;
@@ -17,6 +19,7 @@ type Props = {
 /** A message of the conversation: the user's on the right with its cache
  * controls, the chatbot's on the left (⚡ when it came from the cache). */
 export function MessageItem({ chatbotId, message, reply, entry, automations }: Props) {
+  const { project } = useParams();
   if (message.role === "user") {
     return (
       <Stack gap={4} align="flex-end">
@@ -39,7 +42,9 @@ export function MessageItem({ chatbotId, message, reply, entry, automations }: P
       <Avatar size="sm" radius="xl" color={message.content.startsWith(CACHE_MARK) ? "yellow" : "indigo"}>
         {message.content.startsWith(CACHE_MARK) ? "⚡" : "🤖"}
       </Avatar>
-      <Markdown>{message.content}</Markdown>
+      <Markdown code={project ? (language, code) => (language === "automation" ? <AutomationProposal project={project} yaml={code} /> : null) : undefined}>
+        {message.content}
+      </Markdown>
     </Group>
   );
 }

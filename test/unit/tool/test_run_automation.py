@@ -118,7 +118,7 @@ def test_an_automation_cannot_start_automations(service, pipelines, monkeypatch,
     assert len(pipelines.list_runs(loop.id)) == 1
 
 
-def test_list_automations_only_the_runnable_ones_only_in_a_chatbot(pipelines):
+def test_list_automations_says_which_are_active_and_their_steps_only_in_a_chatbot(pipelines):
     pipelines.create_pipeline("acme", "Report", description="report del giorno", steps=[_own_step()])
     pipelines.create_pipeline("acme", "Spenta", active=False, steps=[_own_step()])
     pipelines.create_pipeline("acme", "Vuota")
@@ -127,6 +127,10 @@ def test_list_automations_only_the_runnable_ones_only_in_a_chatbot(pipelines):
         return as_dict(LIST_AUTOMATIONS.build(ToolContext(**{**context.__dict__, "pipelines": pipelines})).func())
 
     assert listed(ToolContext("acme", git=None, origin=RunOrigin.CHAT)) == {
-        "automations": [{"name": "Report", "description": "report del giorno"}],
+        "automations": [
+            {"name": "Report", "description": "report del giorno", "active": True, "steps": 1},
+            {"name": "Spenta", "description": "", "active": False, "steps": 1},
+            {"name": "Vuota", "description": "", "active": True, "steps": 0},
+        ],
     }
     assert "solo nel chatbot" in listed(ToolContext("acme", git=None))["error"]

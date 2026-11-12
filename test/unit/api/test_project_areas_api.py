@@ -48,7 +48,7 @@ def _chatbot(client, name="Bot", **overrides) -> dict:
 
 def test_chatbot_crud_and_prompt_version(client):
     bot = _chatbot(client)
-    assert [b["name"] for b in client.get("/projects/acme/chatbots").json()] == ["Bot", "Chat bot", "Refiner", "Segretario"]  # plus the default ones
+    assert [b["name"] for b in client.get("/projects/acme/chatbots").json()] == ["Architetto", "Bot", "Refiner", "Segretario"]  # plus the default ones
 
     body = {"name": "Bot 2", "system_prompt": "Nuovo prompt.", "model": MODEL, "max_steps": 6}
     updated = client.put(f"/chatbots/{bot['id']}", json=body).json()
@@ -66,7 +66,7 @@ def test_only_the_model_of_a_chatbot_changes(client):
 
     assert changed.status_code == 200, changed.text
     assert changed.json() == {**bot, "model": "mock/echo"}  # prompt, its version and tools stay
-    assert client.get("/projects/acme/chatbots").json()[0]["model"] == "mock/echo"
+    assert next(b for b in client.get("/projects/acme/chatbots").json() if b["id"] == bot["id"])["model"] == "mock/echo"
     assert client.patch(f"/chatbots/{bot['id']}/model", json={"model": "nope"}).status_code == 400
     assert client.patch("/chatbots/999/model", json={"model": "mock/echo"}).status_code == 404
 

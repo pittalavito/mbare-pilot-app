@@ -63,7 +63,7 @@ class AutomationCacheService:
             raise ValidationError("In cache vanno solo i tuoi messaggi, non le risposte.")
         chatbot = self._chatbots.get_chatbot(self._chatbots.get_conversation(message.conversation_id).chatbot_id)
         if not chatbot.has_automation_cache:
-            raise ValidationError(f"La cache delle automation è solo dei chatbot di tipo automation: {chatbot.name} non lo è.")
+            raise ValidationError(f"La cache delle automation non è attiva per {chatbot.name}.")
         chatbot_id, project_name = chatbot.id, chatbot.project_name
         if self._pipelines.get_pipeline(pipeline_id).project_name != project_name:
             raise ValidationError(f"L'automation non è del progetto {project_name}.")
