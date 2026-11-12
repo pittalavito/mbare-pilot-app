@@ -68,7 +68,7 @@ export function CopilotTab() {
           {sessions.isPending && <Loader size="sm" />}
           {sessions.error && <Alert color="red">{sessions.error.message}</Alert>}
           {sessions.data && !sessions.data.length && (
-            <Text size="sm" c="dimmed">Nessun task delegato. Delegane uno da qui o dal form di un agent task (Dati → Agent task).</Text>
+            <Text size="sm" c="dimmed">Nessun task delegato. Delegane uno da qui o dal form di un agent task (Lavoro).</Text>
           )}
           {sessions.data?.map((session) => (
             <NavLink

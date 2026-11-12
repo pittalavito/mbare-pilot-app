@@ -46,6 +46,10 @@ Il **worker** si avvia e si ferma dall'intestazione della pagina (lo gestisce l'
 | Editor del grafo delle automation | React Flow (`@xyflow/react`) |
 | Icone | Tabler Icons |
 
+## Zone del progetto
+
+Un progetto ha tre zone (piano 13): **📋 Lavoro** (`/work`, dove si apre: attività e i loro task, «Tutti i task», WIP, con «📌 Oggi» in cima), **⚙️ Automation** (`/automation`) e **🗂️ Progetto** (`/project`: note, riferimenti, file, contesto, git, Atlassian, impostazioni). Chat e Copilot restano schede a parte finché non arriva il pannello dell'agente (13b). Un link `?note=` porta alla zona della nota: attività, agent task e WIP in Lavoro, il resto in Progetto (`noteZone`); i link di prima (`/data?note=…`, anche quelli che scrivono gli agenti) vengono reindirizzati.
+
 ## Struttura
 
 ```
@@ -74,13 +78,14 @@ src/
     theme.ts          tema Mantine
   pages/
     projects/         lista dei progetti, «Apri cartella» e «Crea da zero»
-    project/          pagina del progetto: intestazione e tab (una rotta per tab)
-    data/             tab Dati: note markdown (modifica/anteprima, Ctrl+S), attività e agent task (form dei template, con i riferimenti collegati: ReferencesSection), riferimenti, file; ⚙️ Impostazioni sceglie i tipi mostrati (DataSettings)
-    git/              tab Git: commit con filtri e file modificati
-    atlassian/        tab Atlassian: Jira, Confluence, preferiti; «📎 Crea riferimento» copia issue e pagine nei riferimenti (CopyToReference)
+    project/          pagina del progetto: intestazione e zone (una rotta per zona); ProjectZone = zona «Progetto» (note, riferimenti, file, contesto, git, Atlassian, impostazioni; sezione in ?tab=); redirects.tsx = i link delle schede di prima (/data, /git, /atlassian, /settings) e noteZone (in che zona sta una nota)
+    work/             zona «Lavoro», dove si apre il progetto: «📌 Oggi», attività (un agent task nato da un'attività si apre dentro di lei, con «← attività»), «Tutti i task», WIP; ?note= dice cosa è aperto
+    data/             i pezzi di Lavoro e Progetto: note markdown (modifica/anteprima, Ctrl+S), WIP, attività e agent task (form dei template, con i riferimenti collegati: ReferencesSection), riferimenti, file; DataSettings sceglie cosa mostra la zona Progetto
+    git/              sezione Git di Progetto: commit con filtri e file modificati
+    atlassian/        sezione Atlassian di Progetto: Jira, Confluence, preferiti; «📎 Crea riferimento» copia issue e pagine nei riferimenti (CopyToReference)
     library/          pagina Libreria: agenti globali (la stessa sezione Agenti) e catalogo dei tool
     admin/            pagina Admin: servizi, observability (agent run, tool call, Copilot), modelli, backup (tab in ?tab=)
-    settings/         tab Impostazioni: generale, Atlassian, mascheramento, definizioni, agenti, rimozione
+    settings/         sezione Impostazioni di Progetto: generale, Atlassian, mascheramento, definizioni, agenti, rimozione
     copilot/          tab Copilot: task delegati, chat con Copilot, «Ok, parti», file cambiati; modale «Delega a Copilot» (anche dal form del task)
     chat/             tab Chat: i chatbot del progetto (?bot=), le loro conversazioni (?c=), messaggi in markdown, «Metti in cache», dettagli del chatbot, dove si cambia solo il modello (il resto in sola lettura; i chatbot non si creano dalla UI: quelli di default vengono dal codice, gli altri dalle definizioni da file)
     automation/       tab Automation (esecuzione e storico), editor del grafo (React Flow) e graphDraft (la bozza, funzioni pure)
@@ -94,6 +99,7 @@ src/
   test/
     setup.ts          jest-dom, pulizia tra i test, matchMedia e ResizeObserver per jsdom
     render.tsx        `mockApi` (API finta: "METODO /percorso" -> risposta) e `renderPage` (pagina con i provider e il router)
+    zones.tsx         `zoneRoutes()`: le zone Lavoro e Progetto e i link di prima, come le monta il router
 ```
 
 ## Convenzioni

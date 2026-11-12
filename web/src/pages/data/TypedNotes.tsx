@@ -18,7 +18,6 @@ import { ChecklistEditor } from "./ChecklistEditor";
 import { ReferencesSection } from "./ReferencesSection";
 import { PublishButton } from "./PublishModal";
 import { RefinerPanel } from "./RefinerPanel";
-import { TodayPanel } from "./TodayPanel";
 
 /** The typed notes of the Dati tab: activities and agent tasks. On disk they
  * are notes (``attivita-<title>.md``, ``agent-task-<title>.md``) written with
@@ -127,14 +126,21 @@ export const ACTIVITY_STATUS = [
   { value: "done", label: "Fatta", color: "green" },
 ] as const;
 
+/** The activities; an agent task born from one (``?note=agent-task-…``) opens
+ * **inside** its activity, with a way back (the first activity that lists it). */
 export function Activities({ project }: { project: string }) {
   const activities = useActivities(project);
+  const tasks = useAgentTasks(project);
   const save = useSaveActivity(project);
+  const [search, setSearch] = useSearchParams();
+  const requested = search.get("note");
+  const task = tasks.data?.find((item) => item.name === requested);
+  const parent = task && activities.data?.find((activity) => activity.agent_tasks.includes(task.name));
   return (
     <>
-      <TodayPanel project={project} />
       <TypedNotes
         project={project}
+        selectedName={parent?.name}
         items={activities.data}
         error={activities.error?.message}
         newLabel="Nuova attività"
@@ -151,9 +157,41 @@ export function Activities({ project }: { project: string }) {
         }}
         create={(title, done) => save.mutate({ body: { title, status: "todo", description: "", items: [], agent_tasks: [], references: [], learned: "" } }, done)}
         creating={save.isPending}
-        renderEditor={(activity) => <ActivityEditor key={activity.name} project={project} activity={activity} />}
+        renderEditor={(activity) => (task && parent?.name === activity.name ? (
+          <Stack gap="sm">
+            <Group>
+              <Button size="xs" variant="default" onClick={() => setSearch({ note: activity.name }, { replace: true })}>← {activity.title}</Button>
+            </Group>
+            <TaskPane key={task.name} project={project} task={task} />
+          </Stack>
+        ) : <ActivityEditor key={activity.name} project={project} activity={activity} />)}
       />
     </>
+  );
+}
+
+/** An agent task with the Refiner next to it while it is created or in refinement (it can be hidden). */
+export function TaskPane({ project, task }: { project: string; task: AgentTask }) {
+  const [hidden, setHidden] = useState(false);
+  const [draft, setDraft] = useState<Draft>();
+  const refinable = REFINABLE.includes(task.status ?? "created");
+  const refiner = refinable && !hidden;
+  const refine = () => {
+    setHidden(false);
+    setDraft((current) => ({ text: "Rifinisci questo task.", id: (current?.id ?? 0) + 1 }));
+  };
+  return (
+    <Grid gutter="md">
+      <Grid.Col span={{ base: 12, lg: refiner ? 7 : 12 }}>
+        {refinable && (
+          <Group justify="flex-end" mb="xs">
+            <Button size="compact-xs" variant="subtle" onClick={() => setHidden(!hidden)}>{hidden ? "🧠 Mostra il Refiner" : "Nascondi il Refiner"}</Button>
+          </Group>
+        )}
+        <AgentTaskEditor project={project} task={task} onRefine={refine} />
+      </Grid.Col>
+      {refiner && <Grid.Col span={{ base: 12, lg: 5 }}><RefinerPanel project={project} openTask={task} draft={draft} /></Grid.Col>}
+    </Grid>
   );
 }
 
@@ -166,8 +204,12 @@ type Done = { onSuccess: (created: Named) => void; onError: (error: Error) => vo
 /** A section of the list (by status, for the agent tasks). */
 type Group = { key: string; label: string; color: string; collapsed?: boolean };
 
-function TypedNotes<T extends Named>({ items, error, newLabel, intro, toolbar, groups, groupOf, describe, create, creating, onSelected, renderEditor }: {
+function TypedNotes<T extends Named>({
+  items, error, newLabel, intro, toolbar, groups, groupOf, describe, create, creating, onSelected, renderEditor, selectedName,
+}: {
   project: string;
+  /** The open one whatever ``?note=`` says (an activity whose task is open inside it). */
+  selectedName?: string;
   items?: T[];
   error?: string;
   newLabel: string;
@@ -187,7 +229,7 @@ function TypedNotes<T extends Named>({ items, error, newLabel, intro, toolbar, g
   const [search, setSearch] = useSearchParams();
   const [adding, setAdding] = useState(false);
   const requested = search.get("note");
-  const selected = items?.find((item) => item.name === requested) ?? items?.[0];
+  const selected = items?.find((item) => item.name === (selectedName ?? requested)) ?? items?.[0];
   const select = (name: string) => setSearch({ note: name }, { replace: true });
   useEffect(() => onSelected?.(selected), [selected && JSON.stringify(selected)]); // eslint-disable-line react-hooks/exhaustive-deps
   const [toggled, setToggled] = useState<Record<string, boolean>>({});

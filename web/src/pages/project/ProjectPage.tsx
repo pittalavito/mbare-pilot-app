@@ -2,19 +2,19 @@ import { Alert, Anchor, Group, Loader, Stack, Tabs, Text, Title } from "@mantine
 import { IconAlertTriangle, IconArrowLeft } from "@tabler/icons-react";
 import { Link, Navigate, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 
-import { useAtlassianConfigured, useProject } from "../../api/projects";
+import { useProject } from "../../api/projects";
 import { SOURCE_LABELS } from "../projects/projectLabels";
 
-/** The tabs of a project, one URL each (/projects/<name>/<tab>): only the open
- * one is loaded. Atlassian shows only when the site is configured. */
+/** The zones of a project, one URL each (/projects/<name>/<zone>): only the open
+ * one is loaded. «Lavoro» (activities, their agent tasks, the WIP note) is where
+ * it opens; «Progetto» holds notes, files, context, git, Atlassian and settings.
+ * Chat and Copilot stay as they are until the agent panel (plan 13b). */
 const TABS = [
-  { value: "chat", label: "💬 Chat" },
+  { value: "work", label: "📋 Lavoro" },
   { value: "automation", label: "⚙️ Automation" },
-  { value: "data", label: "🗂️ Dati" },
+  { value: "project", label: "🗂️ Progetto" },
+  { value: "chat", label: "💬 Chat" },
   { value: "copilot", label: "🤖 Copilot" },
-  { value: "git", label: "🌿 Git" },
-  { value: "atlassian", label: "🔷 Atlassian" },
-  { value: "settings", label: "🔧 Impostazioni" },
 ];
 
 export function ProjectPage() {
@@ -22,10 +22,8 @@ export function ProjectPage() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const project = useProject(name);
-  const atlassian = useAtlassianConfigured(name);
   const base = `/projects/${encodeURIComponent(name)}`;
   const tab = pathname.slice(base.length).split("/")[1] || "";
-  const tabs = TABS.filter((item) => item.value !== "atlassian" || atlassian);
 
   if (project.isPending) return <Loader size="sm" />;
   if (project.error) {
@@ -36,7 +34,7 @@ export function ProjectPage() {
       </Stack>
     );
   }
-  if (!tab) return <Navigate to={`${base}/chat`} replace />;
+  if (!tab) return <Navigate to={`${base}/work`} replace />;
   const data = project.data;
   return (
     <Stack gap="md">
@@ -55,7 +53,7 @@ export function ProjectPage() {
       </Stack>
       <Tabs value={tab} onChange={(value) => value && navigate(`${base}/${value}`)} keepMounted={false}>
         <Tabs.List>
-          {tabs.map((item) => (
+          {TABS.map((item) => (
             <Tabs.Tab key={item.value} value={item.value}>
               {item.label}
             </Tabs.Tab>

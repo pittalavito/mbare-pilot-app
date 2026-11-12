@@ -3,15 +3,14 @@ import { Navigate, createBrowserRouter } from "react-router-dom";
 import { Placeholder } from "../pages/Placeholder";
 import { AdminPage } from "../pages/admin/AdminPage";
 import { AutomationTab } from "../pages/automation/AutomationTab";
-import { AtlassianTab } from "../pages/atlassian/AtlassianTab";
 import { ChatTab } from "../pages/chat/ChatTab";
 import { CopilotTab } from "../pages/copilot/CopilotTab";
 import { LibraryPage } from "../pages/library/LibraryPage";
-import { DataTab } from "../pages/data/DataTab";
-import { GitTab } from "../pages/git/GitTab";
 import { ProjectPage } from "../pages/project/ProjectPage";
+import { ProjectZone } from "../pages/project/ProjectZone";
+import { DataRedirect, SectionRedirect } from "../pages/project/redirects";
 import { ProjectsPage } from "../pages/projects/ProjectsPage";
-import { SettingsTab } from "../pages/settings/SettingsTab";
+import { WorkZone } from "../pages/work/WorkZone";
 import { Layout } from "./Layout";
 
 /** The graph editor (React Flow) is a chunk of its own, downloaded when opened. */
@@ -19,15 +18,19 @@ const automationEditor = () => import("../pages/automation/AutomationEditor").th
 
 /** A project's tabs: each is a route, loaded only when open. */
 const PROJECT_TABS = [
-  { path: "chat", element: <ChatTab /> },
+  { path: "work", element: <WorkZone /> },
   { path: "automation", element: <AutomationTab /> },
   { path: "automation/new", lazy: automationEditor },
   { path: "automation/:pipelineId/edit", lazy: automationEditor },
-  { path: "data", element: <DataTab /> },
+  { path: "project", element: <ProjectZone /> },
+  // Until the agent panel (plan 13b) they stay reachable as they are.
+  { path: "chat", element: <ChatTab /> },
   { path: "copilot", element: <CopilotTab /> },
-  { path: "git", element: <GitTab /> },
-  { path: "atlassian", element: <AtlassianTab /> },
-  { path: "settings", element: <SettingsTab /> },
+  // The tabs of before: their links (also the ones the agents write) open the new place.
+  { path: "data", element: <DataRedirect /> },
+  { path: "git", element: <SectionRedirect section="git" /> },
+  { path: "atlassian", element: <SectionRedirect section="atlassian" /> },
+  { path: "settings", element: <SectionRedirect section="settings" /> },
 ];
 
 /** One URL per page: a project and its tab can be bookmarked and reloaded. */

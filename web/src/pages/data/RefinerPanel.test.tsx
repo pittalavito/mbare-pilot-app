@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Chatbot, Message } from "../../api/chat";
 import { mockApi, renderPage } from "../../test/render";
 import { ChatTab } from "../chat/ChatTab";
-import { DataTab } from "./DataTab";
+import { zoneRoutes } from "../../test/zones";
 import { noteOfLink } from "./RefinerPanel";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -46,14 +46,14 @@ function renderData(extra: Record<string, unknown> = {}) {
     "GET /projects/acme/references": [REFERENCE],
     ...extra,
   });
-  renderPage(<Routes><Route path="/projects/:project/data" element={<DataTab />} /></Routes>, { route: "/projects/acme/data" });
+  renderPage(<Routes>{zoneRoutes()}</Routes>, { route: "/projects/acme/data" });
   return sent;
 }
 
 describe("RefinerPanel", () => {
   it("chats with the refiner next to the agent tasks and opens the note it wrote in place", async () => {
     const sent = renderData();
-    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.click(await screen.findByRole("tab", { name: /Tutti i task/ }));
 
     expect(await screen.findByText("Ti aiuta a rifinire gli agent task")).toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText(/Scrivi a Refiner/), { target: { value: "raccogli i todo del codice" } });
@@ -70,7 +70,7 @@ describe("RefinerPanel", () => {
 
   it("a link to a reference that is gone says so; it can be hidden", async () => {
     renderData({ "GET /projects/acme/references": [] });
-    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.click(await screen.findByRole("tab", { name: /Tutti i task/ }));
     fireEvent.change(await screen.findByPlaceholderText(/Scrivi a Refiner/), { target: { value: "vai" } });
     fireEvent.click(screen.getByRole("button", { name: "Invia" }));
 
@@ -95,7 +95,7 @@ describe("RefinerPanel", () => {
       "GET /models/choices": { choices: ["mock/echo", "openai/gpt-4o"], usable: ["mock/echo", "openai/gpt-4o"] },
       "PATCH /chatbots/7/model": patched,
     });
-    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.click(await screen.findByRole("tab", { name: /Tutti i task/ }));
     expect(await screen.findByText("mock/echo")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Dettagli/ }));
@@ -125,7 +125,7 @@ describe("RefinerPanel", () => {
         return {};
       },
     });
-    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.click(await screen.findByRole("tab", { name: /Tutti i task/ }));
 
     expect(await screen.findByText(/Task aperto:/)).toHaveTextContent("Task aperto: Login");
     fireEvent.change(screen.getByPlaceholderText(/Scrivi a Refiner/), { target: { value: "rifinisci questo task" } });
@@ -144,7 +144,7 @@ describe("RefinerPanel", () => {
       "GET /projects/acme/agent-tasks": () => [current],
       "POST /conversations/3/messages": () => { current = { ...current, objective: "Scritto dal Refiner" }; return {}; },
     });
-    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.click(await screen.findByRole("tab", { name: /Tutti i task/ }));
     fireEvent.change(await screen.findByLabelText("Vincoli", { exact: false }), { target: { value: "mio vincolo" } });
 
     fireEvent.change(await screen.findByPlaceholderText(/Scrivi a Refiner/), { target: { value: "scrivi l'obiettivo" } });
@@ -160,7 +160,7 @@ describe("RefinerPanel", () => {
   it("is there only for a created or in refinement task", async () => {
     const todo = { ...CREATED, name: "agent-task-pronto.md", title: "Pronto", status: "todo" };
     renderData({ "GET /projects/acme/agent-tasks": [CREATED, todo] });
-    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.click(await screen.findByRole("tab", { name: /Tutti i task/ }));
     expect(await screen.findByPlaceholderText(/Scrivi a Refiner/)).toBeInTheDocument(); // Login, created, is open
 
     fireEvent.click(screen.getByText("Pronto", { selector: ".mantine-NavLink-label" }));
@@ -171,7 +171,7 @@ describe("RefinerPanel", () => {
 
   it("«Rifinisci con il Refiner» puts the request in its box, not sent", async () => {
     const sent = renderData();
-    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.click(await screen.findByRole("tab", { name: /Tutti i task/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Nascondi il Refiner" }));
 
     fireEvent.click(screen.getByRole("button", { name: /Rifinisci con il Refiner/ }));
@@ -182,7 +182,7 @@ describe("RefinerPanel", () => {
 
   it("without a refiner says where it comes from", async () => {
     renderData({ "GET /projects/acme/chatbots": [SECRETARY] });
-    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.click(await screen.findByRole("tab", { name: /Tutti i task/ }));
 
     expect(await screen.findByText(/Nessun Refiner nel progetto/)).toBeInTheDocument();
   });

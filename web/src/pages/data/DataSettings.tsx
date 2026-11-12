@@ -17,6 +17,8 @@ export const NOTE_TYPES: { value: NoteType; label: string; description: string }
 ];
 
 export const REFERENCE_TYPES: NoteType[] = ["code_reference", "context_reference"];
+/** Always shown, in the zone «Lavoro»: not a choice of these settings (their saved value is kept as it is). */
+const IN_WORK: NoteType[] = ["activity", "agent_task"];
 /** As the backend's DEFAULT_VISIBLE_NOTE_TYPES: the references stay inside what links them. */
 export const DEFAULT_VISIBLE: NoteType[] = ["generic", "activity", "agent_task"];
 
@@ -39,8 +41,8 @@ export function DataSettings({ project }: { project: string }) {
   if (settings.error) return <Alert color="red">{settings.error.message}</Alert>;
   return (
     <Stack gap="sm" maw={640}>
-      <Text size="sm" c="dimmed">Quali tipi di dati mostra questa scheda, per questo progetto. I file non spariscono: cambia solo cosa vedi qui.</Text>
-      {NOTE_TYPES.map((type) => (
+      <Text size="sm" c="dimmed">Quali dati mostra la zona Progetto. I file non spariscono: cambia solo cosa vedi qui. Attività e agent task stanno sempre in Lavoro.</Text>
+      {NOTE_TYPES.filter((type) => !IN_WORK.includes(type.value)).map((type) => (
         <Checkbox
           key={type.value}
           label={type.label}

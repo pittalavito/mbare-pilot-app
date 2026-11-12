@@ -1,4 +1,4 @@
-"""list_agent_tasks: the project's agent tasks (Dati → Agent task), with their
+"""list_agent_tasks: the project's agent tasks (Lavoro → Tutti i task), with their
 status and the status of their latest Copilot session (when Copilot is there):
 what delegate_task can delegate, and what the secretary reports on. Names and
 titles only: the task's text is for Copilot, the chatbot does not need it.

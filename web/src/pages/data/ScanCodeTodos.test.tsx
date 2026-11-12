@@ -1,9 +1,9 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { Route, Routes } from "react-router-dom";
+import { Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { mockApi, renderPage } from "../../test/render";
-import { DataTab } from "./DataTab";
+import { zoneRoutes } from "../../test/zones";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -32,14 +32,14 @@ function api(extra: Record<string, unknown> = {}) {
 }
 
 const renderData = (route = "/projects/acme/data") =>
-  renderPage(<Routes><Route path="/projects/:project/data" element={<DataTab />} /></Routes>, { route });
+  renderPage(<Routes>{zoneRoutes()}</Routes>, { route });
 
 describe("Todo del codice", () => {
   it("in a task's references: scans and links the note to the task", async () => {
     const saved = vi.fn(async (request: Request) => ({ name: TASK.name, ...(await request.json()) }));
     const scan = api({ "PUT /projects/acme/agent-tasks/agent-task-login.md": saved });
     renderData();
-    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.click(await screen.findByRole("tab", { name: /Tutti i task/ }));
 
     fireEvent.click(await screen.findByRole("button", { name: /Todo del codice/ }));
 
@@ -51,9 +51,9 @@ describe("Todo del codice", () => {
     expect((await saved.mock.results[0].value).references).toEqual([NOTE]);
   });
 
-  it("in the References tab: scans and opens the note", async () => {
+  it("in «Progetto» → Riferimenti: scans and opens the note", async () => {
     api({ "GET /projects/acme/data-settings": { visible_note_types: ["agent_task", "code_reference"] } });
-    renderData();
+    renderData("/projects/acme/project");
     fireEvent.click(await screen.findByRole("tab", { name: /Riferimenti/ }));
 
     fireEvent.click(await screen.findByRole("button", { name: /Todo del codice/ }));
@@ -65,7 +65,7 @@ describe("Todo del codice", () => {
   it("says when nothing is found, and the errors", async () => {
     api({ "POST /projects/acme/code-todos": { note: null, created: false, files: 0, comments: 0 } });
     renderData();
-    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.click(await screen.findByRole("tab", { name: /Tutti i task/ }));
     fireEvent.click(await screen.findByRole("button", { name: /Todo del codice/ }));
     expect(await screen.findByText("Nessun commento todoMbarePilot nel codice: scrivilo così, // todoMbarePilot{descrizione}")).toBeInTheDocument();
     expect(screen.queryByText("TODO Mbare Pilot")).not.toBeInTheDocument();
@@ -74,7 +74,7 @@ describe("Todo del codice", () => {
   it("says how many are written wrong", async () => {
     api({ "POST /projects/acme/code-todos": { note: NOTE, created: false, files: 1, comments: 1, malformed: 2 } });
     renderData();
-    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.click(await screen.findByRole("tab", { name: /Tutti i task/ }));
     fireEvent.click(await screen.findByRole("button", { name: /Todo del codice/ }));
 
     expect(await screen.findByText("1 commento todoMbarePilot in 1 file; 2 da correggere (scritti male, elencati nella nota): nota aggiornata."))
@@ -84,7 +84,7 @@ describe("Todo del codice", () => {
   it("explains how the comment is written, with a copy button", async () => {
     api();
     renderData();
-    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.click(await screen.findByRole("tab", { name: /Tutti i task/ }));
 
     fireEvent.click(await screen.findByRole("button", { name: "Come si scrive un commento todoMbarePilot" }));
 
@@ -97,7 +97,7 @@ describe("Todo del codice", () => {
   it("shows the server's error", async () => {
     api({ "POST /projects/acme/code-todos": () => new Response(JSON.stringify({ detail: "Esiste già, scritto a mano" }), { status: 409 }) });
     renderData();
-    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.click(await screen.findByRole("tab", { name: /Tutti i task/ }));
     fireEvent.click(await screen.findByRole("button", { name: /Todo del codice/ }));
 
     expect(await screen.findByText(/scritto a mano/)).toBeInTheDocument();

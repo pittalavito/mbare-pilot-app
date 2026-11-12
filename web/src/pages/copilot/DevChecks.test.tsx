@@ -3,7 +3,7 @@ import { Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { mockApi, renderPage } from "../../test/render";
-import { DataTab } from "../data/DataTab";
+import { zoneRoutes } from "../../test/zones";
 import { CopilotTab } from "./CopilotTab";
 
 /** Blocco 09: «Prepara sviluppo» in the delegation, the tests' settings, the
@@ -68,7 +68,7 @@ const renderAt = (route: string) =>
   renderPage(
     <Routes>
       <Route path="/projects/:project/copilot" element={<CopilotTab />} />
-      <Route path="/projects/:project/data" element={<DataTab />} />
+      {zoneRoutes()}
     </Routes>,
     { route },
   );

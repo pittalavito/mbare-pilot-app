@@ -27,7 +27,7 @@ class ChatbotKind(StrEnum):
     agent tasks' status and creates agent tasks (in refinement), linking
     references by their title, never reading them. Only KIND_TOOLS' tools, no cache."""
     REFINER = "refiner"
-    """Helps refining the agent tasks; shown next to them (Dati → Agent task),
+    """Helps refining the agent tasks; shown next to them (Lavoro, the open task),
     not in the Chat tab. Only KIND_TOOLS' tools, no cache. It works only on the
     task open next to the chat, while in refinement (the user's button moves it
     there from created): reads it with its type's checklist, writes its fields

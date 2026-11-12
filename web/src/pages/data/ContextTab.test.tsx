@@ -1,9 +1,9 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { Route, Routes } from "react-router-dom";
+import { Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { mockApi, renderPage } from "../../test/render";
-import { DataTab } from "./DataTab";
+import { zoneRoutes } from "../../test/zones";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -12,7 +12,7 @@ const INDEX = { documents: 1, pieces: 3, embedder: "hashing-512", error: null };
 const HIT = { path: "context/architettura.md", title: "Architettura", section: "Database", text: "PostgreSQL con Flyway.", score: 0.83 };
 
 const renderData = () =>
-  renderPage(<Routes><Route path="/projects/:project/data" element={<DataTab />} /></Routes>, { route: "/projects/acme/data" });
+  renderPage(<Routes>{zoneRoutes()}</Routes>, { route: "/projects/acme/project" });
 
 describe("the Contesto tab", () => {
   it("shows the index, edits a document (saving indexes it), reindexes and tries a search", async () => {

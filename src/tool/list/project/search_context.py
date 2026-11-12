@@ -25,7 +25,7 @@ def build(context: ToolContext) -> Tool:
         except AppError as exc:
             return ToolErrorResponse(error=str(exc))
         if not hits:
-            return ToolErrorResponse(error="Il contesto del progetto è vuoto o non indicizzato (Dati → Contesto).")
+            return ToolErrorResponse(error="Il contesto del progetto è vuoto o non indicizzato (Progetto → Contesto).")
         return SearchContextResponse(hits=hits)
 
     return search_context

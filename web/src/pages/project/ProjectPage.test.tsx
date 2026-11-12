@@ -21,8 +21,8 @@ function renderProject(route: string) {
   return renderPage(
     <Routes>
       <Route path="/projects/:project" element={<ProjectPage />}>
-        <Route path="chat" element={<div>contenuto chat</div>} />
-        <Route path="git" element={<div>contenuto git</div>} />
+        <Route path="work" element={<div>contenuto lavoro</div>} />
+        <Route path="project" element={<div>contenuto progetto</div>} />
       </Route>
     </Routes>,
     { route },
@@ -30,33 +30,24 @@ function renderProject(route: string) {
 }
 
 describe("ProjectPage", () => {
-  it("opens on the chat tab and shows only the tabs that apply", async () => {
-    mockApi({
-      "GET /projects/Gestionali Navi": PROJECT,
-      "GET /projects/Gestionali Navi/atlassian": { base_url: "", email: "", has_token: false, jira_project_key: "", confluence_space_key: "" },
-    });
+  it("opens on «Lavoro» and shows the three zones", async () => {
+    mockApi({ "GET /projects/Gestionali Navi": PROJECT });
     renderProject("/projects/Gestionali%20Navi");
 
-    expect(await screen.findByText("contenuto chat")).toBeInTheDocument();
+    expect(await screen.findByText("contenuto lavoro")).toBeInTheDocument();
     expect(screen.getByText("✨ Creato da zero", { exact: false })).toBeInTheDocument();
-    for (const tab of ["💬 Chat", "⚙️ Automation", "🗂️ Dati", "🌿 Git", "🔧 Impostazioni"]) {
+    for (const tab of ["📋 Lavoro", "⚙️ Automation", "🗂️ Progetto"]) {
       expect(screen.getByRole("tab", { name: tab })).toBeInTheDocument();
     }
-    expect(screen.queryByRole("tab", { name: "🔷 Atlassian" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "📋 Lavoro" })).toHaveAttribute("aria-selected", "true");
   });
 
-  it("shows the Atlassian tab when the site is configured, and the tab of the URL", async () => {
-    mockApi({
-      "GET /projects/Gestionali Navi": PROJECT,
-      "GET /projects/Gestionali Navi/atlassian": {
-        base_url: "https://x.atlassian.net", email: "me@x.it", has_token: true, jira_project_key: "", confluence_space_key: "",
-      },
-    });
-    renderProject("/projects/Gestionali%20Navi/git");
+  it("selects the zone of the URL", async () => {
+    mockApi({ "GET /projects/Gestionali Navi": PROJECT });
+    renderProject("/projects/Gestionali%20Navi/project");
 
-    expect(await screen.findByText("contenuto git")).toBeInTheDocument();
-    expect(await screen.findByRole("tab", { name: "🔷 Atlassian" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "🌿 Git" })).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByText("contenuto progetto")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "🗂️ Progetto" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("explains an unknown project", async () => {

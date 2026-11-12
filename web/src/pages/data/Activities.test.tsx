@@ -1,9 +1,9 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { Route, Routes } from "react-router-dom";
+import { Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { mockApi, renderPage } from "../../test/render";
-import { DataTab } from "./DataTab";
+import { zoneRoutes } from "../../test/zones";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -19,7 +19,7 @@ const ACTIVITY = {
 };
 
 function renderData(route = "/projects/acme/data") {
-  renderPage(<Routes><Route path="/projects/:project/data" element={<DataTab />} /></Routes>, { route });
+  renderPage(<Routes>{zoneRoutes()}</Routes>, { route });
 }
 
 /** The fake API keeps what is saved: the activity and the agent tasks. */
@@ -83,18 +83,18 @@ describe("activities", () => {
     expect(await savedActivity.mock.results[1].value).toMatchObject({ agent_tasks: ["agent-task-nuovo.md", TAG_TASK.name] });
   });
 
-  it("an activity's task opens in the Agent task tab, which says where it is born from", async () => {
+  it("an activity's task opens inside the activity, which it says it is born from", async () => {
     api();
     renderData();
     fireEvent.click(await screen.findByRole("tab", { name: /Attività/ }));
 
     fireEvent.click(await screen.findByRole("button", { name: "Note di rilascio" }));
 
-    expect(await screen.findByRole("tab", { name: /Agent task/, selected: true })).toBeInTheDocument();
     expect(await screen.findByDisplayValue("Note di rilascio")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Attività/, selected: true })).toBeInTheDocument(); // still in the activity
     expect(screen.getByText(/Nasce da/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Rilascio" }));
+    fireEvent.click(screen.getByRole("button", { name: "← Rilascio" }));
 
     expect(await screen.findByRole("tab", { name: /Attività/, selected: true })).toBeInTheDocument();
     expect(await screen.findByDisplayValue("La 2.0")).toBeInTheDocument();

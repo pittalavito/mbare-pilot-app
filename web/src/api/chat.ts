@@ -25,7 +25,7 @@ export const CHATBOT_KINDS: Record<ChatbotKind, { label: string; description: st
   },
   refiner: {
     label: "Refiner",
-    description: "Ti aiuta a rifinire gli agent task: sta accanto a loro (Dati → Agent task); i suoi tool non gli fanno vedere il codice.",
+    description: "Ti aiuta a rifinire gli agent task: sta accanto a loro (Lavoro, nel task da rifinire); i suoi tool non gli fanno vedere il codice.",
   },
   custom: { label: "Custom", description: "Tool scelti nella sua definizione; niente cache." },
 };

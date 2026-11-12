@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { CopilotSession } from "../../api/copilot";
 import { mockApi, renderPage } from "../../test/render";
-import { DataTab } from "../data/DataTab";
+import { zoneRoutes } from "../../test/zones";
 import { CopilotTab } from "./CopilotTab";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -23,7 +23,7 @@ const renderTab = (route = "/projects/acme/copilot") =>
   renderPage(
     <Routes>
       <Route path="/projects/:project/copilot" element={<CopilotTab />} />
-      <Route path="/projects/:project/data" element={<DataTab />} />
+      {zoneRoutes()}
     </Routes>,
     { route },
   );
@@ -159,7 +159,7 @@ describe("CopilotTab", () => {
     });
     renderTab("/projects/acme/data");
 
-    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.click(await screen.findByRole("tab", { name: /Tutti i task/ }));
     fireEvent.click(await screen.findByRole("button", { name: /Delega a Copilot/ }));
     const dialog = await screen.findByRole("dialog");
     await waitFor(() => expect(within(dialog).getByRole("button", { name: "Delega" })).toBeEnabled()); // the only repository is chosen

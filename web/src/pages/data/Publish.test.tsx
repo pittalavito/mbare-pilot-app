@@ -1,9 +1,9 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { Route, Routes } from "react-router-dom";
+import { Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { mockApi, renderPage } from "../../test/render";
-import { DataTab } from "./DataTab";
+import { zoneRoutes } from "../../test/zones";
 import { diffLines } from "./PublishModal";
 
 /** Blocco 10: «Pubblica su Confluence/Jira» from the task and from its draft. */
@@ -35,7 +35,7 @@ function api(type: string, preview: Record<string, unknown>, references?: string
 }
 
 const renderData = (route: string) =>
-  renderPage(<Routes><Route path="/projects/:project/data" element={<DataTab />} /></Routes>, { route });
+  renderPage(<Routes>{zoneRoutes()}</Routes>, { route });
 
 describe("publish a draft", () => {
   it("a new Confluence page, under a parent, from the task", async () => {

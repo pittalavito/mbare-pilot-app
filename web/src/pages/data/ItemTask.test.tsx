@@ -1,10 +1,10 @@
 import { notifications } from "@mantine/notifications";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { Route, Routes } from "react-router-dom";
+import { Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { mockApi, renderPage } from "../../test/render";
-import { DataTab } from "./DataTab";
+import { zoneRoutes } from "../../test/zones";
 
 /** Blocco 08: an item's agent task (badge, «🤖» menu) and the items checked when a task gets «done». */
 
@@ -49,10 +49,10 @@ function api() {
 }
 
 const renderData = (route = "/projects/acme/data") =>
-  renderPage(<Routes><Route path="/projects/:project/data" element={<DataTab />} /></Routes>, { route });
+  renderPage(<Routes>{zoneRoutes()}</Routes>, { route });
 
 describe("an item's agent task", () => {
-  it("shows the task's status and opens it", async () => {
+  it("shows the task's status and opens it inside the activity", async () => {
     api();
     renderData();
     fireEvent.click(await screen.findByRole("tab", { name: /Attività/ }));
@@ -61,7 +61,8 @@ describe("an item's agent task", () => {
     await waitFor(() => expect(badge).toHaveTextContent("Da verificare"));
     fireEvent.click(badge);
 
-    expect(await screen.findByRole("tab", { name: /Agent task/, selected: true })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "← Rilascio" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Attività/, selected: true })).toBeInTheDocument();
   });
 
   it("«🤖» creates a task of the chosen type from the item and opens it", async () => {
@@ -74,7 +75,7 @@ describe("an item's agent task", () => {
 
     await waitFor(() => expect(created).toHaveBeenCalled());
     expect(await created.mock.results[0].value).toMatchObject({ type: "analysis" });
-    expect(await screen.findByRole("tab", { name: /Agent task/, selected: true })).toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: /Tutti i task/, selected: true })).toBeInTheDocument();
   });
 
   it("«🤖» waits for the activity to be saved", async () => {

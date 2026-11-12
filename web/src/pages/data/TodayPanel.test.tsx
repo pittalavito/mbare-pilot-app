@@ -1,9 +1,9 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { Route, Routes } from "react-router-dom";
+import { Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { mockApi, renderPage } from "../../test/render";
-import { DataTab } from "./DataTab";
+import { zoneRoutes } from "../../test/zones";
 import { addDays } from "./TodayPanel";
 
 afterEach(() => { vi.unstubAllGlobals(); window.localStorage.clear(); });
@@ -47,7 +47,7 @@ function api(today: unknown = TODAY) {
 }
 
 async function renderActivities() {
-  renderPage(<Routes><Route path="/projects/:project/data" element={<DataTab />} /></Routes>, { route: "/projects/acme/data" });
+  renderPage(<Routes>{zoneRoutes()}</Routes>, { route: "/projects/acme/data" });
   fireEvent.click(await screen.findByRole("tab", { name: /Attività/ }));
 }
 
@@ -67,7 +67,7 @@ describe("📌 Oggi", () => {
     expect(screen.getByRole("link", { name: /Pronto/ })).toHaveAttribute("href", "/projects/acme/copilot?session=7");
 
     fireEvent.click(screen.getByRole("button", { name: "Nuovo" })); // the task opens in its tab
-    expect(await screen.findByRole("tab", { name: /Agent task/, selected: true })).toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: /Tutti i task/, selected: true })).toBeInTheDocument();
   });
 
   it("checks an item and refreshes", async () => {

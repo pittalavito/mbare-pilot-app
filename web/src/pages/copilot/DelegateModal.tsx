@@ -88,7 +88,7 @@ export function DelegateModal({ project, task, opened, onClose }: { project: str
         {!task && (
           <Select
             label="Agent task"
-            placeholder={tasks.data && !tasks.data.length ? "Nessun agent task: crealo in Dati → Agent task" : "Scegli il task"}
+            placeholder={tasks.data && !tasks.data.length ? "Nessun agent task: crealo da un'attività in Lavoro" : "Scegli il task"}
             searchable
             data={(tasks.data ?? []).map((item) => ({ value: item.name, label: item.title }))}
             value={chosenTask}
