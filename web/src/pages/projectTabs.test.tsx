@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AgentsSection } from "../components/agents/AgentsSection";
 import { mockApi, renderPage } from "../test/render";
 import { AtlassianTab } from "./atlassian/AtlassianTab";
-import { DataTab } from "./data/DataTab";
+import { ProjectZone } from "./project/ProjectZone";
 import { GitTab } from "./git/GitTab";
 import { SettingsTab } from "./settings/SettingsTab";
 
@@ -20,7 +20,7 @@ const inProject = (path: string, ui: React.ReactElement) =>
 
 const json = async (request: Request) => request.json();
 
-describe("DataTab", () => {
+describe("ProjectZone: notes", () => {
   it("opens a note and saves the edited text", async () => {
     const saved = vi.fn(async (request: Request) => ({ name: "idee.md", kind: "note", size: 9, modified_at: "2026-10-25T10:00:00Z", ...(await json(request)) }));
     mockApi({
@@ -29,7 +29,7 @@ describe("DataTab", () => {
       "PUT /projects/acme/notes/idee.md": saved,
       "GET /projects/acme/wip": { content: "", pending_words: 0 },
     });
-    inProject("data", <DataTab />);
+    inProject("project", <ProjectZone />);
 
     fireEvent.click(await screen.findByText("idee.md")); // the WIP note comes first
     const editor = await screen.findByDisplayValue(/# Idee/);

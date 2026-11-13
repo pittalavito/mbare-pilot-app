@@ -1,25 +1,23 @@
-import { Alert, Avatar, Badge, Box, Button, Card, Grid, Group, List, Loader, NavLink, Paper, ScrollArea, Stack, Text, Textarea } from "@mantine/core";
+import { Alert, Avatar, Badge, Box, Button, Card, Group, List, Loader, Paper, ScrollArea, Stack, Text, Textarea } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useEffect, useRef, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
 
 import {
   type CopilotMessage, type CopilotSession, isExecuting, pendingQuestion, useAnswerCopilot, useApproveCopilot, useCancelCopilot,
-  useCopilotMessages, useCopilotSessionUsage,
-  useCopilotSessions, useCopilotStatus, useDeleteCopilotSession, useSaveCopilotNote, useSendCopilotMessage,
+  useCopilotMessages, useCopilotSessionUsage, useDeleteCopilotSession, useSaveCopilotNote, useSendCopilotMessage,
 } from "../../api/copilot";
-import { useAgentTasks } from "../../api/projectData";
 import { useWorkerState } from "../../api/worker";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Markdown } from "../../components/Markdown";
 import { count, credits } from "../../format";
-import { isPlanOnly } from "../data/TypedNotes";
-import { DelegateModal } from "./DelegateModal";
-import { DevSettingsModal } from "./DevSettingsModal";
 
-/** The Copilot tab of a project: the agent tasks delegated to GitHub Copilot
- * (sessions on the left, ``?session=`` the open one) and the open session's
- * chat: Copilot's questions, «Ok, parti», then the execution followed live. */
+/** The chat of a Copilot session (a delegated agent task): Copilot's questions,
+ * «Ok, parti», then the execution followed live. Shown by the agent panel when
+ * the open task is delegated (pages/project/AgentPanel.tsx). */
+
+/** ``agent-task-fix-porto.md`` → ``fix porto``: the task's name without prefix and suffix. */
+const taskLabel = (note: string) => note.replace(/^agent-task-/i, "").replace(/\.md$/i, "").replace(/-/g, " ");
+const repoLabel = (path: string) => path || "(cartella del progetto)";
 
 export const STATUS: Record<string, { label: string; color: string }> = {
   planning: { label: "Preparazione", color: "blue" },
@@ -30,84 +28,7 @@ export const STATUS: Record<string, { label: string; color: string }> = {
   cancelled: { label: "Annullata", color: "gray" },
 };
 
-/** ``agent-task-fix-porto.md`` → ``fix porto``: the task's name without prefix and suffix. */
-const taskLabel = (note: string) => note.replace(/^agent-task-/i, "").replace(/\.md$/i, "").replace(/-/g, " ");
-const repoLabel = (path: string) => path || "(cartella del progetto)";
-
-export function CopilotTab() {
-  const { project = "" } = useParams();
-  const [search, setSearch] = useSearchParams();
-  const sessions = useCopilotSessions(project);
-  const tasks = useAgentTasks(project);
-  /** The agent tasks that exist: a session of another one outlived its task. */
-  const taskNames = tasks.data && new Set(tasks.data.map((task) => task.name));
-  const status = useCopilotStatus(project);
-  const [delegating, setDelegating] = useState(false);
-  const [settingUp, setSettingUp] = useState(false);
-  const requested = Number(search.get("session"));
-  const selected = sessions.data?.find((session) => session.id === requested) ?? sessions.data?.[0];
-
-  return (
-    <Grid gutter="md">
-      <Grid.Col span={{ base: 12, md: 3 }}>
-        <Stack gap="xs">
-          <Button onClick={() => setDelegating(true)} disabled={status.data && (!status.data.installed || !!status.data.definition_error)}>
-            🤖 Delega un task
-          </Button>
-          <Button size="xs" variant="subtle" onClick={() => setSettingUp(true)}>⚙️ Verifiche dello sviluppo</Button>
-          {status.data && !status.data.installed && (
-            <Alert color="orange" p="xs">
-              <Text size="xs">Copilot CLI non è installato: <code>npm install -g @github/copilot</code>, poi <code>copilot</code> → <code>/login</code>.</Text>
-            </Alert>
-          )}
-          {status.data?.definition_error && (
-            <Alert color="orange" p="xs">
-              <Text size="xs">Prompt e divieti di Copilot: {status.data.definition_error}</Text>
-            </Alert>
-          )}
-          {sessions.isPending && <Loader size="sm" />}
-          {sessions.error && <Alert color="red">{sessions.error.message}</Alert>}
-          {sessions.data && !sessions.data.length && (
-            <Text size="sm" c="dimmed">Nessun task delegato. Delegane uno da qui o dal form di un agent task (Dati → Agent task).</Text>
-          )}
-          {sessions.data?.map((session) => (
-            <NavLink
-              key={session.id}
-              label={taskLabel(session.task_note)}
-              description={
-                taskNames && !taskNames.has(session.task_note)
-                  ? <>{repoLabel(session.repository)} · <Text span size="xs" c="orange">task eliminato</Text></>
-                  : repoLabel(session.repository)
-              }
-              rightSection={<Badge size="xs" variant="light" color={STATUS[session.status]?.color}>{STATUS[session.status]?.label}</Badge>}
-              active={session.id === selected?.id}
-              onClick={() => setSearch({ session: String(session.id) }, { replace: true })}
-            />
-          ))}
-        </Stack>
-      </Grid.Col>
-      <Grid.Col span={{ base: 12, md: 9 }}>
-        {selected ? (
-          <SessionView
-            key={selected.id} project={project} session={selected} onDeleted={() => setSearch({}, { replace: true })}
-            planOnly={isPlanOnly(tasks.data?.find((task) => task.name === selected.task_note)?.type)}
-          />
-        ) : (
-          <Text c="dimmed">
-            Delega un agent task a GitHub Copilot: nella chat Copilot legge il codice, ti fa le sue domande e propone un piano; con «Ok,
-            parti» modifica i file del repository, senza mai fare commit.
-          </Text>
-        )}
-      </Grid.Col>
-      <DelegateModal project={project} opened={delegating} onClose={() => setDelegating(false)} />
-      <DevSettingsModal project={project} opened={settingUp} onClose={() => setSettingUp(false)} />
-    </Grid>
-  );
-}
-
-/** ``planOnly``: the task is not a development (analysis, Confluence, Jira):
- * no «Ok, parti», its answer is saved as a note instead. */
-function SessionView({ project, session, onDeleted, planOnly }: {
+export function SessionView({ project, session, onDeleted, planOnly }: {
   project: string; session: CopilotSession; onDeleted: () => void; planOnly: boolean;
 }) {
   const executing = isExecuting(session);

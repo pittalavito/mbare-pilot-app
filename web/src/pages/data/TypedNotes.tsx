@@ -4,7 +4,7 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { type ReactNode, useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 
 import { useCopilotSessions, useDeleteTaskSessions } from "../../api/copilot";
 import {
@@ -12,13 +12,12 @@ import {
 } from "../../api/projectData";
 import { SCOPE_LABELS, type TestScope } from "../../api/dev";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { useAgentPanel } from "../project/AgentPanel";
 import { DelegateModal } from "../copilot/DelegateModal";
 import { SendBackModal } from "../copilot/SendBackModal";
 import { ChecklistEditor } from "./ChecklistEditor";
 import { ReferencesSection } from "./ReferencesSection";
 import { PublishButton } from "./PublishModal";
-import { RefinerPanel } from "./RefinerPanel";
-import { TodayPanel } from "./TodayPanel";
 
 /** The typed notes of the Dati tab: activities and agent tasks. On disk they
  * are notes (``attivita-<title>.md``, ``agent-task-<title>.md``) written with
@@ -52,35 +51,12 @@ const ALL = "all";
 /** The tests' choice of a task that follows the project. */
 const PROJECT_DEFAULT = "project";
 
-/** The statuses in which the task is the Refiner's: it sits next to them. */
-const REFINABLE: readonly string[] = ["created", "refinement"];
-type Draft = { text: string; id: number };
 
-/** The agent tasks grouped by status, with the Refiner on the right while the
- * open task is created or in refinement (it can be hidden). */
+/** The agent tasks grouped by status («Tutti i task»); the Refiner, Copilot and
+ * the other agents are in the agent panel at the right (pages/project/AgentPanel.tsx). */
 export function AgentTasks({ project }: { project: string }) {
-  const [hidden, setHidden] = useState(false);
-  const [open, setOpen] = useState<AgentTask>();
-  const [draft, setDraft] = useState<Draft>();
-  const refinable = !!open && REFINABLE.includes(open.status ?? "created");
-  const refiner = refinable && !hidden;
-  const refine = () => {
-    setHidden(false);
-    setDraft((current) => ({ text: "Rifinisci questo task.", id: (current?.id ?? 0) + 1 }));
-  };
-  return (
-    <Grid gutter="md">
-      <Grid.Col span={{ base: 12, lg: refiner ? 8 : 12 }}>
-        {refinable && (
-          <Group justify="flex-end" mb="xs">
-            <Button size="compact-xs" variant="subtle" onClick={() => setHidden(!hidden)}>{hidden ? "🧠 Mostra il Refiner" : "Nascondi il Refiner"}</Button>
-          </Group>
-        )}
-        <AgentTaskList project={project} onSelected={setOpen} onRefine={refine} />
-      </Grid.Col>
-      {refiner && <Grid.Col span={{ base: 12, lg: 4 }}><RefinerPanel project={project} openTask={open} draft={draft} /></Grid.Col>}
-    </Grid>
-  );
+  const { ask } = useAgentPanel();
+  return <AgentTaskList project={project} onSelected={() => {}} onRefine={() => ask("Rifinisci questo task.")} />;
 }
 
 function AgentTaskList({ project, onSelected, onRefine }: {
@@ -127,14 +103,21 @@ export const ACTIVITY_STATUS = [
   { value: "done", label: "Fatta", color: "green" },
 ] as const;
 
+/** The activities; an agent task born from one (``?note=agent-task-…``) opens
+ * **inside** its activity, with a way back (the first activity that lists it). */
 export function Activities({ project }: { project: string }) {
   const activities = useActivities(project);
+  const tasks = useAgentTasks(project);
   const save = useSaveActivity(project);
+  const [search, setSearch] = useSearchParams();
+  const requested = search.get("note");
+  const task = tasks.data?.find((item) => item.name === requested);
+  const parent = task && activities.data?.find((activity) => activity.agent_tasks.includes(task.name));
   return (
     <>
-      <TodayPanel project={project} />
       <TypedNotes
         project={project}
+        selectedName={parent?.name}
         items={activities.data}
         error={activities.error?.message}
         newLabel="Nuova attività"
@@ -151,10 +134,23 @@ export function Activities({ project }: { project: string }) {
         }}
         create={(title, done) => save.mutate({ body: { title, status: "todo", description: "", items: [], agent_tasks: [], references: [], learned: "" } }, done)}
         creating={save.isPending}
-        renderEditor={(activity) => <ActivityEditor key={activity.name} project={project} activity={activity} />}
+        renderEditor={(activity) => (task && parent?.name === activity.name ? (
+          <Stack gap="sm">
+            <Group>
+              <Button size="xs" variant="default" onClick={() => setSearch({ note: activity.name }, { replace: true })}>← {activity.title}</Button>
+            </Group>
+            <TaskPane key={task.name} project={project} task={task} />
+          </Stack>
+        ) : <ActivityEditor key={activity.name} project={project} activity={activity} />)}
       />
     </>
   );
+}
+
+/** An agent task inside its activity; its agents (Refiner, Copilot) are in the agent panel. */
+export function TaskPane({ project, task }: { project: string; task: AgentTask }) {
+  const { ask } = useAgentPanel();
+  return <AgentTaskEditor project={project} task={task} onRefine={() => ask("Rifinisci questo task.")} />;
 }
 
 // ------------------------------------------------------------------- layout
@@ -166,8 +162,12 @@ type Done = { onSuccess: (created: Named) => void; onError: (error: Error) => vo
 /** A section of the list (by status, for the agent tasks). */
 type Group = { key: string; label: string; color: string; collapsed?: boolean };
 
-function TypedNotes<T extends Named>({ items, error, newLabel, intro, toolbar, groups, groupOf, describe, create, creating, onSelected, renderEditor }: {
+function TypedNotes<T extends Named>({
+  items, error, newLabel, intro, toolbar, groups, groupOf, describe, create, creating, onSelected, renderEditor, selectedName,
+}: {
   project: string;
+  /** The open one whatever ``?note=`` says (an activity whose task is open inside it). */
+  selectedName?: string;
   items?: T[];
   error?: string;
   newLabel: string;
@@ -187,9 +187,12 @@ function TypedNotes<T extends Named>({ items, error, newLabel, intro, toolbar, g
   const [search, setSearch] = useSearchParams();
   const [adding, setAdding] = useState(false);
   const requested = search.get("note");
-  const selected = items?.find((item) => item.name === requested) ?? items?.[0];
+  const selected = items?.find((item) => item.name === (selectedName ?? requested)) ?? items?.[0];
   const select = (name: string) => setSearch({ note: name }, { replace: true });
   useEffect(() => onSelected?.(selected), [selected && JSON.stringify(selected)]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { // the first one opened by itself goes in the address too: the agent panel follows ?note=
+    if (!requested && !selectedName && selected) setSearch({ note: selected.name }, { replace: true });
+  }, [requested, selectedName, selected?.name]); // eslint-disable-line react-hooks/exhaustive-deps
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
   const link = (item: T) => (
     <NavLink key={item.name} label={item.title} rightSection={describe(item)} active={item.name === selected?.name} onClick={() => select(item.name)} />
@@ -352,8 +355,8 @@ function BornFrom({ project, task }: { project: string; task: string }) {
  * «Conferma» or «Rimanda a Copilot»; in progress is Copilot's. Only a
  * development has «to verify» in its path. «Cambia stato» is for any other
  * move, by hand. */
-function StatusPath({ project, status, planOnly, missing, busy, dirty, onStatus, onRefine, onDelegate, onSendBack }: {
-  project: string; status: string;
+function StatusPath({ status, planOnly, missing, busy, dirty, onStatus, onRefine, onDelegate, onSendBack }: {
+  status: string;
   /** Not a development: Copilot never changes the code, no «to verify». */
   planOnly: boolean;
   /** What a refined task should have and this one lacks. */
@@ -392,7 +395,7 @@ function StatusPath({ project, status, planOnly, missing, busy, dirty, onStatus,
         )}
         {status === "in_progress" && (
           <Text size="xs">
-            Copilot ci sta lavorando: <Anchor component={Link} to={`/projects/${encodeURIComponent(project)}/copilot`}>apri Copilot</Anchor>
+            Copilot ci sta lavorando: la sua chat è nel pannello dell'agente, a destra
             {planOnly && <>; quando la risposta va bene, «Salva come nota»</>}.
           </Text>
         )}
@@ -474,7 +477,7 @@ function AgentTaskEditor({ project, task, onRefine }: { project: string; task: A
         </Alert>
       )}
       <StatusPath
-        project={project} status={form.status ?? "created"} planOnly={isPlanOnly(form.type)} missing={missing} busy={save.isPending} dirty={dirty}
+        status={form.status ?? "created"} planOnly={isPlanOnly(form.type)} missing={missing} busy={save.isPending} dirty={dirty}
         onStatus={moveTo} onRefine={onRefine} onDelegate={() => setDelegating(true)} onSendBack={() => setSendingBack(true)}
       />
       <Group><PublishButton project={project} task={task} /></Group>
@@ -498,7 +501,7 @@ function AgentTaskEditor({ project, task, onRefine }: { project: string; task: A
             value={form.tests ?? PROJECT_DEFAULT}
             onChange={(value) => set({ tests: value === PROJECT_DEFAULT ? null : value as TestScope })}
           />
-          <Text size="xs" c="dimmed" mt={4}>Quando Copilot finisce, la «Verifica sviluppo» lancia questi test (il default è in Copilot → ⚙️ Verifiche).</Text>
+          <Text size="xs" c="dimmed" mt={4}>Quando Copilot finisce, la «Verifica sviluppo» lancia questi test (il default è in Progetto → Impostazioni → Verifiche dello sviluppo).</Text>
         </div>
       )}
       <Textarea label="Obiettivo" description="Cosa deve ottenere l'agente." autosize minRows={2} value={form.objective ?? ""} onChange={(event) => set({ objective: event.currentTarget.value })} />

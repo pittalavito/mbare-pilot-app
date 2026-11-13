@@ -1,31 +1,54 @@
-import { Alert, Anchor, Group, Loader, Stack, Tabs, Text, Title } from "@mantine/core";
+import { Alert, Anchor, Button, Card, Drawer, Grid, Group, Loader, Stack, Tabs, Text, Title } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 import { IconAlertTriangle, IconArrowLeft } from "@tabler/icons-react";
+import { useState } from "react";
 import { Link, Navigate, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 
-import { useAtlassianConfigured, useProject } from "../../api/projects";
+import { useProject } from "../../api/projects";
 import { SOURCE_LABELS } from "../projects/projectLabels";
+import { AgentPanel, AgentPanelProvider, type Zone } from "./AgentPanel";
 
-/** The tabs of a project, one URL each (/projects/<name>/<tab>): only the open
- * one is loaded. Atlassian shows only when the site is configured. */
+/** The zones of a project, one URL each (/projects/<name>/<zone>): only the open
+ * one is loaded. «Lavoro» (activities, their agent tasks, the WIP note) is where
+ * it opens; «Progetto» holds notes, files, context, git, Atlassian and settings.
+ * In «Lavoro» and «Automation» the agent panel sits at the right (AgentPanel):
+ * hidden by hand (remembered in this browser), a drawer on a narrow screen. */
 const TABS = [
-  { value: "chat", label: "💬 Chat" },
+  { value: "work", label: "📋 Lavoro" },
   { value: "automation", label: "⚙️ Automation" },
-  { value: "data", label: "🗂️ Dati" },
-  { value: "copilot", label: "🤖 Copilot" },
-  { value: "git", label: "🌿 Git" },
-  { value: "atlassian", label: "🔷 Atlassian" },
-  { value: "settings", label: "🔧 Impostazioni" },
+  { value: "project", label: "🗂️ Progetto" },
 ];
+const PANEL_ZONES: Record<string, Zone> = { work: "work", automation: "automation" };
+const HIDDEN_KEY = "mbare-pilot.agent-panel-hidden";
+
+function readHidden(): boolean {
+  try {
+    return window.localStorage.getItem(HIDDEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeHidden(hidden: boolean) {
+  try {
+    window.localStorage.setItem(HIDDEN_KEY, hidden ? "1" : "0");
+  } catch {
+    // no storage (private window): shown again next time
+  }
+}
 
 export function ProjectPage() {
   const { project: name = "" } = useParams();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const project = useProject(name);
-  const atlassian = useAtlassianConfigured(name);
   const base = `/projects/${encodeURIComponent(name)}`;
   const tab = pathname.slice(base.length).split("/")[1] || "";
-  const tabs = TABS.filter((item) => item.value !== "atlassian" || atlassian);
+  const narrow = useMediaQuery("(max-width: 62em)");
+  const [hidden, setHidden] = useState(readHidden);
+  const [drawer, setDrawer] = useState(false);
+  const zone = PANEL_ZONES[tab];
+  const toggle = () => { writeHidden(!hidden); setHidden(!hidden); };
 
   if (project.isPending) return <Loader size="sm" />;
   if (project.error) {
@@ -36,7 +59,7 @@ export function ProjectPage() {
       </Stack>
     );
   }
-  if (!tab) return <Navigate to={`${base}/chat`} replace />;
+  if (!tab) return <Navigate to={`${base}/work`} replace />;
   const data = project.data;
   return (
     <Stack gap="md">
@@ -53,16 +76,39 @@ export function ProjectPage() {
           </Group>
         )}
       </Stack>
-      <Tabs value={tab} onChange={(value) => value && navigate(`${base}/${value}`)} keepMounted={false}>
-        <Tabs.List>
-          {tabs.map((item) => (
-            <Tabs.Tab key={item.value} value={item.value}>
-              {item.label}
-            </Tabs.Tab>
-          ))}
-        </Tabs.List>
-      </Tabs>
-      <Outlet />
+      <Group justify="space-between" align="flex-end" wrap="nowrap">
+        <Tabs value={tab} onChange={(value) => value && navigate(`${base}/${value}`)} keepMounted={false} style={{ flex: 1 }}>
+          <Tabs.List>
+            {TABS.map((item) => (
+              <Tabs.Tab key={item.value} value={item.value}>
+                {item.label}
+              </Tabs.Tab>
+            ))}
+          </Tabs.List>
+        </Tabs>
+        {zone && (
+          <Button size="xs" variant="default" onClick={narrow ? () => setDrawer(true) : toggle}>
+            {narrow || hidden ? "🤖 Mostra l'agente" : "Nascondi l'agente"}
+          </Button>
+        )}
+      </Group>
+      <AgentPanelProvider>
+        {zone && !narrow && !hidden ? (
+          <Grid gutter="md">
+            <Grid.Col span={8} style={{ minWidth: 0 }}><Outlet /></Grid.Col>
+            <Grid.Col span={4}>
+              <Card withBorder p="sm" style={{ position: "sticky", top: 8 }}><AgentPanel project={name} zone={zone} /></Card>
+            </Grid.Col>
+          </Grid>
+        ) : (
+          <Outlet />
+        )}
+        {zone && narrow && (
+          <Drawer opened={drawer} onClose={() => setDrawer(false)} position="bottom" size="80%" title="Agente">
+            <AgentPanel project={name} zone={zone} />
+          </Drawer>
+        )}
+      </AgentPanelProvider>
     </Stack>
   );
 }

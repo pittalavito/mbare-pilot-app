@@ -44,10 +44,17 @@ class ChatbotModelRequest(BaseModel):
     model: str
 
 
+class ConversationRequest(BaseModel):
+    context: str = ""
+    """The note it belongs to (an activity, an agent task); ``""`` = none."""
+
+
 class ConversationResponse(BaseModel):
     id: int
     chatbot_id: int
     title: str
+    context: str = ""
+    """The note it belongs to in the UI (an activity, an agent task); ``""`` = none."""
     created_at: datetime
     updated_at: datetime
 

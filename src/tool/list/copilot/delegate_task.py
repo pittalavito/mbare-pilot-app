@@ -66,7 +66,7 @@ def copilot_run(context: ToolContext) -> bool:
 
 
 def chat_link(project_name: str, session_id: int) -> str:
-    """The session's chat in the app (Copilot tab of the project)."""
+    """The session's chat in the app: the link opens its task, whose agent panel shows it."""
     return f"/projects/{quote(project_name)}/copilot?session={session_id}"
 
 

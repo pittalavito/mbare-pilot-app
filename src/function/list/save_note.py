@@ -1,5 +1,5 @@
 """save_note function: saves the step input as a markdown note of the project
-(tab Dati → Note), e.g. at the end of a pipeline to keep its result."""
+(Progetto → Note), e.g. at the end of a pipeline to keep its result."""
 from datetime import datetime
 
 from pydantic import BaseModel, Field
@@ -22,12 +22,12 @@ def run(context: FunctionContext, step_input: str, params: Params) -> FunctionRe
     now = datetime.now().astimezone()
     title = params.title.replace("{date}", f"{now:%Y-%m-%d}").replace("{time}", f"{now:%H-%M}").strip()
     note = context.project_data.save_note(context.project_name, title, step_input)
-    return FunctionResult(text=f"Nota salvata: {note.name} (tab Dati → Note).")
+    return FunctionResult(text=f"Nota salvata: {note.name} (Progetto → Note).")
 
 
 SAVE_NOTE = FunctionSpec(
     name="save_note",
-    description="Salva l'input dello step come nota del progetto (tab Dati → Note).",
+    description="Salva l'input dello step come nota del progetto (Progetto → Note).",
     params=Params,
     run=run,
 )

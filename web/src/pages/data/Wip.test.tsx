@@ -1,9 +1,9 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { Route, Routes } from "react-router-dom";
+import { Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { mockApi, renderPage } from "../../test/render";
-import { DataTab } from "./DataTab";
+import { zoneRoutes } from "../../test/zones";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -29,10 +29,10 @@ const PROPOSALS = {
 };
 
 const renderData = () =>
-  renderPage(<Routes><Route path="/projects/:project/data" element={<DataTab />} /></Routes>, { route: "/projects/acme/data" });
+  renderPage(<Routes>{zoneRoutes()}</Routes>, { route: "/projects/acme/data?note=wip.md" }); // an old link: «Lavoro» → WIP
 
 describe("the WIP note", () => {
-  it("comes first, even before it exists, and can be processed only with new saved text", async () => {
+  it("has its tab in «Lavoro», even before it exists, and can be processed only with new saved text", async () => {
     mockApi({ "GET /projects/acme/notes": NOTES, "GET /projects/acme/wip": { content: "", pending_words: 0 } });
     renderData();
 

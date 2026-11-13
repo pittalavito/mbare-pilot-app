@@ -1,10 +1,9 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { Route, Routes } from "react-router-dom";
+import { Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { mockApi, renderPage } from "../../test/render";
-import { DataTab } from "../data/DataTab";
-import { CopilotTab } from "./CopilotTab";
+import { PROJECT_API, projectRoutes } from "../../test/zones";
 
 /** Blocco 09: «Prepara sviluppo» in the delegation, the tests' settings, the
  * task's choice of tests and the failed verification ready to send back. */
@@ -15,6 +14,8 @@ const TASK = {
   name: "agent-task-login.md", title: "Login", status: "to_verify", type: "development", objective: "o", context: "",
   criteria: [{ text: "c", done: false }], constraints: "", references: [], tests: null,
 };
+/** A task ready to delegate: «Delega a Copilot» in its form. */
+const READY = { ...TASK, name: "agent-task-pronto.md", title: "Pronto", status: "todo" };
 const SESSION = {
   id: 4, project_name: "acme", task_note: TASK.name, repository: "api", prompt: "", model: "", status: "done", cancel_requested: false,
   head_before: null, head_after: null, head_moved: false, changed_files: [], premium_requests: 1, error: null,
@@ -38,9 +39,10 @@ function api(extra: Record<string, unknown> = {}) {
   const savedSettings = vi.fn(async (request: Request) => ({ ...DEV, ...(await request.json()) }));
   const sentBack = vi.fn(async (request: Request) => ({ ...SESSION, status: "queued", ...(await request.json()) }));
   mockApi({
+    ...PROJECT_API,
     "GET /copilot/status": { installed: true, version: "x", prompts: [], default_model: "", models: [] },
     "GET /projects/acme/notes": [],
-    "GET /projects/acme/agent-tasks": [TASK],
+    "GET /projects/acme/agent-tasks": [TASK, READY],
     "GET /projects/acme/activities": [],
     "GET /projects/acme/git/repositories": [{ path: "api", name: "api" }, { path: "lib", name: "lib" }],
     "GET /projects/acme/git/branches": (request: Request) => BRANCHES[new URL(request.url).searchParams.get("path") as "api" | "lib"],
@@ -64,24 +66,19 @@ function api(extra: Record<string, unknown> = {}) {
   return { started, savedTask, savedSettings, sentBack };
 }
 
-const renderAt = (route: string) =>
-  renderPage(
-    <Routes>
-      <Route path="/projects/:project/copilot" element={<CopilotTab />} />
-      <Route path="/projects/:project/data" element={<DataTab />} />
-    </Routes>,
-    { route },
-  );
+const renderAt = (route: string) => renderPage(<Routes>{projectRoutes()}</Routes>, { route });
+
+/** The delegation window of the task ready to delegate, from its form. */
+async function delegate() {
+  renderAt(`/projects/acme/work?note=${READY.name}`);
+  fireEvent.click(await screen.findByRole("button", { name: /Delega a Copilot/ }));
+  return screen.findByRole("dialog");
+}
 
 describe("development checks", () => {
   it("the delegation prepares the task's repository and a library on a new branch", async () => {
     const { started } = api();
-    renderAt("/projects/acme/copilot");
-
-    fireEvent.click(await screen.findByRole("button", { name: /Delega un task/ }));
-    const dialog = await screen.findByRole("dialog");
-    fireEvent.click(within(dialog).getByPlaceholderText("Scegli il task"));
-    fireEvent.click(await screen.findByRole("option", { name: "Login" }));
+    const dialog = await delegate();
     fireEvent.click(within(dialog).getByPlaceholderText("Scegli il repository"));
     fireEvent.click(await screen.findByRole("option", { name: "api" }));
 
@@ -104,12 +101,7 @@ describe("development checks", () => {
   it("without preparing, the delegation sends no repositories and a failed preparation is shown", async () => {
     const failing = vi.fn(() => new Response(JSON.stringify({ detail: "Preparazione non riuscita, Copilot non è partito." }), { status: 409 }));
     api({ "POST /projects/acme/copilot-sessions": failing });
-    renderAt("/projects/acme/copilot");
-
-    fireEvent.click(await screen.findByRole("button", { name: /Delega un task/ }));
-    const dialog = await screen.findByRole("dialog");
-    fireEvent.click(within(dialog).getByPlaceholderText("Scegli il task"));
-    fireEvent.click(await screen.findByRole("option", { name: "Login" }));
+    const dialog = await delegate();
     fireEvent.click(within(dialog).getByPlaceholderText("Scegli il repository"));
     fireEvent.click(await screen.findByRole("option", { name: "api" }));
     fireEvent.click(await within(dialog).findByLabelText(/Prepara i repository/));
@@ -119,11 +111,12 @@ describe("development checks", () => {
     expect(await (failing.mock.calls[0] as unknown as [Request])[0].json()).toMatchObject({ prepare: [] });
   });
 
-  it("the settings save the default scope and a command", async () => {
-    const { savedSettings } = api();
-    renderAt("/projects/acme/copilot");
+  it("the settings, in «Progetto» → Impostazioni, save the default scope and a command", async () => {
+    const { savedSettings } = api({ "GET /projects/acme/data-settings": { visible_note_types: ["generic"], files_visible: true, due_soon_days: 3 } });
+    renderAt("/projects/acme/project?tab=settings");
 
-    fireEvent.click(await screen.findByRole("button", { name: /Verifiche dello sviluppo/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /🧪 Verifiche dello sviluppo/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /⚙️ Verifiche dello sviluppo/ }));
     const dialog = await screen.findByRole("dialog");
     expect(await within(dialog).findByText("Prepara sviluppo: attiva")).toBeInTheDocument();
     fireEvent.click(within(dialog).getByText("Solo i test toccati"));
@@ -136,7 +129,7 @@ describe("development checks", () => {
 
   it("a task chooses its tests and its failed verification is ready to send back", async () => {
     const { savedTask, sentBack } = api();
-    renderAt(`/projects/acme/data?note=${TASK.name}`);
+    renderAt(`/projects/acme/work?note=${TASK.name}`);
 
     fireEvent.click(await screen.findByText("Solo i test toccati"));
     fireEvent.click(screen.getByRole("button", { name: /Salva/ }));

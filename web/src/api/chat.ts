@@ -25,7 +25,7 @@ export const CHATBOT_KINDS: Record<ChatbotKind, { label: string; description: st
   },
   refiner: {
     label: "Refiner",
-    description: "Ti aiuta a rifinire gli agent task: sta accanto a loro (Dati → Agent task); i suoi tool non gli fanno vedere il codice.",
+    description: "Ti aiuta a rifinire gli agent task: sta accanto a loro (Lavoro, nel task da rifinire); i suoi tool non gli fanno vedere il codice.",
   },
   custom: { label: "Custom", description: "Tool scelti nella sua definizione; niente cache." },
 };
@@ -55,10 +55,11 @@ export function useSetChatbotModel(chatbot: Chatbot) {
   });
 }
 
-export function useConversations(chatbotId: number) {
+/** ``context`` given: only the conversations about that note (the agent panel); undefined: all of them. */
+export function useConversations(chatbotId: number, context?: string) {
   return useQuery({
-    queryKey: chatKeys.conversations(chatbotId),
-    queryFn: () => unwrap(api.GET("/chatbots/{chatbot_id}/conversations", { params: { path: { chatbot_id: chatbotId } } })),
+    queryKey: context === undefined ? chatKeys.conversations(chatbotId) : [...chatKeys.conversations(chatbotId), context],
+    queryFn: () => unwrap(api.GET("/chatbots/{chatbot_id}/conversations", { params: { path: { chatbot_id: chatbotId }, query: { context } } })),
   });
 }
 
@@ -85,11 +86,12 @@ export function useMessages(conversationId: number | undefined) {
 export function useSendMessage(chatbotId: number, project?: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    /** ``openNote``: the note open next to the chat, told to the agent with the message. */
-    mutationFn: async ({ conversationId, text, openNote = "" }: { conversationId?: number; text: string; openNote?: string }) => {
+    /** ``openNote``: the note open next to the chat, told to the agent with the message;
+     * ``context``: the note a new conversation belongs to (the agent panel). */
+    mutationFn: async ({ conversationId, text, openNote = "", context = "" }: { conversationId?: number; text: string; openNote?: string; context?: string }) => {
       const id =
         conversationId ??
-        (await unwrap(api.POST("/chatbots/{chatbot_id}/conversations", { params: { path: { chatbot_id: chatbotId } } }))).id;
+        (await unwrap(api.POST("/chatbots/{chatbot_id}/conversations", { params: { path: { chatbot_id: chatbotId } }, body: { context } }))).id;
       await unwrap(api.POST("/conversations/{conversation_id}/messages", { params: { path: { conversation_id: id } }, body: { text, open_note: openNote } }));
       return id;
     },

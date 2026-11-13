@@ -1,9 +1,9 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { Route, Routes } from "react-router-dom";
+import { Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { mockApi, renderPage } from "../../test/render";
-import { DataTab } from "./DataTab";
+import { zoneRoutes } from "../../test/zones";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -19,8 +19,8 @@ const FILES = [
   { name: "dati.csv", kind: "file", size: 2048, modified_at: "2026-11-03T10:00:00Z", note_type: null },
 ];
 
-const renderData = () =>
-  renderPage(<Routes><Route path="/projects/:project/data" element={<DataTab />} /></Routes>, { route: "/projects/acme/data" });
+const renderData = (route = "/projects/acme/data") =>
+  renderPage(<Routes>{zoneRoutes()}</Routes>, { route });
 
 describe("notes and files as references", () => {
   it("shows the linked note and file, links more of them and saves the links", async () => {
@@ -35,7 +35,7 @@ describe("notes and files as references", () => {
       "PUT /projects/acme/agent-tasks/agent-task-fix.md": saved,
     });
     renderData();
-    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.click(await screen.findByRole("tab", { name: /Tutti i task/ }));
 
     expect(await screen.findByText("specifiche.pdf")).toBeInTheDocument();
     expect(screen.getByText("1 MB")).toBeInTheDocument();
@@ -54,7 +54,7 @@ describe("notes and files as references", () => {
     expect((await saved.mock.results[0].value).references).toEqual(["files/specifiche.pdf", "files/sparito.csv", "files/dati.csv"]);
   });
 
-  it("a linked note opens in the Notes tab", async () => {
+  it("a linked note opens in «Progetto» → Note", async () => {
     mockApi({
       "GET /projects/acme/notes": NOTES,
       "GET /projects/acme/notes/decisioni.md": { name: "decisioni.md", content: "# Decisioni prese" },
@@ -65,7 +65,7 @@ describe("notes and files as references", () => {
       "GET /projects/acme/chatbots": [],
     });
     renderData();
-    fireEvent.click(await screen.findByRole("tab", { name: /Agent task/ }));
+    fireEvent.click(await screen.findByRole("tab", { name: /Tutti i task/ }));
 
     fireEvent.click(await screen.findByRole("button", { name: "Apri" }));
 
@@ -82,7 +82,7 @@ describe("notes and files as references", () => {
       "GET /projects/acme/notes": NOTES,
       "GET /projects/acme/files": FILES,
     });
-    renderData();
+    renderData("/projects/acme/project");
     expect(await screen.findByRole("tab", { name: /File/ })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: /Impostazioni/ }));

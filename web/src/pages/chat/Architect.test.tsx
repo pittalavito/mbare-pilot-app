@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { mockApi, renderPage } from "../../test/render";
 import { AutomationEditor } from "../automation/AutomationEditor";
-import { ChatTab } from "./ChatTab";
+import { PROJECT_API, projectRoutes } from "../../test/zones";
 
 /** Blocco 05: the Architect's proposal in the chat (graph, «Salva») and «Esporta YAML» in the editor. */
 
@@ -28,6 +28,7 @@ const ANSWER = `Ecco l'automation: legge lo stato.\n\n\`\`\`automation\n${YAML}\
 function api(check: unknown = CHECK) {
   const saved = vi.fn(async (request: Request) => ({ ...CHECK, id: 11, project_name: "acme", ...(await request.json()) }));
   mockApi({
+    ...PROJECT_API,
     "GET /projects/acme/chatbots": [ARCHITECT],
     "GET /chatbots/5/conversations": [{ id: 9, chatbot_id: 5, title: "Nuova", created_at: "2026-11-11T10:00:00Z" }],
     "GET /chatbots/5/automation-cache": [],
@@ -42,7 +43,8 @@ function api(check: unknown = CHECK) {
   return { saved };
 }
 
-const renderChat = () => renderPage(<Routes><Route path="/projects/:project/chat" element={<ChatTab />} /></Routes>, { route: "/projects/acme/chat?c=9" });
+/** The zone Automation: the Architect is in the agent panel, with its latest conversation. */
+const renderChat = () => renderPage(<Routes>{projectRoutes()}</Routes>, { route: "/projects/acme/automation" });
 
 describe("the Architect's proposal", () => {
   it("shows the graph and saves only on «Salva»", async () => {

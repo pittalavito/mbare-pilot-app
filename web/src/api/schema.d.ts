@@ -414,11 +414,14 @@ export interface paths {
         };
         /**
          * List Conversations
-         * @description Most recently updated first.
+         * @description Most recently updated first; ``?context=`` only those of a note (the agent panel).
          */
         get: operations["list_conversations_chatbots__chatbot_id__conversations_get"];
         put?: never;
-        /** New Conversation */
+        /**
+         * New Conversation
+         * @description ``{context}``: the note it belongs to (optional body).
+         */
         post: operations["new_conversation_chatbots__chatbot_id__conversations_post"];
         delete?: never;
         options?: never;
@@ -2835,6 +2838,14 @@ export interface components {
             /** Question */
             question: string;
         };
+        /** ConversationRequest */
+        ConversationRequest: {
+            /**
+             * Context
+             * @default
+             */
+            context: string;
+        };
         /** ConversationResponse */
         ConversationResponse: {
             /** Id */
@@ -2843,6 +2854,11 @@ export interface components {
             chatbot_id: number;
             /** Title */
             title: string;
+            /**
+             * Context
+             * @default
+             */
+            context: string;
             /**
              * Created At
              * Format: date-time
@@ -5575,7 +5591,9 @@ export interface operations {
     };
     list_conversations_chatbots__chatbot_id__conversations_get: {
         parameters: {
-            query?: never;
+            query?: {
+                context?: string | null;
+            };
             header?: never;
             path: {
                 chatbot_id: number;
@@ -5613,7 +5631,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ConversationRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             201: {

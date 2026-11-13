@@ -178,6 +178,7 @@ class ConversationTable(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     chatbot_id: int = Field(foreign_key="chatbot.id", index=True, ondelete="CASCADE")
     title: str = ""
+    context: str = Field(default="", sa_column_kwargs={"server_default": ""})
     created_at: datetime = _timestamp()
     updated_at: datetime = _timestamp(index=True)
 

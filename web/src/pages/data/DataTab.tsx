@@ -1,81 +1,32 @@
-import { Alert, Anchor, Button, Card, FileInput, Grid, Group, Loader, Modal, NavLink, SegmentedControl, Stack, Tabs, Text, TextInput, Textarea } from "@mantine/core";
+import { Alert, Anchor, Button, Card, FileInput, Grid, Group, Loader, Modal, NavLink, SegmentedControl, Stack, Text, TextInput, Textarea } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, useEffect, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { type ReactNode, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import {
-  type DataFile, NOTE_PREFIXES, fileUrl, useAgentTasks, useDataSettings, useDeleteFile, useDeleteNote, useFiles, useNote, useNotes, useSaveNote, useUploadFiles,
+  type DataFile, NOTE_PREFIXES, fileUrl, useAgentTasks, useDeleteFile, useDeleteNote, useFiles, useNote, useNotes, useSaveNote, useUploadFiles,
 } from "../../api/projectData";
 import { isDraft } from "../../api/publish";
 import { WIP_NOTE, useWipState, wipKeys } from "../../api/wip";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Markdown } from "../../components/Markdown";
 import { localTime, size } from "../../format";
-import { DEFAULT_VISIBLE, DataSettings, REFERENCE_TYPES, References } from "./DataSettings";
 import { PublishButton } from "./PublishModal";
-import { Activities, AgentTasks } from "./TypedNotes";
-import { ContextTab } from "./ContextTab";
 import { WipModal } from "./WipModal";
 
-/** The Dati tab of a project: its own data, kept by the app apart from its
- * code: notes written here (generic, activities, agent tasks, references: all
- * markdown files, typed by their name) and uploaded files (sources of the RAG
- * index). Which note types it shows is a setting of the project (⚙️). */
-export function DataTab() {
-  const { project = "" } = useParams();
-  const [search] = useSearchParams();
-  const settings = useDataSettings(project);
-  const visible = settings.data?.visible_note_types ?? (settings.error ? DEFAULT_VISIBLE : []); // unreadable: the defaults, with the error
-  const references = REFERENCE_TYPES.filter((kind) => visible.includes(kind));
-  const tabs = [
-    visible.includes("generic") && { value: "notes", label: "📝 Note", panel: <Notes project={project} /> },
-    visible.includes("activity") && { value: "activities", label: "📋 Attività", panel: <Activities project={project} /> },
-    visible.includes("agent_task") && { value: "agent-tasks", label: "🤖 Agent task", panel: <AgentTasks project={project} /> },
-    references.length > 0 && { value: "references", label: "📎 Riferimenti", panel: <References project={project} kinds={references} /> },
-    settings.data?.files_visible !== false && { value: "files", label: "📎 File", panel: <Files project={project} /> },
-    { value: "context", label: "📚 Contesto", panel: <ContextTab project={project} /> },
-    { value: "settings", label: "⚙️ Impostazioni", panel: <DataSettings project={project} /> },
-  ].filter((tab) => !!tab);
-  const note = search.get("note");
-  const [tab, setTab] = useState<string | null>(() => tabOfNote(note)); // a link to a note opens its tab
-  useEffect(() => { // and so does a note opened from another tab (e.g. an activity's agent task)
-    const wanted = tabOfNote(note);
-    if (wanted) setTab(wanted);
-  }, [note]);
-  const current = tabs.some((item) => item.value === tab) ? tab : tabs[0].value; // a hidden tab falls back to the first one
-
-  if (settings.isPending) return <Loader size="sm" />;
-  return (
-    <Tabs value={current} onChange={setTab} keepMounted={false}>
-      {settings.error && <Alert color="red" mb="sm">{settings.error.message}</Alert>}
-      <Tabs.List mb="md">
-        {tabs.map((item) => <Tabs.Tab key={item.value} value={item.value}>{item.label}</Tabs.Tab>)}
-      </Tabs.List>
-      {tabs.map((item) => <Tabs.Panel key={item.value} value={item.value}>{item.panel}</Tabs.Panel>)}
-    </Tabs>
-  );
-}
-
-/** The tab of a note by its name (``?note=`` of a link, e.g. from a chatbot); null = the first one. */
-export function tabOfNote(note: string | null): string | null {
-  if (!note) return null;
-  if (note.startsWith(NOTE_PREFIXES.agent_task)) return "agent-tasks";
-  if (note.startsWith(NOTE_PREFIXES.activity)) return "activities";
-  if (note.startsWith(NOTE_PREFIXES.code_reference) || note.startsWith(NOTE_PREFIXES.context_reference)) return "references";
-  return "notes";
-}
+/** The pieces of a project's own data (notes, the WIP note, uploaded files): shown by the
+ * zones «Lavoro» (pages/work/WorkZone.tsx) and «Progetto» (pages/project/ProjectZone.tsx). */
 
 // -------------------------------------------------------------------- notes
 
-/** The generic notes: the typed ones have their own tabs. The WIP note
- * (``wip.md``) is always the first, even before it exists. */
-function Notes({ project }: { project: string }) {
+/** The generic notes (the typed ones and the WIP note live in «Lavoro»). */
+export function Notes({ project }: { project: string }) {
   const notes = useNotes(project);
   const [search, setSearch] = useSearchParams();
   const [creating, setCreating] = useState(false);
   const generic = notes.data?.filter((note) => (note.note_type ?? "generic") === "generic").map((note) => note.name) ?? [];
-  const names = notes.data ? [WIP_NOTE, ...generic.filter((name) => name !== WIP_NOTE)] : [];
+  const names = generic.filter((name) => name !== WIP_NOTE); // the WIP note lives in «Lavoro»
   const requested = search.get("note");
   const selected = requested && names.includes(requested) ? requested : names[0];
   const select = (name: string) => setSearch({ note: name }, { replace: true });
@@ -88,15 +39,12 @@ function Notes({ project }: { project: string }) {
           {notes.isPending && <Loader size="sm" />}
           {notes.error && <Alert color="red">{notes.error.message}</Alert>}
           {names.map((name) => (
-            <NavLink key={name} label={name === WIP_NOTE ? `📥 ${name}` : name} description={name === WIP_NOTE ? "appunti di getto" : undefined}
-                     active={name === selected} onClick={() => select(name)} />
+            <NavLink key={name} label={name} active={name === selected} onClick={() => select(name)} />
           ))}
         </Stack>
       </Grid.Col>
       <Grid.Col span={{ base: 12, md: 9 }}>
-        {selected === WIP_NOTE ? (
-          <WipEditor project={project} />
-        ) : selected ? (
+        {selected ? (
           <NoteEditor key={selected} project={project} name={selected} />
         ) : (
           <Text c="dimmed">Le note sono file markdown del progetto: appunti, decisioni, contesto per gli agenti.</Text>
@@ -123,7 +71,7 @@ function DraftPublish({ project, draft }: { project: string; draft: string }) {
 
 /** The WIP note: written freely, «📥 Elabora WIP» turns its new text (after
  * the last «elaborato il…» line) into proposals for the activities. */
-function WipEditor({ project }: { project: string }) {
+export function WipEditor({ project }: { project: string }) {
   const state = useWipState(project);
   const [processing, setProcessing] = useState(false);
   if (state.error) return <Alert color="red">{state.error.message}</Alert>;
@@ -250,7 +198,7 @@ function NewNoteModal({ project, existing, opened, onClose, onCreated }: {
 
 // -------------------------------------------------------------------- files
 
-function Files({ project }: { project: string }) {
+export function Files({ project }: { project: string }) {
   const files = useFiles(project);
   const upload = useUploadFiles(project);
   const [picked, setPicked] = useState<File[]>([]);

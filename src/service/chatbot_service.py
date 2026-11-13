@@ -138,12 +138,13 @@ class ChatbotService:
         return self._chatbots.delete_chatbot(chatbot_id)
 
     # --------------------------------------------------------- conversations
-    def list_conversations(self, chatbot_id: int) -> list[Conversation]:
-        """Most recently updated first."""
-        return self._chatbots.list_conversations(chatbot_id)
+    def list_conversations(self, chatbot_id: int, context: str | None = None) -> list[Conversation]:
+        """Most recently updated first; ``context`` given: only that context's."""
+        conversations = self._chatbots.list_conversations(chatbot_id)
+        return conversations if context is None else [item for item in conversations if item.context == context]
 
-    def new_conversation(self, chatbot_id: int) -> Conversation:
-        return self._chatbots.save_conversation(Conversation(chatbot_id=self.get_chatbot(chatbot_id).id))
+    def new_conversation(self, chatbot_id: int, context: str = "") -> Conversation:
+        return self._chatbots.save_conversation(Conversation(chatbot_id=self.get_chatbot(chatbot_id).id, context=context.strip()))
 
     def delete_conversation(self, conversation_id: int) -> bool:
         return self._chatbots.delete_conversation(conversation_id)
