@@ -29,6 +29,18 @@ DEFAULT_WIP_PROMPT = (
 )
 """The secretary's instructions for «Elabora WIP» when its ``wip_prompt`` is empty."""
 
+DEFAULT_PLAN_PROMPT = (
+    "Sei il Pianificatore: dall'attività che ti do proponi gli agent task per farla, nell'ordine in cui farli.\n"
+    "Rispondi solo nello schema dato, in italiano, breve.\n"
+    "Un task può nascere da una voce o da più voci insieme (scrivi i loro numeri); le voci che vanno fatte a mano\n"
+    "lasciale fuori. Se per fare l'attività serve un passo che nelle voci non c'è (es. aggiornare prima una libreria),\n"
+    "proponilo senza voci. Per ogni task: titolo breve, tipo (development cambia il codice; analysis, confluence, jira no),\n"
+    "repository dell'elenco (vuoto se non serve), il motivo in una riga, l'obiettivo in una o due frasi e pochi criteri\n"
+    "di accettazione verificabili. Prima le librerie, poi chi le usa. Usa il contesto del progetto solo se aiuta.\n"
+    "Le parole come REPO_1 o TERMINE_2 sono nomi nascosti: usale così come sono. Non inventare."
+)
+"""The secretary's instructions for the Pianificatore when its ``plan_prompt`` is empty."""
+
 OPERATOR_PROMPT = (
     "Sei l'Operatore Java del progetto: fai sui repository le procedure che ti chiedo (Maven, Spring Boot, librerie).\n"
     "Rispondi in italiano, brevissimo. Usa solo i tool, pochi passi, niente spiegazioni lunghe.\n"
@@ -97,6 +109,7 @@ DEFAULT_CHATBOTS: list[ChatbotFile] = [
             "Se non sai, non inventare."
         ),
         wip_prompt=DEFAULT_WIP_PROMPT,
+        plan_prompt=DEFAULT_PLAN_PROMPT,
     ),
     ChatbotFile(
         name="Refiner",

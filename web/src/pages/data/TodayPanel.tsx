@@ -44,6 +44,7 @@ const WAITING_LABEL: Record<string, string> = {
   to_verify: "da verificare",
   answer: "Copilot ha risposto",
   question: "Copilot ti fa una domanda",
+  plan: "il piano del Pianificatore da confermare",
 };
 
 export function TodayPanel({ project }: { project: string }) {

@@ -57,6 +57,8 @@ class ChatbotFile(_File):
     system_prompt_file: str | None = None
     wip_prompt: Prompt | None = None
     """Only ``kind: secretary``: the instructions of «Elabora WIP» (omitted = the default in the code)."""
+    plan_prompt: Prompt | None = None
+    """Only ``kind: secretary``: the instructions of the Pianificatore, «▶️ Lavora attività» (omitted = the default in the code)."""
 
     @model_validator(mode="after")
     def _one_prompt(self) -> "ChatbotFile":
@@ -64,6 +66,8 @@ class ChatbotFile(_File):
             raise ValueError("scrivi system_prompt oppure system_prompt_file (uno dei due)")
         if self.wip_prompt is not None and self.kind is not ChatbotKind.SECRETARY:
             raise ValueError("wip_prompt vale solo per un chatbot secretary")
+        if self.plan_prompt is not None and self.kind is not ChatbotKind.SECRETARY:
+            raise ValueError("plan_prompt vale solo per un chatbot secretary")
         fixed = KIND_TOOLS.get(self.kind)
         if fixed is not None and self.tools and sorted(self.tools) != sorted(fixed):
             raise ValueError(f"un chatbot {self.kind} ha i suoi tool ({', '.join(fixed)}): togli tools")

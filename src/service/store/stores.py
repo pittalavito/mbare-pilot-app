@@ -20,6 +20,7 @@ from service.store.definition_store import DefinitionStore
 from service.store.evaluation_store import EvaluationStore
 from service.store.mask_store import MaskStore
 from service.store.pipeline_store import PipelineStore
+from service.store.plan_store import PlanStore
 from service.store.project_file_store import ProjectFileStore
 from service.store.project_store import ProjectStore
 from service.store.rag_store import RagStore
@@ -45,6 +46,7 @@ class Stores:
         self.pipelines = PipelineStore(self.engine)
         self.copilot = CopilotStore(self.engine)
         self.wip = WipStore(self.engine)
+        self.plans = PlanStore(self.engine)
         self.rag = RagStore(self.engine)
         self.evaluations = EvaluationStore(self.engine)
         self.atlassian = AtlassianStore(self.engine, SecretBox(config.secret_key))

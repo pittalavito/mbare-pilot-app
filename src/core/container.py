@@ -31,6 +31,7 @@ from service.metrics_service import MetricsService
 from service.model_service import ModelService
 from service.pipeline_runner import PipelineRunner
 from service.pipeline_service import PipelineService
+from service.plan_service import PlanService
 from service.process_service import ProcessService
 from service.project_data_service import ProjectDataService
 from service.project_service import ProjectService
@@ -116,7 +117,7 @@ class Container:
             agent_service=self.agent_service,
             automation_cache=self.automation_cache_service,
         )
-        self.today_service = TodayService(project_data=self.project_data_service, copilot=self.copilot_service)
+        self.today_service = TodayService(project_data=self.project_data_service, copilot=self.copilot_service, plans=stores.plans)
         self.metrics_service = MetricsService(runs=stores.runs, copilot=stores.copilot, wip_runs=stores.wip)
         self.evaluation_service = EvaluationService(catalog=stores.catalog, chat=self.chat_service, evaluations=stores.evaluations,
                                                     data_root=config.eval_data_root, reports_root=config.evaluations_root)
@@ -128,6 +129,10 @@ class Container:
             catalog=stores.catalog,
             runs=stores.runs,
             wip_runs=stores.wip,
+        )
+        self.plan_service = PlanService(
+            project_data=self.project_data_service, masking=self.masking_service, chatbots=stores.chatbots, chat=self.chat_service,
+            catalog=stores.catalog, runs=stores.runs, plans=stores.plans, git=self.git_service, rag=self.rag_service, copilot=self.copilot_service,
         )
         self.definition_service = DefinitionService(
             definitions=stores.definitions,

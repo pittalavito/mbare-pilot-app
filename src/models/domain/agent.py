@@ -113,6 +113,8 @@ class RunOrigin(StrEnum):
     """Delegated by another agent (tool ask_agent, removed): kept for the runs already recorded."""
     WIP = "wip"
     """«Elabora WIP»: one structured call of the secretary's model (service/wip_service.py)."""
+    PLAN = "plan"
+    """The Pianificatore of «▶️ Lavora attività»: one structured call of the secretary's model (service/plan_service.py)."""
 
 
 

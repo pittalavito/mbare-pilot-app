@@ -12,13 +12,15 @@ class WaitingKind(StrEnum):
     """An agent task created, in refinement or to verify."""
     COPILOT = "copilot"
     """A Copilot session waiting for the user's answer."""
+    PLAN = "plan"
+    """The Pianificatore's plan of an activity, waiting to be confirmed («▶️ Lavora attività»)."""
 
 
 class TodayWaiting(BaseModel):
     kind: WaitingKind
-    task: str = Field(description="The agent task's note name.")
+    task: str = Field(description="The agent task's note name (the activity's, for kind plan).")
     title: str
-    status: str = Field(description="The task's status (created, refinement, to_verify) or why Copilot waits (answer, question).")
+    status: str = Field(description="The task's status (created, refinement, to_verify), why Copilot waits (answer, question) or plan.")
     session_id: int | None = Field(None, description="The Copilot session, for kind copilot.")
 
 

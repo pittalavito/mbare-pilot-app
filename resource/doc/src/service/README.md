@@ -22,6 +22,7 @@ src/service/
   masking_service.py        mascheramento dei dati sensibili verso i modelli
   copilot_service.py        agent task delegati a GitHub Copilot CLI: chat di preparazione, esecuzione nel worker
   wip_service.py            «Elabora WIP»: anteprima mascherata, una chiamata strutturata, proposte applicate senza LLM
+  plan_service.py           «▶️ Lavora attività»: il Pianificatore (una chiamata strutturata), conferma del piano, percorso dei task
   rag_service.py            contesto del progetto (RAG): indicizzazione mascherata, ricerca ibrida con le fonti
   metrics_service.py        pagina Metriche: costo e latenza per chi, Copilot a parte, accettazione di Elabora WIP
   evaluation_service.py     valutazioni sui set di prova (Elabora WIP, RAG): report, coda del worker
@@ -268,11 +269,21 @@ Un agente fa una procedura con i suoi tool; se ha fatto giusto, con un clic la s
 
 **`TodayService`** (il pannello «📌 Oggi» in cima alla sotto-scheda 📋 Attività, `GET /projects/{p}/today`, e il tool `today` del segretario): calcolato nel codice, senza LLM, sul progetto aperto.
 
-- **Aspettano te**: gli agent task creati, in rifinitura o da verificare (in quest'ordine); le sessioni Copilot che aspettano: in preparazione con l'ultimo messaggio (eventi esclusi) di Copilot (`answer`), in esecuzione con una domanda di `ask_user` senza risposta (`question`), dalla più recente. Una sessione di un task che non c'è più non conta.
+- **Aspettano te**: gli agent task creati, in rifinitura o da verificare (in quest'ordine); le sessioni Copilot che aspettano: in preparazione con l'ultimo messaggio (eventi esclusi) di Copilot (`answer`), in esecuzione con una domanda di `ask_user` senza risposta (`question`), dalla più recente. Una sessione di un task che non c'è più non conta. In cima, i piani del Pianificatore da confermare (`plan`, con il nome dell'attività).
 - **Scadute** / **In scadenza**: le voci non fatte con una scadenza passata / entro `due_soon_days` giorni da oggi (oggi compreso), delle attività non fatte, per data. I giorni sono un'impostazione del progetto (`Project.due_soon_days`, default 3, da 0 a 60; Progetto → 🔧 Impostazioni).
 - **Da chiudere**: le attività non fatte con tutte le voci fatte (almeno una).
 - **Azioni su una voce**: `check_item` (✅ Spunta) e `set_due` (📅 Rimanda), per numero **e testo**: se la voce è cambiata nel frattempo è un `ConflictError` (ricarica), un numero che non c'è un `ValidationError`, una voce già fatta un conflitto. «Segna fatta» di un'attività usa il salvataggio normale (con «Imparato» facoltativo).
 - Restano fuori (backlog): attività ferme da giorni, testo nuovo nella WIP, urgenti.
+
+## Lavora attività (piano 12a)
+
+**`PlanService`**: da un'attività ai suoi agent task, in ordine, e il percorso di ognuno. Pochi token: una chiamata sola, poi tutto senza LLM.
+
+- **Proposta** (`propose`, `POST /projects/{p}/activities/{a}/plan`): **una chiamata** al modello del segretario con il suo `plan_prompt` (vuoto = `DEFAULT_PLAN_PROMPT`) e risposta strutturata (`PlanAnswer`), senza tool. Il modello riceve titolo e descrizione dell'attività, le voci non fatte e senza task (numerate), i nomi dei repository, i tipi di task e i **3 pezzi** più vicini dell'indice del contesto (se l'indice non risponde, niente contesto). Mascherato come Elabora WIP (i repository entrano nella mappa); le proposte tornano in chiaro: voci che non ci sono si tolgono (un task senza voci è «nuovo»), un repository fuori progetto si svuota. La chiamata è una run (origine `plan`); il piano (`ActivityPlan`, tabella `activity_plan`, vale l'ultimo dell'attività) aspetta l'utente.
+- **Conferma** (`confirm`): le proposte scelte, corrette, nell'ordine dato diventano agent task **in rifinitura** con obiettivo e criteri, collegati alle loro voci (se il testo è ancora quello e la voce è libera) e all'attività; un task «nuovo» prima aggiunge la sua voce in fondo. Il piano ricorda task e repository proposto. **Scarta** (`dismiss`): niente creato.
+- **Percorso** (`path`, `GET /projects/{p}/activities/{a}/path`): per ogni task del piano i passi, ricavati dallo stato del task e dalla sua ultima sessione Copilot: conferma del task, preparazione e delega, piano di Copilot, esecuzione, verifica (dall'ultimo evento `🔍 Verifica…`; senza: saltata), conferma finale; per i tipi che non cambiano il codice, al posto degli ultimi la risposta di Copilot. `you` = tocca all'utente (punto di controllo). Il primo task non fatto è quello corrente.
+- **Conferma del task** (`confirm_task`, `POST /projects/{p}/agent-tasks/{t}/confirm`): da «in rifinitura» a «da fare»; senza obiettivo è un errore. Il Refiner resta fuori dal giro: si apre nel pannello se serve.
+- In 12a i passi li fa partire l'utente dal percorso; il giro automatico è il 12b.
 
 ## Elabora WIP
 

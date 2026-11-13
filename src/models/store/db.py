@@ -174,6 +174,9 @@ class ChatbotTable(SQLModel, table=True):
     wip_prompt: str = Field(default="", sa_type=Text)
     """Only a secretary: the instructions of «Elabora WIP»; ``""`` = the default in the code."""
     wip_prompt_version: int = 1
+    plan_prompt: str = Field(default="", sa_type=Text)
+    """Only a secretary: the instructions of the Pianificatore («▶️ Lavora attività»); ``""`` = the default in the code."""
+    plan_prompt_version: int = 1
     rag_enabled: bool = False
     """NOTE: RAG behaviour of chatbots still to be defined (see README)."""
     created_at: datetime = _timestamp()
@@ -374,6 +377,23 @@ class WipRunTable(SQLModel, table=True):
     skipped: int = 0
     dismissed_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
     created_at: datetime = _timestamp(index=True)
+
+
+class ActivityPlanTable(SQLModel, table=True):
+    """«▶️ Lavora attività» (plan 12a): the Pianificatore's plan of an activity, the
+    latest one counts; the call itself is the agent run with the same ``run_id``."""
+    __tablename__ = "activity_plan"
+
+    id: int | None = Field(default=None, primary_key=True)
+    project_name: str = _project_fk(nullable=False)
+    activity: str = Field(index=True)
+    run_id: str
+    status: str = "proposed"
+    proposals: list[dict] = Field(default_factory=list, sa_type=JSON)
+    tasks: list[dict] = Field(default_factory=list, sa_type=JSON)
+    cost_eur: float = 0.0
+    created_at: datetime = _timestamp()
+    updated_at: datetime = _timestamp()
 
 
 class EvaluationRunTable(SQLModel, table=True):

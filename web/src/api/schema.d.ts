@@ -2000,6 +2000,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/activities/{activity}/path": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Activity Path
+         * @description The plan waiting for a choice, or the confirmed plan with the steps of each task.
+         */
+        get: operations["activity_path_projects__project__activities__activity__path_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/activities/{activity}/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Propose Plan
+         * @description One call to the Pianificatore (the secretary's model): the proposed tasks (502 when the model fails).
+         */
+        post: operations["propose_plan_projects__project__activities__activity__plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/activities/{activity}/plan/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Plan
+         * @description The chosen proposals become agent tasks «in refinement», linked to their items (409 when the plan no longer waits).
+         */
+        post: operations["confirm_plan_projects__project__activities__activity__plan_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/activities/{activity}/plan/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismiss Plan */
+        post: operations["dismiss_plan_projects__project__activities__activity__plan_dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/agent-tasks/{task}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Task
+         * @description «Conferma del task»: from «in refinement» to «to do» (409 when already confirmed, 400 without an objective).
+         */
+        post: operations["confirm_task_projects__project__agent_tasks__task__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project}/context": {
         parameters: {
             query?: never;
@@ -2337,6 +2434,56 @@ export interface components {
              * @default
              */
             learned: string;
+        };
+        /**
+         * ActivityPath
+         * @description The plan of an activity and, once confirmed, where each task is.
+         */
+        ActivityPath: {
+            plan?: components["schemas"]["ActivityPlan"] | null;
+            /**
+             * Tasks
+             * @default []
+             */
+            tasks: components["schemas"]["PathTask"][];
+        };
+        /** ActivityPlan */
+        ActivityPlan: {
+            /** Id */
+            id?: number | null;
+            /** Project Name */
+            project_name: string;
+            /** Activity */
+            activity: string;
+            /** Run Id */
+            run_id: string;
+            /** @default proposed */
+            status: components["schemas"]["PlanStatus"];
+            /**
+             * Proposals
+             * @default []
+             */
+            proposals: components["schemas"]["PlanProposal"][];
+            /**
+             * Tasks
+             * @default []
+             */
+            tasks: components["schemas"]["PlanTask"][];
+            /**
+             * Cost Eur
+             * @default 0
+             */
+            cost_eur: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at?: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at?: string;
         };
         /** ActivityResponse */
         ActivityResponse: {
@@ -3813,6 +3960,45 @@ export interface components {
              */
             description: string;
         };
+        /** PathStep */
+        PathStep: {
+            key: components["schemas"]["StepKey"];
+            /** Label */
+            label: string;
+            state: components["schemas"]["StepState"];
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+        };
+        /** PathTask */
+        PathTask: {
+            /** Task */
+            task: string;
+            /** Title */
+            title: string;
+            type: components["schemas"]["TaskType"];
+            /** Status */
+            status: string;
+            /**
+             * Repository
+             * @default
+             */
+            repository: string;
+            /** Session Id */
+            session_id?: number | null;
+            /**
+             * Steps
+             * @default []
+             */
+            steps: components["schemas"]["PathStep"][];
+            /**
+             * Current
+             * @default false
+             */
+            current: boolean;
+        };
         /**
          * PipelineRequest
          * @description Create and update: the project comes from the URL and never changes.
@@ -3862,6 +4048,108 @@ export interface components {
             fields: string[];
             /** @default  */
             purpose: components["schemas"]["AutomationPurpose"];
+        };
+        /**
+         * PlanChoice
+         * @description A proposal the user keeps, as corrected; the order of the choices is the plan's.
+         */
+        PlanChoice: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            type: components["schemas"]["TaskType"];
+            /**
+             * Repository
+             * @default
+             */
+            repository: string;
+            /**
+             * Objective
+             * @default
+             */
+            objective: string;
+            /**
+             * Criteria
+             * @default []
+             */
+            criteria: string[];
+        };
+        /** PlanConfirmRequest */
+        PlanConfirmRequest: {
+            /** Choices */
+            choices: components["schemas"]["PlanChoice"][];
+        };
+        /**
+         * PlanProposal
+         * @description A proposed task in clear, as the user confirms, corrects or discards it.
+         */
+        PlanProposal: {
+            /**
+             * Title
+             * @description Titolo breve del task, all'imperativo.
+             */
+            title: string;
+            /** @description development (cambia il codice), analysis, confluence oppure jira. */
+            type: components["schemas"]["TaskType"];
+            /**
+             * Repository
+             * @description Il repository dove si lavora, uno dell'elenco; vuoto se non serve.
+             * @default
+             */
+            repository: string;
+            /**
+             * Items
+             * @description I numeri delle voci da cui nasce; vuoto per un task nuovo.
+             */
+            items?: number[];
+            /**
+             * Reason
+             * @description Perché questo task, in una riga.
+             * @default
+             */
+            reason: string;
+            /**
+             * Objective
+             * @description Obiettivo: cosa deve ottenere, in una o due frasi.
+             * @default
+             */
+            objective: string;
+            /**
+             * Criteria
+             * @description Criteri di accettazione, brevi e verificabili.
+             */
+            criteria?: string[];
+            /** Id */
+            id: number;
+            /**
+             * Item Texts
+             * @default []
+             */
+            item_texts: string[];
+            /**
+             * New
+             * @default false
+             */
+            new: boolean;
+        };
+        /**
+         * PlanStatus
+         * @enum {string}
+         */
+        PlanStatus: "proposed" | "confirmed" | "dismissed";
+        /**
+         * PlanTask
+         * @description A task of the confirmed plan, in its place.
+         */
+        PlanTask: {
+            /** Task */
+            task: string;
+            /**
+             * Repository
+             * @default
+             */
+            repository: string;
         };
         /**
          * PrepareTarget
@@ -4416,6 +4704,11 @@ export interface components {
              */
             position_y: number;
         };
+        /**
+         * StepKey
+         * @enum {string}
+         */
+        StepKey: "confirm" | "delegate" | "copilot_plan" | "execution" | "verify" | "answer" | "final";
         /** StepRunResponse */
         StepRunResponse: {
             /** Position */
@@ -4439,6 +4732,11 @@ export interface components {
             /** Finished At */
             finished_at: string | null;
         };
+        /**
+         * StepState
+         * @enum {string}
+         */
+        StepState: "todo" | "you" | "running" | "done" | "failed" | "skipped";
         /** SyncItemResponse */
         SyncItemResponse: {
             /** Kind */
@@ -4552,14 +4850,14 @@ export interface components {
             kind: components["schemas"]["WaitingKind"];
             /**
              * Task
-             * @description The agent task's note name.
+             * @description The agent task's note name (the activity's, for kind plan).
              */
             task: string;
             /** Title */
             title: string;
             /**
              * Status
-             * @description The task's status (created, refinement, to_verify) or why Copilot waits (answer, question).
+             * @description The task's status (created, refinement, to_verify), why Copilot waits (answer, question) or plan.
              */
             status: string;
             /**
@@ -4653,7 +4951,7 @@ export interface components {
          * WaitingKind
          * @enum {string}
          */
-        WaitingKind: "task" | "copilot";
+        WaitingKind: "task" | "copilot" | "plan";
         /** WipApplied */
         WipApplied: {
             /** Applied */
@@ -9010,6 +9308,168 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["WipRun"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    activity_path_projects__project__activities__activity__path_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                activity: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityPath"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    propose_plan_projects__project__activities__activity__plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                activity: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_plan_projects__project__activities__activity__plan_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                activity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_plan_projects__project__activities__activity__plan_dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                activity: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_task_projects__project__agent_tasks__task__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                task: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

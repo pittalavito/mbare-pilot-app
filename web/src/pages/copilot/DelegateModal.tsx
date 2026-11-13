@@ -60,7 +60,9 @@ function fieldValue(field: string, task: string, repository: string, current: st
  * code: tens of seconds). ``task`` fixed when opened from the task's form.
  * Prompt and model come from the coding-agent definition (data folder). First
  * the choice of how to prepare the repositories: the last one used with success. */
-export function DelegateModal({ project, task, opened, onClose }: { project: string; task?: string; opened: boolean; onClose: () => void }) {
+export function DelegateModal({ project, task, repository: proposed, opened, onClose }: {
+  project: string; task?: string; repository?: string; opened: boolean; onClose: () => void;
+}) {
   const navigate = useNavigate();
   const tasks = useAgentTasks(project);
   const repositories = useRepositories(project);
@@ -114,9 +116,12 @@ export function DelegateModal({ project, task, opened, onClose }: { project: str
       ...current.slice(1).filter((row) => row.repository !== repository),
     ]);
   }, [repository]);
-  useEffect(() => {
-    if (repository === null && repositories.data?.length === 1) setRepository(repositories.data[0].path);
-  }, [repositories.data, repository]);
+  useEffect(() => { // the one proposed (the activity's plan), else the only one
+    if (repository !== null || !repositories.data) return;
+    const known = proposed !== undefined && repositories.data.some((repo) => repo.path === proposed) ? proposed : undefined;
+    if (known !== undefined && proposed) setRepository(known);
+    else if (repositories.data.length === 1) setRepository(repositories.data[0].path);
+  }, [repositories.data, repository]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const models = status.data?.models ?? [];
   const chosen = tasks.data?.find((item) => item.name === chosenTask);

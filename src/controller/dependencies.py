@@ -19,6 +19,7 @@ from service.masking_service import MaskingService
 from service.metrics_service import MetricsService
 from service.model_service import ModelService
 from service.pipeline_service import PipelineService
+from service.plan_service import PlanService
 from service.process_service import ProcessService
 from service.project_data_service import ProjectDataService
 from service.project_service import ProjectService
@@ -127,3 +128,7 @@ def evaluation_service(request: Request) -> EvaluationService:
 
 def today_service(request: Request) -> TodayService:
     return request.app.state.container.today_service
+
+
+def plan_service(request: Request) -> PlanService:
+    return request.app.state.container.plan_service
