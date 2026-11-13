@@ -36,10 +36,10 @@ class Result(FunctionResult):
 
 def run(context: FunctionContext, step_input: str, params: Params) -> Result:
     alignment = context.maven.parent_alignment(context.project_name, params.parent_artifact_id, params.property)
-    return Result(text=_text(alignment), alignment=alignment)
+    return Result(text=alignment_text(alignment), alignment=alignment)
 
 
-def _text(alignment: PomAlignment) -> str:
+def alignment_text(alignment: PomAlignment) -> str:
     if not alignment.any_pom:
         return NO_POM
     to_align = [check for check in alignment.checks if not check.aligned]

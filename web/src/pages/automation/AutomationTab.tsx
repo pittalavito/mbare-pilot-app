@@ -1,9 +1,9 @@
-import { Accordion, Alert, Button, Card, Group, Loader, Select, Stack, Text, Textarea, Title } from "@mantine/core";
+import { Accordion, Alert, Button, Card, Group, Loader, Select, Stack, Text, TextInput, Textarea, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
-import { type Pipeline, type Run, type Step, isFinished, useDeleteRun, useEnqueueRun, usePipelines, useRuns } from "../../api/automation";
+import { type Pipeline, type Run, type Step, fieldsInput, isFinished, useDeleteRun, useEnqueueRun, usePipelines, useRuns } from "../../api/automation";
 import { useWorkerState } from "../../api/worker";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { KIND_LABELS, type Kind } from "./graphDraft";
@@ -55,9 +55,11 @@ export function AutomationTab() {
 
 function RunForm({ pipeline }: { pipeline: Pipeline }) {
   const [input, setInput] = useState("");
+  const [values, setValues] = useState<Record<string, string>>({});
   const enqueue = useEnqueueRun(pipeline.id);
+  const fields = pipeline.fields ?? [];
   const run = () =>
-    enqueue.mutate(input, {
+    enqueue.mutate(fields.length ? fieldsInput(values) : input, {
       onSuccess: () => {
         setInput("");
         notifications.show({ message: "Esecuzione in coda: la esegue il worker." });
@@ -66,14 +68,21 @@ function RunForm({ pipeline }: { pipeline: Pipeline }) {
   return (
     <Card withBorder>
       <Stack gap="xs">
-        <Textarea
-          label="Input"
-          autosize
-          minRows={2}
-          placeholder="Il testo che riceve il primo step come {input} (anche vuoto)."
-          value={input}
-          onChange={(event) => setInput(event.currentTarget.value)}
-        />
+        {fields.length ? (
+          fields.map((field) => (
+            <TextInput key={field} label={field} required value={values[field] ?? ""}
+              onChange={(event) => { const value = event.currentTarget.value; setValues((current) => ({ ...current, [field]: value })); }} />
+          ))
+        ) : (
+          <Textarea
+            label="Input"
+            autosize
+            minRows={2}
+            placeholder="Il testo che riceve il primo step come {input} (anche vuoto)."
+            value={input}
+            onChange={(event) => setInput(event.currentTarget.value)}
+          />
+        )}
         {enqueue.error && <Alert color="red">{enqueue.error.message}</Alert>}
         <Group justify="space-between">
           <Button onClick={run} loading={enqueue.isPending} disabled={!pipeline.active || !pipeline.steps.length}>

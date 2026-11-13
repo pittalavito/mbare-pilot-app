@@ -1,23 +1,32 @@
-import { Alert, Badge, Button, Group, Loader, Modal, SegmentedControl, Stack, Table, Text, TextInput } from "@mantine/core";
+import { Alert, Badge, Button, Divider, Group, Loader, Modal, SegmentedControl, Select, Stack, Table, TagsInput, Text, TextInput } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useEffect, useState } from "react";
 
+import { useChatbots } from "../../api/chat";
 import { SCOPE_LABELS, type TestScope, useDevSettings, useSaveDevSettings } from "../../api/dev";
 
 /** The checks around a development delegated to Copilot: whether the project
  * has the two automations, which tests the «Verifica sviluppo» runs by
  * default (a task can change it) and each repository's tests command (the
- * detected one unless another is written). */
+ * detected one unless another is written). Also the Operator (plan 11): which
+ * one prepares the repositories and the commands it may run (the detected
+ * install and test commands offered with a click). */
 export function DevSettingsModal({ project, opened, onClose }: { project: string; opened: boolean; onClose: () => void }) {
   const settings = useDevSettings(project);
   const save = useSaveDevSettings(project);
   const [scope, setScope] = useState<TestScope>("all");
   const [commands, setCommands] = useState<Record<string, string>>({});
+  const [allowed, setAllowed] = useState<string[]>([]);
+  const [operator, setOperator] = useState<string | null>(null);
+  const operators = (useChatbots(project).data ?? []).filter((bot) => bot.kind === "operator");
   useEffect(() => { // the saved settings, each time it opens
     if (!opened || !settings.data) return;
     setScope(settings.data.test_scope ?? "all");
     setCommands(Object.fromEntries((settings.data.repositories ?? []).map((repo) => [repo.repository, repo.command])));
+    setAllowed(settings.data.allowed_commands ?? []);
+    setOperator(settings.data.operator_chatbot_id === null || settings.data.operator_chatbot_id === undefined ? null : String(settings.data.operator_chatbot_id));
   }, [opened, settings.data]);
+  const suggested = (settings.data?.suggested_commands ?? []).filter((command) => !allowed.includes(command));
 
   const data = settings.data;
   return (
@@ -70,6 +79,35 @@ export function DevSettingsModal({ project, opened, onClose }: { project: string
               </Table.Tbody>
             </Table>
             <Text size="xs" c="dimmed">Vuoto = il comando rilevato (in grigio). I test toccati si aggiungono in fondo al comando.</Text>
+            <Divider label="🛠 Operatore" labelPosition="left" />
+            <Text size="sm" c="dimmed">
+              L'Operatore prepara i repository (branch, pull, clean install) quando glielo chiedi nel pannello; quello che fa giusto lo salvi
+              come automation e le volte dopo gira senza LLM. Lancia solo i comandi qui sotto: per un altro te lo chiede nel pannello.
+            </Text>
+            <Select
+              label="Operatore della preparazione"
+              placeholder={operators.length ? `Il primo (${operators[0].name})` : "Nessun Operatore nel progetto"}
+              data={operators.map((bot) => ({ value: String(bot.id), label: bot.name }))}
+              value={operator}
+              onChange={setOperator}
+              clearable
+            />
+            <TagsInput
+              label="Comandi permessi"
+              description="Esattamente come li lancia, es. mvn -B clean install (Invio per aggiungerne uno)"
+              value={allowed}
+              onChange={setAllowed}
+            />
+            {suggested.length > 0 && (
+              <Group gap={4}>
+                <Text size="xs" c="dimmed">Rilevati:</Text>
+                {suggested.map((command) => (
+                  <Button key={command} size="compact-xs" variant="light" onClick={() => setAllowed((current) => [...current, command])}>
+                    ＋ {command}
+                  </Button>
+                ))}
+              </Group>
+            )}
           </>
         )}
         {save.error && <Alert color="red">{save.error.message}</Alert>}
@@ -77,7 +115,7 @@ export function DevSettingsModal({ project, opened, onClose }: { project: string
           <Button variant="default" onClick={onClose}>Chiudi</Button>
           <Button
             disabled={!data} loading={save.isPending}
-            onClick={() => save.mutate({ test_scope: scope, commands }, { onSuccess: () => { notifications.show({ message: "Verifiche salvate." }); onClose(); } })}
+            onClick={() => save.mutate({ test_scope: scope, commands, allowed_commands: allowed, operator_chatbot_id: operator === null ? null : Number(operator) }, { onSuccess: () => { notifications.show({ message: "Verifiche salvate." }); onClose(); } })}
           >
             Salva
           </Button>

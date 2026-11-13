@@ -14,6 +14,7 @@ from models.domain.chatbot import ChatMessage
 from service.agent_config_service import AgentConfigService
 from service.chat_service import ChatService
 from service.code_todo_service import CodeTodoService
+from service.command_service import CommandService
 from service.copilot_service import CopilotService
 from service.git_service import GitService
 from service.masking_service import MaskingService
@@ -42,6 +43,7 @@ class AgentService:
         copilot_service: CopilotService,
         code_todo_service: CodeTodoService,
         rag_service: RagService | None = None,
+        command_service: CommandService | None = None,
     ):
         """``pipeline_service`` lets the agents start automations (tool run_automation);
         ``masking_service`` hides the project's sensitive values from the LLM (a
@@ -49,7 +51,8 @@ class AgentService:
         ``project_data_service`` lets them read the project's context (tool read_context);
         ``copilot_service`` lets the chatbot delegate agent tasks to Copilot (tool delegate_task);
         ``code_todo_service`` lets the refiner gather the code's comments (tool create_code_reference);
-        ``rag_service`` lets them search the project's context (tool search_context).
+        ``rag_service`` lets them search the project's context (tool search_context);
+        ``command_service`` lets the Operator run the project's allowed commands (tool run_command).
         All are required: whether a tool may use one in a run is decided by the
         tool (``ToolContext.require_*``, the run's origin), not by leaving it out."""
         self._chat_service = chat_service
@@ -63,6 +66,7 @@ class AgentService:
         self._copilot_service = copilot_service
         self._code_todo_service = code_todo_service
         self._rag_service = rag_service
+        self._command_service = command_service
 
     def run(self, config_name: str, task_input: str, *, project_name: str | None = None, origin: RunOrigin = RunOrigin.MANUAL,
             history: list[ChatMessage] | None = None) -> AgentRunRecord:
@@ -100,6 +104,7 @@ class AgentService:
             code_todos=self._code_todo_service,
             rag=self._rag_service,
             open_note=open_note,
+            commands=self._command_service,
         )
         tools = mask.wrap(build_tools(definition.tool_names, context))
         agent = AgentFactory.create_agent(definition, client, tools)

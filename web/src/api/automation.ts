@@ -103,3 +103,25 @@ export function useExportAutomationYaml() {
     mutationFn: (pipelineId: number) => unwrap(api.GET("/pipelines/{pipeline_id}/yaml", { params: { path: { pipeline_id: pipelineId } } })),
   });
 }
+
+export type LearnDraft = components["schemas"]["LearnDraft"];
+export type LearnedStep = components["schemas"]["LearnedStep"];
+export type LearnRequest = components["schemas"]["LearnRequest"];
+
+/** «✅ Giusto: fanne un'automation» (plan 11): what the agent did right in an answer (404 once its trace expired). */
+export function useLearnDraft() {
+  return useMutation({
+    mutationFn: (messageId: number) => unwrap(api.GET("/messages/{message_id}/learn-draft", { params: { path: { message_id: messageId } } })),
+  });
+}
+
+export function useSaveLearned(project: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: LearnRequest) => unwrap(api.POST("/projects/{project}/pipelines/learned", { params: { path: { project } }, body })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: automationKeys.pipelines(project) }),
+  });
+}
+
+/** The values of an automation's fields as its run input (a JSON object). */
+export const fieldsInput = (values: Record<string, string>) => JSON.stringify(values);

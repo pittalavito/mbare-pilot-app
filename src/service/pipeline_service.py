@@ -11,7 +11,8 @@ from domain.pipeline.graph import linear_edges, validate_graph
 from function.registry import FUNCTION_REGISTRY, get_function
 from function.spec import FunctionSpec
 from models.domain.agent import AgentConfig, ToolInfo
-from models.domain.pipeline import Pipeline, PipelineEdge, PipelineRun, PipelineStep, RunStatus, StepKind
+from models.domain.chatbot import STEP_TOOLS
+from models.domain.pipeline import AutomationPurpose, Pipeline, PipelineEdge, PipelineRun, PipelineStep, RunStatus, StepKind, used_fields
 from models.domain.worker import WorkerStatus
 from service.agent_config_service import AgentConfigService
 from service.model_service import require_usable_model
@@ -64,7 +65,9 @@ class PipelineService:
         description: str = "",
         active: bool = True,
         steps: list[PipelineStep] | None = None,
-        edges: list[PipelineEdge] | None = None
+        edges: list[PipelineEdge] | None = None,
+        fields: list[str] | None = None,
+        purpose: AutomationPurpose = AutomationPurpose.NONE,
     ) -> Pipeline:
         """``edges`` empty = the chain of ``steps`` in their order."""
         if self._projects.get(project_name) is None:
@@ -76,7 +79,9 @@ class PipelineService:
             description=description.strip(),
             active=active,
             steps=[step.model_dump() for step in steps],
-            edges=[edge.model_dump() for edge in edges or linear_edges(steps)]
+            edges=[edge.model_dump() for edge in edges or linear_edges(steps)],
+            fields=list(fields or []),
+            purpose=purpose,
         )
         self._validate(pipeline)
         return self._pipelines.save_pipeline(pipeline)
@@ -90,7 +95,9 @@ class PipelineService:
         description: str = "",
         active: bool = True,
         steps: list[PipelineStep] | None = None,
-        edges: list[PipelineEdge] | None = None
+        edges: list[PipelineEdge] | None = None,
+        fields: list[str] | None = None,
+        purpose: AutomationPurpose = AutomationPurpose.NONE,
     ) -> Pipeline:
         """Everything but the project. Steps keep their id to be updated, the
         others are added, the missing ones removed; the edges are replaced
@@ -105,6 +112,8 @@ class PipelineService:
             "active": active,
             "steps": [step.model_dump() for step in _versioned(current.steps, steps)],
             "edges": [edge.model_dump() for edge in edges or linear_edges(steps)],
+            "fields": list(fields or []),
+            "purpose": purpose,
             "updated_at": datetime.now(timezone.utc),
         })
         self._validate(pipeline)
@@ -127,7 +136,7 @@ class PipelineService:
         steps, edges = yaml_format.steps_and_edges(spec, current)
         pipeline = Pipeline(id=current.id if current else None, project_name=project_name, name=spec.name, description=spec.description.strip(),
                             active=spec.active, steps=[step.model_dump() for step in steps],
-                            edges=[edge.model_dump() for edge in edges or linear_edges(steps)])
+                            edges=[edge.model_dump() for edge in edges or linear_edges(steps)], fields=spec.fields, purpose=spec.purpose)
         self._validate(pipeline)
         return pipeline, current
 
@@ -135,7 +144,8 @@ class PipelineService:
     def save_yaml(self, project_name: str, text: str) -> Pipeline:
         """Create the automation, or update the project's one with the same name (its steps keep their ids)."""
         pipeline, current = self.check_yaml(project_name, text)
-        values = dict(description=pipeline.description, active=pipeline.active, steps=pipeline.steps, edges=pipeline.edges)
+        values = dict(description=pipeline.description, active=pipeline.active, steps=pipeline.steps, edges=pipeline.edges,
+                      fields=pipeline.fields, purpose=pipeline.purpose)
         if current is None or current.id is None:
             return self.create_pipeline(project_name, pipeline.name, **values)
         return self.update_pipeline(current.id, name=pipeline.name, **values)
@@ -158,6 +168,7 @@ class PipelineService:
         if not pipeline.steps:
             raise ValidationError(f"L'automation {pipeline.name} non ha step.")
         self._validate(pipeline)
+        pipeline.run_fields(pipeline_input)  # the fields' values are all there
         return self._pipelines.save_pipeline_run(PipelineRun(pipeline_id=pipeline.id, input=pipeline_input))
 
     def list_runs(self, pipeline_id: int, limit: int = 20) -> list[PipelineRun]:
@@ -217,11 +228,21 @@ class PipelineService:
                     raise ValidationError(f"{label}: l'agente {step.agent_config_name} non esiste più.")
                 if agent.project_name not in (None, pipeline.project_name):
                     raise ValidationError(f"{label}: l'agente {agent.name} appartiene al progetto {agent.project_name}.")
+            elif step.kind is StepKind.TOOL:
+                if step.tool_name not in STEP_TOOLS:
+                    raise ValidationError(f"{label}: il tool {step.tool_name or '(nessuno)'} non si può usare in uno step "
+                                          f"(solo {', '.join(STEP_TOOLS)}).")
             else:
                 try:
                     get_function(step.function_name).validate_params(step.params)
                 except ValidationError as exc:
                     raise ValidationError(f"{label}: {exc}") from exc
+            named = used_fields(step.params if step.kind is StepKind.TOOL else {}) | used_fields(step.input_template)
+            unknown = sorted(named - set(pipeline.fields))
+            if unknown:
+                raise ValidationError(f"{label}: usa campi che l'automation non ha: {', '.join(unknown)}.")
+        if len(set(pipeline.fields)) != len(pipeline.fields):
+            raise ValidationError("Due campi con lo stesso nome.")
         validate_graph(pipeline.steps, pipeline.edges)
 
 

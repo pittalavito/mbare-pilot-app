@@ -310,7 +310,8 @@ class DefinitionService:
         (history, prompt versions) and their place in the graph editor."""
         current = next((p for p in self._pipelines.list_pipelines(project_name) if p.name.lower() == spec.name.lower()), None)
         steps, edges = yaml_format.steps_and_edges(spec, current)
-        values = dict(name=spec.name, description=spec.description, active=spec.active, steps=steps, edges=edges)
+        values = dict(name=spec.name, description=spec.description, active=spec.active, steps=steps, edges=edges,
+                      fields=spec.fields, purpose=spec.purpose)
         if current is None:
             self._pipelines.create_pipeline(project_name, **values)
             return SyncOutcome.CREATED
@@ -372,6 +373,7 @@ def _shape(pipeline: Pipeline) -> tuple:
          step.input_template,
          step.agent_config_name,
          step.function_name,
+         step.tool_name,
          step.params,
          (
             step.agent.system_prompt,
@@ -383,7 +385,7 @@ def _shape(pipeline: Pipeline) -> tuple:
     for step in pipeline.steps
     ]
     edges = sorted((edge.source, edge.target, edge.condition.value, edge.value) for edge in pipeline.edges)
-    return pipeline.name, pipeline.description.strip(), pipeline.active, steps, edges
+    return pipeline.name, pipeline.description.strip(), pipeline.active, steps, edges, list(pipeline.fields), pipeline.purpose
 
 
 def _first_error(exc: PydanticValidationError) -> str:

@@ -390,6 +390,14 @@ class ProjectDataService:
         cleaned = {repository.strip("/\\"): command.strip() for repository, command in commands.items() if command.strip()}
         self._projects.save(project.model_copy(update={"test_scope": scope, "test_commands": cleaned}))
 
+    def operator_chatbot_id(self, project_name: str) -> int | None:
+        """The Operator of the preparation before Copilot (plan 11); None = the project's first one."""
+        return self._projects.get(self._project(project_name)).operator_chatbot_id
+
+    def save_operator_chatbot_id(self, project_name: str, chatbot_id: int | None) -> None:
+        project = self._projects.get(self._project(project_name))
+        self._projects.save(project.model_copy(update={"operator_chatbot_id": chatbot_id}))
+
     def files_visible(self, project_name: str) -> bool:
         """Whether the Dati tab shows the uploaded files."""
         return self._projects.get(self._project(project_name)).files_visible

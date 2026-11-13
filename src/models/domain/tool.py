@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 
 from models.domain.git import GitBranch, GitBranchPullOutcome, GitCommit, GitDiffFile, GitStash, GitStatus
 from models.domain.masking import MaskRepositoryName, MaskRepositoryNames
+from models.domain.maven import PomAlignment
 from models.domain.rag import RagHit
 
 
@@ -315,3 +316,15 @@ class FunctionTaskResponse(BaseModel):
     title: str
     activity: str | None = None
     link: str = Field(..., description="Link to the task in the app: give it to the user as a markdown link.")
+
+
+class CommandRunResponse(BaseModel):
+    repository: MaskRepositoryName = Field(..., description="Repository folder inside the project ('' = the project folder).")
+    command: str
+    exit_code: int = Field(..., description="0 = it worked.")
+    output: str = Field(..., description="The last lines of its output.")
+
+
+class PomAlignmentResponse(BaseModel):
+    text: str = Field(..., description="The POMs compared with the parent's version: the ones to align first.")
+    alignment: PomAlignment

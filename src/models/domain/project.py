@@ -24,6 +24,12 @@ DEFAULT_VISIBLE_NOTE_TYPES = [NoteType.GENERIC, NoteType.AGENT_TASK, NoteType.AC
 """The references stay inside the tasks and activities that link them."""
 
 
+class CommandRequest(BaseModel):
+    """A command the Operator wanted to run and may not (yet)."""
+    repository: str = ""
+    command: str
+
+
 class Project(BaseModel):
     name: Name
     description: str = ""
@@ -43,6 +49,14 @@ class Project(BaseModel):
     """«Verifica sviluppo»: every test or only the touched ones, unless the task says otherwise."""
     test_commands: dict[str, str] = {}
     """«Verifica sviluppo»: the tests' command per repository (folder → command); missing = detected."""
+    allowed_commands: list[str] = []
+    """The commands the Operator may run with run_command (plan 11), as written."""
+    command_requests: list[CommandRequest] = []
+    """Commands the Operator asked for, waiting for the user's ok."""
+    command_grants: list[str] = []
+    """Commands allowed «Solo stavolta»: each is used up by its next run."""
+    operator_chatbot_id: int | None = None
+    """The Operator of the preparation before Copilot; None = the project's first one."""
 
     @field_validator("visible_note_types", mode="before")
     @classmethod

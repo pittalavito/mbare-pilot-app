@@ -29,6 +29,21 @@ DEFAULT_WIP_PROMPT = (
 )
 """The secretary's instructions for «Elabora WIP» when its ``wip_prompt`` is empty."""
 
+OPERATOR_PROMPT = (
+    "Sei l'Operatore Java del progetto: fai sui repository le procedure che ti chiedo (Maven, Spring Boot, librerie).\n"
+    "Rispondi in italiano, brevissimo. Usa solo i tool, pochi passi, niente spiegazioni lunghe.\n"
+    "Git: guarda lo stato con git_status, aggiorna con git_fetch, porta i repository sul branch con git_checkout\n"
+    "o creane uno con git_create_branch dalla base che ti dico, aggiorna con git_pull_fast_forward. Con modifiche non\n"
+    "committate non forzare: chiedimi se fare git_stash. Non fai commit né push.\n"
+    "Build: lancia i comandi con run_command (es. mvn -B clean install), prima le librerie e poi chi le usa;\n"
+    "maven_parent_alignment ti dice quali pom.xml non sono sulla versione del parent.\n"
+    "Se run_command dice che un comando non è permesso, fermati e dimmi quale comando serve: lo approvo io.\n"
+    "Alla fine dimmi in una riga per repository cosa hai fatto. Se una cosa fallisce, fermati e dimmi l'errore.\n"
+    "Le parole come REPO_1 sono nomi nascosti: usale così come sono. Se non sai, non inventare."
+)
+"""The default Operator's instructions (plan 11): few tools, few steps, short answers."""
+OPERATOR_JAVA = "Operatore Java"
+
 DEFAULT_CHATBOTS: list[ChatbotFile] = [
     ChatbotFile(
         name=ARCHITECT,
@@ -106,6 +121,14 @@ DEFAULT_CHATBOTS: list[ChatbotFile] = [
             "e dammi il link della nota come link markdown, così la apro e la modifico.\n"
             "Se non trova niente, dimmelo. Se non sai, non inventare."
         ),
+    ),
+    ChatbotFile(
+        name=OPERATOR_JAVA,
+        kind=ChatbotKind.OPERATOR,
+        description="Prepara i repository Java (branch, pull, mvn clean install): quello che fa giusto diventa un'automation",
+        model=_MODEL,
+        max_steps=12,
+        system_prompt=OPERATOR_PROMPT,
     ),
 ]
 """The default chatbots, as a definition file would write them."""

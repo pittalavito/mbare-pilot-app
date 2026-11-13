@@ -58,4 +58,4 @@ function ChatbotModel({ chatbot }: { chatbot: Chatbot }) {
   );
 }
 
-export const KIND_COLORS: Record<Chatbot["kind"], string> = { automation: "grape", secretary: "teal", refiner: "yellow", custom: "gray" };
+export const KIND_COLORS: Record<Chatbot["kind"], string> = { automation: "grape", secretary: "teal", refiner: "yellow", operator: "orange", custom: "gray" };

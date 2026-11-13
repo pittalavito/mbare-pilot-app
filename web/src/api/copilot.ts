@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api, unwrap } from "./client";
-import type { PrepareTarget } from "./dev";
 import { dataKeys } from "./projectData";
 import type { components } from "./schema";
 
@@ -97,7 +96,7 @@ function useRefresh(project: string) {
 export function useStartCopilot(project: string) {
   const refresh = useRefresh(project);
   return useMutation({
-    mutationFn: (body: { task_note: string; repository: string; prompt: string; model: string; prepare: PrepareTarget[] }) =>
+    mutationFn: (body: components["schemas"]["CopilotSessionRequest"]) =>
       unwrap(api.POST("/projects/{project}/copilot-sessions", { params: { path: { project } }, body })),
     onSuccess: (session) => refresh(session.id),
   });

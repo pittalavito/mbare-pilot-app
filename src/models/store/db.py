@@ -51,9 +51,17 @@ class ProjectTable(SQLModel, table=True):
     files_visible: bool = Field(default=True, sa_column_kwargs={"server_default": true()})
     """The Dati tab shows the uploaded files."""
     due_soon_days: int = Field(default=3, sa_column_kwargs={"server_default": "3"})
+    """«📌 Oggi»: items due within this many days are «In scadenza»."""
     test_scope: str = Field(default="all", sa_column_kwargs={"server_default": "all"})
     test_commands: dict[str, str] | None = Field(default=None, sa_type=JSON)
-    """«📌 Oggi»: items due within this many days are «In scadenza»."""
+    allowed_commands: list[str] | None = Field(default=None, sa_type=JSON)
+    """The commands the Operator may run (plan 11); NULL = none."""
+    command_requests: list[dict] | None = Field(default=None, sa_type=JSON)
+    """Commands the Operator asked for, waiting for the user's ok ({repository, command})."""
+    command_grants: list[str] | None = Field(default=None, sa_type=JSON)
+    """Commands allowed «Solo stavolta»: each is used up by its next run."""
+    operator_chatbot_id: int | None = None
+    """The Operator of the preparation before Copilot; NULL = the project's first one."""
 
 
 class ProjectAtlassianTable(SQLModel, table=True):
@@ -226,6 +234,10 @@ class PipelineTable(SQLModel, table=True):
     name: str
     description: str = ""
     active: bool = True
+    fields: list[str] | None = Field(default=None, sa_type=JSON)
+    """The named values of a run (plan 11); NULL = none."""
+    purpose: str = Field(default="", sa_column_kwargs={"server_default": ""})
+    """AutomationPurpose value: where the app offers it by itself (``prepare``)."""
     created_at: datetime = _timestamp()
     updated_at: datetime = _timestamp()
 
@@ -250,6 +262,8 @@ class PipelineStepTable(SQLModel, table=True):
     agent_config_name: str | None = None
     """Plain column, no FK: a deleted Library agent makes the step fail with a clear error."""
     function_name: str | None = None
+    tool_name: str | None = None
+    """A ``tool`` step's tool (plan 11)."""
     params: dict = Field(default_factory=dict, sa_type=JSON)
     position_x: float = 0.0
     position_y: float = 0.0

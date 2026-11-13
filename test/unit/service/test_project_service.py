@@ -95,5 +95,5 @@ def test_a_new_project_gets_the_default_chatbots(root, agent_config_service, mas
 
     for name in ("App", "Nuovo"):
         assert [(bot.name, bot.kind.value) for bot in chatbots.list_chatbots(name)] == [
-            ("Architetto", "automation"), ("Refiner", "refiner"), ("Segretario", "secretary"),
+            ("Architetto", "automation"), ("Operatore Java", "operator"), ("Refiner", "refiner"), ("Segretario", "secretary"),
         ]

@@ -6,6 +6,7 @@ import type { Pipeline } from "../../api/automation";
 import { CACHE_MARK, type AutomationCacheEntry, type Message, useAddToAutomationCache, useRemoveFromAutomationCache } from "../../api/chat";
 import { Markdown } from "../../components/Markdown";
 import { AutomationProposal } from "./AutomationProposal";
+import { LearnButton } from "./LearnModal";
 
 type Props = {
   chatbotId: number;
@@ -14,11 +15,13 @@ type Props = {
   reply?: Message;
   entry?: AutomationCacheEntry;
   automations: Pipeline[];
+  /** An answer with a run can become an automation («✅ Giusto: fanne un'automation»). */
+  learnable?: boolean;
 };
 
 /** A message of the conversation: the user's on the right with its cache
  * controls, the chatbot's on the left (⚡ when it came from the cache). */
-export function MessageItem({ chatbotId, message, reply, entry, automations }: Props) {
+export function MessageItem({ chatbotId, message, reply, entry, automations, learnable }: Props) {
   const { project } = useParams();
   if (message.role === "user") {
     return (
@@ -38,14 +41,17 @@ export function MessageItem({ chatbotId, message, reply, entry, automations }: P
     );
   }
   return (
-    <Group align="flex-start" wrap="nowrap" gap="sm" maw="85%">
-      <Avatar size="sm" radius="xl" color={message.content.startsWith(CACHE_MARK) ? "yellow" : "indigo"}>
-        {message.content.startsWith(CACHE_MARK) ? "⚡" : "🤖"}
-      </Avatar>
-      <Markdown code={project ? (language, code) => (language === "automation" ? <AutomationProposal project={project} yaml={code} /> : null) : undefined}>
-        {message.content}
-      </Markdown>
-    </Group>
+    <Stack gap={2} align="flex-start">
+      <Group align="flex-start" wrap="nowrap" gap="sm" maw="85%">
+        <Avatar size="sm" radius="xl" color={message.content.startsWith(CACHE_MARK) ? "yellow" : "indigo"}>
+          {message.content.startsWith(CACHE_MARK) ? "⚡" : "🤖"}
+        </Avatar>
+        <Markdown code={project ? (language, code) => (language === "automation" ? <AutomationProposal project={project} yaml={code} /> : null) : undefined}>
+          {message.content}
+        </Markdown>
+      </Group>
+      {learnable && project && message.run_id && <LearnButton project={project} messageId={message.id} />}
+    </Stack>
   );
 }
 

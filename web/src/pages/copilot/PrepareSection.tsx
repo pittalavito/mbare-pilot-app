@@ -1,4 +1,4 @@
-import { ActionIcon, Alert, Autocomplete, Button, Checkbox, Group, Select, Stack, Text } from "@mantine/core";
+import { ActionIcon, Alert, Autocomplete, Button, Group, Select, Stack, Text } from "@mantine/core";
 import { useEffect } from "react";
 
 import { type PrepareTarget, useBranches } from "../../api/dev";
@@ -17,11 +17,9 @@ const repoLabel = (path: string) => path || "(cartella del progetto)";
 export const toTargets = (rows: PrepareRow[]): PrepareTarget[] =>
   rows.filter((row) => row.branch.trim()).map((row) => ({ repository: row.repository, branch: row.branch.trim(), base: row.base }));
 
-export function PrepareSection({ project, repositories, enabled, onEnabled, rows, onChange }: {
+export function PrepareSection({ project, repositories, rows, onChange }: {
   project: string;
   repositories: Repository[];
-  enabled: boolean;
-  onEnabled: (enabled: boolean) => void;
   rows: PrepareRow[];
   onChange: (rows: PrepareRow[]) => void;
 }) {
@@ -29,29 +27,22 @@ export function PrepareSection({ project, repositories, enabled, onEnabled, rows
   const free = repositories.filter((repo) => !rows.some((row) => row.repository === repo.path));
   return (
     <Stack gap={6}>
-      <Checkbox
-        label="🧰 Prepara i repository prima di Copilot"
-        description="Niente modifiche non committate, checkout del branch (o crealo da un base), pull solo fast-forward, controllo dei POM."
-        checked={enabled}
-        onChange={(event) => onEnabled(event.currentTarget.checked)}
-      />
-      {enabled && (
-        <>
-          {rows.map((row) => (
-            <TargetRow
-              key={row.key} project={project} row={row} repositories={repositories} taken={rows.map((item) => item.repository)}
-              onChange={(patch) => set(row.key, patch)} onRemove={rows.length > 1 ? () => onChange(rows.filter((item) => item.key !== row.key)) : undefined}
-            />
-          ))}
-          {!!free.length && (
-            <Group>
-              <Button size="compact-xs" variant="subtle"
-                onClick={() => onChange([...rows, { key: Math.max(0, ...rows.map((row) => row.key)) + 1, repository: free[0].path, branch: "", base: "" }])}>
-                ➕ Un altro repository (es. una libreria)
-              </Button>
-            </Group>
-          )}
-        </>
+      <Text size="xs" c="dimmed">
+        Niente modifiche non committate, checkout del branch (o crealo da un base), pull solo fast-forward, controllo dei POM.
+      </Text>
+      {rows.map((row) => (
+        <TargetRow
+          key={row.key} project={project} row={row} repositories={repositories} taken={rows.map((item) => item.repository)}
+          onChange={(patch) => set(row.key, patch)} onRemove={rows.length > 1 ? () => onChange(rows.filter((item) => item.key !== row.key)) : undefined}
+        />
+      ))}
+      {!!free.length && (
+        <Group>
+          <Button size="compact-xs" variant="subtle"
+            onClick={() => onChange([...rows, { key: Math.max(0, ...rows.map((row) => row.key)) + 1, repository: free[0].path, branch: "", base: "" }])}>
+            ➕ Un altro repository (es. una libreria)
+          </Button>
+        </Group>
       )}
     </Stack>
   );

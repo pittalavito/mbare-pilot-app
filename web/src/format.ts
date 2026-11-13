@@ -18,3 +18,6 @@ export const count = (value: number) => value.toLocaleString("it-IT");
 
 /** Copilot's AI credits: 0,34. */
 export const credits = (value: number) => value.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** A cost in euro, small amounts included: 0,0021 €. */
+export const eur = (value: number) => value.toLocaleString("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 4 });

@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 
 import { type Chatbot, useChatbots, useConversations } from "../../api/chat";
 import { useCopilotSessions } from "../../api/copilot";
+import { useAnswerCommand, useCommandRequests, useDevSettings } from "../../api/dev";
 import { NOTE_PREFIXES, type Reference, useAgentTasks, useReferences } from "../../api/projectData";
 import { ChatbotDetails } from "../chat/ChatbotDetails";
 import { ConversationView } from "../chat/ConversationView";
@@ -24,7 +25,11 @@ import { isPlanOnly } from "../data/TypedNotes";
  *
  * Its menu changes agent by hand (also to a chatbot of the project's own): the
  * choice lasts until what is open changes. A page asks the panel's agent to do
- * something (e.g. «Rifinisci con il Refiner») with ``useAgentPanel().ask``. */
+ * something (e.g. «Rifinisci con il Refiner») with ``useAgentPanel().ask``, or
+ * the Operator (plan 11: «Fallo fare all'Operatore» in the delegation) with
+ * ``ask(text, "operator")``: the project's Operator of the preparation. The
+ * Operator's answers can become automations, and the commands it asks for
+ * wait for the user's ok here. */
 
 export type Zone = "work" | "automation";
 
@@ -34,17 +39,22 @@ export function noteOfLink(href: string): string | null {
   const zone = ["/data", "/work", "/project"].some((suffix) => url.pathname.endsWith(suffix));
   return url.origin === window.location.origin && zone ? url.searchParams.get("note") : null;
 }
-type Draft = { text: string; id: number };
-type PanelState = { draft?: Draft; ask: (text: string) => void };
+type Draft = { text: string; id: number; agent?: "operator" };
+type PanelState = { draft?: Draft; ask: (text: string, agent?: "operator") => void };
 
 const PanelContext = createContext<PanelState>({ ask: () => {} });
 
-/** ``ask(text)`` puts ``text`` in the panel's box (not sent), for the agent of what is open. */
+/** ``ask(text)`` puts ``text`` in the panel's box (not sent), for the agent of
+ * what is open; ``ask(text, "operator")`` for the project's Operator. */
 export const useAgentPanel = () => useContext(PanelContext);
 
-export function AgentPanelProvider({ children }: { children: ReactNode }) {
+/** ``onAsk``: the page shows the panel (hidden, or a drawer on a narrow screen). */
+export function AgentPanelProvider({ children, onAsk }: { children: ReactNode; onAsk?: () => void }) {
   const [draft, setDraft] = useState<Draft>();
-  const ask = (text: string) => setDraft((current) => ({ text, id: (current?.id ?? 0) + 1 }));
+  const ask = (text: string, agent?: "operator") => {
+    setDraft((current) => ({ text, id: (current?.id ?? 0) + 1, agent }));
+    onAsk?.();
+  };
   return <PanelContext.Provider value={{ draft, ask }}>{children}</PanelContext.Provider>;
 }
 
@@ -84,7 +94,7 @@ function useChoices(project: string, zone: Zone): { choices: Choice[]; preferred
   }
   const choices: Choice[] = chatbots.data.map((bot) => ({
     key: String(bot.id), label: bot.kind === "custom" ? `${bot.name} (personalizzato)` : bot.name, chatbot: bot,
-    context: bot.kind === "refiner" ? task?.name ?? "" : bot.kind === "secretary" ? activity : context, why,
+    context: bot.kind === "refiner" || bot.kind === "operator" ? task?.name ?? "" : bot.kind === "secretary" ? activity : context, why,
   }));
   if (delegated) choices.unshift({ key: COPILOT, label: "Copilot", context: "", why });
   return { choices, preferred, openNote: note };
@@ -94,8 +104,13 @@ export function AgentPanel({ project, zone }: { project: string; zone: Zone }) {
   const resolved = useChoices(project, zone);
   const [search] = useSearchParams();
   const [manual, setManual] = useState<string>();
+  const { draft } = useAgentPanel();
+  const operator = useOperator(project);
   const where = `${zone}:${search.get("note") ?? ""}`;
   useEffect(() => setManual(undefined), [where]); // a hand-picked agent lasts until what is open changes
+  useEffect(() => { // asked for the Operator: it becomes the panel's agent
+    if (draft?.agent === "operator" && operator) setManual(String(operator.id));
+  }, [draft?.id, operator?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!resolved) return <Loader size="sm" />;
   const { choices, preferred, openNote } = resolved;
@@ -119,6 +134,14 @@ export function AgentPanel({ project, zone }: { project: string; zone: Zone }) {
       )}
     </Stack>
   );
+}
+
+/** The project's Operator of the preparation: the one in the settings, else the first. */
+export function useOperator(project: string): Chatbot | undefined {
+  const chatbots = useChatbots(project);
+  const settings = useDevSettings(project);
+  const operators = (chatbots.data ?? []).filter((bot) => bot.kind === "operator");
+  return operators.find((bot) => bot.id === settings.data?.operator_chatbot_id) ?? operators[0];
 }
 
 /** A chatbot's chat in the panel: the latest conversation about the context (or a new one), the others in a menu. */
@@ -145,8 +168,10 @@ function AgentChat({ project, chatbot, context, openNote }: { project: string; c
           />
         )}
       </Group>
+      {chatbot.kind === "operator" && <CommandRequests project={project} />}
       <ConversationView
         chatbot={chatbot}
+        learnable={chatbot.kind === "operator"}
         conversationId={shown}
         onOpen={(id) => setConversation(id ?? null)}
         height={420}
@@ -166,6 +191,36 @@ function AgentChat({ project, chatbot, context, openNote }: { project: string; c
       <ReferenceModal project={project} reference={reference} opened={!!reference} onClose={() => setOpened(undefined)} onCreated={() => {}}
         onDeleted={() => setOpened(undefined)} />
       <ChatbotDetails chatbot={chatbot} opened={details} onClose={() => setDetails(false)} />
+    </Stack>
+  );
+}
+
+/** The commands the Operator asked for: «Sempre», «Solo stavolta» or «No»; with
+ * an ok the box gets «continua» for the Operator (sent by the user). */
+function CommandRequests({ project }: { project: string }) {
+  const requests = useCommandRequests(project);
+  const answer = useAnswerCommand(project);
+  const { ask } = useAgentPanel();
+  const reply = (command: string, allow: boolean, always = false) =>
+    answer.mutate({ command, allow, always }, {
+      onSuccess: () => allow && ask(`Ho permesso «${command}»: continua.`),
+    });
+  if (!requests.data?.length) return null;
+  return (
+    <Stack gap={4}>
+      {requests.data.map((request) => (
+        <Alert key={request.command} color="yellow" p="xs" title="L'Operatore chiede di lanciare">
+          <Stack gap={6}>
+            <Text size="sm"><code>{request.command}</code>{request.repository ? ` in ${request.repository}` : ""}</Text>
+            <Group gap={4}>
+              <Button size="compact-xs" onClick={() => reply(request.command, true, true)} loading={answer.isPending}>Sempre</Button>
+              <Button size="compact-xs" variant="light" onClick={() => reply(request.command, true)} loading={answer.isPending}>Solo stavolta</Button>
+              <Button size="compact-xs" variant="subtle" color="red" onClick={() => reply(request.command, false)} loading={answer.isPending}>No</Button>
+            </Group>
+          </Stack>
+        </Alert>
+      ))}
+      {answer.error && <Alert color="red">{answer.error.message}</Alert>}
     </Stack>
   );
 }

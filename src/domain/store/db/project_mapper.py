@@ -3,7 +3,7 @@ from domain.store.db.mapper import as_utc
 from models.domain.chat import EmbeddingModelName
 from models.domain.dev import TestScope
 from models.domain.note import NoteType
-from models.domain.project import Project, ProjectSource
+from models.domain.project import CommandRequest, Project, ProjectSource
 from models.store.db import ProjectTable
 
 
@@ -23,6 +23,10 @@ class Adapter:
             due_soon_days=row.due_soon_days,
             test_scope=TestScope(row.test_scope) if row.test_scope in set(TestScope) else TestScope.ALL,
             test_commands=dict(row.test_commands or {}),
+            allowed_commands=list(row.allowed_commands or []),
+            command_requests=[CommandRequest.model_validate(item) for item in row.command_requests or []],
+            command_grants=list(row.command_grants or []),
+            operator_chatbot_id=row.operator_chatbot_id,
             created_at=as_utc(row.created_at),
         )
 
@@ -43,6 +47,10 @@ class Factory:
             due_soon_days=project.due_soon_days,
             test_scope=project.test_scope.value,
             test_commands=dict(project.test_commands) or None,
+            allowed_commands=list(project.allowed_commands) or None,
+            command_requests=[item.model_dump() for item in project.command_requests] or None,
+            command_grants=list(project.command_grants) or None,
+            operator_chatbot_id=project.operator_chatbot_id,
             created_at=project.created_at,
         )
 

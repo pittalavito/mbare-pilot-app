@@ -19,11 +19,13 @@ from service.backup_service import BackupService
 from service.chat_service import ChatService
 from service.chatbot_service import ChatbotService
 from service.code_todo_service import CodeTodoService
+from service.command_service import CommandService
 from service.copilot_service import CopilotService
 from service.definition_service import DefinitionService
 from service.dev_checks_service import DevChecksService
 from service.evaluation_service import EvaluationService
 from service.git_service import GitService
+from service.learn_service import LearnService
 from service.masking_service import MaskingService
 from service.metrics_service import MetricsService
 from service.model_service import ModelService
@@ -60,6 +62,7 @@ class Container:
             atlassian=stores.atlassian, projects=stores.projects, project_data_service=self.project_data_service,
         )
         self.git_service = GitService(projects=stores.projects)
+        self.command_service = CommandService(projects=stores.projects, git=self.git_service)
         self.masking_service = MaskingService(projects=stores.projects, masks=stores.masks)
         self.rag_service = RagService(project_data=self.project_data_service, masking=self.masking_service, projects=stores.projects,
                                       rag=stores.rag)
@@ -96,6 +99,7 @@ class Container:
             copilot_service=self.copilot_service,
             code_todo_service=self.code_todo_service,
             rag_service=self.rag_service,
+            command_service=self.command_service,
         )
         self.automation_cache_service = AutomationCacheService(
             chatbots=stores.chatbots,
@@ -133,12 +137,14 @@ class Container:
             chatbot_service=self.chatbot_service,
             pipeline_service=self.pipeline_service,
         )
+        self.learn_service = LearnService(chatbots=stores.chatbots, runs=stores.runs, masking=self.masking_service, pipelines=self.pipeline_service)
         self.pipeline_runner = PipelineRunner(
             pipelines=stores.pipelines,
             agent_service=self.agent_service,
             git_service=self.git_service,
             project_data_service=self.project_data_service,
             masking_service=self.masking_service,
+            command_service=self.command_service,
         )
         self.dev_checks_service = DevChecksService(pipelines=stores.pipelines, runner=self.pipeline_runner, git=self.git_service,
                                                    project_data=self.project_data_service)

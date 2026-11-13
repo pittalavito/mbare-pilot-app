@@ -7,9 +7,14 @@ through is recorded as SKIPPED. Every step is recorded; the first failing step
 fails the run. The run output is the output of the last steps that ran.
 Agent steps run through AgentService, so their costs and traces are recorded
 like any other run (origin ``pipeline``); function steps run Python code from
-the function registry, without an LLM."""
+the function registry, without an LLM; tool steps call an agent's tool with
+their fixed arguments (``{in:field}`` filled from the run's fields), without an
+LLM either (plan 11): a tool's error fails the step."""
 from collections.abc import Callable
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
+
+from pydantic import BaseModel
 
 from core.error import AppError, ValidationError
 from core.observability import LogPrefix, log_exception, log_warning, observed
@@ -17,12 +22,17 @@ from domain.pipeline.graph import join_outputs, passing_targets, topological_ord
 from function.context import FunctionContext
 from function.registry import get_function
 from models.domain.agent import AgentDefinition, AgentRunRecord, RunOrigin
-from models.domain.pipeline import INPUT_NODE, Pipeline, PipelineRun, PipelineStep, PipelineStepRun, RunStatus, StepKind
+from models.domain.pipeline import INPUT_NODE, Pipeline, PipelineRun, PipelineStep, PipelineStepRun, RunStatus, StepKind, fill_fields
 from service.agent_service import AgentService
 from service.git_service import GitService
 from service.masking_service import MaskingService
 from service.project_data_service import ProjectDataService
 from service.store.pipeline_store import PipelineStore
+from tool.context import ToolContext
+from tool.registry import TOOL_REGISTRY
+
+if TYPE_CHECKING:
+    from service.command_service import CommandService
 
 _ROLE_NAME = "pipeline"
 """Recorded as the role of the runs of a step's own agent (it has no AgentRole)."""
@@ -42,15 +52,18 @@ class StepFailed(Exception):
 class PipelineRunner:
 
     def __init__(self, pipelines: PipelineStore, agent_service: AgentService, git_service: GitService,
-                 project_data_service: ProjectDataService, masking_service: MaskingService | None = None):
-        """``masking_service`` registers the sensitive values the function steps
-        declare (FunctionResult), so the agent steps after them see aliases."""
+                 project_data_service: ProjectDataService, masking_service: MaskingService | None = None,
+                 command_service: "CommandService | None" = None):
+        """``masking_service`` registers the sensitive values the function and
+        tool steps declare, so the agent steps after them see aliases;
+        ``command_service`` runs the allowed commands of the tool steps (run_command)."""
         self._pipelines = pipelines
         self._agents = agent_service
         self._git = git_service
         self._project_data = project_data_service
         """The services function steps receive in their FunctionContext."""
         self._masking = masking_service
+        self._commands = command_service
 
     def run_next(self, on_claim: Callable[[PipelineRun], None] | None = None) -> PipelineRun | None:
         """Claim and execute the oldest queued run; None when the queue is empty.
@@ -79,6 +92,7 @@ class PipelineRunner:
 
         try:
             order = topological_order(pipeline.steps, pipeline.edges)
+            fields = pipeline.run_fields(run.input)
         except ValidationError as exc:
             return self._finish(run, RunStatus.FAILED, error=str(exc))
         steps = {step.name: step for step in pipeline.steps}
@@ -100,11 +114,11 @@ class PipelineRunner:
                 position=position,
                 name=step.name,
                 kind=step.kind,
-                input=step.render_input(previous, run.input, outputs),
+                input=step.render_input(previous, run.input, outputs, fields),
                 started_at=_now()
             ))
             try:
-                output, agent_run_id = self._run_step(pipeline, step, step_run.input, run.input)
+                output, agent_run_id = self._run_step(pipeline, step, step_run.input, run.input, fields)
             except StepFailed as exc:
                 self._finish_step(step_run, RunStatus.FAILED, error=exc.reason, agent_run_id=exc.agent_run_id)
                 return self._finish(run, RunStatus.FAILED, error=f"Step {position + 1} ({step.name}): {exc.reason}")
@@ -115,10 +129,13 @@ class PipelineRunner:
         return self._finish(run, RunStatus.DONE, output=_final_output(order, outputs, pipeline))
 
     # ------------------------------------------------------------- steps
-    def _run_step(self, pipeline: Pipeline, step: PipelineStep, step_input: str, pipeline_input: str) -> tuple[str, str | None]:
-        """The step's output and its agent run id (None for functions);
+    def _run_step(self, pipeline: Pipeline, step: PipelineStep, step_input: str, pipeline_input: str,
+                  fields: dict[str, str] | None = None) -> tuple[str, str | None]:
+        """The step's output and its agent run id (None for functions and tools);
         StepFailed when it has no output."""
         try:
+            if step.kind is StepKind.TOOL:
+                return self._run_tool(pipeline, step, fields or {}), None
             if step.kind is StepKind.FUNCTION:
                 context = FunctionContext(project_name=pipeline.project_name, pipeline_input=pipeline_input, git=self._git, project_data=self._project_data)
                 result = get_function(step.function_name).execute(context, step_input, step.params)
@@ -135,6 +152,27 @@ class PipelineRunner:
             log_exception(LogPrefix.PIPELINE_RUNNER, "Step %s of pipeline %s crashed", step.name, pipeline.name)
             raise StepFailed(f"errore imprevisto: {exc}") from exc
         return _output(record)
+
+    def _run_tool(self, pipeline: Pipeline, step: PipelineStep, fields: dict[str, str]) -> str:
+        """The tool called with the step's arguments (fields filled), as an agent
+        would, without masking: its output as JSON, or StepFailed with its error."""
+        spec = TOOL_REGISTRY.get(step.tool_name or "")
+        if spec is None:
+            raise StepFailed(f"il tool {step.tool_name} non esiste (più) nel codice.")
+        context = ToolContext(project_name=pipeline.project_name, git=self._git, project_data=self._project_data,
+                              origin=RunOrigin.PIPELINE, commands=self._commands)
+        arguments = fill_fields(dict(step.params), fields)
+        try:
+            result = spec.build(context)(**arguments)
+        except TypeError as exc:
+            raise StepFailed(f"argomenti non validi per {step.tool_name}: {exc}") from exc
+        if isinstance(result, BaseModel):
+            if (error := getattr(result, "error", None)):
+                raise StepFailed(str(error))
+            if self._masking is not None:
+                self._masking.register_declared(pipeline.project_name, result)
+            return result.model_dump_json()
+        return str(result)
 
     # ------------------------------------------------------------ records
     def _skip(self, run: PipelineRun, step: PipelineStep, position: int) -> None:

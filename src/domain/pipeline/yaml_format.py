@@ -27,7 +27,7 @@ def parse(text: str) -> AutomationFile:
             raise ValidationError("Scrivi una sola automation (sotto automations: un elemento solo).")
         raw = items[0]
     if not isinstance(raw, dict):
-        raise ValidationError("L'automation deve essere un oggetto con name, steps e (facoltativi) description, edges.")
+        raise ValidationError("L'automation deve essere un oggetto con name, steps e (facoltativi) description, edges, fields, purpose.")
     try:
         return AutomationFile.model_validate(raw)
     except PydanticValidationError as exc:
@@ -47,6 +47,8 @@ def step_from_file(spec: StepFile, previous: PipelineStep | None = None) -> Pipe
     )
     if spec.function is not None:
         return PipelineStep(kind=StepKind.FUNCTION, function_name=spec.function, params=spec.params, **common)
+    if spec.tool is not None:
+        return PipelineStep(kind=StepKind.TOOL, tool_name=spec.tool, params=spec.args, **common)
     if spec.agent is not None:
         return PipelineStep(kind=StepKind.AGENT_CONFIG, agent_config_name=spec.agent, **common)
     assert spec.system_prompt is not None and spec.model is not None  # StepFile checks it: an own agent has both
@@ -69,6 +71,10 @@ def to_file(pipeline: Pipeline) -> dict[str, Any]:
         item["description"] = pipeline.description
     if not pipeline.active:
         item["active"] = False
+    if pipeline.purpose:
+        item["purpose"] = pipeline.purpose.value
+    if pipeline.fields:
+        item["fields"] = list(pipeline.fields)
     item["steps"] = [_step_to_file(step) for step in pipeline.steps]
     if pipeline.edges:
         item["edges"] = [_edge_to_file(edge) for edge in pipeline.edges]
@@ -88,6 +94,10 @@ def _step_to_file(step: PipelineStep) -> dict[str, Any]:
         item["function"] = step.function_name
         if step.params:
             item["params"] = dict(step.params)
+    elif step.kind is StepKind.TOOL:
+        item["tool"] = step.tool_name
+        if step.params:
+            item["args"] = dict(step.params)
     elif step.kind is StepKind.AGENT_CONFIG:
         item["agent"] = step.agent_config_name
     elif step.agent is not None:

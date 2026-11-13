@@ -35,6 +35,8 @@ I tool che un agente può chiamare durante una run:
 | `list_agent_tasks` | **con contesto**, solo chatbot | gli agent task del progetto (nome, titolo, stato) con lo stato dell'ultima sessione Copilot, se c'è Copilot: quelli che si possono delegare |
 | `delegate_task` | **con contesto**, solo chatbot | delega un agent task a Copilot su un repository: apre la chat di preparazione e restituisce il link |
 | `copilot_status` | **con contesto**, solo chatbot | stato di un task delegato: solo lo stato, quanti file ha cambiato e se l'HEAD si è mosso |
+| `run_command` | **con contesto** | l'Operatore (piano 11): lancia uno dei comandi permessi del progetto in un repository (senza shell); restituisce codice d'uscita e ultime righe. Un comando fuori elenco non parte: chiede il permesso all'utente nel pannello e dice all'agente di fermarsi. Codice d'uscita diverso da 0 = errore con le ultime righe |
+| `maven_parent_alignment` | **con contesto** | l'Operatore: i pom.xml dei repository confrontati con la versione del POM parent, prima quelli da allineare (come la funzione con lo stesso nome); solo lettura |
 | `search_context` | **con indice del contesto** | cerca nel contesto del progetto ([RAG](../service/README.md#contesto-rag)): i documenti di `context/` e le attività fatte con «Imparato». Restituisce i 5 pezzi migliori con documento e sezione, da citare. Ce l'ha il Refiner (tra i suoi tool fissi) e Copilot via MCP; ha sostituito `read_context`, che leggeva tutto |
 
 ```
