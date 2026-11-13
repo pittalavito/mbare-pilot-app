@@ -66,6 +66,18 @@ class ActivityPlan(BaseModel):
     tasks: list[PlanTask] = []
     """Once confirmed: the tasks created, in order."""
     cost_eur: float = 0.0
+    paused: bool = False
+    """The automatic path (12b) stops where it is until resumed."""
+    prepare: str = ""
+    """How the path prepares the repositories before Copilot: ``none``, ``dev``
+    («Prepara sviluppo»), ``learned:<id>`` (an automation learned from the
+    Operator); ``""`` = the learned one if any, else «Prepara sviluppo» if any, else none."""
+    skipped: list[str] = []
+    """The steps skipped by the user, as ``<task>|<step>``."""
+    errors: dict[str, str] = {}
+    """Why a step the path ran failed (preparation, delegation), as ``<task>|<step>`` → error."""
+    retries: dict[str, int] = {}
+    """How many times the path sent a task's failed tests back to Copilot by itself."""
     created_at: datetime = Field(default_factory=_utc_now)
     updated_at: datetime = Field(default_factory=_utc_now)
 
@@ -93,8 +105,10 @@ class StepState(StrEnum):
 class StepKey(StrEnum):
     CONFIRM = "confirm"
     """«Conferma del task»: objective and criteria written by the Pianificatore."""
+    PREPARE = "prepare"
+    """The repositories got ready before Copilot (developments): skippable."""
     DELEGATE = "delegate"
-    """Preparation and delegation to Copilot."""
+    """The delegation to Copilot (its first planning turn)."""
     COPILOT_PLAN = "copilot_plan"
     """Copilot's plan: «Ok, parti» (developments)."""
     EXECUTION = "execution"
@@ -108,13 +122,24 @@ class StepKey(StrEnum):
 
 STEP_LABELS: dict[StepKey, str] = {
     StepKey.CONFIRM: "Conferma del task",
-    StepKey.DELEGATE: "Preparazione e delega",
+    StepKey.PREPARE: "Preparazione",
+    StepKey.DELEGATE: "Delega a Copilot",
     StepKey.COPILOT_PLAN: "Piano di Copilot",
     StepKey.EXECUTION: "Esecuzione",
     StepKey.VERIFY: "Verifica",
     StepKey.ANSWER: "Risposta di Copilot",
     StepKey.FINAL: "Conferma finale",
 }
+
+
+SKIPPABLE: set[StepKey] = {StepKey.PREPARE, StepKey.VERIFY}
+"""The steps the user can skip."""
+RETRYABLE: set[StepKey] = {StepKey.PREPARE, StepKey.DELEGATE, StepKey.VERIFY}
+"""The failed steps the user can run again."""
+
+
+def step_id(task: str, step: StepKey) -> str:
+    return f"{task}|{step.value}"
 
 
 class PathStep(BaseModel):

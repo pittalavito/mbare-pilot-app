@@ -54,6 +54,8 @@ class ProjectTable(SQLModel, table=True):
     """«📌 Oggi»: items due within this many days are «In scadenza»."""
     test_scope: str = Field(default="all", sa_column_kwargs={"server_default": "all"})
     test_commands: dict[str, str] | None = Field(default=None, sa_type=JSON)
+    auto_retries: int = Field(default=1, sa_column_kwargs={"server_default": "1"})
+    """«Lavora attività»: how many times failed tests go back to Copilot by themselves."""
     allowed_commands: list[str] | None = Field(default=None, sa_type=JSON)
     """The commands the Operator may run (plan 11); NULL = none."""
     command_requests: list[dict] | None = Field(default=None, sa_type=JSON)
@@ -392,6 +394,11 @@ class ActivityPlanTable(SQLModel, table=True):
     proposals: list[dict] = Field(default_factory=list, sa_type=JSON)
     tasks: list[dict] = Field(default_factory=list, sa_type=JSON)
     cost_eur: float = 0.0
+    paused: bool = Field(default=False, sa_column_kwargs={"server_default": "0"})
+    prepare: str = Field(default="", sa_column_kwargs={"server_default": ""})
+    skipped: list[str] | None = Field(default=None, sa_type=JSON)
+    errors: dict | None = Field(default=None, sa_type=JSON)
+    retries: dict | None = Field(default=None, sa_type=JSON)
     created_at: datetime = _timestamp()
     updated_at: datetime = _timestamp()
 

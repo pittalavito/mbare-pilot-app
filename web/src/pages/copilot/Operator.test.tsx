@@ -205,12 +205,13 @@ describe("settings and automations with fields", () => {
     const dialog = await screen.findByRole("dialog");
 
     fireEvent.click(await within(dialog).findByRole("button", { name: /mvn -B clean install/ }));
+    fireEvent.click(within(dialog).getByText("2"));
     fireEvent.click(within(dialog).getByRole("textbox", { name: "Operatore della preparazione" }));
     fireEvent.click(await screen.findByRole("option", { name: "Operatore Java" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Salva" }));
 
     await waitFor(() => expect(saved).toHaveBeenCalled());
-    expect(await saved.mock.results[0].value).toMatchObject({ allowed_commands: ["uv sync", "mvn -B clean install"], operator_chatbot_id: 12 });
+    expect(await saved.mock.results[0].value).toMatchObject({ allowed_commands: ["uv sync", "mvn -B clean install"], operator_chatbot_id: 12, auto_retries: 2 });
   });
 
   it("an automation with fields asks them to run and sends them as JSON", async () => {

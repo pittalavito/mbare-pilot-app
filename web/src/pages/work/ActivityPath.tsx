@@ -3,16 +3,23 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { useRepositories } from "../../api/git";
+import { usePipelines } from "../../api/automation";
+import { useDevSettings } from "../../api/dev";
 import {
-  type ActivityPlan, type PathStep, type PathTask, type PlanProposal, useActivityPath, useConfirmPlan, useConfirmTask, useDismissPlan, useProposePlan,
+  type ActivityPlan, type PathStep, type PathTask, type PlanProposal, useActivityPath, useConfirmPlan, useConfirmTask, useDismissPlan, usePausePlan,
+  useProposePlan, useRetryStep, useSetPrepare, useSkipStep,
 } from "../../api/plan";
+import { useAgentPanel } from "../project/AgentPanel";
 import { eur } from "../../format";
 import { DelegateModal } from "../copilot/DelegateModal";
 
 /** «▶️ Lavora attività» (plan 12a), at the top of an activity: the Pianificatore
  * proposes the agent tasks (one call with the small model), the user keeps,
  * corrects and orders them, then the **Percorso**: the tasks in order with
- * their steps and, where it is the user's turn, the button to go on. */
+ * their steps and, where it is the user's turn, the button to go on. From
+ * «Crea i task» the path moves by itself (12b, the worker): once a task is
+ * confirmed it prepares and delegates it, failed tests go back to Copilot
+ * as many times as the project says; pause, retry and skip a step here. */
 
 const TYPES = [
   { value: "development", label: "Sviluppo" }, { value: "analysis", label: "Analisi" },
@@ -39,7 +46,7 @@ export function ActivityPath({ project, activity }: { project: string; activity:
         {plan?.status === "proposed" ? (
           <Proposals key={plan.id} project={project} activity={activity} plan={plan} />
         ) : tasks.length ? (
-          <Path project={project} activity={activity} tasks={tasks} onReplan={() => propose.mutate()} replanning={propose.isPending} />
+          <Path project={project} activity={activity} plan={plan!} tasks={tasks} onReplan={() => propose.mutate()} replanning={propose.isPending} />
         ) : (
           <Group justify="space-between" wrap="nowrap">
             <Text size="sm" c="dimmed">Il Pianificatore propone gli agent task dell'attività, in ordine, con obiettivo e criteri: li confermi tu.</Text>
@@ -118,24 +125,51 @@ function Proposals({ project, activity, plan }: { project: string; activity: str
 }
 
 /** The confirmed plan: the tasks in order, their steps, the button where it is the user's turn. */
-function Path({ project, activity, tasks, onReplan, replanning }: {
-  project: string; activity: string; tasks: PathTask[]; onReplan: () => void; replanning: boolean;
+function Path({ project, activity, plan, tasks, onReplan, replanning }: {
+  project: string; activity: string; plan: ActivityPlan; tasks: PathTask[]; onReplan: () => void; replanning: boolean;
 }) {
   const doneCount = tasks.filter((task) => task.status === "done").length;
+  const pause = usePausePlan(project, activity);
+  const setPrepare = useSetPrepare(project, activity);
+  const pipelines = usePipelines(project);
+  const dev = useDevSettings(project);
+  const options = [
+    { value: "", label: "Automatica" },
+    ...(pipelines.data ?? []).filter((pipeline) => pipeline.purpose === "prepare" && pipeline.active)
+      .map((pipeline) => ({ value: `learned:${pipeline.id}`, label: `🛠 ${pipeline.name} (imparata)` })),
+    ...(dev.data?.prepare_automation ? [{ value: "dev", label: "🧰 Prepara sviluppo" }] : []),
+    { value: "none", label: "Non preparare" },
+  ];
   return (
     <>
       <Group justify="space-between">
         <Text fw={600} size="sm">🧭 Percorso · {doneCount} di {tasks.length} task fatti</Text>
-        <Button size="compact-xs" variant="subtle" onClick={onReplan} loading={replanning}>Nuovo piano</Button>
+        <Group gap={4}>
+          <Button size="compact-xs" variant="light" color={plan.paused ? "green" : "gray"} onClick={() => pause.mutate(!plan.paused)} loading={pause.isPending}>
+            {plan.paused ? "▶️ Riprendi" : "⏸ Pausa"}
+          </Button>
+          <Button size="compact-xs" variant="subtle" onClick={onReplan} loading={replanning}>Nuovo piano</Button>
+        </Group>
       </Group>
-      {tasks.map((task, index) => <TaskRow key={task.task} project={project} activity={activity} task={task} number={index + 1} />)}
+      <Group gap="xs" align="center">
+        <Text size="xs" c="dimmed">
+          {plan.paused ? "In pausa: delega e rimandi a Copilot li fai tu." : "Va avanti da solo: prepara e delega i task confermati, rimanda a Copilot i test falliti."}
+        </Text>
+        <Select size="xs" aria-label="Preparazione del giro" w={220} data={options} value={options.some((option) => option.value === plan.prepare) ? plan.prepare : ""}
+          onChange={(value) => setPrepare.mutate(value ?? "")} allowDeselect={false} />
+      </Group>
+      {(pause.error || setPrepare.error) && <Alert color="red">{(pause.error ?? setPrepare.error)?.message}</Alert>}
+      {tasks.map((task, index) => <TaskRow key={task.task} project={project} activity={activity} task={task} number={index + 1} paused={!!plan.paused} />)}
     </>
   );
 }
 
-function TaskRow({ project, activity, task, number }: { project: string; activity: string; task: PathTask; number: number }) {
+function TaskRow({ project, activity, task, number, paused }: { project: string; activity: string; task: PathTask; number: number; paused: boolean }) {
   const [, setSearch] = useSearchParams();
   const confirmTask = useConfirmTask(project, activity);
+  const skip = useSkipStep(project, activity);
+  const retry = useRetryStep(project, activity);
+  const { ask } = useAgentPanel();
   const [delegating, setDelegating] = useState(false);
   const steps = task.steps ?? [];
   const current = task.current ? steps.find((step) => step.state !== "done" && step.state !== "skipped") : undefined;
@@ -162,15 +196,39 @@ function TaskRow({ project, activity, task, number }: { project: string; activit
                 <Button size="compact-xs" variant="default" onClick={open}>✏️ Correggi</Button>
               </>
             )}
-            {current.key === "delegate" && <Button size="compact-xs" onClick={() => setDelegating(true)}>🤖 Delega a Copilot</Button>}
+            {(current.key === "prepare" || current.key === "delegate") && current.state === "todo" && (paused ? (
+              <Button size="compact-xs" onClick={() => setDelegating(true)}>🤖 Delega a Copilot</Button>
+            ) : <Text size="xs" c="dimmed">⏳ Il giro lo prepara e lo delega a breve.</Text>)}
+            {(current.key === "prepare" || current.key === "delegate" || current.key === "verify") && current.state === "failed" && (
+              <Button size="compact-xs" variant="light" onClick={() => retry.mutate({ task: task.task, step: current.key })} loading={retry.isPending}>
+                🔁 Riprova
+              </Button>
+            )}
+            {current.key === "prepare" && current.state === "failed" && (
+              <Button size="compact-xs" variant="light" onClick={() => ask(
+                `Prepara ${task.repository || "la cartella del progetto"} per il task ${task.task}, poi il clean install.\nLa preparazione si è fermata così:\n${current.detail}`,
+                "operator",
+              )}>🤖 Fallo fare all'Operatore</Button>
+            )}
+            {(current.key === "prepare" || current.key === "verify") && current.state === "failed" && (
+              <Button size="compact-xs" variant="subtle" onClick={() => skip.mutate({ task: task.task, step: current.key })} loading={skip.isPending}>
+                ⏭ Salta
+              </Button>
+            )}
+            {current.key === "delegate" && current.state === "failed" && (
+              <Button size="compact-xs" variant="default" onClick={() => setDelegating(true)}>🤖 Delega a mano</Button>
+            )}
             {(current.key === "copilot_plan" || current.key === "answer") && current.state === "you" && (
               <Button size="compact-xs" onClick={open}>💬 Rispondi a Copilot</Button>
             )}
             {current.key === "final" && current.state === "you" && <Button size="compact-xs" onClick={open}>🔍 Controlla e conferma</Button>}
-            {current.state === "failed" && <Button size="compact-xs" color="red" variant="light" onClick={open}>Apri il task</Button>}
+            {current.state === "failed" && (current.key === "execution" || current.key === "verify" || current.key === "answer") && (
+              <Button size="compact-xs" color="red" variant="light" onClick={open}>Apri il task</Button>
+            )}
           </Group>
         )}
-        {confirmTask.error && <Text size="xs" c="red">{confirmTask.error.message}</Text>}
+        {current?.state === "failed" && current.detail && <Text size="xs" c="red" style={{ whiteSpace: "pre-wrap" }}>{current.detail}</Text>}
+        {(confirmTask.error || skip.error || retry.error) && <Text size="xs" c="red">{(confirmTask.error ?? skip.error ?? retry.error)?.message}</Text>}
       </Stack>
       {delegating && (
         <DelegateModal project={project} task={task.task} repository={task.repository} opened onClose={() => setDelegating(false)} />

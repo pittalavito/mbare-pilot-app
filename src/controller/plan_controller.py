@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Response, status
 from pydantic import BaseModel
 
 from controller.dependencies import plan_service
-from models.domain.plan import ActivityPath, ActivityPlan, PlanChoice
+from models.domain.plan import ActivityPath, ActivityPlan, PlanChoice, StepKey
 from service.plan_service import PlanService
 
 router = APIRouter(prefix="/projects/{project}", tags=["plan"])
@@ -44,3 +44,41 @@ def confirm_task(project: str, task: str, service: PlanService = Depends(plan_se
     """«Conferma del task»: from «in refinement» to «to do» (409 when already confirmed, 400 without an objective)."""
     service.confirm_task(project, task)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+class PauseRequest(BaseModel):
+    paused: bool
+
+
+class PrepareRequest(BaseModel):
+    prepare: str = ""
+    """``""`` (automatic), ``none``, ``dev`` or ``learned:<id>``."""
+
+
+class StepRequest(BaseModel):
+    task: str
+    step: StepKey
+
+
+@router.post("/activities/{activity}/plan/pause")
+def pause_plan(project: str, activity: str, request: PauseRequest, service: PlanService = Depends(plan_service)) -> ActivityPlan:
+    """Pause or resume the path (409 without a confirmed plan)."""
+    return service.set_paused(project, activity, request.paused)
+
+
+@router.post("/activities/{activity}/plan/prepare")
+def prepare_plan(project: str, activity: str, request: PrepareRequest, service: PlanService = Depends(plan_service)) -> ActivityPlan:
+    """How the path prepares the repositories before Copilot."""
+    return service.set_prepare(project, activity, request.prepare)
+
+
+@router.post("/activities/{activity}/plan/skip")
+def skip_step(project: str, activity: str, request: StepRequest, service: PlanService = Depends(plan_service)) -> ActivityPlan:
+    """Skip a task's preparation or verification."""
+    return service.skip(project, activity, request.task, request.step)
+
+
+@router.post("/activities/{activity}/plan/retry")
+def retry_step(project: str, activity: str, request: StepRequest, service: PlanService = Depends(plan_service)) -> ActivityPlan:
+    """Run a failed preparation, delegation (at the path's next turn) or verification (now) again."""
+    return service.retry(project, activity, request.task, request.step)

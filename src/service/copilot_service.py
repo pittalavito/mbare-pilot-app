@@ -282,6 +282,13 @@ class CopilotService:
             raise ConflictError(f"Preparazione non riuscita, Copilot non è partito.\n\n{check.text}")
         return f"🧰 Preparazione ok.\n\n{check.text}"
 
+    def verify_again(self, session_id: int) -> None:
+        """«Riprova» on a failed verification of «Lavora attività»: «Verifica sviluppo» again, its outcome a new event."""
+        session = self.session(session_id)
+        if session.status is not CopilotSessionStatus.DONE:
+            raise ConflictError("Si verifica solo un'esecuzione finita.")
+        self._verify(session)
+
     def _verify(self, session: CopilotSession) -> None:
         """«Verifica sviluppo» after a development went «to verify»: its outcome
         as an event of the chat (``VERIFY_FAILED`` first when it failed: the UI

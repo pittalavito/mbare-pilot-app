@@ -4,7 +4,7 @@ whether the project has the two automations («Prepara sviluppo», «Verifica
 sviluppo»), the allowed commands, the Operator of the preparation and the
 commands waiting for the user's ok."""
 from fastapi import APIRouter, Depends, Response, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from controller.dependencies import command_service, dev_checks_service
 from models.domain.dev import PREPARE_AUTOMATION, VERIFY_AUTOMATION, DevSettings, TestScope
@@ -35,6 +35,8 @@ class DevSettingsRequest(BaseModel):
     allowed_commands: list[str] | None = None
     """None = unchanged."""
     operator_chatbot_id: int | None = None
+    auto_retries: int | None = Field(None, ge=0, le=3)
+    """None = unchanged."""
 
 
 class CommandAnswer(BaseModel):
@@ -64,6 +66,8 @@ def save_dev_settings(project: str, request: DevSettingsRequest, service: DevChe
     if request.allowed_commands is not None:
         commands.save_allowed(project, request.allowed_commands)
     service.save_operator(project, request.operator_chatbot_id)
+    if request.auto_retries is not None:
+        service.save_auto_retries(project, request.auto_retries)
     return _response(project, service, commands, service.save_settings(project, request.test_scope, request.commands))
 
 

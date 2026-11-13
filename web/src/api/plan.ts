@@ -16,6 +16,15 @@ export type PlanChoice = components["schemas"]["PlanChoice"];
 export type PathTask = components["schemas"]["PathTask"];
 export type PathStep = components["schemas"]["PathStep"];
 
+/** The path is moving by itself (Copilot works, or the worker is about to prepare and delegate): refreshed. */
+export function pathMoving(path: ActivityPath | undefined): boolean {
+  if (!path?.plan || path.plan.status !== "confirmed") return false;
+  if (path.tasks.some((task) => task.steps.some((step) => step.state === "running"))) return true;
+  const current = path.tasks.find((task) => task.current);
+  return !path.plan.paused && !!current?.steps.some((step) => step.key === "delegate" && step.state === "todo")
+    && current.steps.every((step) => step.key !== "confirm" || step.state === "done");
+}
+
 const pathKey = (project: string, activity: string) => ["projects", project, "activities", activity, "path"] as const;
 
 /** The plan waiting for a choice, or the confirmed one with each task's steps (refreshed while Copilot works). */
@@ -23,7 +32,7 @@ export function useActivityPath(project: string, activity: string) {
   return useQuery({
     queryKey: pathKey(project, activity),
     queryFn: () => unwrap(api.GET("/projects/{project}/activities/{activity}/path", { params: { path: { project, activity } } })),
-    refetchInterval: (query) => (query.state.data?.tasks.some((task) => task.steps.some((step) => step.state === "running")) ? 4000 : false),
+    refetchInterval: (query) => (pathMoving(query.state.data) ? 4000 : false),
   });
 }
 
@@ -67,6 +76,45 @@ export function useConfirmTask(project: string, activity: string) {
   const refresh = useRefresh(project, activity);
   return useMutation({
     mutationFn: (task: string) => unwrap(api.POST("/projects/{project}/agent-tasks/{task}/confirm", { params: { path: { project, task } } })),
+    onSuccess: refresh,
+  });
+}
+
+export function usePausePlan(project: string, activity: string) {
+  const refresh = useRefresh(project, activity);
+  return useMutation({
+    mutationFn: (paused: boolean) =>
+      unwrap(api.POST("/projects/{project}/activities/{activity}/plan/pause", { params: { path: { project, activity } }, body: { paused } })),
+    onSuccess: refresh,
+  });
+}
+
+/** How the path prepares the repositories: ``""`` (automatic), ``none``, ``dev``, ``learned:<id>``. */
+export function useSetPrepare(project: string, activity: string) {
+  const refresh = useRefresh(project, activity);
+  return useMutation({
+    mutationFn: (prepare: string) =>
+      unwrap(api.POST("/projects/{project}/activities/{activity}/plan/prepare", { params: { path: { project, activity } }, body: { prepare } })),
+    onSuccess: refresh,
+  });
+}
+
+type StepBody = components["schemas"]["StepRequest"];
+
+export function useSkipStep(project: string, activity: string) {
+  const refresh = useRefresh(project, activity);
+  return useMutation({
+    mutationFn: (body: StepBody) =>
+      unwrap(api.POST("/projects/{project}/activities/{activity}/plan/skip", { params: { path: { project, activity } }, body })),
+    onSuccess: refresh,
+  });
+}
+
+export function useRetryStep(project: string, activity: string) {
+  const refresh = useRefresh(project, activity);
+  return useMutation({
+    mutationFn: (body: StepBody) =>
+      unwrap(api.POST("/projects/{project}/activities/{activity}/plan/retry", { params: { path: { project, activity } }, body })),
     onSuccess: refresh,
   });
 }

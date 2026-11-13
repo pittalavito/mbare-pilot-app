@@ -70,5 +70,7 @@ class RepositoryTests(BaseModel):
 
 class DevSettings(BaseModel):
     test_scope: TestScope = TestScope.ALL
+    auto_retries: int = 1
+    """«Lavora attività»: how many times failed tests go back to Copilot by themselves (0-3)."""
     """The default: every test, or only the touched ones (a task can change it)."""
     repositories: list[RepositoryTests] = []
