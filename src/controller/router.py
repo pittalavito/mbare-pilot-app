@@ -17,6 +17,7 @@ from controller.git_controller import router as git_router
 from controller.masking_controller import router as masking_router
 from controller.metrics_controller import router as metrics_router
 from controller.pipeline_controller import router as pipeline_router
+from controller.plan_controller import router as plan_router
 from controller.process_controller import router as process_router
 from controller.project_controller import router as project_router
 from controller.project_data_controller import router as project_data_router
@@ -50,6 +51,7 @@ router.include_router(definition_router)
 router.include_router(process_router)
 router.include_router(copilot_router)
 router.include_router(wip_router)
+router.include_router(plan_router)
 router.include_router(context_router)
 router.include_router(metrics_router)
 router.include_router(today_router)

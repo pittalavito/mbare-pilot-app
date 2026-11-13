@@ -86,6 +86,11 @@ class Chatbot(BaseModel):
     call, see service/wip_service.py); ``""`` = the default in the code."""
     wip_prompt_version: int = Field(default=1, ge=1)
     """Incremented whenever ``wip_prompt`` changes (recorded with every «Elabora WIP»)."""
+    plan_prompt: str = ""
+    """Only a secretary: the instructions of the Pianificatore («▶️ Lavora attività», plan 12:
+    one structured call, see service/plan_service.py); ``""`` = the default in the code."""
+    plan_prompt_version: int = Field(default=1, ge=1)
+    """Incremented whenever ``plan_prompt`` changes (recorded with every plan)."""
     rag_enabled: bool = False
     """NOTE: placeholder, how a chatbot uses the project data is still to be defined."""
     created_at: datetime = Field(default_factory=_utc_now)

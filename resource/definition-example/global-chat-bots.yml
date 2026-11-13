@@ -70,6 +70,16 @@ chatbots:
       calcolale dalla data di oggi che ti do, nel formato YYYY-MM-DD.
       Le parole come PERSONA_1, REPO_2, TERMINE_3, MAIL_1, URL_1 sono nomi nascosti: usale così come sono.
       Niente stati, niente agent task, niente note. Se il testo non chiede niente, nessuna proposta. Non inventare.
+    # plan_prompt: le istruzioni del Pianificatore («▶️ Lavora attività»: una chiamata strutturata con il modello del segretario)
+    plan_prompt: |
+      Sei il Pianificatore: dall'attività che ti do proponi gli agent task per farla, nell'ordine in cui farli.
+      Rispondi solo nello schema dato, in italiano, breve.
+      Un task può nascere da una voce o da più voci insieme (scrivi i loro numeri); le voci che vanno fatte a mano
+      lasciale fuori. Se per fare l'attività serve un passo che nelle voci non c'è (es. aggiornare prima una libreria),
+      proponilo senza voci. Per ogni task: titolo breve, tipo (development cambia il codice; analysis, confluence, jira no),
+      repository dell'elenco (vuoto se non serve), il motivo in una riga, l'obiettivo in una o due frasi e pochi criteri
+      di accettazione verificabili. Prima le librerie, poi chi le usa. Usa il contesto del progetto solo se aiuta.
+      Le parole come REPO_1 o TERMINE_2 sono nomi nascosti: usale così come sono. Non inventare.
   - name: Refiner
     # refiner: tool fissi (create_code_reference, read_agent_task, update_agent_task, finish_refinement, search_context), solo sul
     # task aperto accanto alla chat; nella UI sta accanto agli agent task, non nella scheda Chat

@@ -3,7 +3,8 @@
 
 - **waiting**: agent tasks created, in refinement or to verify; Copilot
   sessions waiting for the user (planning: Copilot's message is the last one;
-  running: a question of ``ask_user`` without an answer);
+  running: a question of ``ask_user`` without an answer); the Pianificatore's
+  plans of activities waiting to be confirmed (plan 12a);
 - **overdue** / **due_soon**: items not done whose due date is past / within
   the project's ``due_soon_days`` (default 3), of activities not done;
 - **to_close**: activities whose items are all done, not done themselves.
@@ -16,19 +17,22 @@ from core.error import ConflictError
 from domain.project.data_paths import note_file_name
 from models.domain.copilot import CopilotMessageRole, CopilotSessionStatus
 from models.domain.note import ActivityStatus, TaskStatus
+from models.domain.plan import PlanStatus
 from models.domain.today import Today, TodayActivity, TodayItem, TodayWaiting, WaitingKind
 from service.copilot_service import CopilotService
 from service.project_data_service import ProjectDataService
+from service.store.plan_store import PlanStore
 
 _WAITING_STATUSES = (TaskStatus.CREATED, TaskStatus.REFINEMENT, TaskStatus.TO_VERIFY)
 
 
 class TodayService:
 
-    def __init__(self, project_data: ProjectDataService, copilot: CopilotService | None):
-        """``copilot`` None (a run without Copilot): no session waits."""
+    def __init__(self, project_data: ProjectDataService, copilot: CopilotService | None, plans: PlanStore | None = None):
+        """``copilot`` None (a run without Copilot): no session waits; ``plans`` None: no plan waits."""
         self._data = project_data
         self._copilot = copilot
+        self._plans = plans
 
     def today(self, project_name: str, today: date | None = None) -> Today:
         today = today or date.today()
@@ -43,8 +47,13 @@ class TodayService:
             if reason and session.task_note in titles:
                 waiting.append(TodayWaiting(kind=WaitingKind.COPILOT, task=session.task_note, title=titles[session.task_note], status=reason,
                                             session_id=session.id))
+        activities = self._data.activities(project_name)
+        activity_titles = {name: activity.title for name, activity in activities}
+        for plan in self._plans.latest_per_activity(project_name) if self._plans else []:
+            if plan.status is PlanStatus.PROPOSED and plan.activity in activity_titles:
+                waiting.insert(0, TodayWaiting(kind=WaitingKind.PLAN, task=plan.activity, title=activity_titles[plan.activity], status="plan", session_id=None))
         overdue, due_soon, to_close = [], [], []
-        for name, activity in self._data.activities(project_name):
+        for name, activity in activities:
             if activity.status == ActivityStatus.DONE:
                 continue
             if activity.items and all(item.done for item in activity.items):

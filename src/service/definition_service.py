@@ -176,7 +176,7 @@ class DefinitionService:
         try:
             self._chatbots.update_chatbot(old.id, name=ARCHITECT, kind=spec.kind, system_prompt=(spec.system_prompt or "").strip(),
                                           model=spec.model, description=spec.description, max_steps=spec.max_steps,
-                                          tool_names=list(KIND_TOOLS[spec.kind]), wip_prompt="")
+                                          tool_names=list(KIND_TOOLS[spec.kind]), wip_prompt="", plan_prompt="")
             log_info(LogPrefix.DEFINITION_SERVICE, "%s: «%s» è diventato «%s»", project_name, OLD_AUTOMATION_BOT, ARCHITECT)
         except Exception as exc:  # e.g. the model not in the catalog: logged, the app starts anyway
             log_warning(LogPrefix.DEFINITION_SERVICE, "%s: «%s» non diventato «%s»: %s", project_name, OLD_AUTOMATION_BOT, ARCHITECT, exc)
@@ -281,6 +281,7 @@ class DefinitionService:
             max_steps=spec.max_steps,
             tool_names=list(KIND_TOOLS.get(spec.kind, spec.tools)),  # a kind's fixed tools: compared as saved
             wip_prompt=(spec.wip_prompt or "").strip(),
+            plan_prompt=(spec.plan_prompt or "").strip(),
         )
         current = next((bot for bot in self._chatbots.list_chatbots(project_name) if bot.name.lower() == spec.name.lower()), None)
         if current is None:
