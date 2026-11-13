@@ -9,7 +9,7 @@ const step = (name: string, x = 0, y = 0): Step => ({
 });
 
 const pipeline = (steps: Step[], edges: Pipeline["edges"]): Pipeline => ({
-  id: 1, project_name: "acme", name: "P", description: "", active: true, steps, edges,
+  id: 1, project_name: "acme", name: "P", description: "", active: true, steps, edges, fields: [], purpose: "",
 });
 
 const uids = (draft: ReturnType<typeof fromPipeline>) =>

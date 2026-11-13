@@ -260,7 +260,7 @@ def test_steps_must_be_one_kind(services, definition_store):
 
     [item] = definitions.sync("acme").items
 
-    assert item.outcome.value == "error" and "uno solo tra function, agent e system_prompt" in item.message
+    assert item.outcome.value == "error" and "uno solo tra function, tool, agent e system_prompt" in item.message
 
 
 def test_missing_or_empty_files_define_nothing_and_an_unknown_project(services, definition_store):
@@ -349,9 +349,9 @@ def test_the_default_chatbots_are_created_where_missing_and_never_changed(servic
     definitions, chatbots, _ = services
     mine = chatbots.create_chatbot("acme", "segretario", system_prompt="Mio.", model=MODEL)  # same name: left as it is
 
-    assert definitions.seed_default_chatbots(["acme"]) == 2
+    assert definitions.seed_default_chatbots(["acme"]) == 3
     bots = {bot.name: bot for bot in chatbots.list_chatbots("acme")}
-    assert set(bots) == {"Architetto", "Refiner", "segretario"}
+    assert set(bots) == {"Architetto", "Operatore Java", "Refiner", "segretario"}
     assert bots["Refiner"].kind.value == "refiner" and bots["Refiner"].tool_names == [
         "create_code_reference", "read_agent_task", "update_agent_task", "finish_refinement", "search_context",
     ]

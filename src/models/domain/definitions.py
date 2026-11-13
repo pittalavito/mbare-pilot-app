@@ -20,7 +20,7 @@ from models.domain.agent import Name
 from models.domain.chat import ModelKey
 from models.domain.chatbot import KIND_TOOLS, ChatbotKind
 from models.domain.note import TaskType
-from models.domain.pipeline import INPUT, EdgeConditionKind
+from models.domain.pipeline import INPUT, AutomationPurpose, EdgeConditionKind, FieldName
 
 Prompt = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
@@ -149,13 +149,17 @@ class CodingAgentFile(_File):
 
 class StepFile(_File):
     """A step of an automation: exactly one of ``function`` (with its
-    ``params``), ``agent`` (an agent of the project or of the Library) or an own
-    agent (``system_prompt`` + ``model``, optional ``tools`` and ``max_steps``)."""
+    ``params``), ``tool`` (an agent's tool, with its ``args``: plan 11), ``agent``
+    (an agent of the project or of the Library) or an own agent (``system_prompt``
+    + ``model``, optional ``tools`` and ``max_steps``)."""
     name: Name
     input: str = INPUT
-    """What the step receives: ``{input}``, ``{pipeline_input}``, ``{nodo:Nome}``."""
+    """What the step receives: ``{input}``, ``{pipeline_input}``, ``{nodo:Nome}``, ``{in:campo}``."""
     function: str | None = None
     params: dict[str, Any] = Field(default_factory=dict)
+    tool: str | None = None
+    args: dict[str, Any] = Field(default_factory=dict)
+    """The tool's arguments; strings can use ``{in:campo}``."""
     agent: str | None = None
     system_prompt: Prompt | None = None
     model: ModelKey | None = None
@@ -164,11 +168,13 @@ class StepFile(_File):
 
     @model_validator(mode="after")
     def _one_kind(self) -> "StepFile":
-        kinds = [self.function is not None, self.agent is not None, self.system_prompt is not None]
+        kinds = [self.function is not None, self.tool is not None, self.agent is not None, self.system_prompt is not None]
         if sum(kinds) != 1:
-            raise ValueError(f"step {self.name}: scrivi uno solo tra function, agent e system_prompt")
+            raise ValueError(f"step {self.name}: scrivi uno solo tra function, tool, agent e system_prompt")
         if self.params and self.function is None:
             raise ValueError(f"step {self.name}: params vale solo con function")
+        if self.args and self.tool is None:
+            raise ValueError(f"step {self.name}: args vale solo con tool")
         if self.system_prompt is not None and self.model is None:
             raise ValueError(f"step {self.name}: un agente proprio vuole anche model")
         if self.system_prompt is None and (self.model is not None or self.tools):
@@ -195,6 +201,10 @@ class AutomationFile(_File):
     active: bool = True
     steps: list[StepFile] = Field(min_length=1)
     edges: list[EdgeFile] | None = None
+    fields: list[FieldName] = Field(default_factory=list)
+    """The named values of a run, used by the steps as ``{in:campo}`` (plan 11)."""
+    purpose: AutomationPurpose = AutomationPurpose.NONE
+    """``prepare``: offered in the delegation to Copilot, its fields filled from the task."""
 
 
 class DefinitionKind(StrEnum):

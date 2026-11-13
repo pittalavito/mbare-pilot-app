@@ -5,6 +5,7 @@ the domain: the mapper translates."""
 from domain.store.db.mapper import as_utc
 from models.domain.pipeline import (
     INPUT_NODE,
+    AutomationPurpose,
     EdgeConditionKind,
     Pipeline,
     PipelineEdge,
@@ -31,6 +32,8 @@ class Adapter:
             name=row.name,
             description=row.description,
             active=row.active,
+            fields=list(row.fields or []),
+            purpose=AutomationPurpose(row.purpose) if row.purpose in set(AutomationPurpose) else AutomationPurpose.NONE,
             steps=[Adapter.to_pipeline_step(step_row) for step_row in step_rows],
             edges=[
                 PipelineEdge(
@@ -65,6 +68,7 @@ class Adapter:
             agent=agent,
             agent_config_name=row.agent_config_name,
             function_name=row.function_name,
+            tool_name=row.tool_name,
             params=dict(row.params),
             position_x=row.position_x,
             position_y=row.position_y,
@@ -98,7 +102,8 @@ class Factory:
 
     @staticmethod
     def to_pipeline_row(pipeline: Pipeline) -> PipelineTable:
-        return PipelineTable(**pipeline.model_dump(exclude={"steps", "edges"}))
+        return PipelineTable(**pipeline.model_dump(exclude={"steps", "edges", "fields", "purpose"}),
+                             fields=list(pipeline.fields) or None, purpose=pipeline.purpose.value)
 
     @staticmethod
     def to_pipeline_step_row(step: PipelineStep, pipeline_id: int, position: int) -> PipelineStepTable:
@@ -117,6 +122,7 @@ class Factory:
             tool_names=list(agent.tool_names) if agent else [],
             agent_config_name=step.agent_config_name,
             function_name=step.function_name,
+            tool_name=step.tool_name,
             params=dict(step.params),
             position_x=step.position_x,
             position_y=step.position_y,

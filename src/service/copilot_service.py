@@ -66,7 +66,7 @@ from models.domain.copilot import (
     CopilotTurnRecord,
     CopilotUsage,
 )
-from models.domain.dev import VERIFY_FAILED, VERIFY_OK, DevCheck, PrepareTarget
+from models.domain.dev import VERIFY_FAILED, VERIFY_OK, DevCheck, LearnedPreparation, PrepareTarget
 from models.domain.note import AgentTask, TaskLink, TaskStatus, TaskType
 from service.git_service import GitService
 from service.project_data_service import ProjectDataService
@@ -225,7 +225,7 @@ class CopilotService:
     # -------------------------------------------------------------- planning
     @observed(LogPrefix.COPILOT_SERVICE)
     def start(self, project_name: str, task_note: str, repository: str = "", prompt: str = "", model: str = "",
-              prepare: list[PrepareTarget] | None = None) -> CopilotSession:
+              prepare: list[PrepareTarget] | None = None, learned: LearnedPreparation | None = None) -> CopilotSession:
         """A new session on an agent task: the first planning turn runs now,
         so the session comes back with Copilot's questions (or the error).
         ``prompt``: one of the definition's prompts (``""`` = the one of the
@@ -233,7 +233,8 @@ class CopilotService:
         of its models (``""`` = the default), for every turn. A task not
         refined yet (created, refinement) can be delegated: the chat says so.
         ``prepare``: the repositories to get ready first, each on its branch
-        («Prepara sviluppo»); if that fails, ConflictError and no session."""
+        («Prepara sviluppo»), or ``learned``: an automation learned from the
+        Operator with its fields (plan 11); if that fails, ConflictError and no session."""
         if not self._client.available:
             raise UpstreamError(NOT_FOUND)
         settings = self.coding_agent(project_name)
@@ -243,7 +244,7 @@ class CopilotService:
         prompt = coding_agent.task_prompt(settings, task.type, prompt)
         first_turn = coding_agent.plan_prompt(settings, task_folder.relative_folder(task_note), prompt, task.type)
         self._require_mcp()
-        prepared = self._prepare(project_name, prepare or [])
+        prepared = self._prepare(project_name, prepare or [], learned)
         task_folder.write(folder, task_note, task_folder.minimal_task(task_note, task.title, TYPE_LABELS[task.type]))  # errors stop here
         session = self._copilot.save_session(CopilotSession(
             project_name=project_name,
@@ -266,12 +267,15 @@ class CopilotService:
                 self._set_task_status(session, TaskStatus.IN_PROGRESS)
         return self._plan_turn(session, folder, first_turn, refresh=False)
 
-    def _prepare(self, project_name: str, targets: list[PrepareTarget]) -> str | None:
-        """«Prepara sviluppo» on ``targets``: the chat's event when it ran (None
-        when nothing was asked); ConflictError when it failed: Copilot does not start."""
-        if not targets or self._checks is None:
+    def _prepare(self, project_name: str, targets: list[PrepareTarget], learned: LearnedPreparation | None = None) -> str | None:
+        """«Prepara sviluppo» on ``targets`` (or the ``learned`` automation): the chat's event
+        when it ran (None when nothing was asked); ConflictError when it failed: Copilot does not start."""
+        if (not targets and learned is None) or self._checks is None:
             return None
-        check = self._checks.prepare(project_name, targets)
+        if learned is not None:
+            check = self._checks.prepare_learned(project_name, learned.automation_id, learned.fields)
+        else:
+            check = self._checks.prepare(project_name, targets)
         if check.skipped:
             return f"🧰 {check.text}"
         if not check.ok:

@@ -1,9 +1,10 @@
 # Chatbot di ogni progetto (salvo che il progetto ne abbia uno con lo stesso nome nel suo chat-bots.yml).
-# «Chat bot», «Refiner» e «Segretario» ogni progetto li ha già di default (dal codice): scriverli qui ne cambia prompt e modello
+# «Architetto», «Operatore Java», «Refiner» e «Segretario» ogni progetto li ha già di default (dal codice): scriverli qui ne cambia prompt e modello
 # alla sincronizzazione. Dalla UI i chatbot non si creano: quelli in più si scrivono qui.
 # Un progetto può averne più di uno: ognuno ha il suo agente (prompt, modello, tool).
 # kind: automation (l'Architetto: progetta le automation, tool fissi), secretary (tool fissi sulle note: attività e agent task), refiner (tool fissi per
-# rifinire l'agent task aperto, accanto agli agent task nella UI) oppure custom (tool a scelta, il default).
+# rifinire l'agent task aperto, accanto agli agent task nella UI), operator (l'Operatore: procedure sui repository con git sicuro e i comandi
+# permessi; quello che fa giusto diventa un'automation) oppure custom (tool a scelta, il default).
 chatbots:
   - name: Architetto
     # automation: l'Architetto progetta con te le automation; tool fissi (list_functions, list_agents, list_automations,
@@ -92,3 +93,22 @@ chatbots:
       Non vedi né i commenti né il codice: dimmi quanti commenti e in quanti file, se la nota è nuova o aggiornata,
       e dammi il link della nota come link markdown, così la apro e la modifico.
       Se non trova niente, dimmelo. Se non sai, non inventare.
+  - name: Operatore Java
+    # operator: tool fissi (git sicuro: status, fetch, branch, checkout, crea branch, pull fast-forward, stash; run_command con i
+    # comandi permessi del progetto; maven_parent_alignment). Niente commit né push. Quello che fa giusto diventa un'automation
+    # con «✅ Giusto: fanne un'automation» (step tool, senza LLM). Per altri stack (Python…) aggiungi un altro chatbot operator.
+    kind: operator
+    description: "Prepara i repository Java (branch, pull, mvn clean install): quello che fa giusto diventa un'automation"
+    model: openrouter/google/gemini-3.1-flash-lite-preview
+    max_steps: 12
+    system_prompt: |
+      Sei l'Operatore Java del progetto: fai sui repository le procedure che ti chiedo (Maven, Spring Boot, librerie).
+      Rispondi in italiano, brevissimo. Usa solo i tool, pochi passi, niente spiegazioni lunghe.
+      Git: guarda lo stato con git_status, aggiorna con git_fetch, porta i repository sul branch con git_checkout
+      o creane uno con git_create_branch dalla base che ti dico, aggiorna con git_pull_fast_forward. Con modifiche non
+      committate non forzare: chiedimi se fare git_stash. Non fai commit né push.
+      Build: lancia i comandi con run_command (es. mvn -B clean install), prima le librerie e poi chi le usa;
+      maven_parent_alignment ti dice quali pom.xml non sono sulla versione del parent.
+      Se run_command dice che un comando non è permesso, fermati e dimmi quale comando serve: lo approvo io.
+      Alla fine dimmi in una riga per repository cosa hai fatto. Se una cosa fallisce, fermati e dimmi l'errore.
+      Le parole come REPO_1 sono nomi nascosti: usale così come sono. Se non sai, non inventare.

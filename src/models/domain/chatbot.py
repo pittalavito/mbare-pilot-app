@@ -32,6 +32,12 @@ class ChatbotKind(StrEnum):
     task open next to the chat, while in refinement (the user's button moves it
     there from created): reads it with its type's checklist, writes its fields
     and makes it todo with the user's ok; the code scan hands it counts only."""
+    OPERATOR = "operator"
+    """The Operator (plan 11): does procedures on the project's repositories for
+    one stack (the default is Java: Maven, Spring Boot), with safe git (no commit,
+    no push), the project's allowed commands and the POMs. What it did right
+    becomes an automation of ``tool`` steps with a click (no LLM the times after).
+    Only KIND_TOOLS' tools; other stacks are other operator chatbots."""
     CUSTOM = "custom"
     """Its tools are chosen freely; no automation cache."""
 
@@ -45,8 +51,17 @@ KIND_TOOLS: dict[ChatbotKind, list[str]] = {
         "list_agent_tasks", "list_references", "create_agent_task", "today",
     ],
     ChatbotKind.REFINER: ["create_code_reference", "read_agent_task", "update_agent_task", "finish_refinement", "search_context"],
+    ChatbotKind.OPERATOR: [
+        "git_status", "git_fetch", "git_branches", "git_checkout", "git_create_branch", "git_pull_fast_forward",
+        "git_stash", "git_stash_list", "git_stash_apply", "run_command", "maven_parent_alignment",
+    ],
 }
 """The tools a kind imposes on its chatbots; a kind not here lets them be chosen."""
+
+STEP_TOOLS: list[str] = KIND_TOOLS[ChatbotKind.OPERATOR]
+"""The tools a ``tool`` step of an automation can call: the Operator's."""
+READ_ONLY_TOOLS: set[str] = {"git_status", "git_branches", "git_stash_list", "maven_parent_alignment"}
+"""Tools that only read: promoting a run leaves them out unless chosen."""
 
 CACHE_KINDS: set[ChatbotKind] = set()
 """The kinds whose chatbots use the automation cache (service/automation_cache_service.py):

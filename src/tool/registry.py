@@ -37,6 +37,8 @@ from tool.list.hello_world import hello_world
 from tool.list.notes.activities import CREATE_ACTIVITY, LIST_ACTIVITIES, READ_ACTIVITY, UPDATE_ACTIVITY
 from tool.list.notes.agent_tasks import CREATE_AGENT_TASK, LIST_REFERENCES
 from tool.list.notes.today import TODAY
+from tool.list.operator.maven_parent_alignment import MAVEN_PARENT_ALIGNMENT
+from tool.list.operator.run_command import RUN_COMMAND
 from tool.list.project.search_context import SEARCH_CONTEXT
 from tool.list.refiner.agent_tasks import (
     FINISH_REFINEMENT,
@@ -87,6 +89,8 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         GIT_STASH,
         GIT_STASH_LIST,
         GIT_STASH_APPLY,
+        RUN_COMMAND,
+        MAVEN_PARENT_ALIGNMENT,
     )
 }
 """Every tool implemented in code, keyed by name."""

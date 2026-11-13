@@ -55,6 +55,18 @@ def default_command(kind: TestKind, root_files: set[str], windows: bool = os.nam
     return ""
 
 
+def install_command(kind: TestKind, root_files: set[str], windows: bool = os.name == "nt") -> str:
+    """The clean install of a repository, offered as an allowed command of the
+    Operator (plan 11); ``""`` when the tool is unknown."""
+    if kind is TestKind.MAVEN:
+        return default_command(kind, root_files, windows).replace(" test", " clean install")
+    if kind is TestKind.PYTHON:
+        return "uv sync" if "uv.lock" in root_files else ""
+    if kind is TestKind.NODE:
+        return "npm ci" if "package-lock.json" in root_files else "npm install"
+    return ""
+
+
 def is_test_file(kind: TestKind, path: str) -> bool:
     name = PurePosixPath(path).name
     if kind is TestKind.MAVEN:

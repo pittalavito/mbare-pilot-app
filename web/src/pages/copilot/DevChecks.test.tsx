@@ -104,7 +104,8 @@ describe("development checks", () => {
     const dialog = await delegate();
     fireEvent.click(within(dialog).getByPlaceholderText("Scegli il repository"));
     fireEvent.click(await screen.findByRole("option", { name: "api" }));
-    fireEvent.click(await within(dialog).findByLabelText(/Prepara i repository/));
+    fireEvent.click(await within(dialog).findByDisplayValue("🧰 Prepara sviluppo")); // the default when the project has it
+    fireEvent.click(await screen.findByRole("option", { name: "Non preparare" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Delega" }));
 
     expect(await within(dialog).findByText("Preparazione non riuscita, Copilot non è partito.")).toBeInTheDocument();

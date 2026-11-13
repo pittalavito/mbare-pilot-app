@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from function.spec import FunctionSpec
-from models.domain.pipeline import EdgeConditionKind, Pipeline, PipelineEdge, PipelineRun, PipelineStep
+from models.domain.pipeline import AutomationPurpose, EdgeConditionKind, Pipeline, PipelineEdge, PipelineRun, PipelineStep
 from models.domain.worker import WorkerStatus
 
 
@@ -23,11 +23,12 @@ class StepBody(BaseModel):
     id: int | None = None
     name: str
     kind: str
-    """``agent`` | ``agent_config`` | ``function``."""
+    """``agent`` | ``agent_config`` | ``function`` | ``tool``."""
     input_template: str
     agent: StepAgentBody | None = None
     agent_config_name: str | None = None
     function_name: str | None = None
+    tool_name: str | None = None
     params: dict[str, Any] = Field(default_factory=dict)
     position_x: float = 0.0
     position_y: float = 0.0
@@ -58,6 +59,9 @@ class PipelineResponse(BaseModel):
     active: bool
     steps: list[StepBody]
     edges: list[EdgeBody]
+    fields: list[str] = []
+    """The named values a run asks for (its input is then a JSON object with them)."""
+    purpose: AutomationPurpose = AutomationPurpose.NONE
 
     @classmethod
     def from_pipeline(cls, pipeline: Pipeline) -> "PipelineResponse":
@@ -72,6 +76,8 @@ class PipelineRequest(BaseModel):
     steps: list[StepBody] = Field(default_factory=list)
     edges: list[EdgeBody] = Field(default_factory=list)
     """Empty = the chain of the steps, in their order."""
+    fields: list[str] = Field(default_factory=list)
+    purpose: AutomationPurpose = AutomationPurpose.NONE
 
 
 class StepRunResponse(BaseModel):

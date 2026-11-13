@@ -92,7 +92,7 @@ export function ProjectPage() {
           </Button>
         )}
       </Group>
-      <AgentPanelProvider>
+      <AgentPanelProvider onAsk={() => (narrow ? setDrawer(true) : hidden && toggle())}>
         {zone && !narrow && !hidden ? (
           <Grid gutter="md">
             <Grid.Col span={8} style={{ minWidth: 0 }}><Outlet /></Grid.Col>

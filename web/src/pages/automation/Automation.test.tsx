@@ -15,7 +15,7 @@ const step = (name: string, x: number) => ({
 });
 
 const PIPELINE: Pipeline = {
-  id: 7, project_name: "acme", name: "Controllo", description: "Verifica il repo", active: true,
+  id: 7, project_name: "acme", name: "Controllo", description: "Verifica il repo", active: true, fields: [], purpose: "",
   steps: [step("Stato", 240), step("Pull", 480)],
   edges: [
     { source: "input", target: "Stato", condition: "always", value: "" },

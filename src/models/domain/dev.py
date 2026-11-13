@@ -40,6 +40,13 @@ class PrepareTarget(BaseModel):
     """Where a new branch starts from (a branch); ``""`` = the branch must exist."""
 
 
+class LearnedPreparation(BaseModel):
+    """An automation learned from the Operator, run at the delegation instead of «Prepara sviluppo» (plan 11)."""
+    automation_id: int
+    fields: dict[str, str] = {}
+    """Its fields' values (the delegation fills them from the task; the user corrects them)."""
+
+
 class DevCheck(BaseModel):
     """How a preparation or a verification went."""
     ok: bool

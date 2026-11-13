@@ -25,7 +25,7 @@ export function useDevSettings(project: string) {
 export function useSaveDevSettings(project: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: { test_scope: TestScope; commands: Record<string, string> }) =>
+    mutationFn: (body: components["schemas"]["DevSettingsRequest"]) =>
       unwrap(api.PUT("/projects/{project}/dev-settings", { params: { path: { project } }, body })),
     onSuccess: (saved) => queryClient.setQueryData(settingsKey(project), saved),
   });
@@ -37,5 +37,30 @@ export function useBranches(project: string, path: string | null) {
     queryKey: ["projects", project, "git", "branches", path],
     queryFn: () => unwrap(api.GET("/projects/{project}/git/branches", { params: { path: { project }, query: { path: path ?? "" } } })),
     enabled: path !== null,
+  });
+}
+
+export type CommandRequest = components["schemas"]["CommandRequest"];
+
+/** The commands the Operator asked for (plan 11), waiting for an answer: refreshed while the panel is open. */
+export function useCommandRequests(project: string, enabled = true) {
+  return useQuery({
+    queryKey: ["projects", project, "command-requests"],
+    queryFn: () => unwrap(api.GET("/projects/{project}/command-requests", { params: { path: { project } } })),
+    enabled,
+    refetchInterval: 4000,
+  });
+}
+
+/** «Sempre» (allow + always), «Solo stavolta» (allow) or «No». */
+export function useAnswerCommand(project: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: components["schemas"]["CommandAnswer"]) =>
+      unwrap(api.POST("/projects/{project}/command-requests/answer", { params: { path: { project } }, body })),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects", project, "command-requests"] });
+      queryClient.invalidateQueries({ queryKey: settingsKey(project) });
+    },
   });
 }

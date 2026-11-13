@@ -8,11 +8,13 @@ from service.automation_cache_service import AutomationCacheService
 from service.backup_service import BackupService
 from service.chatbot_service import ChatbotService
 from service.code_todo_service import CodeTodoService
+from service.command_service import CommandService
 from service.copilot_service import CopilotService
 from service.definition_service import DefinitionService
 from service.dev_checks_service import DevChecksService
 from service.evaluation_service import EvaluationService
 from service.git_service import GitService
+from service.learn_service import LearnService
 from service.masking_service import MaskingService
 from service.metrics_service import MetricsService
 from service.model_service import ModelService
@@ -93,6 +95,14 @@ def copilot_service(request: Request) -> CopilotService:
 
 def dev_checks_service(request: Request) -> DevChecksService:
     return request.app.state.container.dev_checks_service
+
+
+def command_service(request: Request) -> CommandService:
+    return request.app.state.container.command_service
+
+
+def learn_service(request: Request) -> LearnService:
+    return request.app.state.container.learn_service
 
 
 def publish_service(request: Request) -> PublishService:

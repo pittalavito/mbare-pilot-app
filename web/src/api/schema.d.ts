@@ -891,6 +891,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/messages/{message_id}/learn-draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Learn Draft
+         * @description «✅ Giusto: fanne un'automation» (plan 11): what the agent did right in that answer, as steps and values; 404 once the trace expired.
+         */
+        get: operations["learn_draft_messages__message_id__learn_draft_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/pipelines/learned": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save Learned
+         * @description The draft, corrected by the user, saved as an automation of ``tool`` steps.
+         */
+        post: operations["save_learned_projects__project__pipelines_learned_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pipelines/{pipeline_id}": {
         parameters: {
             query?: never;
@@ -2189,12 +2229,49 @@ export interface paths {
         };
         /**
          * Dev Settings
-         * @description Each repository's tests (tool, detected command, the one written), the default scope, the two automations.
+         * @description Each repository's tests (tool, detected command, the one written), the default scope, the two automations, the commands.
          */
         get: operations["dev_settings_projects__project__dev_settings_get"];
         /** Save Dev Settings */
         put: operations["save_dev_settings_projects__project__dev_settings_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/command-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Command Requests
+         * @description The commands the Operator asked for, waiting for an answer (the agent panel shows them).
+         */
+        get: operations["command_requests_projects__project__command_requests_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/command-requests/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer Command Request */
+        post: operations["answer_command_request_projects__project__command_requests_answer_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2591,6 +2668,12 @@ export interface components {
              */
             created_at: string;
         };
+        /**
+         * AutomationPurpose
+         * @description Where the app offers an automation by itself (plan 11), besides the list.
+         * @enum {string}
+         */
+        AutomationPurpose: "" | "prepare";
         /** AutomationYamlCheckResponse */
         AutomationYamlCheckResponse: {
             /** Name */
@@ -2684,7 +2767,7 @@ export interface components {
          * ChatbotKind
          * @enum {string}
          */
-        ChatbotKind: "automation" | "secretary" | "refiner" | "custom";
+        ChatbotKind: "automation" | "secretary" | "refiner" | "operator" | "custom";
         /**
          * ChatbotModelRequest
          * @description Change only the model of a chatbot (from the UI).
@@ -2774,6 +2857,31 @@ export interface components {
              * @default 0
              */
             malformed: number;
+        };
+        /** CommandAnswer */
+        CommandAnswer: {
+            /** Command */
+            command: string;
+            /** Allow */
+            allow: boolean;
+            /**
+             * Always
+             * @default false
+             */
+            always: boolean;
+        };
+        /**
+         * CommandRequest
+         * @description A command the Operator wanted to run and may not (yet).
+         */
+        CommandRequest: {
+            /**
+             * Repository
+             * @default
+             */
+            repository: string;
+            /** Command */
+            command: string;
         };
         /** CommitResponse */
         CommitResponse: {
@@ -2965,6 +3073,7 @@ export interface components {
              * @default []
              */
             prepare: components["schemas"]["PrepareTarget"][];
+            learned?: components["schemas"]["LearnedPreparation"] | null;
         };
         /** CopilotSessionResponse */
         CopilotSessionResponse: {
@@ -3186,6 +3295,10 @@ export interface components {
             commands: {
                 [key: string]: string;
             };
+            /** Allowed Commands */
+            allowed_commands?: string[] | null;
+            /** Operator Chatbot Id */
+            operator_chatbot_id?: number | null;
         };
         /** DevSettingsResponse */
         DevSettingsResponse: {
@@ -3200,6 +3313,12 @@ export interface components {
             prepare_automation: boolean;
             /** Verify Automation */
             verify_automation: boolean;
+            /** Allowed Commands */
+            allowed_commands: string[];
+            /** Suggested Commands */
+            suggested_commands: string[];
+            /** Operator Chatbot Id */
+            operator_chatbot_id: number | null;
         };
         /** DueRequest */
         DueRequest: {
@@ -3482,6 +3601,86 @@ export interface components {
             /** Relation */
             relation: string;
         };
+        /** LearnDraft */
+        LearnDraft: {
+            /** Run Id */
+            run_id: string;
+            /** Steps */
+            steps: components["schemas"]["LearnedStep"][];
+            /** Values */
+            values: components["schemas"]["LearnedValue"][];
+            /**
+             * Cost Eur
+             * @default 0
+             */
+            cost_eur: number;
+        };
+        /**
+         * LearnRequest
+         * @description What the user saves: the steps kept, in order, and which values are fields.
+         */
+        LearnRequest: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** @default  */
+            purpose: components["schemas"]["AutomationPurpose"];
+            /** Steps */
+            steps: components["schemas"]["LearnedStep"][];
+            /** Fields */
+            fields?: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * LearnedPreparation
+         * @description An automation learned from the Operator, run at the delegation instead of «Prepara sviluppo» (plan 11).
+         */
+        LearnedPreparation: {
+            /** Automation Id */
+            automation_id: number;
+            /**
+             * Fields
+             * @default {}
+             */
+            fields: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * LearnedStep
+         * @description A successful tool call of the run, with the real values (not the aliases).
+         */
+        LearnedStep: {
+            /** Tool */
+            tool: string;
+            /** Args */
+            args?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Read Only
+             * @default false
+             */
+            read_only: boolean;
+        };
+        /**
+         * LearnedValue
+         * @description A value of the calls' arguments: fixed, or a field of the automation.
+         */
+        LearnedValue: {
+            /** Value */
+            value: string;
+            /**
+             * Field
+             * @default
+             */
+            field: string;
+        };
         /** LogResponse */
         LogResponse: {
             /** Process */
@@ -3635,6 +3834,10 @@ export interface components {
             steps?: components["schemas"]["StepBody"][];
             /** Edges */
             edges?: components["schemas"]["EdgeBody"][];
+            /** Fields */
+            fields?: string[];
+            /** @default  */
+            purpose: components["schemas"]["AutomationPurpose"];
         };
         /** PipelineResponse */
         PipelineResponse: {
@@ -3652,6 +3855,13 @@ export interface components {
             steps: components["schemas"]["StepBody"][];
             /** Edges */
             edges: components["schemas"]["EdgeBody"][];
+            /**
+             * Fields
+             * @default []
+             */
+            fields: string[];
+            /** @default  */
+            purpose: components["schemas"]["AutomationPurpose"];
         };
         /**
          * PrepareTarget
@@ -4189,6 +4399,8 @@ export interface components {
             agent_config_name?: string | null;
             /** Function Name */
             function_name?: string | null;
+            /** Tool Name */
+            tool_name?: string | null;
             /** Params */
             params?: {
                 [key: string]: unknown;
@@ -6771,6 +6983,72 @@ export interface operations {
             };
         };
     };
+    learn_draft_messages__message_id__learn_draft_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnDraft"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_learned_projects__project__pipelines_learned_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LearnRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PipelineResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_pipeline_pipelines__pipeline_id__put: {
         parameters: {
             query?: never;
@@ -9243,6 +9521,70 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["DevSettingsResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    command_requests_projects__project__command_requests_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommandRequest"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answer_command_request_projects__project__command_requests_answer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommandAnswer"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

@@ -1,7 +1,7 @@
 import "@xyflow/react/dist/style.css";
 
 import {
-  Alert, Button, Card, Checkbox, CloseButton, Code, CopyButton, Group, Loader, Modal, MultiSelect, NumberInput, Select, Stack, Text, TextInput, Textarea, Title,
+  Alert, Button, Card, Checkbox, CloseButton, Code, CopyButton, Group, Loader, Modal, MultiSelect, NumberInput, Select, Stack, TagsInput, Text, TextInput, Textarea, Title,
   useComputedColorScheme,
 } from "@mantine/core";
 import {
@@ -15,7 +15,7 @@ import { type FunctionSpec, useFunctions, useModelChoices, useStepAgents, useToo
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { ModelSelect } from "../../components/ModelSelect";
 import {
-  CONDITION_LABELS, type Condition, type Draft, type DraftEdge, INPUT_NODE, KIND_ICONS, KIND_LABELS, type Kind, TEXT_CONDITIONS,
+  CONDITION_LABELS, type Condition, type Draft, type DraftEdge, EDITABLE_KINDS, INPUT_NODE, KIND_ICONS, KIND_LABELS, type Kind, TEXT_CONDITIONS,
   addStep, changeKind, connect, edgeId, edgeLabel, fromPipeline, moveStep, removeEdge, removeStep, toRequest, updateEdge, updateStep,
 } from "./graphDraft";
 
@@ -58,6 +58,7 @@ function EditorBody({ project, pipeline }: { project: string; pipeline?: Pipelin
   const [name, setName] = useState(pipeline?.name ?? "");
   const [description, setDescription] = useState(pipeline?.description ?? "");
   const [active, setActive] = useState(pipeline?.active ?? true);
+  const [fields, setFields] = useState<string[]>(pipeline?.fields ?? []);
   const [error, setError] = useState<string>();
   const save = useSavePipeline(project);
   const colorMode = useComputedColorScheme("light");
@@ -109,7 +110,7 @@ function EditorBody({ project, pipeline }: { project: string; pipeline?: Pipelin
       return;
     }
     save.mutate(
-      { id: pipeline?.id, body: { name: name.trim(), description, active, steps, edges: requestEdges } },
+      { id: pipeline?.id, body: { name: name.trim(), description, active, steps, edges: requestEdges, fields, purpose: pipeline?.purpose ?? "" } },
       { onSuccess: (saved) => navigate(`${back}?id=${saved.id}`), onError: (exc) => setError(exc.message) },
     );
   };
@@ -130,9 +131,15 @@ function EditorBody({ project, pipeline }: { project: string; pipeline?: Pipelin
         <Checkbox label="Attiva" checked={active} onChange={(event) => setActive(event.currentTarget.checked)} mb={8} />
       </Group>
       <TextInput label="Descrizione" value={description} onChange={(event) => setDescription(event.currentTarget.value)} />
+      <TagsInput
+        label="Campi"
+        description="Valori con nome chiesti a ogni esecuzione, usati negli step come {in:nome} (es. branch)"
+        value={fields}
+        onChange={(values) => setFields(values.map((value) => value.trim().toLowerCase()))}
+      />
 
       <Group gap="xs">
-        {(Object.keys(KIND_LABELS) as Kind[]).map((kind) => (
+        {EDITABLE_KINDS.map((kind) => (
           <Button key={kind} size="xs" variant="light" onClick={() => add(kind)}>
             ➕ {KIND_ICONS[kind]} {KIND_LABELS[kind]}
           </Button>
@@ -253,6 +260,7 @@ function toEdges(draft: Draft, selection: Selection): FlowEdge[] {
 function detail(step: Step): string {
   if (step.kind === "function") return step.function_name ?? "funzione da scegliere";
   if (step.kind === "agent_config") return step.agent_config_name ?? "agente da scegliere";
+  if (step.kind === "tool") return step.tool_name ?? "tool";
   return step.agent?.model || "agente proprio";
 }
 
@@ -284,13 +292,15 @@ function StepPanel({ project, step, onChange, onKind, onRemove, onClose }: StepP
     <Stack gap="sm">
       <PanelHeader title={`Step · ${KIND_LABELS[step.kind as Kind]}`} onRemove={onRemove} onClose={onClose} removeLabel="Elimina lo step e i suoi collegamenti" />
       <TextInput label="Nome" value={step.name} onChange={(event) => onChange({ name: event.currentTarget.value })} />
-      <Select
-        label="Tipo"
-        allowDeselect={false}
-        data={(Object.keys(KIND_LABELS) as Kind[]).map((kind) => ({ value: kind, label: KIND_LABELS[kind] }))}
-        value={step.kind}
-        onChange={(value) => value && onKind(value as Kind)}
-      />
+      {step.kind !== "tool" && (
+        <Select
+          label="Tipo"
+          allowDeselect={false}
+          data={EDITABLE_KINDS.map((kind) => ({ value: kind, label: KIND_LABELS[kind] }))}
+          value={step.kind}
+          onChange={(value) => value && onKind(value as Kind)}
+        />
+      )}
       <Textarea
         label="Template dell'input"
         autosize
@@ -301,6 +311,36 @@ function StepPanel({ project, step, onChange, onKind, onRemove, onClose }: StepP
       {step.kind === "agent" && <AgentFields step={step} onChange={onChange} />}
       {step.kind === "agent_config" && <LibraryAgentField project={project} step={step} onChange={onChange} />}
       {step.kind === "function" && <FunctionFields step={step} onChange={onChange} />}
+      {step.kind === "tool" && <ToolFields step={step} onChange={onChange} />}
+    </Stack>
+  );
+}
+
+/** A tool step (from an agent's run): its tool and its arguments as JSON, with {in:campo} where a field goes. */
+function ToolFields({ step, onChange }: { step: Step; onChange: (patch: Partial<Step>) => void }) {
+  const [text, setText] = useState(() => JSON.stringify(step.params ?? {}, null, 2));
+  const [invalid, setInvalid] = useState(false);
+  return (
+    <Stack gap={4}>
+      <Text size="sm"><b>Tool:</b> <code>{step.tool_name}</code></Text>
+      <Textarea
+        label="Argomenti (JSON)"
+        autosize
+        minRows={3}
+        value={text}
+        error={invalid ? "JSON non valido: non salvato" : undefined}
+        onChange={(event) => {
+          const value = event.currentTarget.value;
+          setText(value);
+          try {
+            const parsed = JSON.parse(value);
+            setInvalid(false);
+            onChange({ params: parsed });
+          } catch {
+            setInvalid(true);
+          }
+        }}
+      />
     </Stack>
   );
 }

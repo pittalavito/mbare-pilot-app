@@ -6,15 +6,18 @@ import type { Edge, Pipeline, Step } from "../../api/automation";
  * from a saved automation and to the API body (steps and edges by name). */
 
 export const INPUT_NODE = "input";
-export type Kind = "agent" | "agent_config" | "function";
+export type Kind = "agent" | "agent_config" | "function" | "tool";
 export type Condition = "always" | "contains" | "not_contains" | "matches" | "otherwise";
 
 export const KIND_LABELS: Record<Kind, string> = {
   agent: "Agente proprio",
   agent_config: "Agente della Libreria",
   function: "Funzione (codice)",
+  tool: "Tool (imparato da un agente)",
 };
-export const KIND_ICONS: Record<Kind, string> = { agent: "🤖", agent_config: "📚", function: "⚙️" };
+export const KIND_ICONS: Record<Kind, string> = { agent: "🤖", agent_config: "📚", function: "⚙️", tool: "🛠" };
+/** The kinds the editor adds or switches to: a tool step comes from an agent's run (plan 11), not from here. */
+export const EDITABLE_KINDS: Kind[] = ["agent", "agent_config", "function"];
 export const CONDITION_LABELS: Record<Condition, string> = {
   always: "Sempre",
   contains: "Se contiene",

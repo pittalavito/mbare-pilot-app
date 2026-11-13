@@ -9,7 +9,7 @@ import { useCheckAutomationYaml, useSaveAutomationYaml } from "../../api/automat
  * the API as a save would, shown as its graph (steps and edges), saved only
  * with the user's «Salva» (it updates the automation with the same name). */
 
-const KIND = { function: "funzione", agent: "agente proprio", agent_config: "agente" } as const;
+const KIND = { function: "funzione", agent: "agente proprio", agent_config: "agente", tool: "tool" } as const;
 
 export function AutomationProposal({ project, yaml }: { project: string; yaml: string }) {
   const check = useCheckAutomationYaml(project, yaml);
@@ -38,7 +38,7 @@ export function AutomationProposal({ project, yaml }: { project: string; yaml: s
               {data.steps.map((step) => (
                 <Text key={step.name} size="sm">
                   <b>{step.name}</b> · {KIND[step.kind as keyof typeof KIND] ?? step.kind}{" "}
-                  {step.function_name ?? step.agent_config_name ?? ""}
+                  {step.function_name ?? step.tool_name ?? step.agent_config_name ?? ""}
                 </Text>
               ))}
               <Text size="xs" fw={500} mt={4}>Collegamenti</Text>

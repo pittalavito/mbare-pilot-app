@@ -4,10 +4,12 @@ running workers (/workers) and the functions a FUNCTION step can call (/function
 from fastapi import APIRouter, Depends, Response, status
 from pydantic import BaseModel
 
-from controller.dependencies import pipeline_service
+from controller.dependencies import learn_service, pipeline_service
 from core.error import NotFoundError
 from models.controller.pipeline import EdgeBody, FunctionResponse, PipelineRequest, PipelineResponse, RunRequest, RunResponse, StepBody, WorkerResponse
 from models.domain.dev import PREPARE_AUTOMATION, VERIFY_AUTOMATION
+from models.domain.learn import LearnDraft, LearnRequest
+from service.learn_service import LearnService
 from service.pipeline_service import PipelineService
 
 router = APIRouter(tags=["automation"])
@@ -27,8 +29,22 @@ def create_pipeline(project: str, request: PipelineRequest, service: PipelineSer
         active=request.active,
         steps=[step.to_step() for step in request.steps],
         edges=[edge.to_edge() for edge in request.edges],
+        fields=request.fields,
+        purpose=request.purpose,
     )
     return PipelineResponse.from_pipeline(pipeline)
+
+
+@router.get("/messages/{message_id}/learn-draft")
+def learn_draft(message_id: int, service: LearnService = Depends(learn_service)) -> LearnDraft:
+    """«✅ Giusto: fanne un'automation» (plan 11): what the agent did right in that answer, as steps and values; 404 once the trace expired."""
+    return service.draft(message_id)
+
+
+@router.post("/projects/{project}/pipelines/learned", status_code=status.HTTP_201_CREATED)
+def save_learned(project: str, request: LearnRequest, service: LearnService = Depends(learn_service)) -> PipelineResponse:
+    """The draft, corrected by the user, saved as an automation of ``tool`` steps."""
+    return PipelineResponse.from_pipeline(service.save(project, request))
 
 
 @router.put("/pipelines/{pipeline_id}")
@@ -40,6 +56,8 @@ def update_pipeline(pipeline_id: int, request: PipelineRequest, service: Pipelin
         active=request.active,
         steps=[step.to_step() for step in request.steps],
         edges=[edge.to_edge() for edge in request.edges],
+        fields=request.fields,
+        purpose=request.purpose,
     )
     return PipelineResponse.from_pipeline(pipeline)
 

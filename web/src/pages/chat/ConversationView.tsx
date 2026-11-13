@@ -10,12 +10,14 @@ import { MessageItem } from "./MessageItem";
  * the Architect's proposal) and the box to write. Shown by the agent panel
  * (pages/project/AgentPanel.tsx). A reply arrives whole (no streaming yet). The
  * automation cache controls show only for a chatbot that has the cache (none today). */
-export function ConversationView({ chatbot, conversationId, onOpen: open, height = 520, onLinkClick, openNote, draft, context }: {
+export function ConversationView({ chatbot, conversationId, onOpen: open, height = 520, onLinkClick, openNote, draft, context, learnable }: {
   chatbot: Chatbot;
   /** The note a new conversation belongs to (the agent panel); its conversations are those about it. */
   context?: string;
   /** A message to put in the box (not sent): a new ``id`` puts it again. */
   draft?: { text: string; id: number };
+  /** The answers that used tools can become automations (the Operator, plan 11). */
+  learnable?: boolean;
   /** The note open next to the chat: sent with every message (not saved in it). */
   openNote?: string;
   conversationId: number | undefined;
@@ -88,6 +90,7 @@ export function ConversationView({ chatbot, conversationId, onOpen: open, height
                 reply={list[index + 1]}
                 entry={cacheByMessage.get(message.id)}
                 automations={automations}
+                learnable={learnable}
               />
             ))}
             {pending && (

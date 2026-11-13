@@ -19,6 +19,10 @@ export const CHATBOT_KINDS: Record<ChatbotKind, { label: string; description: st
     label: "Automation",
     description: "Lancia le automation del progetto e ne controlla lo stato: tool fissi e cache delle automation.",
   },
+  operator: {
+    label: "Operatore",
+    description: "Fa le procedure sui repository (branch, pull, clean install) con git sicuro e i comandi permessi; quello che fa giusto diventa un'automation.",
+  },
   secretary: {
     label: "Segretario",
     description: "Ti aiuta con le note: legge, crea e aggiorna le attività (descrizione, stato, todo list), ti dice lo stato degli agent task e ne crea di nuovi (in rifinitura); dei riferimenti vede solo i titoli.",

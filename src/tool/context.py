@@ -11,6 +11,7 @@ from service.git_service import GitService
 
 if TYPE_CHECKING:  # services imported only for the type
     from service.code_todo_service import CodeTodoService
+    from service.command_service import CommandService
     from service.copilot_service import CopilotService
     from service.pipeline_service import PipelineService
     from service.project_data_service import ProjectDataService
@@ -36,6 +37,8 @@ class ToolContext:
     """For searching the project's context index (tool search_context); None = not possible."""
     open_note: str | None = None
     """The note open next to the chat (the Refiner's tools work only on it); None = none."""
+    commands: "CommandService | None" = None
+    """For the project's allowed commands (tool run_command); None = not possible."""
 
     def require_project(self) -> str:
         """The run's project; ValidationError for tools that need one."""
@@ -58,6 +61,10 @@ class ToolContext:
     def require_rag(self) -> "RagService":
         """The context index's service; ValidationError when the run has none."""
         return _required(self.rag, "contesto del progetto")
+
+    def require_commands(self) -> "CommandService":
+        """The allowed commands' service; ValidationError when the run has none."""
+        return _required(self.commands, "comandi del progetto")
 
     def require_copilot(self) -> "CopilotService":
         """The Copilot service; ValidationError when the run has none."""
