@@ -2097,6 +2097,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/activities/{activity}/plan/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause Plan
+         * @description Pause or resume the path (409 without a confirmed plan).
+         */
+        post: operations["pause_plan_projects__project__activities__activity__plan_pause_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/activities/{activity}/plan/prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prepare Plan
+         * @description How the path prepares the repositories before Copilot.
+         */
+        post: operations["prepare_plan_projects__project__activities__activity__plan_prepare_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/activities/{activity}/plan/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Skip Step
+         * @description Skip a task's preparation or verification.
+         */
+        post: operations["skip_step_projects__project__activities__activity__plan_skip_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/activities/{activity}/plan/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Step
+         * @description Run a failed preparation, delegation (at the path's next turn) or verification (now) again.
+         */
+        post: operations["retry_step_projects__project__activities__activity__plan_retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project}/context": {
         parameters: {
             query?: never;
@@ -2474,6 +2554,35 @@ export interface components {
              * @default 0
              */
             cost_eur: number;
+            /**
+             * Paused
+             * @default false
+             */
+            paused: boolean;
+            /**
+             * Prepare
+             * @default
+             */
+            prepare: string;
+            /**
+             * Skipped
+             * @default []
+             */
+            skipped: string[];
+            /**
+             * Errors
+             * @default {}
+             */
+            errors: {
+                [key: string]: string;
+            };
+            /**
+             * Retries
+             * @default {}
+             */
+            retries: {
+                [key: string]: number;
+            };
             /**
              * Created At
              * Format: date-time
@@ -3446,11 +3555,18 @@ export interface components {
             allowed_commands?: string[] | null;
             /** Operator Chatbot Id */
             operator_chatbot_id?: number | null;
+            /** Auto Retries */
+            auto_retries?: number | null;
         };
         /** DevSettingsResponse */
         DevSettingsResponse: {
             /** @default all */
             test_scope: components["schemas"]["TestScope"];
+            /**
+             * Auto Retries
+             * @default 1
+             */
+            auto_retries: number;
             /**
              * Repositories
              * @default []
@@ -3999,6 +4115,11 @@ export interface components {
              */
             current: boolean;
         };
+        /** PauseRequest */
+        PauseRequest: {
+            /** Paused */
+            paused: boolean;
+        };
         /**
          * PipelineRequest
          * @description Create and update: the project comes from the URL and never changes.
@@ -4150,6 +4271,14 @@ export interface components {
              * @default
              */
             repository: string;
+        };
+        /** PrepareRequest */
+        PrepareRequest: {
+            /**
+             * Prepare
+             * @default
+             */
+            prepare: string;
         };
         /**
          * PrepareTarget
@@ -4708,7 +4837,13 @@ export interface components {
          * StepKey
          * @enum {string}
          */
-        StepKey: "confirm" | "delegate" | "copilot_plan" | "execution" | "verify" | "answer" | "final";
+        StepKey: "confirm" | "prepare" | "delegate" | "copilot_plan" | "execution" | "verify" | "answer" | "final";
+        /** StepRequest */
+        StepRequest: {
+            /** Task */
+            task: string;
+            step: components["schemas"]["StepKey"];
+        };
         /** StepRunResponse */
         StepRunResponse: {
             /** Position */
@@ -9470,6 +9605,150 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pause_plan_projects__project__activities__activity__plan_pause_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                activity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PauseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prepare_plan_projects__project__activities__activity__plan_prepare_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                activity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrepareRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    skip_step_projects__project__activities__activity__plan_skip_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                activity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StepRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_step_projects__project__activities__activity__plan_retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                activity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StepRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityPlan"];
+                };
             };
             /** @description Validation Error */
             422: {

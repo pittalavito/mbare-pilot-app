@@ -18,6 +18,11 @@ class DbActivityPlanRepository(SqlRepository[ActivityPlanTable]):
         with self._session() as session:
             return session.exec(statement).first()
 
+    def list_all(self) -> list[ActivityPlanTable]:
+        """Newest first."""
+        with self._session() as session:
+            return list(session.exec(select(ActivityPlanTable).order_by(col(ActivityPlanTable.id).desc())).all())
+
     def list_for_project(self, project_name: str) -> list[ActivityPlanTable]:
         """Newest first."""
         statement = select(ActivityPlanTable).where(ActivityPlanTable.project_name == project_name).order_by(col(ActivityPlanTable.id).desc())

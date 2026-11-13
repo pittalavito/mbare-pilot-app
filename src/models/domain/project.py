@@ -49,6 +49,8 @@ class Project(BaseModel):
     """«Verifica sviluppo»: every test or only the touched ones, unless the task says otherwise."""
     test_commands: dict[str, str] = {}
     """«Verifica sviluppo»: the tests' command per repository (folder → command); missing = detected."""
+    auto_retries: int = Field(default=1, ge=0, le=3)
+    """«Lavora attività»: how many times failed tests go back to Copilot by themselves (plan 12b)."""
     allowed_commands: list[str] = []
     """The commands the Operator may run with run_command (plan 11), as written."""
     command_requests: list[CommandRequest] = []

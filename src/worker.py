@@ -68,6 +68,7 @@ def main() -> None:
     runner = container.pipeline_runner
     copilot = container.copilot_service
     evaluations = container.evaluation_service
+    plans = container.plan_service
     heartbeat = _Heartbeat(container.pipeline_service)
     interrupted = runner.fail_interrupted() + copilot.fail_interrupted()
     if interrupted:
@@ -83,6 +84,8 @@ def main() -> None:
                     done = copilot.run_next(on_claim=lambda claimed: heartbeat.busy(copilot_session_id=claimed.id))
                 if done is None:
                     done = evaluations.run_next()  # an evaluation launched from the Metriche page
+                if done is None and plans.advance_all():  # «Lavora attività»: the running paths, one step on
+                    done = True
                 if done is None:
                     time.sleep(_POLL_SECONDS)
                 else:

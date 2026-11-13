@@ -16,7 +16,13 @@ and the path of each one.
    task's status and its latest Copilot session: confirmation of the task,
    preparation and delegation, Copilot's plan, execution, verification (or
    the answer, for the types that do not change the code), final
-   confirmation. The steps waiting for the user are the control points."""
+   confirmation. The steps waiting for the user are the control points.
+4. **Advance** (plan 12b, the worker, no LLM of its own): a confirmed path not
+   paused moves on by itself at the current task: once the task is confirmed
+   it prepares the repositories (the plan's choice: a learned automation,
+   «Prepara sviluppo» or nothing) and delegates with Copilot's defaults; failed
+   tests go back to Copilot by themselves up to the project's ``auto_retries``.
+   Everything else waits for the user (pause, retry, skip a step)."""
 import json
 from time import perf_counter
 from uuid import uuid4
@@ -33,10 +39,13 @@ from models.domain.agent import AgentRunRecord, RunOrigin
 from models.domain.chat import split_model_key
 from models.domain.chatbot import Chatbot, ChatbotKind
 from models.domain.copilot import CopilotMessageRole, CopilotSession, CopilotSessionStatus
-from models.domain.dev import VERIFY_FAILED, VERIFY_OK
+from models.domain.dev import PREPARE_AUTOMATION, VERIFY_FAILED, VERIFY_OK, LearnedPreparation, PrepareTarget
 from models.domain.masking import MaskCategory
 from models.domain.note import Activity, AgentTask, ChecklistItem, TaskStatus, TaskType, TodoItem
+from models.domain.pipeline import AutomationPurpose
 from models.domain.plan import (
+    RETRYABLE,
+    SKIPPABLE,
     STEP_LABELS,
     ActivityPath,
     ActivityPlan,
@@ -49,6 +58,7 @@ from models.domain.plan import (
     PlanTask,
     StepKey,
     StepState,
+    step_id,
 )
 from service.chat_service import ChatService
 from service.copilot_service import CopilotService
@@ -59,9 +69,15 @@ from service.project_data_service import ProjectDataService
 from service.rag_service import RagService
 from service.store.catalog_store import CatalogStore
 from service.store.chatbot_store import ChatbotStore
+from service.store.pipeline_store import PipelineStore
 from service.store.plan_store import PlanStore
 from service.store.run_store import RunStore
 
+PREPARE_NONE = "none"
+PREPARE_DEV = "dev"
+LEARNED = "learned:"
+PREPARE_FAILED = "Preparazione non riuscita"
+"""How CopilotService.start says the preparation failed (the delegation did not start)."""
 CONTEXT_PIECES = 3
 """How many pieces of the context index the Pianificatore reads."""
 _PIECE_CHARS = 500
@@ -72,7 +88,7 @@ class PlanService:
 
     def __init__(self, project_data: ProjectDataService, masking: MaskingService, chatbots: ChatbotStore, chat: ChatService,
                  catalog: CatalogStore, runs: RunStore, plans: PlanStore, git: GitService, rag: RagService | None = None,
-                 copilot: CopilotService | None = None):
+                 copilot: CopilotService | None = None, pipelines: PipelineStore | None = None):
         self._data = project_data
         self._masking = masking
         self._chatbots = chatbots
@@ -83,6 +99,8 @@ class PlanService:
         self._git = git
         self._rag = rag
         self._copilot = copilot
+        self._pipelines = pipelines
+        """The project's automations: which learned preparation, whether «Prepara sviluppo» is there."""
 
     # --------------------------------------------------------------- propose
     @observed(LogPrefix.PLAN_SERVICE)
@@ -205,14 +223,17 @@ class PlanService:
         plan = self._plans.latest(project_name, note_file_name(activity_name))
         if plan is None or plan.status is not PlanStatus.CONFIRMED:
             return ActivityPath(plan=plan if plan and plan.status is PlanStatus.PROPOSED else None)
-        tasks = dict(self._data.agent_tasks(project_name))
-        sessions = self._copilot.sessions(project_name) if self._copilot else []
-        result = [self._path_task(planned, tasks.get(planned.task), next((item for item in sessions if item.task_note == planned.task), None))
+        return ActivityPath(plan=plan, tasks=self._tasks(plan))
+
+    def _tasks(self, plan: ActivityPlan) -> list[PathTask]:
+        tasks = dict(self._data.agent_tasks(plan.project_name))
+        sessions = self._copilot.sessions(plan.project_name) if self._copilot else []
+        result = [self._path_task(plan, planned, tasks.get(planned.task), next((item for item in sessions if item.task_note == planned.task), None))
                   for planned in plan.tasks]
         current = next((item for item in result if item.status not in (TaskStatus.DONE.value, "missing")), None)
         if current is not None:
             current.current = True
-        return ActivityPath(plan=plan, tasks=result)
+        return result
 
     def confirm_task(self, project_name: str, task_note: str) -> None:
         """«Conferma del task»: objective and criteria are fine, the task is «to do» (ready to delegate)."""
@@ -224,16 +245,29 @@ class PlanService:
             raise ValidationError("Il task non ha un obiettivo: scrivilo (o chiedi al Refiner) prima di confermarlo.")
         self._data.save_agent_task(project_name, name, task.model_copy(update={"status": TaskStatus.TODO}))
 
-    def _path_task(self, planned: PlanTask, task: AgentTask | None, session: CopilotSession | None) -> PathTask:
+    def _path_task(self, plan: ActivityPlan, planned: PlanTask, task: AgentTask | None, session: CopilotSession | None) -> PathTask:
         if task is None:
             return PathTask(task=planned.task, title=planned.task, type=TaskType.DEVELOPMENT, status="missing", repository=planned.repository)
         return PathTask(task=planned.task, title=task.title, type=task.type, status=task.status.value, repository=planned.repository,
-                        session_id=session.id if session else None, steps=self._steps(task, session))
+                        session_id=session.id if session else None, steps=self._steps(plan, planned.task, task, session))
 
-    def _steps(self, task: AgentTask, session: CopilotSession | None) -> list[PathStep]:
+    def _steps(self, plan: ActivityPlan, name: str, task: AgentTask, session: CopilotSession | None) -> list[PathStep]:
         done = task.status is TaskStatus.DONE
+        error = lambda key: plan.errors.get(step_id(name, key), "")  # noqa: E731
+        skipped = lambda key: step_id(name, key) in plan.skipped  # noqa: E731
         steps = [(StepKey.CONFIRM, StepState.DONE if task.status.is_refined else StepState.YOU, "")]
-        steps.append((StepKey.DELEGATE, StepState.DONE if session or done else StepState.TODO, session.repository if session else ""))
+        if not task.type.plan_only:
+            if error(StepKey.PREPARE):
+                prepare = (StepState.FAILED, error(StepKey.PREPARE))
+            elif skipped(StepKey.PREPARE):
+                prepare = (StepState.SKIPPED, "")
+            else:
+                prepare = (StepState.DONE if session or done else StepState.TODO, "")
+            steps.append((StepKey.PREPARE, *prepare))
+        if error(StepKey.DELEGATE):
+            steps.append((StepKey.DELEGATE, StepState.FAILED, error(StepKey.DELEGATE)))
+        else:
+            steps.append((StepKey.DELEGATE, StepState.DONE if session or done else StepState.TODO, session.repository if session else ""))
         status = session.status if session else None
         if task.type.plan_only:
             answer = StepState.DONE if done else StepState.YOU if status is CopilotSessionStatus.PLANNING else (
@@ -241,29 +275,149 @@ class PlanService:
             steps.append((StepKey.ANSWER, answer, ""))
             return _path_steps(steps)
         if status is None:
-            plan = StepState.DONE if done else StepState.TODO
+            plan_state = StepState.DONE if done else StepState.TODO
         else:
-            plan = StepState.YOU if status is CopilotSessionStatus.PLANNING else StepState.DONE
-        steps.append((StepKey.COPILOT_PLAN, plan, ""))
+            plan_state = StepState.YOU if status is CopilotSessionStatus.PLANNING else StepState.DONE
+        steps.append((StepKey.COPILOT_PLAN, plan_state, ""))
         execution = {CopilotSessionStatus.QUEUED: StepState.RUNNING, CopilotSessionStatus.RUNNING: StepState.RUNNING,
                      CopilotSessionStatus.DONE: StepState.DONE, CopilotSessionStatus.FAILED: StepState.FAILED,
                      CopilotSessionStatus.CANCELLED: StepState.FAILED}.get(status, StepState.DONE if done else StepState.TODO) if status else (
             StepState.DONE if done else StepState.TODO)
         steps.append((StepKey.EXECUTION, execution, session.error or "" if session else ""))
-        steps.append((StepKey.VERIFY, *self._verify(session, done)))
+        verify, detail = (StepState.SKIPPED, "") if skipped(StepKey.VERIFY) else self._verify(session, done)
+        sent = plan.retries.get(name, 0)
+        steps.append((StepKey.VERIFY, verify, ", ".join(part for part in (detail, f"rimandato a Copilot {sent} volte" if sent else "") if part)))
         final = StepState.DONE if done else StepState.YOU if task.status is TaskStatus.TO_VERIFY else StepState.TODO
         steps.append((StepKey.FINAL, final, ""))
         return _path_steps(steps)
 
     def _verify(self, session: CopilotSession | None, done: bool) -> tuple[StepState, str]:
         """From the session's latest verification event: ok, failed, or skipped (no «Verifica sviluppo» ran)."""
-        if session is None or session.status is not CopilotSessionStatus.DONE or self._copilot is None or session.id is None:
-            return (StepState.DONE if done else StepState.TODO), ""
-        events = [message.content for message in self._copilot.messages(session.id) if message.role is CopilotMessageRole.EVENT]
-        verification = next((text for text in reversed(events) if text.startswith((VERIFY_OK, VERIFY_FAILED))), None)
+        verification = self._verification(session)
         if verification is None:
+            if session is None or session.status is not CopilotSessionStatus.DONE or self._copilot is None:
+                return (StepState.DONE if done else StepState.TODO), ""
             return StepState.SKIPPED, ""
         return (StepState.DONE, "") if verification.startswith(VERIFY_OK) else (StepState.FAILED, "test falliti")
+
+    def _verification(self, session: CopilotSession | None) -> str | None:
+        """The latest verification event of a finished execution; None when there is none."""
+        if session is None or session.status is not CopilotSessionStatus.DONE or self._copilot is None or session.id is None:
+            return None
+        events = [message.content for message in self._copilot.messages(session.id) if message.role is CopilotMessageRole.EVENT]
+        return next((text for text in reversed(events) if text.startswith((VERIFY_OK, VERIFY_FAILED))), None)
+
+    # ------------------------------------------------------------- controls
+    def set_paused(self, project_name: str, activity_name: str, paused: bool) -> ActivityPlan:
+        """Pause or resume the activity's path."""
+        return self._plans.save(self._confirmed(project_name, activity_name).model_copy(update={"paused": paused}))
+
+    def set_prepare(self, project_name: str, activity_name: str, prepare: str) -> ActivityPlan:
+        """How the path prepares the repositories: ``""``, ``none``, ``dev`` or ``learned:<id>``."""
+        if prepare not in ("", PREPARE_NONE, PREPARE_DEV) and not (prepare.startswith(LEARNED) and prepare[len(LEARNED):].isdigit()):
+            raise ValidationError(f"Preparazione non valida: {prepare}")
+        return self._plans.save(self._confirmed(project_name, activity_name).model_copy(update={"prepare": prepare}))
+
+    def skip(self, project_name: str, activity_name: str, task: str, step: StepKey) -> ActivityPlan:
+        """Skip a step of a task (preparation, verification): the path goes on without it."""
+        plan = self._step_of(project_name, activity_name, task, step, SKIPPABLE, "saltare")
+        key = step_id(task, step)
+        errors = {item: text for item, text in plan.errors.items() if item != key}
+        return self._plans.save(plan.model_copy(update={"skipped": [*dict.fromkeys([*plan.skipped, key])], "errors": errors}))
+
+    def retry(self, project_name: str, activity_name: str, task: str, step: StepKey) -> ActivityPlan:
+        """Run a failed step again: the preparation and the delegation at the path's next turn, the verification now."""
+        plan = self._step_of(project_name, activity_name, task, step, RETRYABLE, "riprovare")
+        if step is StepKey.VERIFY:
+            session = next((item for item in self._copilot.sessions(project_name) if item.task_note == task), None) if self._copilot else None
+            if session is None or session.id is None or self._copilot is None:
+                raise ConflictError("Il task non ha un'esecuzione di Copilot da verificare.")
+            self._copilot.verify_again(session.id)
+            return plan
+        key = step_id(task, step)
+        return self._plans.save(plan.model_copy(update={"errors": {item: text for item, text in plan.errors.items() if item != key}}))
+
+    def _confirmed(self, project_name: str, activity_name: str) -> ActivityPlan:
+        plan = self._plans.latest(project_name, note_file_name(activity_name))
+        if plan is None or plan.status is not PlanStatus.CONFIRMED:
+            raise ConflictError("L'attività non ha un piano confermato.")
+        return plan
+
+    def _step_of(self, project_name: str, activity_name: str, task: str, step: StepKey, allowed: set[StepKey], what: str) -> ActivityPlan:
+        plan = self._confirmed(project_name, activity_name)
+        if not any(item.task == task for item in plan.tasks):
+            raise NotFoundError(f"Il task {task} non è nel piano.")
+        if step not in allowed:
+            raise ValidationError(f"Non si può {what} il passo «{STEP_LABELS[step]}».")
+        return plan
+
+    # -------------------------------------------------------------- advance
+    def advance_all(self) -> int:
+        """The worker's turn: every running path one step on where it can. Returns how many steps it took."""
+        moved = 0
+        for plan in self._plans.running():
+            try:
+                moved += self.advance(plan)
+            except Exception:  # noqa: BLE001 - one broken path never stops the others
+                log_exception(LogPrefix.PLAN_SERVICE, "Percorso di %s · %s non avanzato", plan.project_name, plan.activity)
+        return moved
+
+    def advance(self, plan: ActivityPlan) -> int:
+        """At the current task: delegate it (with its preparation) once confirmed, or send its failed tests
+        back to Copilot while retries last. 1 when it did something; the rest waits for the user."""
+        if plan.paused or plan.status is not PlanStatus.CONFIRMED or self._copilot is None:
+            return 0
+        current = next((item for item in self._tasks(plan) if item.current), None)
+        if current is None:
+            return 0
+        states = {step.key: step.state for step in current.steps}
+        if states.get(StepKey.CONFIRM) is not StepState.DONE:
+            return 0
+        if states.get(StepKey.DELEGATE) is StepState.TODO and states.get(StepKey.PREPARE) is not StepState.FAILED:
+            self._delegate(plan, current)
+            return 1
+        if states.get(StepKey.VERIFY) is StepState.FAILED and states.get(StepKey.FINAL) is StepState.YOU and current.session_id is not None:
+            sent = plan.retries.get(current.task, 0)
+            if sent >= self._data.auto_retries(plan.project_name):
+                return 0
+            failed = self._verification(self._copilot.session(current.session_id)) or VERIFY_FAILED
+            text = f"La verifica dopo le tue modifiche è fallita:\n\n{failed[len(VERIFY_FAILED):].strip()}\n\nSistema e riprova."
+            self._copilot.send_back(current.session_id, text)
+            self._plans.save(plan.model_copy(update={"retries": {**plan.retries, current.task: sent + 1}}))
+            return 1
+        return 0
+
+    def _delegate(self, plan: ActivityPlan, current: PathTask) -> None:
+        """Preparation (as the plan says) and delegation with Copilot's default prompt and model; a failure is the step's error."""
+        assert self._copilot is not None
+        targets: list[PrepareTarget] = []
+        learned: LearnedPreparation | None = None
+        how = PREPARE_NONE if current.type.plan_only or step_id(current.task, StepKey.PREPARE) in plan.skipped else self._prepare_choice(plan)
+        if how != PREPARE_NONE:
+            branch = f"feature/{current.task.removeprefix('agent-task-').removesuffix('.md')}"
+            base = self._git.branches(plan.project_name, current.repository).current or ""
+            if how == PREPARE_DEV:
+                targets = [PrepareTarget(repository=current.repository, branch=branch, base=base)]
+            else:
+                pipeline = self._pipelines.get_pipeline(int(how[len(LEARNED):])) if self._pipelines else None
+                fields = {"branch": branch, "base": base, "task": current.task, "repository": current.repository}
+                learned = LearnedPreparation(automation_id=int(how[len(LEARNED):]),
+                                             fields={name: fields.get(name, "") for name in (pipeline.fields if pipeline else [])})
+        try:
+            self._copilot.start(plan.project_name, current.task, current.repository, prepare=targets, learned=learned)
+        except AppError as exc:
+            key = StepKey.PREPARE if str(exc).startswith(PREPARE_FAILED) else StepKey.DELEGATE
+            self._plans.save(plan.model_copy(update={"errors": {**plan.errors, step_id(current.task, key): str(exc)}}))
+
+    def _prepare_choice(self, plan: ActivityPlan) -> str:
+        """The plan's choice, or the default: the first learned preparation, else «Prepara sviluppo», else none."""
+        if plan.prepare:
+            return plan.prepare
+        pipelines = self._pipelines.list_pipelines(plan.project_name) if self._pipelines else []
+        learned = next((item for item in pipelines if item.purpose is AutomationPurpose.PREPARE and item.active and item.id is not None), None)
+        if learned is not None:
+            return f"{LEARNED}{learned.id}"
+        return PREPARE_DEV if any(item.name == PREPARE_AUTOMATION and item.active for item in pipelines) else PREPARE_NONE
 
 
 def _path_steps(steps: list[tuple[StepKey, StepState, str]]) -> list[PathStep]:

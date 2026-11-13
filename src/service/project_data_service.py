@@ -390,6 +390,14 @@ class ProjectDataService:
         cleaned = {repository.strip("/\\"): command.strip() for repository, command in commands.items() if command.strip()}
         self._projects.save(project.model_copy(update={"test_scope": scope, "test_commands": cleaned}))
 
+    def auto_retries(self, project_name: str) -> int:
+        """«Lavora attività»: how many times failed tests go back to Copilot by themselves."""
+        return self._projects.get(self._project(project_name)).auto_retries
+
+    def save_auto_retries(self, project_name: str, retries: int) -> None:
+        project = self._projects.get(self._project(project_name))
+        self._projects.save(project.model_copy(update={"auto_retries": retries}))
+
     def operator_chatbot_id(self, project_name: str) -> int | None:
         """The Operator of the preparation before Copilot (plan 11); None = the project's first one."""
         return self._projects.get(self._project(project_name)).operator_chatbot_id

@@ -43,6 +43,68 @@ function api(path: unknown, extra: Record<string, unknown> = {}) {
 
 const renderActivity = () => renderPage(<Routes>{projectRoutes()}</Routes>, { route: `/projects/acme/work?note=${ACTIVITY.name}` });
 
+const CONFIRMED = { ...PLAN, status: "confirmed", paused: false, prepare: "", skipped: [], errors: {}, retries: {} };
+
+describe("the path that moves by itself (12b)", () => {
+  it("pauses, resumes and chooses how to prepare", async () => {
+    const paused = vi.fn(async (request: Request) => ({ ...CONFIRMED, ...(await request.json()) }));
+    const prepared = vi.fn(async (request: Request) => ({ ...CONFIRMED, ...(await request.json()) }));
+    api({ plan: CONFIRMED, tasks: [TASK("agent-task-a.md", "A", [step("confirm", "Conferma del task", "done"), step("prepare", "Preparazione", "todo"),
+                                                                    step("delegate", "Delega a Copilot", "todo")], { current: true })] }, {
+      "POST /projects/acme/activities/attivita-login.md/plan/pause": paused,
+      "POST /projects/acme/activities/attivita-login.md/plan/prepare": prepared,
+      "GET /projects/acme/pipelines": [{ id: 21, project_name: "acme", name: "Prepara feature", description: "", active: true, fields: [],
+                                         purpose: "prepare", steps: [], edges: [] }],
+      "GET /projects/acme/dev-settings": { test_scope: "all", prepare_automation: true, verify_automation: false, repositories: [], auto_retries: 1,
+                                           allowed_commands: [], suggested_commands: [], operator_chatbot_id: null },
+    });
+    renderActivity();
+    expect(await screen.findByText(/Il giro lo prepara e lo delega a breve/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Delega a Copilot/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Pausa/ }));
+    await waitFor(() => expect(paused).toHaveBeenCalled());
+    expect(await paused.mock.results[0].value).toMatchObject({ paused: true });
+
+    fireEvent.click(screen.getByRole("textbox", { name: "Preparazione del giro" }));
+    fireEvent.click(await screen.findByRole("option", { name: /Prepara feature \(imparata\)/ }));
+    await waitFor(() => expect(prepared).toHaveBeenCalled());
+    expect(await prepared.mock.results[0].value).toMatchObject({ prepare: "learned:21" });
+  });
+
+  it("a failed preparation offers retry, the Operator and skip", async () => {
+    const bodies: Record<string, unknown[]> = { retry: [], skip: [] };
+    const record = (key: string) => async (request: Request) => { bodies[key].push(await request.json()); return CONFIRMED; };
+    api({ plan: CONFIRMED, tasks: [TASK("agent-task-a.md", "A", [step("confirm", "Conferma del task", "done"),
+                                                               step("prepare", "Preparazione", "failed", "Modifiche non committate")], { current: true })] }, {
+      "POST /projects/acme/activities/attivita-login.md/plan/retry": record("retry"),
+      "POST /projects/acme/activities/attivita-login.md/plan/skip": record("skip"),
+      "GET /projects/acme/chatbots": [{ id: 12, project_name: "acme", name: "Operatore Java", kind: "operator", description: "", system_prompt: "x",
+                                        prompt_version: 1, model: "m", max_steps: 4, tool_names: [], automation_cache: false }],
+      "GET /chatbots/12/conversations": [],
+    });
+    renderActivity();
+    expect(await screen.findByText("Modifiche non committate")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Riprova/ }));
+    await waitFor(() => expect(bodies.retry).toEqual([{ task: "agent-task-a.md", step: "prepare" }]));
+    fireEvent.click(screen.getByRole("button", { name: /Salta/ }));
+    await waitFor(() => expect(bodies.skip).toEqual([{ task: "agent-task-a.md", step: "prepare" }]));
+    fireEvent.click(screen.getByRole("button", { name: /Fallo fare all'Operatore/ }));
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Agente" })).toHaveValue("Operatore Java"));
+    expect((screen.getByPlaceholderText(/Scrivi a Operatore Java/) as HTMLTextAreaElement).value).toContain("Modifiche non committate");
+  });
+
+  it("a failed delegation can be retried or done by hand, a failed verification retried", async () => {
+    api({ plan: CONFIRMED, tasks: [
+      TASK("agent-task-a.md", "A", [step("delegate", "Delega a Copilot", "failed", "Copilot non c'è")], { current: true }),
+      TASK("agent-task-b.md", "B", [step("verify", "Verifica", "failed", "test falliti, rimandato a Copilot 1 volte")], { current: true }),
+    ] });
+    renderActivity();
+    expect(await screen.findByRole("button", { name: /Delega a mano/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Riprova/ })).toHaveLength(2);
+    expect(screen.getByText(/rimandato a Copilot 1 volte/)).toBeInTheDocument();
+  });
+});
+
 describe("«▶️ Lavora attività»", () => {
   it("asks the Pianificatore for the plan", async () => {
     const proposed = vi.fn(() => PLAN);
@@ -108,9 +170,9 @@ describe("«▶️ Lavora attività»", () => {
     await waitFor(() => expect(confirmedTask).toHaveBeenCalled());
   });
 
-  it("delegating from the path proposes the plan's repository", async () => {
+  it("paused, delegating from the path proposes the plan's repository", async () => {
     api({
-      plan: { ...PLAN, status: "confirmed" },
+      plan: { ...PLAN, status: "confirmed", paused: true },
       tasks: [TASK("agent-task-lib.md", "Libreria", [step("confirm", "Conferma del task", "done"), step("delegate", "Preparazione e delega", "todo")],
                    { current: true, repository: "lib", status: "todo" })],
     }, {

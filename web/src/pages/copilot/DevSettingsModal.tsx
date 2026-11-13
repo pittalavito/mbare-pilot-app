@@ -17,6 +17,7 @@ export function DevSettingsModal({ project, opened, onClose }: { project: string
   const [scope, setScope] = useState<TestScope>("all");
   const [commands, setCommands] = useState<Record<string, string>>({});
   const [allowed, setAllowed] = useState<string[]>([]);
+  const [retries, setRetries] = useState("1");
   const [operator, setOperator] = useState<string | null>(null);
   const operators = (useChatbots(project).data ?? []).filter((bot) => bot.kind === "operator");
   useEffect(() => { // the saved settings, each time it opens
@@ -24,6 +25,7 @@ export function DevSettingsModal({ project, opened, onClose }: { project: string
     setScope(settings.data.test_scope ?? "all");
     setCommands(Object.fromEntries((settings.data.repositories ?? []).map((repo) => [repo.repository, repo.command])));
     setAllowed(settings.data.allowed_commands ?? []);
+    setRetries(String(settings.data.auto_retries ?? 1));
     setOperator(settings.data.operator_chatbot_id === null || settings.data.operator_chatbot_id === undefined ? null : String(settings.data.operator_chatbot_id));
   }, [opened, settings.data]);
   const suggested = (settings.data?.suggested_commands ?? []).filter((command) => !allowed.includes(command));
@@ -56,6 +58,11 @@ export function DevSettingsModal({ project, opened, onClose }: { project: string
                 «Solo i test toccati»: quelli dei file cambiati da Copilot (FooTest per Foo.java, test_foo.py per foo.py, foo.test.ts per foo.ts).
                 Ogni task di sviluppo può scegliere diversamente.
               </Text>
+            </div>
+            <div>
+              <Text size="sm" fw={500} mb={4}>Test falliti nel giro di «Lavora attività»</Text>
+              <SegmentedControl aria-label="Rimandi automatici a Copilot" data={["0", "1", "2", "3"]} value={retries} onChange={setRetries} />
+              <Text size="xs" c="dimmed" mt={4}>Quante volte il giro rimanda da solo gli errori a Copilot prima di chiamarti.</Text>
             </div>
             <Table withTableBorder>
               <Table.Thead>
@@ -115,7 +122,7 @@ export function DevSettingsModal({ project, opened, onClose }: { project: string
           <Button variant="default" onClick={onClose}>Chiudi</Button>
           <Button
             disabled={!data} loading={save.isPending}
-            onClick={() => save.mutate({ test_scope: scope, commands, allowed_commands: allowed, operator_chatbot_id: operator === null ? null : Number(operator) }, { onSuccess: () => { notifications.show({ message: "Verifiche salvate." }); onClose(); } })}
+            onClick={() => save.mutate({ test_scope: scope, commands, allowed_commands: allowed, operator_chatbot_id: operator === null ? null : Number(operator), auto_retries: Number(retries) }, { onSuccess: () => { notifications.show({ message: "Verifiche salvate." }); onClose(); } })}
           >
             Salva
           </Button>

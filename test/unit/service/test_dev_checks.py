@@ -103,6 +103,12 @@ def test_failing_tests_are_reported_and_the_task_stays_to_verify(project, data, 
     assert last.startswith("🔍 Verifica fallita.") and "Test falliti" in last and "FAILED test_x - boom" in last
     assert data.agent_task("acme", note).status == TaskStatus.TO_VERIFY  # the user decides
 
+    service.verify_again(session.id)  # «Riprova» of «Lavora attività»: a new verification event
+    assert sum(message.content.startswith("🔍 Verifica fallita.") for message in service.messages(session.id)) == 2
+    planning = service.start("acme", note, "api")
+    with pytest.raises(ConflictError, match="esecuzione finita"):
+        service.verify_again(planning.id)
+
 
 def test_a_verification_that_cannot_start_is_reported(project, data, copilot, pipeline_store):  # noqa: F811
     service, _ = copilot

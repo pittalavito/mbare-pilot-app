@@ -99,7 +99,8 @@ class DevChecksService:
             kind = tests.detect(files)
             repositories.append(RepositoryTests(repository=repository.path, kind=kind, detected_command=tests.default_command(kind, files),
                                                 command=commands.get(repository.path, "")))
-        return DevSettings(test_scope=self._data.test_scope(project_name), repositories=repositories)
+        return DevSettings(test_scope=self._data.test_scope(project_name), auto_retries=self._data.auto_retries(project_name),
+                           repositories=repositories)
 
     def operator_chatbot_id(self, project_name: str) -> int | None:
         """The Operator chosen for the preparation (None = the project's first one)."""
@@ -107,6 +108,9 @@ class DevChecksService:
 
     def save_operator(self, project_name: str, chatbot_id: int | None) -> None:
         self._data.save_operator_chatbot_id(project_name, chatbot_id)
+
+    def save_auto_retries(self, project_name: str, retries: int) -> None:
+        self._data.save_auto_retries(project_name, retries)
 
     def save_settings(self, project_name: str, scope: TestScope, commands: dict[str, str]) -> DevSettings:
         self._data.save_test_settings(project_name, scope, commands)

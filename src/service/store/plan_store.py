@@ -8,7 +8,9 @@ from models.store.db import ActivityPlanTable
 
 
 def _plan(row: ActivityPlanTable) -> ActivityPlan:
-    plan = ActivityPlan.model_validate(row.model_dump())
+    data = row.model_dump()
+    data.update(skipped=data["skipped"] or [], errors=data["errors"] or {}, retries=data["retries"] or {})
+    plan = ActivityPlan.model_validate(data)
     plan.created_at, plan.updated_at = as_utc(plan.created_at), as_utc(plan.updated_at)
     return plan
 
@@ -27,6 +29,18 @@ class PlanStore:
         """The activity's latest plan, whatever its status."""
         row = self._plans.latest(project_name, activity)
         return _plan(row) if row else None
+
+    def running(self) -> list[ActivityPlan]:
+        """The latest plan of every activity of every project, confirmed and not paused: the paths to move on."""
+        seen: set[tuple[str, str]] = set()
+        plans = []
+        for row in self._plans.list_all():
+            if (row.project_name, row.activity) in seen:
+                continue
+            seen.add((row.project_name, row.activity))
+            if row.status == "confirmed" and not row.paused:
+                plans.append(_plan(row))
+        return plans
 
     def latest_per_activity(self, project_name: str) -> list[ActivityPlan]:
         """The latest plan of each activity of the project."""
