@@ -13,6 +13,7 @@ from models.controller.chatbot import (
     ChatbotModelRequest,
     ChatbotRequest,
     ChatbotResponse,
+    ConversationRequest,
     ConversationResponse,
     MessageRequest,
     MessageResponse,
@@ -57,14 +58,16 @@ def delete_chatbot(chatbot_id: int, service: ChatbotService = Depends(chatbot_se
 
 
 @router.get("/chatbots/{chatbot_id}/conversations")
-def list_conversations(chatbot_id: int, service: ChatbotService = Depends(chatbot_service)) -> list[ConversationResponse]:
-    """Most recently updated first."""
-    return [ConversationResponse.from_conversation(item) for item in service.list_conversations(chatbot_id)]
+def list_conversations(chatbot_id: int, context: str | None = None, service: ChatbotService = Depends(chatbot_service)) -> list[ConversationResponse]:
+    """Most recently updated first; ``?context=`` only those of a note (the agent panel)."""
+    return [ConversationResponse.from_conversation(item) for item in service.list_conversations(chatbot_id, context)]
 
 
 @router.post("/chatbots/{chatbot_id}/conversations", status_code=status.HTTP_201_CREATED)
-def new_conversation(chatbot_id: int, service: ChatbotService = Depends(chatbot_service)) -> ConversationResponse:
-    return ConversationResponse.from_conversation(service.new_conversation(chatbot_id))
+def new_conversation(chatbot_id: int, request: ConversationRequest | None = None,
+                     service: ChatbotService = Depends(chatbot_service)) -> ConversationResponse:
+    """``{context}``: the note it belongs to (optional body)."""
+    return ConversationResponse.from_conversation(service.new_conversation(chatbot_id, request.context if request else ""))
 
 
 @router.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)

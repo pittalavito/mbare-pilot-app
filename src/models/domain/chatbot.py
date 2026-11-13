@@ -28,7 +28,7 @@ class ChatbotKind(StrEnum):
     references by their title, never reading them. Only KIND_TOOLS' tools, no cache."""
     REFINER = "refiner"
     """Helps refining the agent tasks; shown next to them (Lavoro, the open task),
-    not in the Chat tab. Only KIND_TOOLS' tools, no cache. It works only on the
+    the agent of the panel for a task not delegated. Only KIND_TOOLS' tools, no cache. It works only on the
     task open next to the chat, while in refinement (the user's button moves it
     there from created): reads it with its type's checklist, writes its fields
     and makes it todo with the user's ok; the code scan hands it counts only."""
@@ -91,6 +91,10 @@ class Conversation(BaseModel):
     chatbot_id: int
     title: str = ""
     """From the first message; empty until then."""
+    context: str = ""
+    """What it is about in the UI (plan 13b): the note it belongs to (an activity for
+    the Secretary, an agent task for the Refiner), ``""`` = none. The agent panel
+    reopens a context's latest conversation."""
     created_at: datetime = Field(default_factory=_utc_now)
     updated_at: datetime = Field(default_factory=_utc_now)
 

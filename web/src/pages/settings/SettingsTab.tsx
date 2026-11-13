@@ -8,6 +8,7 @@ import { type Project, useProject, useProjectOptions, useRemoveProject, useUpdat
 import { AgentsSection } from "../../components/agents/AgentsSection";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { AtlassianSettingsSection } from "./AtlassianSettingsSection";
+import { DevSettingsModal } from "../copilot/DevSettingsModal";
 import { DefinitionsSection } from "./DefinitionsSection";
 
 /** The Impostazioni tab of a project: one collapsed section each, only the titles at first. */
@@ -21,6 +22,7 @@ export function SettingsTab() {
       <Section value="general" title="Generale"><General project={project.data} /></Section>
       <Section value="atlassian" title="🔷 Atlassian (Jira + Confluence)"><AtlassianSettingsSection project={name} /></Section>
       <Section value="masking" title="🕶️ Mascheramento dei dati"><Masking project={name} /></Section>
+      <Section value="dev" title="🧪 Verifiche dello sviluppo"><DevChecks project={name} /></Section>
       <Section value="definitions" title="📄 Definizioni da file"><DefinitionsSection project={name} /></Section>
       <Section value="agents" title="🤖 Agenti del progetto"><AgentsSection scope={name} /></Section>
       <Section value="remove" title="🗑️ Rimuovi progetto"><Remove name={name} /></Section>
@@ -165,6 +167,18 @@ function Remove({ name }: { name: string }) {
       >
         Rimuovi progetto
       </ConfirmButton>
+    </Stack>
+  );
+}
+
+/** «Prepara sviluppo» and «Verifica sviluppo» around Copilot: the tests' commands and the default scope (in a window, as before). */
+function DevChecks({ project }: { project: string }) {
+  const [opened, setOpened] = useState(false);
+  return (
+    <Stack gap="xs" align="flex-start">
+      <Text size="sm" c="dimmed">I comandi dei test per repository e quali test lancia la «Verifica sviluppo» dopo Copilot.</Text>
+      <Button variant="light" onClick={() => setOpened(true)}>⚙️ Verifiche dello sviluppo</Button>
+      <DevSettingsModal project={project} opened={opened} onClose={() => setOpened(false)} />
     </Stack>
   );
 }

@@ -85,7 +85,7 @@ describe("agent task status and type", () => {
     fireEvent.click(screen.getByRole("button", { name: /Cambia stato/ }));
     fireEvent.click(await screen.findByRole("menuitem", { name: "In corso" }));
     expect(await screen.findByText(/Copilot ci sta lavorando/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "apri Copilot" })).toHaveAttribute("href", "/projects/acme/copilot");
+    expect(screen.getByText(/la sua chat è nel pannello dell'agente/)).toBeInTheDocument(); // no Copilot tab any more
     expect(screen.getByText(/«Salva come nota»/)).toBeInTheDocument(); // a Jira task: Copilot's answer becomes a note
     expect(within(screen.getByLabelText("Stato del task")).queryByText("Da verificare")).not.toBeInTheDocument(); // not in a plan-only task's path
   });

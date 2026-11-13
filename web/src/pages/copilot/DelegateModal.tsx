@@ -73,7 +73,7 @@ export function DelegateModal({ project, task, opened, onClose }: { project: str
       {
         onSuccess: (session) => {
           onClose();
-          navigate(`/projects/${encodeURIComponent(project)}/copilot?session=${session.id}`);
+          navigate(`/projects/${encodeURIComponent(project)}/work?note=${encodeURIComponent(session.task_note)}`); // its chat: the agent panel
         },
       },
     );

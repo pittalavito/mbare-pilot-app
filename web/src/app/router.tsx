@@ -3,12 +3,10 @@ import { Navigate, createBrowserRouter } from "react-router-dom";
 import { Placeholder } from "../pages/Placeholder";
 import { AdminPage } from "../pages/admin/AdminPage";
 import { AutomationTab } from "../pages/automation/AutomationTab";
-import { ChatTab } from "../pages/chat/ChatTab";
-import { CopilotTab } from "../pages/copilot/CopilotTab";
 import { LibraryPage } from "../pages/library/LibraryPage";
 import { ProjectPage } from "../pages/project/ProjectPage";
 import { ProjectZone } from "../pages/project/ProjectZone";
-import { DataRedirect, SectionRedirect } from "../pages/project/redirects";
+import { CopilotRedirect, DataRedirect, SectionRedirect } from "../pages/project/redirects";
 import { ProjectsPage } from "../pages/projects/ProjectsPage";
 import { WorkZone } from "../pages/work/WorkZone";
 import { Layout } from "./Layout";
@@ -23,10 +21,9 @@ const PROJECT_TABS = [
   { path: "automation/new", lazy: automationEditor },
   { path: "automation/:pipelineId/edit", lazy: automationEditor },
   { path: "project", element: <ProjectZone /> },
-  // Until the agent panel (plan 13b) they stay reachable as they are.
-  { path: "chat", element: <ChatTab /> },
-  { path: "copilot", element: <CopilotTab /> },
-  // The tabs of before: their links (also the ones the agents write) open the new place.
+  // The tabs of before: their links (also the ones the agents and the API write) open the new place.
+  { path: "chat", element: <Navigate to="../work" replace /> },
+  { path: "copilot", element: <CopilotRedirect /> },
   { path: "data", element: <DataRedirect /> },
   { path: "git", element: <SectionRedirect section="git" /> },
   { path: "atlassian", element: <SectionRedirect section="atlassian" /> },

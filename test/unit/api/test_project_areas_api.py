@@ -425,3 +425,14 @@ def test_model_catalog_marks_and_protects_models_in_use(client):
     toggled = [{**m, "active": False} if m is in_use else m for m in catalog]
     saved = client.put("/models", json=toggled).json()
     assert next(m for m in saved if m["model"] == in_use["model"])["active"] is False
+
+
+def test_conversations_belong_to_a_context(client):
+    bot = _chatbot(client)
+
+    plain = client.post(f"/chatbots/{bot['id']}/conversations").json()
+    mine = client.post(f"/chatbots/{bot['id']}/conversations", json={"context": " attivita-rilascio.md "}).json()
+
+    assert (plain["context"], mine["context"]) == ("", "attivita-rilascio.md")
+    assert [c["id"] for c in client.get(f"/chatbots/{bot['id']}/conversations", params={"context": "attivita-rilascio.md"}).json()] == [mine["id"]]
+    assert {c["id"] for c in client.get(f"/chatbots/{bot['id']}/conversations").json()} == {plain["id"], mine["id"]}
