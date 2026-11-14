@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Response, status
 from pydantic import BaseModel
 
 from controller.dependencies import plan_service
-from models.domain.plan import ActivityPath, ActivityPlan, PlanChoice, StepKey
+from models.domain.plan import ActivityPath, ActivityPlan, PlanChoice, PlanOptions, StepKey
 from service.plan_service import PlanService
 
 router = APIRouter(prefix="/projects/{project}", tags=["plan"])
@@ -70,6 +70,12 @@ def pause_plan(project: str, activity: str, request: PauseRequest, service: Plan
 def prepare_plan(project: str, activity: str, request: PrepareRequest, service: PlanService = Depends(plan_service)) -> ActivityPlan:
     """How the path prepares the repositories before Copilot."""
     return service.set_prepare(project, activity, request.prepare)
+
+
+@router.post("/activities/{activity}/plan/options")
+def plan_options(project: str, activity: str, request: PlanOptions, service: PlanService = Depends(plan_service)) -> ActivityPlan:
+    """The automations before and after each task and the automatic ok to Copilot's plan (12c)."""
+    return service.set_options(project, activity, request)
 
 
 @router.post("/activities/{activity}/plan/skip")

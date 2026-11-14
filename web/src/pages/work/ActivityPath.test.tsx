@@ -105,6 +105,54 @@ describe("the path that moves by itself (12b)", () => {
   });
 });
 
+describe("automations, automatic ok and summary (12c)", () => {
+  const AUTOMATIONS = [{ id: 31, project_name: "acme", name: "Coverage", description: "", active: true, fields: [], purpose: "",
+                         steps: [{ name: "x", kind: "function" }], edges: [] }];
+
+  it("chooses the automations before and after each task and the automatic ok", async () => {
+    const bodies: unknown[] = [];
+    api({ plan: CONFIRMED, tasks: [TASK("agent-task-a.md", "A", [step("confirm", "Conferma del task", "done"), step("before", "Automation prima", "todo")],
+                                        { current: true })] }, {
+      "GET /projects/acme/pipelines": AUTOMATIONS,
+      "POST /projects/acme/activities/attivita-login.md/plan/options": async (request: Request) => { bodies.push(await request.json()); return CONFIRMED; },
+    });
+    renderActivity();
+    expect(await screen.findByText(/lancia l'automation prima del task/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("textbox", { name: "Dopo ogni task" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Coverage" }));
+    await waitFor(() => expect(bodies[0]).toEqual({ before_automation: null, after_automation: 31, auto_approve: false }));
+    fireEvent.click(screen.getByRole("switch", { name: /senza chiedermi l'ok/ }));
+    await waitFor(() => expect(bodies[1]).toMatchObject({ auto_approve: true }));
+  });
+
+  it("«Chiedi all'Architetto» opens the zone Automation with the request ready", async () => {
+    api({ plan: CONFIRMED, tasks: [TASK("agent-task-a.md", "A", [step("confirm", "Conferma del task", "you")], { current: true })] }, {
+      "GET /projects/acme/pipelines": AUTOMATIONS,
+      "GET /projects/acme/chatbots": [{ id: 5, project_name: "acme", name: "Architetto", kind: "automation", description: "", system_prompt: "x",
+                                        prompt_version: 1, model: "m", max_steps: 4, tool_names: [], automation_cache: false }],
+      "GET /chatbots/5/conversations": [],
+      "GET /functions": [], "GET /admin/worker": { workers: [] },
+    });
+    renderActivity();
+    fireEvent.click(await screen.findByRole("textbox", { name: "Prima di ogni task" }));
+    fireEvent.click(await screen.findByRole("option", { name: /Chiedi all'Architetto/ }));
+    await waitFor(() => expect((screen.getByPlaceholderText(/Scrivi a Architetto/) as HTMLTextAreaElement).value)
+      .toContain("prima ogni task di sviluppo dell'attività attivita-login.md"));
+  });
+
+  it("a failed automation step offers retry and skip; the summary goes in «Imparato»", async () => {
+    api({ plan: CONFIRMED, summary: "Fatto con «▶️ Lavora attività» (1 di 1 task):\n- ✓ A (sviluppo)", tasks: [
+      TASK("agent-task-a.md", "A", [step("after", "Automation dopo", "failed", "coverage bassa")], { current: true }),
+    ] });
+    renderActivity();
+    expect(await screen.findByText("coverage bassa")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Riprova/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Salta/ })).toBeInTheDocument();
+    fireEvent.click(within(screen.getByTestId("path-summary")).getByRole("button", { name: /Metti in Imparato/ }));
+    await waitFor(() => expect(screen.getByLabelText("Imparato")).toHaveValue("Fatto con «▶️ Lavora attività» (1 di 1 task):\n- ✓ A (sviluppo)"));
+  });
+});
+
 describe("«▶️ Lavora attività»", () => {
   it("asks the Pianificatore for the plan", async () => {
     const proposed = vi.fn(() => PLAN);

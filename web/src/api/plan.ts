@@ -21,8 +21,10 @@ export function pathMoving(path: ActivityPath | undefined): boolean {
   if (!path?.plan || path.plan.status !== "confirmed") return false;
   if (path.tasks.some((task) => task.steps.some((step) => step.state === "running"))) return true;
   const current = path.tasks.find((task) => task.current);
-  return !path.plan.paused && !!current?.steps.some((step) => step.key === "delegate" && step.state === "todo")
-    && current.steps.every((step) => step.key !== "confirm" || step.state === "done");
+  const step = current?.steps.find((item) => item.state !== "done" && item.state !== "skipped");
+  if (path.plan.paused || !step) return false;
+  return (["before", "prepare", "delegate", "after"].includes(step.key) && step.state === "todo")
+    || (step.key === "copilot_plan" && step.state === "you" && !!path.plan.auto_approve);
 }
 
 const pathKey = (project: string, activity: string) => ["projects", project, "activities", activity, "path"] as const;
@@ -115,6 +117,18 @@ export function useRetryStep(project: string, activity: string) {
   return useMutation({
     mutationFn: (body: StepBody) =>
       unwrap(api.POST("/projects/{project}/activities/{activity}/plan/retry", { params: { path: { project, activity } }, body })),
+    onSuccess: refresh,
+  });
+}
+
+export type PlanOptions = components["schemas"]["PlanOptions"];
+
+/** 12c: the automations before and after each task and the automatic ok to Copilot's plan. */
+export function useSetPlanOptions(project: string, activity: string) {
+  const refresh = useRefresh(project, activity);
+  return useMutation({
+    mutationFn: (body: PlanOptions) =>
+      unwrap(api.POST("/projects/{project}/activities/{activity}/plan/options", { params: { path: { project, activity } }, body })),
     onSuccess: refresh,
   });
 }

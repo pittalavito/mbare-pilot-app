@@ -399,6 +399,11 @@ class ActivityPlanTable(SQLModel, table=True):
     skipped: list[str] | None = Field(default=None, sa_type=JSON)
     errors: dict | None = Field(default=None, sa_type=JSON)
     retries: dict | None = Field(default=None, sa_type=JSON)
+    before_automation: int | None = None
+    after_automation: int | None = None
+    automation_runs: dict | None = Field(default=None, sa_type=JSON)
+    auto_approve: bool = Field(default=False, sa_column_kwargs={"server_default": "0"})
+    approved: list[str] | None = Field(default=None, sa_type=JSON)
     created_at: datetime = _timestamp()
     updated_at: datetime = _timestamp()
 
