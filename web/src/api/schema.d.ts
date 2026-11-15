@@ -2137,6 +2137,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/activities/{activity}/plan/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Options
+         * @description The automations before and after each task and the automatic ok to Copilot's plan (12c).
+         */
+        post: operations["plan_options_projects__project__activities__activity__plan_options_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project}/activities/{activity}/plan/skip": {
         parameters: {
             query?: never;
@@ -2526,6 +2546,11 @@ export interface components {
              * @default []
              */
             tasks: components["schemas"]["PathTask"][];
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
         };
         /** ActivityPlan */
         ActivityPlan: {
@@ -2583,6 +2608,27 @@ export interface components {
             retries: {
                 [key: string]: number;
             };
+            /** Before Automation */
+            before_automation?: number | null;
+            /** After Automation */
+            after_automation?: number | null;
+            /**
+             * Automation Runs
+             * @default {}
+             */
+            automation_runs: {
+                [key: string]: number;
+            };
+            /**
+             * Auto Approve
+             * @default false
+             */
+            auto_approve: boolean;
+            /**
+             * Approved
+             * @default []
+             */
+            approved: string[];
             /**
              * Created At
              * Format: date-time
@@ -4202,6 +4248,21 @@ export interface components {
             choices: components["schemas"]["PlanChoice"][];
         };
         /**
+         * PlanOptions
+         * @description 12c: the activity's automations before and after each task, and the automatic ok to Copilot's plan.
+         */
+        PlanOptions: {
+            /** Before Automation */
+            before_automation?: number | null;
+            /** After Automation */
+            after_automation?: number | null;
+            /**
+             * Auto Approve
+             * @default false
+             */
+            auto_approve: boolean;
+        };
+        /**
          * PlanProposal
          * @description A proposed task in clear, as the user confirms, corrects or discards it.
          */
@@ -4837,7 +4898,7 @@ export interface components {
          * StepKey
          * @enum {string}
          */
-        StepKey: "confirm" | "prepare" | "delegate" | "copilot_plan" | "execution" | "verify" | "answer" | "final";
+        StepKey: "confirm" | "before" | "prepare" | "delegate" | "copilot_plan" | "execution" | "verify" | "after" | "answer" | "final";
         /** StepRequest */
         StepRequest: {
             /** Task */
@@ -9666,6 +9727,42 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PrepareRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_options_projects__project__activities__activity__plan_options_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                activity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanOptions"];
             };
         };
         responses: {

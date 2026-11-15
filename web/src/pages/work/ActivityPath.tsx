@@ -1,13 +1,13 @@
-import { ActionIcon, Alert, Badge, Button, Card, Checkbox, Group, Loader, Select, Stack, Text, TextInput, Textarea } from "@mantine/core";
+import { ActionIcon, Alert, Badge, Button, Card, Checkbox, Group, Loader, Select, Stack, Switch, Text, TextInput, Textarea } from "@mantine/core";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useRepositories } from "../../api/git";
 import { usePipelines } from "../../api/automation";
 import { useDevSettings } from "../../api/dev";
 import {
   type ActivityPlan, type PathStep, type PathTask, type PlanProposal, useActivityPath, useConfirmPlan, useConfirmTask, useDismissPlan, usePausePlan,
-  useProposePlan, useRetryStep, useSetPrepare, useSkipStep,
+  useProposePlan, useRetryStep, useSetPlanOptions, useSetPrepare, useSkipStep,
 } from "../../api/plan";
 import { useAgentPanel } from "../project/AgentPanel";
 import { eur } from "../../format";
@@ -34,7 +34,8 @@ const STATE: Record<string, { icon: string; color: string; label: string }> = {
   skipped: { icon: "–", color: "gray", label: "saltato" },
 };
 
-export function ActivityPath({ project, activity }: { project: string; activity: string }) {
+/** ``onLearned``: «📝 Metti in Imparato» puts the summary in the activity's form (the user corrects and saves it). */
+export function ActivityPath({ project, activity, onLearned }: { project: string; activity: string; onLearned?: (text: string) => void }) {
   const path = useActivityPath(project, activity);
   const propose = useProposePlan(project, activity);
   if (path.isPending) return <Loader size="xs" />;
@@ -46,7 +47,20 @@ export function ActivityPath({ project, activity }: { project: string; activity:
         {plan?.status === "proposed" ? (
           <Proposals key={plan.id} project={project} activity={activity} plan={plan} />
         ) : tasks.length ? (
-          <Path project={project} activity={activity} plan={plan!} tasks={tasks} onReplan={() => propose.mutate()} replanning={propose.isPending} />
+          <>
+            <Path project={project} activity={activity} plan={plan!} tasks={tasks} onReplan={() => propose.mutate()} replanning={propose.isPending} />
+            {path.data.summary && (
+              <Card withBorder p="xs" data-testid="path-summary">
+                <Stack gap={6}>
+                  <Text size="sm" fw={600}>📝 Riepilogo del giro</Text>
+                  <Text size="xs" style={{ whiteSpace: "pre-wrap" }}>{path.data.summary}</Text>
+                  {onLearned && (
+                    <Group><Button size="compact-xs" onClick={() => onLearned(path.data.summary ?? "")}>📝 Metti in Imparato</Button></Group>
+                  )}
+                </Stack>
+              </Card>
+            )}
+          </>
         ) : (
           <Group justify="space-between" wrap="nowrap">
             <Text size="sm" c="dimmed">Il Pianificatore propone gli agent task dell'attività, in ordine, con obiettivo e criteri: li confermi tu.</Text>
@@ -158,9 +172,46 @@ function Path({ project, activity, plan, tasks, onReplan, replanning }: {
         <Select size="xs" aria-label="Preparazione del giro" w={220} data={options} value={options.some((option) => option.value === plan.prepare) ? plan.prepare : ""}
           onChange={(value) => setPrepare.mutate(value ?? "")} allowDeselect={false} />
       </Group>
+      <Automations project={project} activity={activity} plan={plan} />
       {(pause.error || setPrepare.error) && <Alert color="red">{(pause.error ?? setPrepare.error)?.message}</Alert>}
       {tasks.map((task, index) => <TaskRow key={task.task} project={project} activity={activity} task={task} number={index + 1} paused={!!plan.paused} />)}
     </>
+  );
+}
+
+const ASK_ARCHITECT = "__architect__";
+
+/** 12c: the automations before and after each development task, «Chiedi all'Architetto», the automatic ok to Copilot's plan. */
+function Automations({ project, activity, plan }: { project: string; activity: string; plan: ActivityPlan }) {
+  const pipelines = usePipelines(project);
+  const setOptions = useSetPlanOptions(project, activity);
+  const navigate = useNavigate();
+  const { ask } = useAgentPanel();
+  const data = [
+    ...(pipelines.data ?? []).filter((pipeline) => pipeline.active && pipeline.steps.length).map((pipeline) => ({ value: String(pipeline.id), label: pipeline.name })),
+    { value: ASK_ARCHITECT, label: "➕ Chiedi all'Architetto" },
+  ];
+  const options = { before_automation: plan.before_automation ?? null, after_automation: plan.after_automation ?? null, auto_approve: !!plan.auto_approve };
+  const choose = (key: "before_automation" | "after_automation", value: string | null) => {
+    if (value === ASK_ARCHITECT) {
+      ask(`Mi serve un'automation da lanciare ${key === "before_automation" ? "prima" : "dopo"} ogni task di sviluppo dell'attività ${activity}: `);
+      navigate(`/projects/${encodeURIComponent(project)}/automation`);
+      return;
+    }
+    setOptions.mutate({ ...options, [key]: value === null ? null : Number(value) });
+  };
+  return (
+    <Stack gap={4}>
+      <Group gap="xs" grow>
+        <Select size="xs" label="Prima di ogni task" placeholder="Nessuna automation" clearable data={data}
+          value={options.before_automation === null ? null : String(options.before_automation)} onChange={(value) => choose("before_automation", value)} />
+        <Select size="xs" label="Dopo ogni task" placeholder="Nessuna automation" clearable data={data}
+          value={options.after_automation === null ? null : String(options.after_automation)} onChange={(value) => choose("after_automation", value)} />
+      </Group>
+      <Switch size="xs" label="Parti senza chiedermi l'ok al piano di Copilot" checked={options.auto_approve}
+        onChange={(event) => setOptions.mutate({ ...options, auto_approve: event.currentTarget.checked })} />
+      {setOptions.error && <Text size="xs" c="red">{setOptions.error.message}</Text>}
+    </Stack>
   );
 }
 
@@ -196,10 +247,12 @@ function TaskRow({ project, activity, task, number, paused }: { project: string;
                 <Button size="compact-xs" variant="default" onClick={open}>✏️ Correggi</Button>
               </>
             )}
+            {current.key === "before" && current.state === "todo" && <Text size="xs" c="dimmed">⏳ Il giro lancia l'automation prima del task.</Text>}
+            {current.key === "after" && current.state === "todo" && <Text size="xs" c="dimmed">⏳ Il giro lancia l'automation dopo il task.</Text>}
             {(current.key === "prepare" || current.key === "delegate") && current.state === "todo" && (paused ? (
               <Button size="compact-xs" onClick={() => setDelegating(true)}>🤖 Delega a Copilot</Button>
             ) : <Text size="xs" c="dimmed">⏳ Il giro lo prepara e lo delega a breve.</Text>)}
-            {(current.key === "prepare" || current.key === "delegate" || current.key === "verify") && current.state === "failed" && (
+            {["prepare", "delegate", "verify", "before", "after"].includes(current.key) && current.state === "failed" && (
               <Button size="compact-xs" variant="light" onClick={() => retry.mutate({ task: task.task, step: current.key })} loading={retry.isPending}>
                 🔁 Riprova
               </Button>
@@ -210,7 +263,7 @@ function TaskRow({ project, activity, task, number, paused }: { project: string;
                 "operator",
               )}>🤖 Fallo fare all'Operatore</Button>
             )}
-            {(current.key === "prepare" || current.key === "verify") && current.state === "failed" && (
+            {["prepare", "verify", "before", "after"].includes(current.key) && current.state === "failed" && (
               <Button size="compact-xs" variant="subtle" onClick={() => skip.mutate({ task: task.task, step: current.key })} loading={skip.isPending}>
                 ⏭ Salta
               </Button>

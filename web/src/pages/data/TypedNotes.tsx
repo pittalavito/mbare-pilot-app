@@ -539,7 +539,7 @@ function ActivityEditor({ project, activity }: { project: string; activity: Acti
       project={project} name={activity.name} dirty={dirty} valid={!!form.title.trim()} saving={save.isPending} error={save.error?.message}
       onSave={() => write(form, `${form.title} salvata.`)}
     >
-      <ActivityPath project={project} activity={activity.name} />
+      <ActivityPath project={project} activity={activity.name} onLearned={(learned) => set({ learned })} />
       <TextInput label="Titolo" value={form.title} onChange={(event) => set({ title: event.currentTarget.value })} />
       <Group align="flex-end" gap="sm">
         <div>

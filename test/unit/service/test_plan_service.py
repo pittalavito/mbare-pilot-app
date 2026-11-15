@@ -55,6 +55,8 @@ class FakeCopilot:
         self.sent_back: list[tuple[int, str]] = []
         self.verified: list[int] = []
         self.fail_start: Exception | None = None
+        self.approvals: list[int] = []
+        self.unanswered: set[int] = set()
 
     def sessions(self, project_name):
         return self.list
@@ -74,6 +76,15 @@ class FakeCopilot:
 
     def verify_again(self, session_id):
         self.verified.append(session_id)
+
+    def approve(self, session_id):
+        if session_id in self.unanswered:
+            raise ConflictError("Copilot non ha ancora risposto")
+        self.approvals.append(session_id)
+        self.list = [item.model_copy(update={"status": CopilotSessionStatus.QUEUED}) if item.id == session_id else item for item in self.list]
+
+    def session_turns(self, session_id):
+        return [SimpleNamespace(usage=SimpleNamespace(ai_credits=0.5))]
 
     def messages(self, session_id):
         return [CopilotMessage(session_id=session_id, role=CopilotMessageRole.EVENT, content=text) for text in self.events.get(session_id, [])]
@@ -435,3 +446,149 @@ def test_the_api_pauses_chooses_skips_retries_and_saves_the_retries(project, sto
         assert client.put("/projects/acme/dev-settings", json={"auto_retries": 3}).json()["auto_retries"] == 3
         assert client.put("/projects/acme/dev-settings", json={"auto_retries": 4}).status_code == 422
         assert client.put("/projects/acme/dev-settings", json={}).json()["auto_retries"] == 3
+        assert client.post(f"{base}/options", json={"auto_approve": True}).json()["auto_approve"] is True
+        assert client.post(f"{base}/options", json={"before_automation": 999}).status_code == 400
+        assert client.get(f"/projects/acme/activities/{activity}/path").json()["summary"] == ""
+
+
+# ------------------------------------------------------------------- 12c
+
+@pytest.fixture
+def checks(service, stores, project_data_service, git_service):
+    from service.dev_checks_service import DevChecksService
+    from service.pipeline_runner import PipelineRunner
+    runner = PipelineRunner(stores.pipelines, None, git_service, project_data_service)  # type: ignore[arg-type]
+    checks = DevChecksService(stores.pipelines, runner, git_service, project_data_service)
+    service.use_checks(checks)
+    return checks
+
+
+def _automation(pipeline_store, name, function, fields=(), params=None):
+    from domain.pipeline.graph import linear_edges
+    from models.domain.pipeline import Pipeline, PipelineStep, StepKind
+    step = PipelineStep(name=function, kind=StepKind.FUNCTION, function_name=function, params=params or {}, input_template="api")
+    return pipeline_store.save_pipeline(Pipeline(project_name="acme", name=name, steps=[step], edges=linear_edges([step]), fields=list(fields)))
+
+
+def test_the_automations_before_and_after_each_task_run_by_themselves(service, activity, copilot, stores, checks, pipeline_store,
+                                                                      project_data_service, project):  # noqa: F811
+    from models.domain.plan import PlanOptions
+    before = _automation(pipeline_store, "Stato", "git_status")
+    after = _automation(pipeline_store, "Log", "git_log", fields=["branch"])
+    plan = _confirmed(service, activity)
+    login = plan.tasks[0].task
+    with pytest.raises(ValidationError, match="non trovata"):
+        service.set_options("acme", activity, PlanOptions(before_automation=999))
+    service.set_options("acme", activity, PlanOptions(before_automation=before.id, after_automation=after.id))
+    service.set_prepare("acme", activity, "none")
+    assert [step.key for step in service.path("acme", activity).tasks[0].steps][:2] == [StepKey.CONFIRM, StepKey.BEFORE]
+    assert StepKey.BEFORE not in _states(service.path("acme", activity).tasks[1])  # not for analysis tasks
+    service.confirm_task("acme", login)
+
+    assert service.advance_all() == 1  # the automation before
+    assert _states(service.path("acme", activity).tasks[0])[StepKey.BEFORE] is StepState.DONE
+    run = pipeline_store.list_pipeline_runs(before.id)[0]
+    assert run.input == f"api {login}"
+    assert service.advance_all() == 1 and copilot.started  # then the delegation
+
+    task = project_data_service.agent_task("acme", login)
+    project_data_service.save_agent_task("acme", login, task.model_copy(update={"status": TaskStatus.TO_VERIFY}))
+    copilot.list = [_session(4, login, CopilotSessionStatus.DONE)]
+    copilot.events[4] = [VERIFY_OK]
+    assert _states(service.path("acme", activity).tasks[0])[StepKey.AFTER] is StepState.TODO
+    assert service.advance_all() == 1  # the automation after, with its fields from the task
+    assert '"branch": "feature/' in pipeline_store.list_pipeline_runs(after.id)[0].input
+    states = _states(service.path("acme", activity).tasks[0])
+    assert states[StepKey.AFTER] is StepState.DONE and states[StepKey.FINAL] is StepState.YOU
+    assert service.advance_all() == 0  # the final confirmation is yours
+
+
+def test_a_failing_automation_stops_the_path_until_retried_or_skipped(service, activity, copilot, stores, checks, pipeline_store,
+                                                                      project_data_service, project):  # noqa: F811
+    from models.domain.plan import PlanOptions
+    failing = _automation(pipeline_store, "Pulito", "git_check_clean")
+    (project / "api" / "README.md").write_text("cambiato", encoding="utf-8")
+    plan = _confirmed(service, activity)
+    login = plan.tasks[0].task
+    service.set_options("acme", activity, PlanOptions(before_automation=failing.id))
+    service.confirm_task("acme", login)
+
+    service.advance_all()
+    step = next(item for item in service.path("acme", activity).tasks[0].steps if item.key is StepKey.BEFORE)
+    assert step.state is StepState.FAILED and step.detail
+    assert service.advance_all() == 0 and not copilot.started
+    service.retry("acme", activity, login, StepKey.BEFORE)
+    assert _states(service.path("acme", activity).tasks[0])[StepKey.BEFORE] is StepState.TODO
+    service.skip("acme", activity, login, StepKey.BEFORE)
+    assert service.advance_all() == 1 and copilot.started
+
+    pipeline_store.save_pipeline(failing.model_copy(update={"active": False}))
+    service.set_options("acme", activity, PlanOptions(before_automation=failing.id))
+    plan2 = _plan(stores, activity)
+    service._run_automation(plan2, service.path("acme", activity).tasks[1], StepKey.BEFORE, failing.id)
+    assert "disattivata" in _plan(stores, activity).errors[f"{plan.tasks[1].task}|before"]
+    service._checks = None
+    service._run_automation(_plan(stores, activity), service.path("acme", activity).tasks[0], StepKey.AFTER, failing.id)
+    assert "non sono disponibili" in _plan(stores, activity).errors[f"{login}|after"]
+
+
+def test_running_and_unran_automation_steps(service, activity, copilot, stores, checks, pipeline_store, project_data_service):
+    from models.domain.pipeline import PipelineRun, RunStatus
+    from models.domain.plan import PlanOptions
+    automation = _automation(pipeline_store, "Stato", "git_status")
+    plan = _confirmed(service, activity)
+    login = plan.tasks[0].task
+    service.set_options("acme", activity, PlanOptions(before_automation=automation.id))
+    running = pipeline_store.save_pipeline_run(PipelineRun(pipeline_id=automation.id, status=RunStatus.RUNNING))
+    stores.plans.save(_plan(stores, activity).model_copy(update={"automation_runs": {f"{login}|before": running.id}}))
+    assert _states(service.path("acme", activity).tasks[0])[StepKey.BEFORE] is StepState.RUNNING
+    service.confirm_task("acme", login)
+    assert service.advance_all() == 0  # waits for it
+    failed = pipeline_store.save_pipeline_run(PipelineRun(pipeline_id=automation.id, status=RunStatus.FAILED, error="rotta"))
+    stores.plans.save(_plan(stores, activity).model_copy(update={"automation_runs": {f"{login}|before": failed.id}}))
+    step = next(item for item in service.path("acme", activity).tasks[0].steps if item.key is StepKey.BEFORE)
+    assert step.state is StepState.FAILED and step.detail == "rotta"
+    stores.plans.save(_plan(stores, activity).model_copy(update={"automation_runs": {f"{login}|before": 9999}}))
+    task = project_data_service.agent_task("acme", login)
+    project_data_service.save_agent_task("acme", login, task.model_copy(update={"status": TaskStatus.DONE}))
+    assert _states(service.path("acme", activity).tasks[0])[StepKey.BEFORE] is StepState.SKIPPED  # a done task never ran it
+
+
+def test_the_path_approves_copilots_plan_by_itself_when_asked(service, activity, copilot, stores):
+    from models.domain.plan import PlanOptions
+    plan = _confirmed(service, activity)
+    login = plan.tasks[0].task
+    service.set_prepare("acme", activity, "none")
+    service.confirm_task("acme", login)
+    service.advance_all()  # delegated: Copilot's plan waits for the ok
+    session_id = copilot.list[0].id
+    assert service.advance_all() == 0  # off by default
+
+    service.set_options("acme", activity, PlanOptions(auto_approve=True))
+    copilot.unanswered.add(session_id)
+    assert service.advance_all() == 0  # Copilot has not answered yet
+    copilot.unanswered.clear()
+    assert service.advance_all() == 1 and copilot.approvals == [session_id]
+    assert _plan(stores, activity).approved == [login]
+    copilot.list = [item.model_copy(update={"status": CopilotSessionStatus.PLANNING}) for item in copilot.list]
+    assert service.advance_all() == 0  # once per task: after an execution the chat is the user's
+
+
+def test_once_every_task_is_done_the_summary_is_ready_for_imparato(service, activity, copilot, stores, project_data_service):
+    plan = _confirmed(service, activity)
+    login, analysis = (item.task for item in plan.tasks)
+    assert service.path("acme", activity).summary == ""
+    for name in (login, analysis):
+        task = project_data_service.agent_task("acme", name)
+        project_data_service.save_agent_task("acme", name, task.model_copy(update={"status": TaskStatus.DONE}))
+    copilot.list = [_session(4, login, CopilotSessionStatus.DONE, changed_files=["auth.py", "otp.py"])]
+    stores.plans.save(_plan(stores, activity).model_copy(update={"retries": {login: 1}, "skipped": [f"{login}|verify"]}))
+
+    summary = service.path("acme", activity).summary
+    assert summary.startswith("Fatto con «▶️ Lavora attività» (2 di 2 task):")
+    assert "✓ Login (sviluppo; file cambiati: auth.py, otp.py; test rimandati a Copilot 1 volte; saltati: verifica)" in summary
+    assert "✓ Analizza (analisi)" in summary and "Copilot 0,50 crediti AI" in summary and "Pianificatore" in summary
+    project_data_service.delete_note("acme", analysis)
+    assert f"✗ {analysis}: cancellato" in service.path("acme", activity).summary
+    copilot.list = []
+    assert "crediti AI" not in service.path("acme", activity).summary

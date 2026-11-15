@@ -71,6 +71,15 @@ class DevChecksService:
             raise ValidationError(f"L'automation {pipeline.name} è disattivata.")
         return self._execute(pipeline, json.dumps({name: fields.get(name, "") for name in pipeline.fields}))
 
+    def run_automation(self, project_name: str, pipeline_id: int, text: str) -> DevCheck:
+        """One of the project's automations, now (a step of «Lavora attività», plan 12c)."""
+        pipeline = self._pipelines.get_pipeline(pipeline_id)
+        if pipeline is None or pipeline.project_name != project_name:
+            raise NotFoundError(f"Automation non trovata: {pipeline_id}")
+        if not pipeline.active:
+            raise ValidationError(f"L'automation {pipeline.name} è disattivata.")
+        return self._execute(pipeline, text)
+
     def _run(self, project_name: str, automation: str, text: str) -> DevCheck:
         pipeline = next((item for item in self._pipelines.list_pipelines(project_name) if item.name == automation and item.active), None)
         if pipeline is None or pipeline.id is None:

@@ -78,6 +78,16 @@ class ActivityPlan(BaseModel):
     """Why a step the path ran failed (preparation, delegation), as ``<task>|<step>`` → error."""
     retries: dict[str, int] = {}
     """How many times the path sent a task's failed tests back to Copilot by itself."""
+    before_automation: int | None = None
+    """12c: an automation the path runs before each development task (after its confirmation)."""
+    after_automation: int | None = None
+    """12c: an automation the path runs after each development task's verification, before the final confirmation."""
+    automation_runs: dict[str, int] = {}
+    """The runs of those automations, as ``<task>|before`` / ``<task>|after`` → pipeline run id."""
+    auto_approve: bool = False
+    """12c: the path gives the ok to Copilot's plan by itself (developments only)."""
+    approved: list[str] = []
+    """The tasks whose plan the path approved by itself (once each)."""
     created_at: datetime = Field(default_factory=_utc_now)
     updated_at: datetime = Field(default_factory=_utc_now)
 
@@ -105,6 +115,8 @@ class StepState(StrEnum):
 class StepKey(StrEnum):
     CONFIRM = "confirm"
     """«Conferma del task»: objective and criteria written by the Pianificatore."""
+    BEFORE = "before"
+    """12c: the activity's automation before each development task."""
     PREPARE = "prepare"
     """The repositories got ready before Copilot (developments): skippable."""
     DELEGATE = "delegate"
@@ -114,6 +126,8 @@ class StepKey(StrEnum):
     EXECUTION = "execution"
     VERIFY = "verify"
     """«Verifica sviluppo»: cleaning and tests."""
+    AFTER = "after"
+    """12c: the activity's automation after each development task's verification."""
     ANSWER = "answer"
     """Copilot's answer, saved as a note (the types that do not change the code)."""
     FINAL = "final"
@@ -122,19 +136,21 @@ class StepKey(StrEnum):
 
 STEP_LABELS: dict[StepKey, str] = {
     StepKey.CONFIRM: "Conferma del task",
+    StepKey.BEFORE: "Automation prima",
     StepKey.PREPARE: "Preparazione",
     StepKey.DELEGATE: "Delega a Copilot",
     StepKey.COPILOT_PLAN: "Piano di Copilot",
     StepKey.EXECUTION: "Esecuzione",
     StepKey.VERIFY: "Verifica",
+    StepKey.AFTER: "Automation dopo",
     StepKey.ANSWER: "Risposta di Copilot",
     StepKey.FINAL: "Conferma finale",
 }
 
 
-SKIPPABLE: set[StepKey] = {StepKey.PREPARE, StepKey.VERIFY}
+SKIPPABLE: set[StepKey] = {StepKey.PREPARE, StepKey.VERIFY, StepKey.BEFORE, StepKey.AFTER}
 """The steps the user can skip."""
-RETRYABLE: set[StepKey] = {StepKey.PREPARE, StepKey.DELEGATE, StepKey.VERIFY}
+RETRYABLE: set[StepKey] = {StepKey.PREPARE, StepKey.DELEGATE, StepKey.VERIFY, StepKey.BEFORE, StepKey.AFTER}
 """The failed steps the user can run again."""
 
 
@@ -167,3 +183,12 @@ class ActivityPath(BaseModel):
     """The plan of an activity and, once confirmed, where each task is."""
     plan: ActivityPlan | None = None
     tasks: list[PathTask] = []
+    summary: str = ""
+    """12c: once no task is left to do, what the path did (composed by the code), to put in «Imparato»."""
+
+
+class PlanOptions(BaseModel):
+    """12c: the activity's automations before and after each task, and the automatic ok to Copilot's plan."""
+    before_automation: int | None = None
+    after_automation: int | None = None
+    auto_approve: bool = False
