@@ -12,6 +12,7 @@ import {
 import { useCopilotStatus } from "../../api/copilot";
 import { CopilotUsage } from "./CopilotUsage";
 import { Metrics } from "./Metrics";
+import { ToolTrial } from "./ToolTrial";
 import { localTime, size } from "../../format";
 
 /** The Admin page, one tab per area (``?tab=``): services, observability, models, backups.
@@ -27,11 +28,13 @@ export function AdminPage() {
           <Tabs.Tab value="observability">Observability</Tabs.Tab>
           <Tabs.Tab value="models">Modelli</Tabs.Tab>
           <Tabs.Tab value="backup">Backup</Tabs.Tab>
+          <Tabs.Tab value="tools">Tool</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="services"><Services /></Tabs.Panel>
         <Tabs.Panel value="observability"><Observability /></Tabs.Panel>
         <Tabs.Panel value="models"><Models /></Tabs.Panel>
         <Tabs.Panel value="backup"><Backups /></Tabs.Panel>
+        <Tabs.Panel value="tools"><ToolTrial /></Tabs.Panel>
       </Tabs>
     </Stack>
   );

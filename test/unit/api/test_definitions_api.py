@@ -7,8 +7,8 @@ from core.container import Container
 from models.domain.project import Project, ProjectSource
 
 AUTOMATIONS = """automations:
-  - {name: Uno, steps: [{name: S, function: git_status}]}
-  - {name: Due, steps: [{name: S, function: git_status}]}
+  - {name: Uno, steps: [{name: S, tool: git_status, args: {repository: "*"}}]}
+  - {name: Due, steps: [{name: S, tool: git_status, args: {repository: "*"}}]}
 """
 
 

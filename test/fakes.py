@@ -94,3 +94,17 @@ class FakeStructuredClient:
         if self.error:
             raise self.error
         return SimpleNamespace(structured_data=[self.answer if self.answer is not None else output_cls(proposals=[])])
+
+
+class ToolFailed(Exception):
+    """A tool answered with its ToolErrorResponse (what fails an automation step)."""
+
+
+def call_tool(name: str, context, **arguments):
+    """The tool of the registry ``name``, built for ``context`` and called as a step would; ToolFailed with its error."""
+    from tool.registry import TOOL_REGISTRY
+    result = TOOL_REGISTRY[name].build(context)(**arguments)
+    error = getattr(result, "error", None)
+    if error:
+        raise ToolFailed(error)
+    return result

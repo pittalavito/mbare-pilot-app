@@ -107,7 +107,7 @@ describe("the path that moves by itself (12b)", () => {
 
 describe("automations, automatic ok and summary (12c)", () => {
   const AUTOMATIONS = [{ id: 31, project_name: "acme", name: "Coverage", description: "", active: true, fields: [], purpose: "",
-                         steps: [{ name: "x", kind: "function" }], edges: [] }];
+                         steps: [{ name: "x", kind: "tool" }], edges: [] }];
 
   it("chooses the automations before and after each task and the automatic ok", async () => {
     const bodies: unknown[] = [];
@@ -131,7 +131,7 @@ describe("automations, automatic ok and summary (12c)", () => {
       "GET /projects/acme/chatbots": [{ id: 5, project_name: "acme", name: "Architetto", kind: "automation", description: "", system_prompt: "x",
                                         prompt_version: 1, model: "m", max_steps: 4, tool_names: [], automation_cache: false }],
       "GET /chatbots/5/conversations": [],
-      "GET /functions": [], "GET /admin/worker": { workers: [] },
+      "GET /tool-specs": [], "GET /admin/worker": { workers: [] },
     });
     renderActivity();
     fireEvent.click(await screen.findByRole("textbox", { name: "Prima di ogni task" }));

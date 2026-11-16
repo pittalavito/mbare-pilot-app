@@ -1,4 +1,4 @@
-"""coverage_new_code function: the JaCoCo coverage of the code not pushed yet
+"""coverage_new_code: the JaCoCo coverage of the code not pushed yet
 (the lines of ``src/main/java`` that the commits no remote branch has add),
 compared with a threshold, as plain text (no LLM).
 
@@ -17,9 +17,9 @@ from collections.abc import Callable
 
 from pydantic import BaseModel, Field
 
-from function.context import FunctionContext
-from function.spec import FunctionResult, FunctionSpec
 from models.domain.maven import CoverageCheck, CoverageStatus, NewCodeCoverage
+from tool.context import ToolContext
+from tool.spec import params_tool
 
 ALL = "*"
 NO_POM = "Coverage: nessun pom.xml nei repository del progetto."
@@ -28,7 +28,7 @@ BELOW_MARK = "sotto soglia"
 
 
 class Params(BaseModel):
-    repository: str = Field("", description="Cartella del repository nel progetto. Vuoto = usa l'input dello step; * = tutti i repository del progetto.")
+    repository: str = Field(..., description="Cartella del repository nel progetto ('' = la cartella del progetto); * = tutti i repository del progetto.")
     threshold: int = Field(80, ge=1, le=100, description="Soglia di coverage delle righe nuove, in percentuale (1-100).")
     parent_artifact_id: str = Field(
         "", description="artifactId del POM parent (JaCoCo viene da lì): si lancia mvn solo nei repository allineati. Vuoto = riconosciuto.",
@@ -39,14 +39,15 @@ class Params(BaseModel):
     )
 
 
-class Result(FunctionResult):
+class Result(BaseModel):
+    text: str
     coverage: NewCodeCoverage
 
 
-def run(context: FunctionContext, step_input: str, params: Params) -> Result:
-    repository = params.repository.strip() or step_input.strip()
+def run(context: ToolContext, params: Params) -> Result:
+    repository = params.repository.strip()
     coverage = context.maven.new_code_coverage(
-        context.project_name, None if repository == ALL else repository, params.threshold, params.parent_artifact_id, params.property,
+        context.require_project(), None if repository == ALL else repository, params.threshold, params.parent_artifact_id, params.property,
     )
     return Result(text=_text(coverage, None if repository == ALL else repository), coverage=coverage)
 
@@ -119,10 +120,9 @@ def _ranges(lines: list[int]) -> str:
     return ", ".join(parts)
 
 
-COVERAGE_NEW_CODE = FunctionSpec(
-    name="coverage_new_code",
-    description="Coverage JaCoCo delle righe nei commit non ancora pushati, confrontata con una soglia; solo nei repository allineati "
-                "al POM parent (senza LLM).",
-    params=Params,
-    run=run,
+COVERAGE_NEW_CODE = params_tool(
+    "coverage_new_code",
+    "JaCoCo coverage of the lines not pushed yet (src/main/java) against a threshold, in the repositories aligned to the parent POM "
+    "(runs mvn jacoco:report, not the tests).",
+    Params, run, writes=True,
 )

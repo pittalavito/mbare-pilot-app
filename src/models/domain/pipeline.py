@@ -35,11 +35,10 @@ class StepKind(StrEnum):
     """Its own agent, configured in the step (like a chatbot's)."""
     AGENT_CONFIG = "agent_config"
     """An agent of the Library (global or of the project)."""
-    FUNCTION = "function"
-    """A Python function implemented in code (no LLM)."""
     TOOL = "tool"
-    """An agent's tool called with fixed arguments (no LLM): what an Operator did,
-    promoted to an automation (plan 11). Its arguments can use ``{in:field}``."""
+    """A tool implemented in code, called with its arguments (no LLM), the same
+    an agent can call (plan 15: the functions of before are tools too).
+    Its arguments can use ``{input}``, ``{pipeline_input}``, ``{nodo:Name}`` and ``{in:field}``."""
 
 
 class AutomationPurpose(StrEnum):
@@ -70,12 +69,10 @@ class PipelineStep(BaseModel):
     """AGENT steps only."""
     agent_config_name: str | None = None
     """AGENT_CONFIG steps only."""
-    function_name: str | None = None
-    """FUNCTION steps only."""
     tool_name: str | None = None
     """TOOL steps only."""
     params: dict[str, Any] = Field(default_factory=dict)
-    """FUNCTION steps: the function's parameters; TOOL steps: the tool's arguments."""
+    """TOOL steps: the tool's arguments."""
     position_x: float = 0.0
     position_y: float = 0.0
     """Where the node is drawn in the graph editor."""
@@ -89,6 +86,20 @@ class PipelineStep(BaseModel):
         text = text.replace(PIPELINE_INPUT, pipeline_input)
         text = NODE_PLACEHOLDER.sub(lambda match: outputs.get(match.group(1), ""), text)
         return text.replace(INPUT, previous_output)
+
+
+def render_args(value: Any, step_input: str, pipeline_input: str, node_outputs: dict[str, str], fields: dict[str, str]) -> Any:
+    """A tool step's arguments with ``{in:field}``, ``{pipeline_input}``, ``{nodo:Name}`` and ``{input}`` (the step's input,
+    its template applied) replaced in every string, also inside lists and dicts."""
+    if isinstance(value, str):
+        text = fill_fields(value, fields).replace(PIPELINE_INPUT, pipeline_input)
+        text = NODE_PLACEHOLDER.sub(lambda match: node_outputs.get(match.group(1), ""), text)
+        return text.replace(INPUT, step_input)
+    if isinstance(value, dict):
+        return {key: render_args(item, step_input, pipeline_input, node_outputs, fields) for key, item in value.items()}
+    if isinstance(value, list):
+        return [render_args(item, step_input, pipeline_input, node_outputs, fields) for item in value]
+    return value
 
 
 def fill_fields(value: Any, fields: dict[str, str]) -> Any:

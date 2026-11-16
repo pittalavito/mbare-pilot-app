@@ -1,4 +1,4 @@
-"""maven_parent_alignment function: are the project's repositories on the
+"""maven_parent_alignment: are the project's repositories on the
 version of the parent POM? As plain text (no LLM), from the root ``pom.xml``
 of every repository, in the working tree.
 
@@ -13,9 +13,9 @@ without those fields are only named. A project without any ``pom.xml`` gets
 the one line ``NO_POM``, for a condition that leaves it out of a note."""
 from pydantic import BaseModel, Field
 
-from function.context import FunctionContext
-from function.spec import FunctionResult, FunctionSpec
 from models.domain.maven import PomAlignment, PomCheck
+from tool.context import ToolContext
+from tool.spec import params_tool
 
 NO_POM = "POM: nessun pom.xml nei repository del progetto."
 
@@ -30,12 +30,13 @@ class Params(BaseModel):
     )
 
 
-class Result(FunctionResult):
+class Result(BaseModel):
+    text: str
     alignment: PomAlignment
 
 
-def run(context: FunctionContext, step_input: str, params: Params) -> Result:
-    alignment = context.maven.parent_alignment(context.project_name, params.parent_artifact_id, params.property)
+def run(context: ToolContext, params: Params) -> Result:
+    alignment = context.maven.parent_alignment(context.require_project(), params.parent_artifact_id, params.property)
     return Result(text=alignment_text(alignment), alignment=alignment)
 
 
@@ -84,10 +85,9 @@ def _label(check: PomCheck) -> str:
     return f"{check.repository or 'progetto'} · {check.name}{unresolved}"
 
 
-MAVEN_PARENT_ALIGNMENT = FunctionSpec(
-    name="maven_parent_alignment",
-    description="Confronta i pom.xml dei repository del progetto con la versione del POM parent (anche riconosciuto da solo): "
-                "prima quelli da allineare (senza LLM).",
-    params=Params,
-    run=run,
+MAVEN_PARENT_ALIGNMENT = params_tool(
+    "maven_parent_alignment",
+    "Compares the root pom.xml of every repository of the current project with the version of the parent POM (recognised when not "
+    "given): first the ones to align. Reads only.",
+    Params, run,
 )

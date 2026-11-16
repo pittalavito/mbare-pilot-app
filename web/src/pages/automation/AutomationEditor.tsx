@@ -11,7 +11,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { type Pipeline, type Step, useDeletePipeline, useExportAutomationYaml, usePipelines, useSavePipeline } from "../../api/automation";
-import { type FunctionSpec, useFunctions, useModelChoices, useStepAgents, useTools } from "../../api/catalog";
+import { useModelChoices, useStepAgents, useToolSpecs, useTools } from "../../api/catalog";
+import { ToolArgsFields } from "../../components/ToolArgsFields";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { ModelSelect } from "../../components/ModelSelect";
 import {
@@ -258,9 +259,8 @@ function toEdges(draft: Draft, selection: Selection): FlowEdge[] {
 }
 
 function detail(step: Step): string {
-  if (step.kind === "function") return step.function_name ?? "funzione da scegliere";
+  if (step.kind === "tool") return step.tool_name ?? "tool da scegliere";
   if (step.kind === "agent_config") return step.agent_config_name ?? "agente da scegliere";
-  if (step.kind === "tool") return step.tool_name ?? "tool";
   return step.agent?.model || "agente proprio";
 }
 
@@ -292,15 +292,13 @@ function StepPanel({ project, step, onChange, onKind, onRemove, onClose }: StepP
     <Stack gap="sm">
       <PanelHeader title={`Step · ${KIND_LABELS[step.kind as Kind]}`} onRemove={onRemove} onClose={onClose} removeLabel="Elimina lo step e i suoi collegamenti" />
       <TextInput label="Nome" value={step.name} onChange={(event) => onChange({ name: event.currentTarget.value })} />
-      {step.kind !== "tool" && (
-        <Select
-          label="Tipo"
-          allowDeselect={false}
-          data={EDITABLE_KINDS.map((kind) => ({ value: kind, label: KIND_LABELS[kind] }))}
-          value={step.kind}
-          onChange={(value) => value && onKind(value as Kind)}
-        />
-      )}
+      <Select
+        label="Tipo"
+        allowDeselect={false}
+        data={EDITABLE_KINDS.map((kind) => ({ value: kind, label: KIND_LABELS[kind] }))}
+        value={step.kind}
+        onChange={(value) => value && onKind(value as Kind)}
+      />
       <Textarea
         label="Template dell'input"
         autosize
@@ -310,38 +308,34 @@ function StepPanel({ project, step, onChange, onKind, onRemove, onClose }: StepP
       />
       {step.kind === "agent" && <AgentFields step={step} onChange={onChange} />}
       {step.kind === "agent_config" && <LibraryAgentField project={project} step={step} onChange={onChange} />}
-      {step.kind === "function" && <FunctionFields step={step} onChange={onChange} />}
       {step.kind === "tool" && <ToolFields step={step} onChange={onChange} />}
     </Stack>
   );
 }
 
-/** A tool step (from an agent's run): its tool and its arguments as JSON, with {in:campo} where a field goes. */
+/** A tool step: the tool (the registry's, not the chat-only ones) and its arguments; {input}, {pipeline_input},
+ * {nodo:Nome} and {in:campo} are filled when it runs. */
 function ToolFields({ step, onChange }: { step: Step; onChange: (patch: Partial<Step>) => void }) {
-  const [text, setText] = useState(() => JSON.stringify(step.params ?? {}, null, 2));
-  const [invalid, setInvalid] = useState(false);
+  const specs = useToolSpecs();
+  const usable = (specs.data ?? []).filter((spec) => !spec.chatbot_only);
+  useEffect(() => {
+    if (!step.tool_name && usable[0]) onChange({ tool_name: usable[0].name, params: {} }); // a new step: the first tool
+  }, [step.tool_name, usable[0]?.name]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (specs.isPending) return <Loader size="xs" />;
+  const spec = usable.find((item) => item.name === step.tool_name);
   return (
-    <Stack gap={4}>
-      <Text size="sm"><b>Tool:</b> <code>{step.tool_name}</code></Text>
-      <Textarea
-        label="Argomenti (JSON)"
-        autosize
-        minRows={3}
-        value={text}
-        error={invalid ? "JSON non valido: non salvato" : undefined}
-        onChange={(event) => {
-          const value = event.currentTarget.value;
-          setText(value);
-          try {
-            const parsed = JSON.parse(value);
-            setInvalid(false);
-            onChange({ params: parsed });
-          } catch {
-            setInvalid(true);
-          }
-        }}
+    <>
+      <Select
+        label="Tool"
+        searchable
+        data={usable.map((item) => ({ value: item.name, label: item.writes ? `${item.name} ✏️` : item.name }))}
+        value={step.tool_name ?? null}
+        onChange={(value) => value !== step.tool_name && onChange({ tool_name: value, params: {} })}
       />
-    </Stack>
+      {spec?.description && <Text size="xs" c="dimmed">{spec.description}</Text>}
+      {spec && <ToolArgsFields spec={spec} args={step.params ?? {}} onChange={(params) => onChange({ params })} placeholders />}
+      {!spec && step.tool_name && <Text size="xs" c="red">Il tool {step.tool_name} non c'è (più) o funziona solo in una chat.</Text>}
+    </>
   );
 }
 
@@ -391,59 +385,6 @@ function LibraryAgentField({ project, step, onChange }: { project: string; step:
       value={step.agent_config_name ?? null}
       onChange={(value) => onChange({ agent_config_name: value })}
     />
-  );
-}
-
-function FunctionFields({ step, onChange }: { step: Step; onChange: (patch: Partial<Step>) => void }) {
-  const functions = useFunctions();
-  const first = functions.data?.[0]?.name;
-  useEffect(() => {
-    if (!step.function_name && first) onChange({ function_name: first, params: {} }); // a new step: the first function
-  }, [step.function_name, first]);
-  if (functions.isPending) return <Loader size="xs" />;
-  const spec = functions.data?.find((item) => item.name === step.function_name);
-  return (
-    <>
-      <Select
-        label="Funzione"
-        searchable
-        data={(functions.data ?? []).map((item) => item.name)}
-        value={step.function_name ?? null}
-        onChange={(value) => value !== step.function_name && onChange({ function_name: value, params: {} })}
-      />
-      {spec?.description && <Text size="xs" c="dimmed">{spec.description}</Text>}
-      {spec && <ParamsFields spec={spec} params={step.params ?? {}} onChange={(params) => onChange({ params })} />}
-    </>
-  );
-}
-
-/** One field per parameter, by type; an unset parameter shows its default. */
-function ParamsFields({ spec, params, onChange }: { spec: FunctionSpec; params: Record<string, unknown>; onChange: (params: Record<string, unknown>) => void }) {
-  return (
-    <>
-      {spec.params.map((param) => {
-        const value = param.name in params ? params[param.name] : param.default;
-        const label = param.name.replace(/_/g, " ").replace(/^./, (first) => first.toUpperCase());
-        const set = (next: unknown) => onChange({ ...params, [param.name]: next });
-        const help = param.description ?? undefined;
-        if (param.type === "bool") {
-          return <Checkbox key={param.name} label={label} description={help} checked={Boolean(value)} onChange={(event) => set(event.currentTarget.checked)} />;
-        }
-        if (param.type === "int" || param.type === "float") {
-          return (
-            <NumberInput
-              key={param.name}
-              label={label}
-              description={help}
-              allowDecimal={param.type === "float"}
-              value={typeof value === "number" ? value : 0}
-              onChange={(next) => set(Number(next) || 0)}
-            />
-          );
-        }
-        return <TextInput key={param.name} label={label} description={help} value={value == null ? "" : String(value)} onChange={(event) => set(event.currentTarget.value)} />;
-      })}
-    </>
   );
 }
 

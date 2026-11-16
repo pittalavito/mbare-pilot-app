@@ -16,11 +16,11 @@ name: Stato e nota
 description: Stato di tutti i repository in una nota.
 steps:
   - name: Stato
-    function: git_status
-    params: {repository: "*"}
+    tool: git_status
+    args: {repository: "*"}
   - name: Nota
-    function: save_note
-    params: {title: "stato-{date}"}
+    tool: save_note
+    args: {title: "stato-{date}", content: "{input}"}
 """
 
 
@@ -41,11 +41,12 @@ def test_check_does_not_save_and_completes_the_chain(acme, pipeline_service):
 @pytest.mark.parametrize(("text", "error"), [
     ("name: [", "YAML non valido"),
     ("- a\n- b", "un oggetto"),
-    ("automations: [{name: A, steps: [{name: S, function: git_status}]}, {name: B, steps: []}]", "una sola automation"),
+    ("automations: [{name: A, steps: [{name: S, tool: git_status, args: {repository: api}}]}, {name: B, steps: []}]", "una sola automation"),
     ("name: Vuota\nsteps: []", "steps"),
-    ("name: X\nsteps: [{name: S, function: non_esiste}]", "non esiste"),
-    ("name: X\nsteps: [{name: S, function: git_log, params: {limit: 0}}]", "limit"),
-    ("name: X\nsteps: [{name: A, function: git_status}, {name: B, function: git_status}]\n"
+    ("name: X\nsteps: [{name: S, tool: non_esiste}]", "non esiste"),
+    ("name: X\nsteps: [{name: S, tool: git_log, args: {limite: 0}}]", "limite"),
+    ("name: X\nsteps: [{name: S, function: git_status}]", "le funzioni ora sono tool"),
+    ("name: X\nsteps: [{name: A, tool: git_status}, {name: B, tool: git_status}]\n"
      "edges: [{from: input, to: A}, {from: A, to: B}, {from: B, to: A}]", "ciclo"),
     ("name: X\nsteps: [{name: S, agent: inesistente}]", "non esiste più"),
 ])
@@ -63,7 +64,7 @@ def test_save_creates_then_updates_the_same_automation_keeping_step_ids(acme, pi
     updated = pipeline_service.save_yaml("acme", PROPOSAL.replace("stato-{date}", "stato"))
 
     assert updated.id == created.id and [step.id for step in updated.steps] == [step.id for step in created.steps]
-    assert updated.steps[1].params == {"title": "stato"}
+    assert updated.steps[1].params == {"title": "stato", "content": "{input}"}
     with pytest.raises(ConflictError):  # another one already has the name
         other = pipeline_service.save_yaml("acme", PROPOSAL.replace("Stato e nota", "Altra"))
         pipeline_service.update_pipeline(other.id, name="Stato e nota", steps=other.steps)
@@ -76,7 +77,8 @@ automations:
     active: false
     steps:
       - name: Stato
-        function: git_status
+        tool: git_status
+        args: {repository: "*"}
       - name: Riassumi
         input: "Riassumi: {input}"
         system_prompt: Riassumi in tre righe.

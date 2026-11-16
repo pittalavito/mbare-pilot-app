@@ -4,9 +4,9 @@ import yaml
 
 from domain.project import coding_agent
 from domain.project.definition_examples import EXAMPLES_DIR, copy_missing
-from function.registry import get_function
 from models.domain.definitions import AgentFile, AutomationFile, ChatbotFile
 from service.store.definition_store import DefinitionStore
+from tool.registry import TOOL_REGISTRY
 
 
 def _yaml(name: str) -> dict:
@@ -20,8 +20,9 @@ def test_the_examples_are_valid_definitions(config):
         ChatbotFile.model_validate(chatbot)
     for automation in _yaml("global-automation.yml")["automations"]:
         for step in AutomationFile.model_validate(automation).steps:
-            if step.function:
-                get_function(step.function).validate_params(step.params)
+            if step.tool:
+                properties, _ = TOOL_REGISTRY[step.tool].schema()
+                assert set(step.args) <= set(properties), (automation["name"], step.name)
 
     for path in config.definitions_root.iterdir():  # the tests' own definitions out of the way
         path.unlink()

@@ -35,7 +35,7 @@ from models.domain.dev import (
     RepositoryTests,
     TestScope,
 )
-from models.domain.pipeline import Pipeline, PipelineRun, RunStatus, StepKind
+from models.domain.pipeline import Pipeline, PipelineRun, RunStatus
 from service.git_service import GitService
 from service.pipeline_runner import PipelineRunner
 from service.project_data_service import ProjectDataService
@@ -91,7 +91,7 @@ class DevChecksService:
         run = self._pipelines.save_pipeline_run(PipelineRun(
             pipeline_id=pipeline.id, input=text, status=RunStatus.RUNNING, started_at=datetime.now(timezone.utc)))
         finished = self._runner.execute(run)
-        outputs = [f"✓ {step.name}" if step.kind is StepKind.TOOL else step.output.strip()  # a tool's output is JSON: its name says enough
+        outputs = [f"✓ {step.name}" if (step.output or "").lstrip().startswith("{") else (step.output or "").strip()  # no text: its name
                    for step in finished.steps if step.status == RunStatus.DONE and (step.output or "").strip()]
         ok = finished.status == RunStatus.DONE
         log_info(LogPrefix.PIPELINE_RUNNER, "%s · %s: %s", pipeline.project_name, pipeline.name, "ok" if ok else finished.error)

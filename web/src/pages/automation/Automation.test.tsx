@@ -10,8 +10,8 @@ import { AutomationTab } from "./AutomationTab";
 afterEach(() => vi.unstubAllGlobals());
 
 const step = (name: string, x: number) => ({
-  name, kind: "function", input_template: "{input}", agent: null, agent_config_name: null,
-  function_name: "git_status", params: {}, position_x: x, position_y: 0,
+  name, kind: "tool", input_template: "{input}", agent: null, agent_config_name: null,
+  tool_name: "git_status", params: {}, position_x: x, position_y: 0,
 });
 
 const PIPELINE: Pipeline = {
@@ -26,12 +26,12 @@ const PIPELINE: Pipeline = {
 const RUN: Run = {
   id: 3, pipeline_id: 7, status: "done", input: "vai", output: "fatto", error: null,
   created_at: "2026-10-25T10:00:00Z", started_at: "2026-10-25T10:00:00Z", finished_at: "2026-10-25T10:00:02Z",
-  steps: [{ position: 0, name: "Stato", kind: "function", status: "done", input: "vai", output: "tutto OK", error: null,
+  steps: [{ position: 0, name: "Stato", kind: "tool", status: "done", input: "vai", output: "tutto OK", error: null,
     agent_run_id: null, started_at: "2026-10-25T10:00:00Z", finished_at: "2026-10-25T10:00:01Z" }],
 };
 
 const CATALOGS = {
-  "GET /functions": [{ name: "git_status", description: "Lo stato del repo", params: [] }],
+  "GET /tool-specs": [{ name: "git_status", description: "Lo stato del repo", writes: false, chatbot_only: false, args: [{ name: "repository", type: "str", default: null, description: "Il repository", required: true }] }],
   "GET /models/choices": { choices: ["mock/echo"], usable: ["mock/echo"] },
   "GET /tools": [],
   "GET /agents": [],
@@ -113,8 +113,10 @@ describe("AutomationEditor", () => {
     renderEditor("/projects/acme/automation/new");
 
     fireEvent.change(await screen.findByLabelText(/Nome/), { target: { value: "Nuova" } });
-    fireEvent.click(screen.getByRole("button", { name: /Funzione \(codice\)/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Tool \(codice\)/ }));
     expect(await screen.findByDisplayValue("Step 1")).toBeInTheDocument(); // its panel is open
+    expect(await screen.findByDisplayValue("git_status")).toBeInTheDocument(); // the first tool, with its form
+    fireEvent.change(screen.getByLabelText("repository"), { target: { value: "{input}" } });
     fireEvent.click(screen.getByRole("button", { name: /Salva/ }));
 
     expect(await screen.findByText(/parti da «input» e trascina fino al primo step/)).toBeInTheDocument();

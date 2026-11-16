@@ -11,6 +11,7 @@ from core.app import create_app
 from core.container import Container
 from core.error import ConflictError
 from domain.pipeline.graph import linear_edges
+from domain.pipeline.legacy import function_as_tool
 from models.domain.copilot import CopilotSessionStatus
 from models.domain.dev import PREPARE_AUTOMATION, VERIFY_AUTOMATION, PrepareTarget, TestScope
 from models.domain.note import AgentTask, TaskStatus
@@ -24,7 +25,8 @@ pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git not ins
 
 
 def _automation(pipeline_store, name, *functions, active=True):
-    steps = [PipelineStep(name=function, kind=StepKind.FUNCTION, function_name=function, params=params) for function, params in functions]
+    steps = [PipelineStep(name=function, kind=StepKind.TOOL, tool_name=tool, params=args)
+             for function, params in functions for tool, args in [function_as_tool(function, params)]]
     return pipeline_store.save_pipeline(Pipeline(project_name="acme", name=name, active=active, steps=steps, edges=linear_edges(steps)))
 
 

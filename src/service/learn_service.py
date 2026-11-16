@@ -9,7 +9,7 @@ import json
 from typing import Any
 
 from core.error import NotFoundError, ValidationError
-from models.domain.chatbot import READ_ONLY_TOOLS, STEP_TOOLS
+from models.domain.chatbot import READ_ONLY_TOOLS
 from models.domain.learn import LearnDraft, LearnedStep, LearnedValue, LearnRequest
 from models.domain.pipeline import Pipeline, PipelineStep, StepKind
 from models.store.redis import AgentTraceRecord
@@ -17,6 +17,7 @@ from service.masking_service import MaskingService
 from service.pipeline_service import PipelineService
 from service.store.chatbot_store import ChatbotStore
 from service.store.run_store import RunStore
+from tool.registry import step_tools
 
 FIELD_OF_ARGUMENT = {"branch": "branch", "name": "branch", "start_point": "base"}
 """The tools' arguments whose value is usually different every time, and the field proposed for it."""
@@ -53,7 +54,7 @@ class LearnService:
 
     def save(self, project_name: str, request: LearnRequest) -> Pipeline:
         """The automation: one ``tool`` step per call kept, the values chosen as fields replaced by ``{in:field}``."""
-        unknown = [step.tool for step in request.steps if step.tool not in STEP_TOOLS]
+        unknown = [step.tool for step in request.steps if step.tool not in _step_tool_names()]
         if unknown:
             raise ValidationError(f"Tool che non si possono ripetere in un'automation: {', '.join(unknown)}.")
         fields = {value: field for value, field in request.fields.items() if value and field}
@@ -63,11 +64,15 @@ class LearnService:
                                                fields=list(dict.fromkeys(fields.values())), purpose=request.purpose)
 
 
+def _step_tool_names() -> set[str]:
+    return {spec.name for spec in step_tools()}
+
+
 def _successful_calls(trace: AgentTraceRecord) -> list[tuple[Any, dict[str, Any]]]:
-    """The calls of the steps' tools that worked (no exception, no ``error`` in the result), with their arguments."""
+    """The calls of the tools a step can use that worked (no exception, no ``error`` in the result), with their arguments."""
     calls = []
     for call in trace.tool_calls:
-        if not call.ok or call.name not in STEP_TOOLS:
+        if not call.ok or call.name not in _step_tool_names():
             continue
         try:
             result = json.loads(call.result or "{}")

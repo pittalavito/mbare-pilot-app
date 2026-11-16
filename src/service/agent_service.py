@@ -2,8 +2,9 @@ from time import perf_counter
 from uuid import uuid4
 
 from datapizza.tracing import ContextTracing
+from pydantic import BaseModel
 
-from core.error import AppError
+from core.error import AppError, NotFoundError
 from core.observability import LogPrefix, log_exception, observed
 from domain.agent.base import Factory as AgentFactory
 from domain.agent.masking import AgentMask
@@ -11,6 +12,7 @@ from domain.agent.tracing import Adapter as TracingAdapter
 from models.domain.agent import AgentDefinition, AgentRunRecord, RunOrigin
 from models.domain.chat import split_model_key
 from models.domain.chatbot import ChatMessage
+from models.domain.tool import ToolErrorResponse
 from service.agent_config_service import AgentConfigService
 from service.chat_service import ChatService
 from service.code_todo_service import CodeTodoService
@@ -25,7 +27,7 @@ from service.rag_service import RagService
 from service.store.catalog_store import CatalogStore
 from service.store.run_store import RunStore
 from tool.context import ToolContext
-from tool.registry import build_tools
+from tool.registry import TOOL_REGISTRY, build_tools
 
 
 class AgentService:
@@ -67,6 +69,25 @@ class AgentService:
         self._code_todo_service = code_todo_service
         self._rag_service = rag_service
         self._command_service = command_service
+
+    def try_tool(self, name: str, project_name: str, arguments: dict) -> BaseModel:
+        """One tool run by hand (Admin → Tool): on ``project_name``, with ``arguments``, no LLM, no masking and no run
+        recorded. The tool's own errors come back as its ToolErrorResponse; wrong arguments too."""
+        spec = TOOL_REGISTRY.get(name)
+        if spec is None:
+            raise NotFoundError(f"Tool non trovato: {name}")
+        context = ToolContext(project_name=project_name, git=self._git_service, pipelines=self._pipeline_service, origin=RunOrigin.MANUAL,
+                              project_data=self._project_data_service, copilot=self._copilot_service, code_todos=self._code_todo_service,
+                              rag=self._rag_service, commands=self._command_service)
+        try:
+            result = spec.build(context)(**arguments)
+        except TypeError as exc:
+            return ToolErrorResponse(error=f"Argomenti non validi per {name}: {exc}")
+        except AppError as exc:
+            return ToolErrorResponse(error=str(exc))
+        if isinstance(result, BaseModel):
+            return result
+        return ToolErrorResponse(error="") if result is None else _Text(text=str(result))
 
     def run(self, config_name: str, task_input: str, *, project_name: str | None = None, origin: RunOrigin = RunOrigin.MANUAL,
             history: list[ChatMessage] | None = None) -> AgentRunRecord:
@@ -152,3 +173,8 @@ class AgentService:
             return [repo.path for repo in self._git_service.repositories(project_name)]
         except AppError:
             return []
+
+
+class _Text(BaseModel):
+    """A tool that answered with a plain string (e.g. hello_world)."""
+    text: str

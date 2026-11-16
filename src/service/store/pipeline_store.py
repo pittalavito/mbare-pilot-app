@@ -4,7 +4,7 @@ transaction), so the store keeps the engine for its unit of work."""
 from sqlalchemy.engine import Engine
 
 from domain.store.db.mapper import saved_id
-from domain.store.db.pipeline_mapper import Adapter, Factory
+from domain.store.db.pipeline_mapper import LEGACY_FUNCTION, Adapter, Factory
 from domain.store.db.pipeline_repository import (
     DbPipelineEdgeRepository,
     DbPipelineRepository,
@@ -51,6 +51,15 @@ class PipelineStore:
             edge_rows = [Factory.to_pipeline_edge_row(edge, pipeline_id, step_ids) for edge in pipeline.edges]
             saved_edges = self._edges.replace(pipeline_id, edge_rows)
         return Adapter.to_pipeline(row, saved_steps, saved_edges)
+
+    def convert_function_steps(self) -> int:
+        """Plan 15: the pipelines with function steps saved again, as the tool steps they are read as. Returns how many."""
+        ids = self._steps.pipelines_with_kind(LEGACY_FUNCTION)
+        for pipeline_id in ids:
+            pipeline = self.get_pipeline(pipeline_id)
+            if pipeline is not None:
+                self.save_pipeline(pipeline)
+        return len(ids)
 
     def delete_pipeline(self, pipeline_id: int) -> bool:
         """Its steps and runs go with it (DB cascade)."""

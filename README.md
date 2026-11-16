@@ -102,7 +102,7 @@ src/
   controller/         endpoint HTTP
   service/            regole dell'app e motore delle automation
   domain/             client LLM, agenti, git, Atlassian, store
-  tool/, function/    tool degli agenti, funzioni degli step
+  tool/               tool degli agenti e degli step delle automation (un solo registro)
   models/             modelli: domain, store, controller (separati)
 web/                  frontend React (client tipizzato generato dall'OpenAPI dell'API)
 ```

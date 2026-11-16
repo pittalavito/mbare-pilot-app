@@ -10,7 +10,7 @@ from models.domain.project import Project, ProjectSource
 from service.chatbot_service import ChatbotService
 from service.definition_service import DefinitionService
 
-ARCHITECT_TOOLS = ["list_functions", "list_agents", "list_automations", "read_automation", "validate_automation", "create_function_task"]
+ARCHITECT_TOOLS = ["list_tools", "list_agents", "list_automations", "read_automation", "validate_automation", "create_tool_task"]
 
 MODEL = "openai/gpt-4o"
 PROJECT_DIR = "project/acme"
@@ -30,8 +30,8 @@ CONTROLLO = """
     description: Stato e revisione
     steps:
       - name: Stato
-        function: git_status
-        params: {repository: ""}
+        tool: git_status
+        args: {repository: ""}
       - name: Rivedi
         agent: reviewer
     edges:
@@ -186,7 +186,7 @@ def test_an_automation_uses_the_agents_just_synced_and_keeps_its_graph_layout(se
 
     assert [outcome for _, _, outcome in _outcomes(definitions.sync("acme"))] == ["created", "created"]
     [automation] = pipelines.list_pipelines("acme")
-    assert [(step.name, step.kind.value) for step in automation.steps] == [("Stato", "function"), ("Rivedi", "agent_config")]
+    assert [(step.name, step.kind.value) for step in automation.steps] == [("Stato", "tool"), ("Rivedi", "agent_config")]
     assert [(e.source, e.target, e.condition.value, e.value) for e in automation.edges] == [
         ("input", "Stato", "always", ""), ("Stato", "Rivedi", "contains", "modified"),
     ]
@@ -205,11 +205,11 @@ def test_an_automation_uses_the_agents_just_synced_and_keeps_its_graph_layout(se
 def test_global_automations_are_added_unless_the_project_redefines_them(services, definition_store):
     definitions, _, pipelines = services
     _write(definition_store, "global-automation.yml", """automations:
-  - {name: Stato, steps: [{name: S, function: git_status}]}
-  - {name: Note, steps: [{name: N, function: save_note}]}
+  - {name: Stato, steps: [{name: S, tool: git_status, args: {repository: "*"}}]}
+  - {name: Note, steps: [{name: N, tool: save_note, args: {content: "{input}"}}]}
 """)
     _write(definition_store, f"{PROJECT_DIR}/automation.yml", """automations:
-  - {name: stato, description: del progetto, steps: [{name: S, function: git_status}]}
+  - {name: stato, description: del progetto, steps: [{name: S, tool: git_status, args: {repository: "*"}}]}
 """)
 
     assert _outcomes(definitions.sync("acme")) == [
@@ -228,7 +228,8 @@ def test_global_automations_are_added_unless_the_project_redefines_them(services
 def test_a_broken_file_is_one_error_and_the_other_files_are_applied(services, definition_store, text, message):
     definitions, _, pipelines = services
     _write(definition_store, f"{PROJECT_DIR}/agent.yml", text)
-    _write(definition_store, f"{PROJECT_DIR}/automation.yml", "automations:\n  - {name: Semplice, steps: [{name: S, function: git_status}]}\n")
+    _write(definition_store, f"{PROJECT_DIR}/automation.yml",
+           "automations:\n  - {name: Semplice, steps: [{name: S, tool: git_status, args: {repository: api}}]}\n")
 
     report = definitions.sync("acme")
 
@@ -255,11 +256,11 @@ def test_a_broken_element_is_reported_with_its_name(services, definition_store, 
 def test_steps_must_be_one_kind(services, definition_store):
     definitions, _, _ = services
     _write(definition_store, f"{PROJECT_DIR}/automation.yml",
-           "automations:\n  - {name: Doppio, steps: [{name: X, function: git_status, agent: reviewer}]}\n")
+           "automations:\n  - {name: Doppio, steps: [{name: X, tool: git_status, agent: reviewer}]}\n")
 
     [item] = definitions.sync("acme").items
 
-    assert item.outcome.value == "error" and "uno solo tra function, tool, agent e system_prompt" in item.message
+    assert item.outcome.value == "error" and "uno solo tra tool, agent e system_prompt" in item.message
 
 
 def test_missing_or_empty_files_define_nothing_and_an_unknown_project(services, definition_store):
@@ -297,7 +298,7 @@ def test_the_preview_lists_what_the_files_define_and_applies_nothing(services, d
 def test_a_sync_can_apply_only_the_chosen_elements(services, definition_store):
     definitions, chatbots, pipelines = services
     _write(definition_store, f"{PROJECT_DIR}/agent.yml", "agents:" + REVIEWER)
-    _write(definition_store, f"{PROJECT_DIR}/automation.yml", "automations:" + CONTROLLO + "  - {name: Altra, steps: [{name: S, function: git_status}]}\n")
+    _write(definition_store, f"{PROJECT_DIR}/automation.yml", "automations:" + CONTROLLO + "  - {name: Altra, steps: [{name: S, tool: git_status}]}\n")
     _write(definition_store, "global-chat-bot.yml", f"name: Assistente\nmodel: {MODEL}\nsystem_prompt: Ciao.\n")
     chosen = [entry for entry in definitions.preview("acme") if entry.name in {"reviewer", "Controllo"}]
 
@@ -311,7 +312,7 @@ def test_a_sync_can_apply_only_the_chosen_elements(services, definition_store):
 def test_a_chatbot_s_tools_come_from_the_files_and_must_suit_its_kind(services, definition_store):
     definitions, chatbots, _ = services
     _write(definition_store, f"{PROJECT_DIR}/chat-bots.yml", f"""chatbots:
-  - {{name: Automazioni, kind: automation, model: {MODEL}, tools: [list_functions, validate_automation], system_prompt: X.}}
+  - {{name: Automazioni, kind: automation, model: {MODEL}, tools: [list_tools, validate_automation], system_prompt: X.}}
   - {{name: Sbagliato, kind: automation, model: {MODEL}, tools: [git_status], system_prompt: X.}}
 """)
 
@@ -319,7 +320,7 @@ def test_a_chatbot_s_tools_come_from_the_files_and_must_suit_its_kind(services, 
         (f"{PROJECT_DIR}/chat-bots.yml", "Automazioni", "created"), (f"{PROJECT_DIR}/chat-bots.yml", "Sbagliato", "error"),
     ]
     [bot] = chatbots.list_chatbots("acme")
-    assert (bot.kind.value, bot.tool_names) == ("automation", ["list_functions", "validate_automation"])  # as written, not imposed
+    assert (bot.kind.value, bot.tool_names) == ("automation", ["list_tools", "validate_automation"])  # as written, not imposed
     assert _outcomes(definitions.sync("acme"))[0] == (f"{PROJECT_DIR}/chat-bots.yml", "Automazioni", "unchanged")
     assert "non può usare git_status" in definitions.preview("acme")[1].message
 

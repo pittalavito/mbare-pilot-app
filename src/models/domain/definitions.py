@@ -152,18 +152,20 @@ class CodingAgentFile(_File):
 
 
 class StepFile(_File):
-    """A step of an automation: exactly one of ``function`` (with its
-    ``params``), ``tool`` (an agent's tool, with its ``args``: plan 11), ``agent``
-    (an agent of the project or of the Library) or an own agent (``system_prompt``
-    + ``model``, optional ``tools`` and ``max_steps``)."""
+    """A step of an automation: exactly one of ``tool`` (a tool of the registry,
+    with its ``args``), ``agent`` (an agent of the project or of the Library) or
+    an own agent (``system_prompt`` + ``model``, optional ``tools`` and ``max_steps``).
+    ``function`` (before plan 15) is refused with how to write it now."""
     name: Name
     input: str = INPUT
     """What the step receives: ``{input}``, ``{pipeline_input}``, ``{nodo:Nome}``, ``{in:campo}``."""
     function: str | None = None
+    """Refused: the functions are tools now (plan 15)."""
     params: dict[str, Any] = Field(default_factory=dict)
+    """Refused, with ``function``."""
     tool: str | None = None
     args: dict[str, Any] = Field(default_factory=dict)
-    """The tool's arguments; strings can use ``{in:campo}``."""
+    """The tool's arguments; strings can use ``{input}``, ``{pipeline_input}``, ``{nodo:Nome}``, ``{in:campo}``."""
     agent: str | None = None
     system_prompt: Prompt | None = None
     model: ModelKey | None = None
@@ -172,11 +174,11 @@ class StepFile(_File):
 
     @model_validator(mode="after")
     def _one_kind(self) -> "StepFile":
-        kinds = [self.function is not None, self.tool is not None, self.agent is not None, self.system_prompt is not None]
+        if self.function is not None or self.params:
+            raise ValueError(f"step {self.name}: le funzioni ora sono tool: scrivi «tool: {self.function or '…'}» con «args:» al posto di params")
+        kinds = [self.tool is not None, self.agent is not None, self.system_prompt is not None]
         if sum(kinds) != 1:
-            raise ValueError(f"step {self.name}: scrivi uno solo tra function, tool, agent e system_prompt")
-        if self.params and self.function is None:
-            raise ValueError(f"step {self.name}: params vale solo con function")
+            raise ValueError(f"step {self.name}: scrivi uno solo tra tool, agent e system_prompt")
         if self.args and self.tool is None:
             raise ValueError(f"step {self.name}: args vale solo con tool")
         if self.system_prompt is not None and self.model is None:

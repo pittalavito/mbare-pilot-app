@@ -1,19 +1,21 @@
-"""Function steps of the automations: the registry, validation on save, and
-execution by the runner (real git repository in a tmp dir, fake agents)."""
+"""Tool steps of the automations (the functions of before are tools, plan 15): the
+registry, validation on save, and execution by the runner (real git repository
+in a tmp dir, fake agents)."""
 import shutil
 import subprocess
 
 import pytest
 
 from core.error import ValidationError
+from domain.pipeline.legacy import function_as_tool
 from fakes import FakeAgent
-from function.registry import FUNCTION_REGISTRY
-from function.spec import FunctionSpec, NoParams
 from models.domain.pipeline import PipelineStep, RunStatus, StepAgent, StepKind
 from models.domain.project import Project, ProjectSource
 from service import agent_service as agent_service_module
 from service.chat_service import ChatService
 from service.pipeline_runner import PipelineRunner
+from tool.registry import TOOL_REGISTRY
+from tool.spec import params_tool
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
 
@@ -70,8 +72,9 @@ def masked_runner(masking, monkeypatch, make_agent_service, git_service, project
 
 
 def _function(name="F", function="git_status", template="{input}", **params) -> PipelineStep:
-    return PipelineStep(name=name, kind=StepKind.FUNCTION, function_name=function, params=params,
-                        input_template=template)
+    """A tool step as a function step of before becomes one (the same arguments)."""
+    tool, args = function_as_tool(function, params)
+    return PipelineStep(name=name, kind=StepKind.TOOL, tool_name=tool, params=args, input_template=template)
 
 
 def _run(service, runner, steps, pipeline_input=""):
@@ -82,25 +85,23 @@ def _run(service, runner, steps, pipeline_input=""):
 
 # ----------------------------------------------------------------- registry
 
-def test_registry_keys_and_default_params():
-    for name, spec in FUNCTION_REGISTRY.items():
+def test_registry_keys_and_schemas():
+    for name, spec in TOOL_REGISTRY.items():
         assert spec.name == name and spec.description
-        spec.validate_params({})  # every parameter has a default
-
-
-def test_invalid_params_name_the_field():
-    with pytest.raises(ValidationError, match="title"):
-        FUNCTION_REGISTRY["save_note"].validate_params({"title": 123})
+        properties, required = spec.schema()
+        assert set(required) <= set(properties)
+    assert TOOL_REGISTRY["save_note"].writes and not TOOL_REGISTRY["git_status"].writes
 
 
 # --------------------------------------------------------------- validation
 
 @pytest.mark.parametrize("step, message", [
-    (PipelineStep(name="F", kind=StepKind.FUNCTION), "Scegli la funzione"),
+    (PipelineStep(name="F", kind=StepKind.TOOL), "non esiste"),
     (_function(function="missing"), "non esiste"),
-    (_function(function="save_note", title=123), "title"),
+    (PipelineStep(name="F", kind=StepKind.TOOL, tool_name="save_note", params={"titolo": "x"}), "non ha gli argomenti titolo"),
+    (PipelineStep(name="F", kind=StepKind.TOOL, tool_name="delegate_task"), "solo in una chat"),
 ])
-def test_invalid_function_steps_rejected_on_save(service, step, message):
+def test_invalid_tool_steps_rejected_on_save(service, step, message):
     with pytest.raises(ValidationError, match=message):
         service.create_pipeline("shop", "P", steps=[step])
 
@@ -218,11 +219,15 @@ def test_function_error_fails_the_step_with_its_message(service, runner):
 
 
 def test_unexpected_exception_fails_the_step(service, runner, monkeypatch):
-    def boom(context, step_input, params):
+    from pydantic import BaseModel
+
+    class NoArgs(BaseModel):
+        pass
+
+    def boom(context, params):
         raise RuntimeError("kaboom")
 
-    broken = FunctionSpec(name="broken", description="x", params=NoParams, run=boom)
-    monkeypatch.setitem(FUNCTION_REGISTRY, "broken", broken)
+    monkeypatch.setitem(TOOL_REGISTRY, "broken", params_tool("broken", "x", NoArgs, boom))
 
     run = _run(service, runner, [_function(function="broken")])
 

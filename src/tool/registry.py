@@ -12,13 +12,17 @@ from datapizza.tools import Tool
 
 from core.error import ValidationError
 from tool.context import ToolContext
-from tool.list.architect.tools import CREATE_FUNCTION_TASK, LIST_AGENTS, LIST_FUNCTIONS, READ_AUTOMATION, VALIDATE_AUTOMATION
+from tool.list.architect.tools import CREATE_TOOL_TASK, LIST_AGENTS, LIST_TOOLS, READ_AUTOMATION, VALIDATE_AUTOMATION
 from tool.list.automation.automation_status import AUTOMATION_STATUS
 from tool.list.automation.list_automations import LIST_AUTOMATIONS
 from tool.list.automation.run_automation import RUN_AUTOMATION
 from tool.list.copilot.copilot_status import COPILOT_STATUS
 from tool.list.copilot.delegate_task import DELEGATE_TASK
 from tool.list.copilot.list_agent_tasks import LIST_AGENT_TASKS
+from tool.list.dev.clean_mbare_pilot import CLEAN_MBARE_PILOT
+from tool.list.dev.git_check_clean import GIT_CHECK_CLEAN
+from tool.list.dev.git_checkout_branches import GIT_CHECKOUT_BRANCHES
+from tool.list.dev.run_tests import RUN_TESTS
 from tool.list.git.git_branches import GIT_BRANCHES
 from tool.list.git.git_checkout import GIT_CHECKOUT
 from tool.list.git.git_commit import GIT_COMMIT
@@ -27,6 +31,7 @@ from tool.list.git.git_diff import GIT_DIFF
 from tool.list.git.git_fetch import GIT_FETCH
 from tool.list.git.git_log import GIT_LOG
 from tool.list.git.git_pull_all_by_branch import GIT_PULL_ALL_BY_BRANCH
+from tool.list.git.git_pull_by_branch import GIT_PULL_BY_BRANCH
 from tool.list.git.git_pull_fast_forward import GIT_PULL_FAST_FORWARD
 from tool.list.git.git_push import GIT_PUSH
 from tool.list.git.git_stash import GIT_STASH
@@ -34,10 +39,12 @@ from tool.list.git.git_stash_apply import GIT_STASH_APPLY
 from tool.list.git.git_stash_list import GIT_STASH_LIST
 from tool.list.git.git_status import GIT_STATUS
 from tool.list.hello_world import hello_world
+from tool.list.maven.coverage_new_code import COVERAGE_NEW_CODE
+from tool.list.maven.maven_parent_alignment import MAVEN_PARENT_ALIGNMENT
 from tool.list.notes.activities import CREATE_ACTIVITY, LIST_ACTIVITIES, READ_ACTIVITY, UPDATE_ACTIVITY
 from tool.list.notes.agent_tasks import CREATE_AGENT_TASK, LIST_REFERENCES
+from tool.list.notes.save_note import SAVE_NOTE
 from tool.list.notes.today import TODAY
-from tool.list.operator.maven_parent_alignment import MAVEN_PARENT_ALIGNMENT
 from tool.list.operator.run_command import RUN_COMMAND
 from tool.list.project.search_context import SEARCH_CONTEXT
 from tool.list.refiner.agent_tasks import (
@@ -55,11 +62,11 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         LIST_AUTOMATIONS,
         RUN_AUTOMATION,
         AUTOMATION_STATUS,
-        LIST_FUNCTIONS,
+        LIST_TOOLS,
         LIST_AGENTS,
         READ_AUTOMATION,
         VALIDATE_AUTOMATION,
-        CREATE_FUNCTION_TASK,
+        CREATE_TOOL_TASK,
         LIST_ACTIVITIES,
         READ_ACTIVITY,
         CREATE_ACTIVITY,
@@ -89,11 +96,23 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         GIT_STASH,
         GIT_STASH_LIST,
         GIT_STASH_APPLY,
+        GIT_PULL_BY_BRANCH,
         RUN_COMMAND,
         MAVEN_PARENT_ALIGNMENT,
+        COVERAGE_NEW_CODE,
+        GIT_CHECK_CLEAN,
+        GIT_CHECKOUT_BRANCHES,
+        CLEAN_MBARE_PILOT,
+        RUN_TESTS,
+        SAVE_NOTE,
     )
 }
-"""Every tool implemented in code, keyed by name."""
+"""Every tool implemented in code, keyed by name: the one registry of what agents and automation steps can do."""
+
+
+def step_tools() -> list[ToolSpec]:
+    """The tools an automation step can call: all but the chat-only ones."""
+    return [spec for spec in TOOL_REGISTRY.values() if not spec.chatbot_only]
 
 
 def build_tools(names: list[str], context: ToolContext) -> list[Tool]:

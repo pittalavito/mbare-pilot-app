@@ -314,7 +314,7 @@ def test_the_preparation_follows_the_plans_choice(service, activity, copilot, st
     step = PipelineStep(name="1. git_fetch", kind=StepKind.TOOL, tool_name="git_fetch", params={"repository": "api"})
     learned = pipeline_store.save_pipeline(Pipeline(project_name="acme", name="Prepara", steps=[step], edges=linear_edges([step]),
                                                     fields=["branch", "base", "extra"], purpose=AutomationPurpose.PREPARE))
-    dev = PipelineStep(name="Pulito", kind=StepKind.FUNCTION, function_name="git_check_clean")
+    dev = PipelineStep(name="Pulito", kind=StepKind.TOOL, tool_name="git_check_clean", params={"targets": "{pipeline_input}"})
     pipeline_store.save_pipeline(Pipeline(project_name="acme", name=PREPARE_AUTOMATION, steps=[dev], edges=linear_edges([dev])))
     plan = _confirmed(service, activity)
     login = plan.tasks[0].task
@@ -466,7 +466,7 @@ def checks(service, stores, project_data_service, git_service):
 def _automation(pipeline_store, name, function, fields=(), params=None):
     from domain.pipeline.graph import linear_edges
     from models.domain.pipeline import Pipeline, PipelineStep, StepKind
-    step = PipelineStep(name=function, kind=StepKind.FUNCTION, function_name=function, params=params or {}, input_template="api")
+    step = PipelineStep(name=function, kind=StepKind.TOOL, tool_name=function, params={"repository": "api", **(params or {})})
     return pipeline_store.save_pipeline(Pipeline(project_name="acme", name=name, steps=[step], edges=linear_edges([step]), fields=list(fields)))
 
 

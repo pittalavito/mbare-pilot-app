@@ -228,12 +228,12 @@ def test_only_an_automation_chatbot_has_the_cache_and_each_kind_only_its_tools(c
 
     automation = chat.get_chatbot(conversation.chatbot_id)
     assert automation.tool_names == [
-        "list_functions", "list_agents", "list_automations", "read_automation", "validate_automation", "create_function_task",
+        "list_tools", "list_agents", "list_automations", "read_automation", "validate_automation", "create_tool_task",
     ]
     with pytest.raises(ValidationError, match="non può usare: git_status"):  # a tool of another kind
         chat.update_chatbot(automation.id, name="Bot", system_prompt="Sei l'assistente.", model=MODEL, tool_names=["git_status"])
-    edited = chat.update_chatbot(automation.id, name="Bot", system_prompt="Sei l'assistente.", model=MODEL, tool_names=["list_functions"])
-    assert edited.kind is ChatbotKind.AUTOMATION and edited.tool_names == ["list_functions"]  # as asked, among the kind's
+    edited = chat.update_chatbot(automation.id, name="Bot", system_prompt="Sei l'assistente.", model=MODEL, tool_names=["list_tools"])
+    assert edited.kind is ChatbotKind.AUTOMATION and edited.tool_names == ["list_tools"]  # as asked, among the kind's
     assert chat.update_chatbot(custom.id, name="Libero", system_prompt="Fai tu.", model=MODEL, tool_names=["git_status"]).tool_names == ["git_status"]
 
 

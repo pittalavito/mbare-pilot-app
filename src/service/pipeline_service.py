@@ -1,5 +1,5 @@
 """A project's automations: graphs of steps (own agent, Library agent or
-function) joined by edges with conditions, validated on save, and their runs.
+tool) joined by edges with conditions, validated on save, and their runs.
 ``enqueue`` only puts a run in the queue: the worker (PipelineRunner) executes it.
 An automation saved without edges is the chain of its steps, in their order."""
 from datetime import datetime, timezone
@@ -8,10 +8,7 @@ from core.error import ConflictError, NotFoundError, ValidationError
 from core.observability import LogPrefix, observed
 from domain.pipeline import yaml_format
 from domain.pipeline.graph import linear_edges, validate_graph
-from function.registry import FUNCTION_REGISTRY, get_function
-from function.spec import FunctionSpec
 from models.domain.agent import AgentConfig, ToolInfo
-from models.domain.chatbot import STEP_TOOLS
 from models.domain.pipeline import AutomationPurpose, Pipeline, PipelineEdge, PipelineRun, PipelineStep, RunStatus, StepKind, used_fields
 from models.domain.worker import WorkerStatus
 from service.agent_config_service import AgentConfigService
@@ -21,6 +18,8 @@ from service.store.catalog_store import CatalogStore
 from service.store.pipeline_store import PipelineStore
 from service.store.project_store import ProjectStore
 from service.store.worker_store import WorkerStore
+from tool.registry import TOOL_REGISTRY, step_tools
+from tool.spec import ToolSpec
 
 
 class PipelineService:
@@ -48,9 +47,9 @@ class PipelineService:
         """Library agents an AGENT_CONFIG step can use: the global ones and the project's."""
         return self._agent_configs.list_configs(project_name, include_global=True)
 
-    def available_functions(self) -> list[FunctionSpec]:
-        """Functions a FUNCTION step can run, sorted by name."""
-        return sorted(FUNCTION_REGISTRY.values(), key=lambda spec: spec.name)
+    def step_tools(self) -> list[ToolSpec]:
+        """The tools a TOOL step can call (not the chat-only ones), sorted by name."""
+        return sorted(step_tools(), key=lambda spec: spec.name)
 
     def available_tools(self) -> list[ToolInfo]:
         """Tools an AGENT step's own agent can use."""
@@ -228,15 +227,8 @@ class PipelineService:
                     raise ValidationError(f"{label}: l'agente {step.agent_config_name} non esiste più.")
                 if agent.project_name not in (None, pipeline.project_name):
                     raise ValidationError(f"{label}: l'agente {agent.name} appartiene al progetto {agent.project_name}.")
-            elif step.kind is StepKind.TOOL:
-                if step.tool_name not in STEP_TOOLS:
-                    raise ValidationError(f"{label}: il tool {step.tool_name or '(nessuno)'} non si può usare in uno step "
-                                          f"(solo {', '.join(STEP_TOOLS)}).")
             else:
-                try:
-                    get_function(step.function_name).validate_params(step.params)
-                except ValidationError as exc:
-                    raise ValidationError(f"{label}: {exc}") from exc
+                _validate_tool_step(label, step)
             named = used_fields(step.params if step.kind is StepKind.TOOL else {}) | used_fields(step.input_template)
             unknown = sorted(named - set(pipeline.fields))
             if unknown:
@@ -244,6 +236,19 @@ class PipelineService:
         if len(set(pipeline.fields)) != len(pipeline.fields):
             raise ValidationError("Due campi con lo stesso nome.")
         validate_graph(pipeline.steps, pipeline.edges)
+
+
+def _validate_tool_step(label: str, step: PipelineStep) -> None:
+    """A tool an automation step can call (not a chat-only one), with arguments it has."""
+    spec = TOOL_REGISTRY.get(step.tool_name or "")
+    if spec is None:
+        raise ValidationError(f"{label}: il tool {step.tool_name or '(nessuno)'} non esiste (più) nel codice.")
+    if spec.chatbot_only:
+        raise ValidationError(f"{label}: il tool {spec.name} non si può usare in uno step (funziona solo in una chat).")
+    properties, _ = spec.schema()
+    unknown = sorted(set(step.params) - set(properties))
+    if unknown:
+        raise ValidationError(f"{label}: il tool {spec.name} non ha gli argomenti {', '.join(unknown)} (ha: {', '.join(properties) or 'nessuno'}).")
 
 
 def _versioned(current: list[PipelineStep], steps: list[PipelineStep]) -> list[PipelineStep]:

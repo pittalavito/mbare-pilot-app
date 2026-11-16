@@ -194,7 +194,7 @@ def test_tool_steps_run_without_an_llm_with_the_fields_of_the_run(project, runne
 
 def test_a_tool_step_with_wrong_arguments_or_a_removed_tool_fails(project, runner, pipeline_store):  # noqa: F811
     wrong = _learned(pipeline_store, ("git_fetch", {"repo": "api"}), fields=(), name="Sbagliata")
-    assert "argomenti non validi" in _run(runner, pipeline_store, wrong, {}).error
+    assert "repository: Field required" in _run(runner, pipeline_store, wrong, {}).error
     removed = _learned(pipeline_store, ("git_fetch", {"repository": "api"}), fields=(), name="Rimossa")
     removed.steps[0].tool_name = "non_esiste"
     pipeline_store.save_pipeline(removed)
@@ -206,7 +206,8 @@ def test_tool_steps_and_fields_are_validated_and_go_through_yaml(project, pipeli
     with pytest.raises(ValidationError, match="campi che l'automation non ha: branch"):
         pipeline_service.create_pipeline("acme", "Senza campi", steps=[step])
     with pytest.raises(ValidationError, match="non si può usare in uno step"):
-        pipeline_service.create_pipeline("acme", "Push", steps=[step.model_copy(update={"tool_name": "git_push"})], fields=["branch"])
+        pipeline_service.create_pipeline("acme", "Delega", steps=[step.model_copy(update={"tool_name": "delegate_task", "params": {}})],
+                                         fields=["branch"])
     with pytest.raises(ValidationError, match="stesso nome"):
         pipeline_service.create_pipeline("acme", "Doppi", steps=[step], fields=["branch", "branch"])
     saved = pipeline_service.create_pipeline("acme", "Checkout", steps=[step], fields=["branch"], purpose=AutomationPurpose.PREPARE)
@@ -219,7 +220,7 @@ def test_tool_steps_and_fields_are_validated_and_go_through_yaml(project, pipeli
     spec = yaml_format.parse(text)
     assert spec.fields == ["branch"] and spec.steps[0].args["branch"] == "{in:branch}"
     with pytest.raises(ValidationError, match="args vale solo con tool"):
-        yaml_format.parse("name: X\nsteps:\n  - {name: A, function: git_status, args: {a: 1}}\n")
+        yaml_format.parse("name: X\nsteps:\n  - {name: A, agent: x, args: {a: 1}}\n")
     updated = pipeline_service.save_yaml("acme", text.replace("  purpose: prepare\n", ""))
     assert updated.id == saved.id and updated.purpose is AutomationPurpose.NONE and updated.fields == ["branch"]
 
@@ -295,7 +296,7 @@ def test_saving_the_draft_makes_an_automation_with_fields(taught, learn):
     assert pipeline.steps[0].params == {"repository": "api", "name": "{in:branch}", "start_point": "{in:base}"}
     assert pipeline.steps[1].params["command"] == "mvn -B clean install"
     with pytest.raises(ValidationError, match="non si possono ripetere"):
-        learn.save("acme", LearnRequest(name="Push", steps=[LearnedStep(tool="git_push", args={"items": [{"a": "api"}, 1]})]))
+        learn.save("acme", LearnRequest(name="Delega", steps=[LearnedStep(tool="delegate_task", args={"items": [{"a": "api"}, 1]})]))
 
 
 def test_a_task_value_becomes_the_task_field_and_an_expired_or_empty_run_says_so(taught, learn, chatbot_store, run_store):

@@ -2,10 +2,11 @@
 run. Built by AgentService for every run; tools receive it through their
 builder and never read the Container. Masking is not here: the agent layer
 (domain/agent/masking.py) handles it around the tools."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from core.error import ValidationError
+from domain.client.command.client import CommandClient
 from models.domain.agent import RunOrigin
 from service.git_service import GitService
 
@@ -13,6 +14,7 @@ if TYPE_CHECKING:  # services imported only for the type
     from service.code_todo_service import CodeTodoService
     from service.command_service import CommandService
     from service.copilot_service import CopilotService
+    from service.maven_service import MavenService
     from service.pipeline_service import PipelineService
     from service.project_data_service import ProjectDataService
     from service.rag_service import RagService
@@ -39,6 +41,14 @@ class ToolContext:
     """The note open next to the chat (the Refiner's tools work only on it); None = none."""
     commands: "CommandService | None" = None
     """For the project's allowed commands (tool run_command); None = not possible."""
+    command_client: CommandClient = field(default_factory=CommandClient)
+    """Runs the tests' command (tool run_tests)."""
+
+    @property
+    def maven(self) -> "MavenService":
+        """The POMs of the project's repositories (stateless, built on ``git``)."""
+        from service.maven_service import MavenService
+        return MavenService(self.git)
 
     def require_project(self) -> str:
         """The run's project; ValidationError for tools that need one."""
