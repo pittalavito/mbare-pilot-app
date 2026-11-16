@@ -8,7 +8,7 @@ import pytest
 from core.error import ConflictError, UpstreamError, ValidationError
 from domain.client.embedding.embedder import HashingEmbedder
 from fakes import FakeAgent
-from models.domain.chatbot import ChatbotKind, MessageRole
+from models.domain.chatbot import KIND_TOOLS, ChatbotKind, MessageRole
 from models.domain.masking import MaskCategory
 from models.domain.pipeline import PipelineStep, RunStatus, StepAgent, StepKind
 from models.domain.project import Project, ProjectSource
@@ -96,7 +96,8 @@ def chat(agent_config_service, cache, agent_runs, monkeypatch, make_agent_servic
 
 @pytest.fixture
 def conversation(chat):
-    chatbot = chat.create_chatbot("acme", "Bot", system_prompt="Sei l'assistente.", model=MODEL, kind=ChatbotKind.AUTOMATION)
+    chatbot = chat.create_chatbot("acme", "Bot", system_prompt="Sei l'assistente.", model=MODEL, kind=ChatbotKind.AUTOMATION,
+                                  tool_names=list(KIND_TOOLS[ChatbotKind.AUTOMATION]))
     return chat.new_conversation(chatbot.id)
 
 
@@ -218,7 +219,7 @@ def test_every_comparison_is_logged_with_its_similarities(chat, cache, pipelines
     assert f"voce {entry.id}=0.000 · soglia 0.90 → nessuna voce, risponde l'agente" in caplog.text
 
 
-def test_only_an_automation_chatbot_has_the_cache_and_each_kind_its_fixed_tools(chat, cache, pipelines, conversation, agent_runs):
+def test_only_an_automation_chatbot_has_the_cache_and_each_kind_only_its_tools(chat, cache, pipelines, conversation, agent_runs):
     report = _automation(pipelines)
     custom = chat.create_chatbot("acme", "Libero", system_prompt="Fai tu.", model=MODEL, tool_names=["git_status"])
     talk = chat.new_conversation(custom.id)
@@ -229,15 +230,16 @@ def test_only_an_automation_chatbot_has_the_cache_and_each_kind_its_fixed_tools(
     assert automation.tool_names == [
         "list_functions", "list_agents", "list_automations", "read_automation", "validate_automation", "create_function_task",
     ]
-    edited = chat.update_chatbot(automation.id, name="Bot", system_prompt="Sei l'assistente.", model=MODEL, tool_names=["git_status"])
-    assert edited.kind is ChatbotKind.AUTOMATION and edited.tool_names == automation.tool_names  # imposed, whatever is asked
+    with pytest.raises(ValidationError, match="non può usare: git_status"):  # a tool of another kind
+        chat.update_chatbot(automation.id, name="Bot", system_prompt="Sei l'assistente.", model=MODEL, tool_names=["git_status"])
+    edited = chat.update_chatbot(automation.id, name="Bot", system_prompt="Sei l'assistente.", model=MODEL, tool_names=["list_functions"])
+    assert edited.kind is ChatbotKind.AUTOMATION and edited.tool_names == ["list_functions"]  # as asked, among the kind's
     assert chat.update_chatbot(custom.id, name="Libero", system_prompt="Fai tu.", model=MODEL, tool_names=["git_status"]).tool_names == ["git_status"]
 
 
-    secretary = chat.create_chatbot("acme", "Segretario", system_prompt="Note.", model=MODEL, tool_names=["git_status"], kind=ChatbotKind.SECRETARY)
-    assert secretary.tool_names == [
-        "list_activities", "read_activity", "create_activity", "update_activity", "list_agent_tasks", "list_references", "create_agent_task",
-        "today",
-    ]
+    with pytest.raises(ValidationError, match="non può usare"):
+        chat.create_chatbot("acme", "Segretario", system_prompt="Note.", model=MODEL, tool_names=["git_status"], kind=ChatbotKind.SECRETARY)
+    secretary = chat.create_chatbot("acme", "Segretario", system_prompt="Note.", model=MODEL, tool_names=["today"], kind=ChatbotKind.SECRETARY)
+    assert secretary.tool_names == ["today"]
     with pytest.raises(ValidationError, match="non è attiva"):
         cache.add(_user_message(chat, chat.new_conversation(secretary.id), "lancia il report").id, report.id)

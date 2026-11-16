@@ -259,7 +259,7 @@ def test_model_input_without_items_repositories_or_context():
     assert "(cartella del progetto)" in model_input(Activity(title="X"), {}, [""], [])
 
 
-def test_the_api_proposes_confirms_and_shows_the_path(project, stores, monkeypatch, project_data_service):  # noqa: F811
+def test_the_api_proposes_confirms_and_shows_the_path(project, stores, monkeypatch, project_data_service, default_chatbots):  # noqa: F811
     container = Container(stores=stores)
     monkeypatch.setattr(container.chat_service, "get_client", lambda model: FakeStructuredClient(ANSWER))
     activity = project_data_service.create_activity("acme", Activity(title="Login", items=[TodoItem(text="a"), TodoItem(text="b"), TodoItem(text="c")]))
@@ -427,7 +427,7 @@ def test_without_copilot_or_with_every_task_done_nothing_moves(service, activity
     assert service.advance(_plan(stores, activity)) == 0
 
 
-def test_the_api_pauses_chooses_skips_retries_and_saves_the_retries(project, stores, monkeypatch, project_data_service):  # noqa: F811
+def test_the_api_pauses_chooses_skips_retries_and_saves_the_retries(project, stores, monkeypatch, project_data_service, default_chatbots):  # noqa: F811
     container = Container(stores=stores)
     monkeypatch.setattr(container.chat_service, "get_client", lambda model: FakeStructuredClient(ANSWER))
     activity = project_data_service.create_activity("acme", Activity(title="Login", items=[TodoItem(text="a"), TodoItem(text="b"), TodoItem(text="c")]))

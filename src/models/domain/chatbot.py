@@ -20,15 +20,15 @@ class ChatbotKind(StrEnum):
     """The Architect (blocco 05): designs the project's automations with the
     user, reading functions, agents and automations from its tools and
     validating the YAML in the code; the user saves a proposal with a click
-    in the chat. Only KIND_TOOLS' tools; it does not launch automations."""
+    in the chat. Only tools of KIND_TOOLS; it does not launch automations."""
     SECRETARY = "secretary"
     """Helps with the notes: reads, creates and updates the activities (their
     description, status and todo list), reads the
     agent tasks' status and creates agent tasks (in refinement), linking
-    references by their title, never reading them. Only KIND_TOOLS' tools, no cache."""
+    references by their title, never reading them. Only tools of KIND_TOOLS, no cache."""
     REFINER = "refiner"
     """Helps refining the agent tasks; shown next to them (Lavoro, the open task),
-    the agent of the panel for a task not delegated. Only KIND_TOOLS' tools, no cache. It works only on the
+    the agent of the panel for a task not delegated. Only tools of KIND_TOOLS, no cache. It works only on the
     task open next to the chat, while in refinement (the user's button moves it
     there from created): reads it with its type's checklist, writes its fields
     and makes it todo with the user's ok; the code scan hands it counts only."""
@@ -37,7 +37,7 @@ class ChatbotKind(StrEnum):
     one stack (the default is Java: Maven, Spring Boot), with safe git (no commit,
     no push), the project's allowed commands and the POMs. What it did right
     becomes an automation of ``tool`` steps with a click (no LLM the times after).
-    Only KIND_TOOLS' tools; other stacks are other operator chatbots."""
+    Only tools of KIND_TOOLS; other stacks are other operator chatbots."""
     CUSTOM = "custom"
     """Its tools are chosen freely; no automation cache."""
 
@@ -56,7 +56,13 @@ KIND_TOOLS: dict[ChatbotKind, list[str]] = {
         "git_stash", "git_stash_list", "git_stash_apply", "run_command", "maven_parent_alignment",
     ],
 }
-"""The tools a kind imposes on its chatbots; a kind not here lets them be chosen."""
+"""The tools a chatbot of a kind may have (written in its YAML, ``tools:``); a kind not here lets them be chosen freely."""
+
+def not_allowed(kind: ChatbotKind, tools: list[str]) -> list[str]:
+    """Of ``tools``, the ones a chatbot of ``kind`` may not have."""
+    allowed = KIND_TOOLS.get(kind)
+    return [] if allowed is None else [tool for tool in tools if tool not in allowed]
+
 
 STEP_TOOLS: list[str] = KIND_TOOLS[ChatbotKind.OPERATOR]
 """The tools a ``tool`` step of an automation can call: the Operator's."""
@@ -100,10 +106,9 @@ class Chatbot(BaseModel):
     def has_automation_cache(self) -> bool:
         return self.kind in CACHE_KINDS
 
-    def with_kind_tools(self) -> "Chatbot":
-        """The chatbot with the tools its kind imposes (unchanged for a free kind)."""
-        tools = KIND_TOOLS.get(self.kind)
-        return self if tools is None or self.tool_names == tools else self.model_copy(update={"tool_names": list(tools)})
+    def tools_not_allowed(self) -> list[str]:
+        """The chatbot's tools its kind does not allow (none for a free kind)."""
+        return not_allowed(self.kind, self.tool_names)
 
 
 class Conversation(BaseModel):

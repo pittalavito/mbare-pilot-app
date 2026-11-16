@@ -1,5 +1,11 @@
 # Automation di ogni progetto (salvo che il progetto ne abbia una con lo stesso nome).
+# Campi: resource/doc/definitions.md
+
 automations:
+
+###########################
+#### Stato del mattino ####
+###########################
   - name: Stato del mattino
     description: Stato git di tutti i repository del progetto, riassunto in una nota (prima quelli che chiedono attenzione).
     steps:
@@ -18,6 +24,9 @@ automations:
         function: save_note
         params: {title: "stato-del-mattino-{date}"}
 
+#################################
+#### Coverage prima del push ####
+#################################
   - name: Coverage prima del push
     description: >-
       Coverage JaCoCo delle righe nei commit non ancora pushati (solo src/main/java), soglia 80%. Lancia
@@ -33,6 +42,9 @@ automations:
       - {from: input, to: Coverage}
       - {from: Coverage, to: Nota, if: contains, value: "sotto soglia"}
 
+##########################
+#### Prepara sviluppo ####
+##########################
   - name: Prepara sviluppo
     description: >-
       La lancia l'app alla delega a Copilot, prima della chat (non serve lanciarla a mano): ferma tutto se ci sono
@@ -52,6 +64,9 @@ automations:
       - {from: Pulito, to: Branch}
       - {from: Branch, to: POM}
 
+###########################
+#### Verifica sviluppo ####
+###########################
   - name: Verifica sviluppo
     description: >-
       La lancia l'app quando un task di sviluppo finito da Copilot va «da verificare» (non serve lanciarla a mano):

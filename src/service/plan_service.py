@@ -174,7 +174,7 @@ class PlanService:
     def _secretary(self, project_name: str) -> Chatbot:
         secretary = next((bot for bot in self._chatbots.list_chatbots(project_name) if bot.kind is ChatbotKind.SECRETARY), None)
         if secretary is None:
-            raise ValidationError("Nessun segretario nel progetto: il chatbot di default si crea all'avvio dell'API (se manca, guarda il log).")
+            raise ValidationError("Nessun segretario nel progetto: aggiungilo in global-chat-bots.yml (si crea all'avvio o con «Sincronizza da file»).")
         return secretary
 
     # --------------------------------------------------------------- confirm

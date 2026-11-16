@@ -1,18 +1,9 @@
-# Prompt e divieti di GitHub Copilot (agent task delegati dall'app).
-# Letto a ogni uso: una modifica vale dal turno successivo.
-# Un progetto può sostituire uno o più campi con definition/project/<slug>/coding-agent.yml.
-# Al posto di plan_prompt / execute_prompt si può usare plan_prompt_file / execute_prompt_file
-# (un file .md accanto a questo).
-# Altri prompt di preparazione da scegliere quando deleghi: i file .md di definition/coding-agent/
-# (e di definition/project/<slug>/coding-agent/), ognuno con {task_folder}.
-#
-# Il task non va nel prompt. Nel repository l'app scrive solo mbare-pilot/<nome del task>/task.md, minimo
-# (titolo, tipo, dove trovare il resto), prima di ogni turno: {task_folder} = quella cartella, relativa al
-# repository (es. mbare-pilot/agent-task-login). Il task completo e i riferimenti Copilot li legge con i
-# tool MCP del server «mbare-pilot» dell'app (read_task, list_references, read_reference, search_context); in esecuzione può
-# chiedere con ask_user e chiude con finish. La cartella resta dopo la sessione ed è visibile a git.
+# GitHub Copilot: prompt, checklist e divieti degli agent task delegati. Letto a ogni uso.
+# Un progetto ne sostituisce i campi con project/<progetto>/coding-agent.yml. Campi: resource/doc/definitions.md
 
-# Primo turno della preparazione (modalità piano, sola lettura).
+################################
+#### Prompt di preparazione ####
+################################
 plan_prompt: |
   Ti affido il task indicato in {task_folder}/task.md, sul repository in cui ti trovi. Il task completo lo leggi
   con il tool MCP read_task del server «mbare-pilot», i riferimenti collegati con list_references e read_reference.
@@ -24,26 +15,27 @@ plan_prompt: |
   Parliamo attraverso un'app, a turni: ogni mio messaggio ti arriva come un nuovo turno, quindi fai pure le tue domande e aspetta la risposta. Adesso sei in modalità piano e non puoi modificare niente: è giusto così. Il via lo do io con il pulsante «Ok, parti» dell'app, che ti riattiva per eseguire il piano; non chiedermi di uscire dalla modalità piano né di premere tasti. Anche dopo l'ok non farai commit, push né altre operazioni git che cambiano la storia, l'indice o i branch: il commit lo faccio io.
   Non modificare i file di {task_folder}: li riscrive l'app a ogni turno.
 
-# Turno che avvia l'esecuzione (dopo «Ok, parti»).
+##############################
+#### Prompt di esecuzione ####
+##############################
 execute_prompt: >-
   Ok, procedi con il piano concordato. Non fare commit, push né altre operazioni git che cambiano la storia,
   l'indice o i branch. Se ti serve una mia decisione chiedimela con il tool ask_user (aspetto e ti rispondo).
   Alla fine chiama il tool finish con un riassunto di cosa hai cambiato (file e motivo) e se i criteri di
   accettazione sono soddisfatti, e scrivi lo stesso riassunto nella risposta.
 
-# Il prompt di preparazione di ogni tipo di task, quando alla delega non se ne sceglie uno (facoltativo):
-# il nome di un file .md di coding-agent/ ("" = plan_prompt). Tipi: development, analysis, confluence, jira;
-# un tipo assente usa plan_prompt. Solo development viene eseguito («Ok, parti»): gli altri restano in
-# preparazione e l'ultima risposta di Copilot si salva come nota («Salva come nota»), quindi il loro prompt
-# chiede di rispondere con il documento finito.
+#################################
+#### Prompt per tipo di task ####
+#################################
 type_prompts:
   development: ""
   analysis: analisi
   confluence: confluence
   jira: jira
 
-# Cosa deve avere un task rifinito, per tipo (facoltativo): il Refiner riceve solo la checklist del tipo
-# del task aperto, dice cosa manca e lo chiede prima di proporre «da fare». Il codice non blocca niente.
+############################
+#### Checklist dei task ####
+############################
 task_checklists:
   development:
     - obiettivo chiaro, in una o due frasi
@@ -64,8 +56,9 @@ task_checklists:
     - la storia attuale o il bisogno da cui nasce
     - i criteri di accettazione attesi
 
-# --deny-tool dell'esecuzione: l'elenco completo (il codice non ne aggiunge).
-# L'app controlla comunque l'HEAD prima e dopo e segnala se è cambiato.
+######################
+#### Tool vietati ####
+######################
 denied_tools:
   - shell(git commit)
   - shell(git push)
@@ -88,13 +81,14 @@ denied_tools:
   - shell(git update-ref)
   - shell(git worktree)
 
-# Modelli tra cui scegliere quando deleghi (--model), oltre a «Predefinito» (COPILOT_MODEL o quello di Copilot).
-# Nomi dal catalogo di Copilot CLI 1.0.103 (`copilot help config`); quelli disponibili dipendono dal tuo piano.
-# Prezzi: USD per 1M token (input, cached_input, cache_write, output), dalla pagina di GitHub
-# «Models and pricing for GitHub Copilot» (https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing),
-# letta il 2026-10-26. 1 credito AI = 0,01 $. I prezzi cambiano: ricontrollali ogni tanto.
-# Un nome senza prezzi va bene (es. auto). Nella delega i modelli compaiono dal più economico.
+###################
+#### models #######
+###################
 models:
+
+##########################
+#### claude-haiku-5.5 ####
+##########################
   - name: claude-haiku-5.5
     note: Il più economico. Per task piccoli e ben definiti.
     input: 0.10
@@ -102,6 +96,10 @@ models:
     cache_write: 0.125
     output: 0.50
     long_context: {above: 100000, input: 0.50, cached_input: 0.05, cache_write: 0.625, output: 2.50}
+
+####################
+#### gpt-6-luna ####
+####################
   - name: gpt-6-luna
     note: Prezzo di Haiku 5.5, ma la tariffa base vale fino a 272K token di input (Haiku fino a 100K). Per task che leggono molto codice.
     input: 0.10
@@ -109,45 +107,81 @@ models:
     cache_write: 0.125
     output: 0.50
     long_context: {above: 272000, input: 0.20, cached_input: 0.02, cache_write: 0.25, output: 0.75}
+
+######################
+#### gpt-5.6-luna ####
+######################
   - name: gpt-5.6-luna
     input: 0.20
     cached_input: 0.02
     cache_write: 0.25
     output: 1.20
     long_context: {above: 200000, input: 0.40, cached_input: 0.04, cache_write: 0.50, output: 1.80}
+
+############################
+#### mai-code-1.1-flash ####
+############################
   - name: mai-code-1.1-flash
     note: GitHub non indica il cache write.
     input: 0.20
     cached_input: 0.02
     output: 1.20
+
+###########################
+#### claude-sonnet-5.5 ####
+###########################
   - name: claude-sonnet-5.5
     input: 2.00
     cached_input: 0.10
     cache_write: 2.50
     output: 10.00
+
+#####################
+#### gpt-6.1-sol ####
+#####################
   - name: gpt-6.1-sol
     input: 2.00
     cached_input: 0.10
     cache_write: 2.50
     output: 10.00
     long_context: {above: 272000, input: 4.00, cached_input: 0.20, cache_write: 5.00, output: 15.00}
+
+########################
+#### gemini-4-argon ####
+########################
   - name: gemini-4-argon
     note: Prezzo promozionale fino al 1° dicembre 2026; GitHub non indica il cache write.
     input: 2.00
     cached_input: 0.10
     output: 10.00
+
+#########################
+#### claude-opus-5.5 ####
+#########################
   - name: claude-opus-5.5
     input: 4.00
     cached_input: 0.20
     cache_write: 5.00
     output: 20.00
+
+##########################
+#### claude-fable-5.1 ####
+##########################
   - name: claude-fable-5.1
     note: Il più caro. Per i task più difficili.
     input: 10.00
     cached_input: 0.25
     cache_write: 12.50
     output: 50.00
+
+###################
+#### gpt-5.5 ######
+###################
   - name: gpt-5.5
     note: Non è nella pagina dei prezzi di GitHub.
+
+###################
+#### auto #########
+###################
   - name: auto
     note: Sceglie Copilot; il prezzo dipende dal modello che usa.

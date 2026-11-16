@@ -5,7 +5,6 @@ matched by name; a broken element is reported and the others applied."""
 import pytest
 
 from core.error import NotFoundError
-from models.domain.chatbot import ChatbotKind
 from models.domain.definitions import DefinitionKey, DefinitionKind
 from models.domain.project import Project, ProjectSource
 from service.chatbot_service import ChatbotService
@@ -309,10 +308,10 @@ def test_a_sync_can_apply_only_the_chosen_elements(services, definition_store):
     assert definitions.sync("acme", only=[]).items == []
 
 
-def test_an_automation_chatbot_from_the_files_gets_its_fixed_tools(services, definition_store):
+def test_a_chatbot_s_tools_come_from_the_files_and_must_suit_its_kind(services, definition_store):
     definitions, chatbots, _ = services
     _write(definition_store, f"{PROJECT_DIR}/chat-bots.yml", f"""chatbots:
-  - {{name: Automazioni, kind: automation, model: {MODEL}, system_prompt: Lancia automation.}}
+  - {{name: Automazioni, kind: automation, model: {MODEL}, tools: [list_functions, validate_automation], system_prompt: X.}}
   - {{name: Sbagliato, kind: automation, model: {MODEL}, tools: [git_status], system_prompt: X.}}
 """)
 
@@ -320,9 +319,9 @@ def test_an_automation_chatbot_from_the_files_gets_its_fixed_tools(services, def
         (f"{PROJECT_DIR}/chat-bots.yml", "Automazioni", "created"), (f"{PROJECT_DIR}/chat-bots.yml", "Sbagliato", "error"),
     ]
     [bot] = chatbots.list_chatbots("acme")
-    assert (bot.kind.value, bot.tool_names) == ("automation", ARCHITECT_TOOLS)
+    assert (bot.kind.value, bot.tool_names) == ("automation", ["list_functions", "validate_automation"])  # as written, not imposed
     assert _outcomes(definitions.sync("acme"))[0] == (f"{PROJECT_DIR}/chat-bots.yml", "Automazioni", "unchanged")
-    assert "togli tools" in definitions.preview("acme")[1].message
+    assert "non può usare git_status" in definitions.preview("acme")[1].message
 
 
 def test_the_secretary_s_wip_prompt_comes_from_the_files(services, definition_store):
@@ -345,7 +344,8 @@ def test_the_secretary_s_wip_prompt_comes_from_the_files(services, definition_st
     assert (bot.wip_prompt, bot.wip_prompt_version) == ("Proponi anche attività.", 2)
 
 
-def test_the_default_chatbots_are_created_where_missing_and_never_changed(services, caplog, catalog_store, project_store):
+def test_the_chatbots_of_the_files_are_created_where_missing_and_never_changed(services, caplog, catalog_store, project_store,
+                                                                             default_chatbots):
     definitions, chatbots, _ = services
     mine = chatbots.create_chatbot("acme", "segretario", system_prompt="Mio.", model=MODEL)  # same name: left as it is
 
@@ -355,31 +355,19 @@ def test_the_default_chatbots_are_created_where_missing_and_never_changed(servic
     assert bots["Refiner"].kind.value == "refiner" and bots["Refiner"].tool_names == [
         "create_code_reference", "read_agent_task", "update_agent_task", "finish_refinement", "search_context",
     ]
-    assert bots["Architetto"].kind.value == "automation" and bots["Architetto"].tool_names == ARCHITECT_TOOLS
-    assert bots["Architetto"].model == "openrouter/google/gemini-2.5-pro"
+    assert bots["Architetto"].tool_names == ARCHITECT_TOOLS and bots["Architetto"].model == "openrouter/google/gemini-2.5-pro"
     assert bots["segretario"] == mine
-    assert bots["Architetto"].wip_prompt == "" and bots["Refiner"].wip_prompt == ""
     assert definitions.seed_default_chatbots(["acme"]) == 0  # already there
 
     project_store.save(Project(name="beta", source=ProjectSource.FOLDER, root_path="/code/beta"))
     for key in ("openrouter/google/gemini-3.1-flash-lite-preview", "openrouter/google/gemini-2.5-pro"):  # the others' and the Architect's
         catalog_store.save_model(catalog_store.get_model(key).model_copy(update={"active": False}))
-
     assert definitions.seed_default_chatbots(["beta"]) == 0  # logged, not raised: the app starts anyway
     assert chatbots.list_chatbots("beta") == [] and "è disattivato" in caplog.text
 
 
-def test_the_old_chat_bot_becomes_the_architect_keeping_its_conversations(services):
+def test_without_the_files_a_project_has_no_chatbots_and_a_broken_file_is_logged(services, caplog, definition_store):
     definitions, chatbots, _ = services
-    old = chatbots.create_chatbot("acme", "Chat bot", system_prompt="Lancia le automation.", model=MODEL, kind=ChatbotKind.AUTOMATION)
-    talk = chatbots.new_conversation(old.id)
-
-    definitions.seed_default_chatbots(["acme"])
-
-    bots = {bot.name: bot for bot in chatbots.list_chatbots("acme")}
-    assert "Chat bot" not in bots and bots["Architetto"].id == old.id
-    assert "validate_automation" in bots["Architetto"].tool_names and "Architetto delle automation" in bots["Architetto"].system_prompt
-    assert [conversation.id for conversation in chatbots.list_conversations(old.id)] == [talk.id]
-    custom = chatbots.create_chatbot("acme", "Chat bot", system_prompt="Mio.", model=MODEL)  # not the automation kind: left alone
-    definitions.seed_default_chatbots(["acme"])
-    assert chatbots.get_chatbot(custom.id).name == "Chat bot"
+    assert definitions.seed_default_chatbots(["acme"]) == 0 and chatbots.list_chatbots("acme") == []
+    _write(definition_store, "global-chat-bots.yml", "chatbots: [\n")
+    assert definitions.seed_default_chatbots(["acme"]) == 0 and "YAML non valido" in caplog.text

@@ -11,7 +11,6 @@ from fastapi.testclient import TestClient
 from core.app import create_app
 from core.container import Container
 from core.error import ConflictError, NotFoundError, ValidationError
-from domain.chat.chatbots_default import DEFAULT_CHATBOTS, OPERATOR_JAVA
 from domain.client.command.client import CommandResult
 from domain.dev import tests
 from domain.pipeline import yaml_format
@@ -143,8 +142,11 @@ def test_the_pom_tool_compares_the_poms_with_the_parent(project, git_service):  
 
 
 def test_the_operator_is_a_default_chatbot_with_fixed_tools():
-    [operator] = [bot for bot in DEFAULT_CHATBOTS if bot.kind is ChatbotKind.OPERATOR]
-    assert operator.name == OPERATOR_JAVA and "run_command" in KIND_TOOLS[ChatbotKind.OPERATOR]
+    import yaml
+
+    from conftest import EXAMPLE_CHATBOTS
+    [operator] = [bot for bot in yaml.safe_load(EXAMPLE_CHATBOTS.read_text(encoding="utf-8"))["chatbots"] if bot["kind"] == "operator"]
+    assert operator["name"] == "Operatore Java" and operator["tools"] == KIND_TOOLS[ChatbotKind.OPERATOR]
     assert not {"git_commit", "git_push"} & set(KIND_TOOLS[ChatbotKind.OPERATOR])
     assert all(name in TOOL_REGISTRY for name in KIND_TOOLS[ChatbotKind.OPERATOR])
 
@@ -352,12 +354,12 @@ def test_the_delegation_runs_a_learned_preparation_with_the_fields_of_the_task(p
 
 # ---------------------------------------------------------------------- API
 
-def test_the_api_saves_the_commands_and_the_operator_answers_requests_and_promotes(project, stores, taught):  # noqa: F811
+def test_the_api_saves_the_commands_and_the_operator_answers_requests_and_promotes(project, stores, taught, default_chatbots):  # noqa: F811
     message, _, _ = taught
     container = Container(stores=stores)
     container.command_service._client = FakeCommands()
     with TestClient(create_app(container)) as client:
-        operator = next(bot for bot in client.get("/projects/acme/chatbots").json() if bot["name"] == OPERATOR_JAVA)
+        operator = next(bot for bot in client.get("/projects/acme/chatbots").json() if bot["name"] == "Operatore Java")
         assert operator["kind"] == "operator" and "run_command" in operator["tool_names"]
         settings = client.put("/projects/acme/dev-settings", json={"allowed_commands": ["uv sync"], "operator_chatbot_id": operator["id"]}).json()
         assert settings["allowed_commands"] == ["uv sync"] and settings["operator_chatbot_id"] == operator["id"]
