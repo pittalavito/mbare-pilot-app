@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_vali
 
 from models.domain.agent import Name
 from models.domain.chat import ModelKey
-from models.domain.chatbot import KIND_TOOLS, ChatbotKind
+from models.domain.chatbot import KIND_TOOLS, ChatbotKind, not_allowed
 from models.domain.note import TaskType
 from models.domain.pipeline import INPUT, AutomationPurpose, EdgeConditionKind, FieldName
 
@@ -48,7 +48,7 @@ class ChatbotFile(_File):
     to this one (``system_prompt_file``), used as it is."""
     name: Name
     kind: ChatbotKind = ChatbotKind.CUSTOM
-    """``automation``: its tools are fixed (leave ``tools`` out) and it has the automation cache."""
+    """``automation``, ``secretary``, ``refiner``, ``operator``: ``tools`` only among the kind's (KIND_TOOLS); ``custom``: any."""
     description: str = ""
     model: ModelKey
     max_steps: int = Field(default=4, ge=1, le=50)
@@ -68,9 +68,9 @@ class ChatbotFile(_File):
             raise ValueError("wip_prompt vale solo per un chatbot secretary")
         if self.plan_prompt is not None and self.kind is not ChatbotKind.SECRETARY:
             raise ValueError("plan_prompt vale solo per un chatbot secretary")
-        fixed = KIND_TOOLS.get(self.kind)
-        if fixed is not None and self.tools and sorted(self.tools) != sorted(fixed):
-            raise ValueError(f"un chatbot {self.kind} ha i suoi tool ({', '.join(fixed)}): togli tools")
+        wrong = not_allowed(self.kind, self.tools)
+        if wrong:
+            raise ValueError(f"un chatbot {self.kind} non può usare {', '.join(wrong)} (può: {', '.join(KIND_TOOLS[self.kind])})")
         return self
 
 

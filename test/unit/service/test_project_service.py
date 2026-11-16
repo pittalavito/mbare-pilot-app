@@ -85,7 +85,7 @@ def test_remove_does_not_delete_folder(project_service, root):
 
 
 def test_a_new_project_gets_the_default_chatbots(root, agent_config_service, mask_store, make_agent_service, catalog_store, pipeline_service,
-                                                 agent_store, project_store, chatbot_store, definition_store):
+                                                 agent_store, project_store, chatbot_store, definition_store, default_chatbots):
     chatbots = ChatbotService(chatbot_store, project_store, catalog_store, agent_config_service, make_agent_service())
     definitions = DefinitionService(definition_store, project_store, agent_store, agent_config_service, chatbots, pipeline_service)
     projects = ProjectService(project_store, mask_store, FolderBrowser([root]), definition_service=definitions)

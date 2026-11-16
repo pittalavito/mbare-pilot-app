@@ -15,9 +15,9 @@ def model():
 
 
 @pytest.fixture
-def client(stores, monkeypatch, project_store, tmp_path, model):
+def client(stores, monkeypatch, project_store, tmp_path, model, default_chatbots):
     project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(tmp_path)))
-    container = Container(stores=stores)  # seeds the default chatbots: the secretary too
+    container = Container(stores=stores)  # seeds the chatbots of global-chat-bots.yml: the secretary too
     monkeypatch.setattr(container.chat_service, "get_client", lambda key: model)
     with TestClient(create_app(container)) as client:
         yield client

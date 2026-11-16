@@ -1,15 +1,14 @@
-# Chatbot di ogni progetto (salvo che il progetto ne abbia uno con lo stesso nome nel suo chat-bots.yml).
-# «Architetto», «Operatore Java», «Refiner» e «Segretario» ogni progetto li ha già di default (dal codice): scriverli qui ne cambia prompt e modello
-# alla sincronizzazione. Dalla UI i chatbot non si creano: quelli in più si scrivono qui.
-# Un progetto può averne più di uno: ognuno ha il suo agente (prompt, modello, tool).
-# kind: automation (l'Architetto: progetta le automation, tool fissi), secretary (tool fissi sulle note: attività e agent task), refiner (tool fissi per
-# rifinire l'agent task aperto, accanto agli agent task nella UI), operator (l'Operatore: procedure sui repository con git sicuro e i comandi
-# permessi; quello che fa giusto diventa un'automation) oppure custom (tool a scelta, il default).
+# Chatbot di ogni progetto: si creano dove mancano (alla creazione del progetto e all'avvio), «Sincronizza da file» li aggiorna.
+# tools: solo quelli adatti al tipo. Campi: resource/doc/definitions.md
+
 chatbots:
+
+####################
+#### Architetto ####
+####################
   - name: Architetto
-    # automation: l'Architetto progetta con te le automation; tool fissi (list_functions, list_agents, list_automations,
-    # read_automation, validate_automation, create_function_task). Non lancia automation; le salvi tu dalla chat.
     kind: automation
+    tools: [list_functions, list_agents, list_automations, read_automation, validate_automation, create_function_task]
     description: Progetta con te le automation del progetto, le valida e le salvi con un clic
     model: openrouter/google/gemini-2.5-pro
     max_steps: 10
@@ -31,11 +30,13 @@ chatbots:
       Se serve una funzione che non c'è, dimmelo e proponimi un agent task di sviluppo (titolo, obiettivo, criteri):
       crealo con create_function_task solo dopo il mio sì, nell'attività che ti dico (o in nessuna).
       Non lanci automation. Se non sai, non inventare.
+
+####################
+#### Segretario ####
+####################
   - name: Segretario
-    # secretary: tool fissi (list_activities, read_activity, create_activity, update_activity, list_agent_tasks,
-    # list_references, create_agent_task, today); dei riferimenti vede solo i titoli. wip_prompt: le istruzioni di
-    # «📥 Elabora WIP» (una chiamata con risposta strutturata sulla nota wip.md)
     kind: secretary
+    tools: [list_activities, read_activity, create_activity, update_activity, list_agent_tasks, list_references, create_agent_task, today]
     description: Attività, stato degli agent task e nuovi agent task
     model: openrouter/google/gemini-3.1-flash-lite-preview
     max_steps: 6
@@ -70,7 +71,6 @@ chatbots:
       calcolale dalla data di oggi che ti do, nel formato YYYY-MM-DD.
       Le parole come PERSONA_1, REPO_2, TERMINE_3, MAIL_1, URL_1 sono nomi nascosti: usale così come sono.
       Niente stati, niente agent task, niente note. Se il testo non chiede niente, nessuna proposta. Non inventare.
-    # plan_prompt: le istruzioni del Pianificatore («▶️ Lavora attività»: una chiamata strutturata con il modello del segretario)
     plan_prompt: |
       Sei il Pianificatore: dall'attività che ti do proponi gli agent task per farla, nell'ordine in cui farli.
       Rispondi solo nello schema dato, in italiano, breve.
@@ -80,10 +80,13 @@ chatbots:
       repository dell'elenco (vuoto se non serve), il motivo in una riga, l'obiettivo in una o due frasi e pochi criteri
       di accettazione verificabili. Prima le librerie, poi chi le usa. Usa il contesto del progetto solo se aiuta.
       Le parole come REPO_1 o TERMINE_2 sono nomi nascosti: usale così come sono. Non inventare.
+
+###################
+#### Refiner ######
+###################
   - name: Refiner
-    # refiner: tool fissi (create_code_reference, read_agent_task, update_agent_task, finish_refinement, search_context), solo sul
-    # task aperto accanto alla chat; nella UI sta accanto agli agent task, non nella scheda Chat
     kind: refiner
+    tools: [create_code_reference, read_agent_task, update_agent_task, finish_refinement, search_context]
     description: Rifinisce con te l'agent task aperto e lo porta a «da fare» (sezione Agent task)
     model: openrouter/google/gemini-3.1-flash-lite-preview
     max_steps: 6
@@ -103,11 +106,13 @@ chatbots:
       Non vedi né i commenti né il codice: dimmi quanti commenti e in quanti file, se la nota è nuova o aggiornata,
       e dammi il link della nota come link markdown, così la apro e la modifico.
       Se non trova niente, dimmelo. Se non sai, non inventare.
+
+########################
+#### Operatore Java ####
+########################
   - name: Operatore Java
-    # operator: tool fissi (git sicuro: status, fetch, branch, checkout, crea branch, pull fast-forward, stash; run_command con i
-    # comandi permessi del progetto; maven_parent_alignment). Niente commit né push. Quello che fa giusto diventa un'automation
-    # con «✅ Giusto: fanne un'automation» (step tool, senza LLM). Per altri stack (Python…) aggiungi un altro chatbot operator.
     kind: operator
+    tools: [git_status, git_fetch, git_branches, git_checkout, git_create_branch, git_pull_fast_forward, git_stash, git_stash_list, git_stash_apply, run_command, maven_parent_alignment]
     description: "Prepara i repository Java (branch, pull, mvn clean install): quello che fa giusto diventa un'automation"
     model: openrouter/google/gemini-3.1-flash-lite-preview
     max_steps: 12

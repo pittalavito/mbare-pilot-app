@@ -69,7 +69,7 @@ class ChatbotService:
         wip_prompt: str = "",
         plan_prompt: str = "",
     ) -> Chatbot:
-        """``kind`` automation: its tools are the fixed ones, whatever ``tool_names`` says.
+        """``tool_names`` only among the ones its kind allows (KIND_TOOLS).
         ``wip_prompt`` and ``plan_prompt``: only a secretary («Elabora WIP», the Pianificatore)."""
         if self._projects.get(project_name) is None:
             raise NotFoundError(f"Progetto non trovato: {project_name}")
@@ -84,7 +84,7 @@ class ChatbotService:
             tool_names=tool_names or [],
             wip_prompt=_wip_prompt(kind, wip_prompt),
             plan_prompt=_secretary_prompt(kind, plan_prompt, "del Pianificatore"),
-        ).with_kind_tools()
+        )
         self._validate(chatbot)
         return self._chatbots.save_chatbot(chatbot)
 
@@ -120,7 +120,7 @@ class ChatbotService:
             "wip_prompt": _wip_prompt(kind or current.kind, current.wip_prompt if wip_prompt is None else wip_prompt),
             "plan_prompt": _secretary_prompt(kind or current.kind, current.plan_prompt if plan_prompt is None else plan_prompt, "del Pianificatore"),
             "updated_at": datetime.now(timezone.utc),
-        }).with_kind_tools()
+        })
         if chatbot.system_prompt != current.system_prompt:
             chatbot.prompt_version = current.prompt_version + 1
         if chatbot.wip_prompt != current.wip_prompt:
@@ -175,7 +175,7 @@ class ChatbotService:
         if not request:
             raise ValidationError("Il messaggio è vuoto.")
         conversation = self._require_conversation(conversation_id)
-        chatbot = self.get_chatbot(conversation.chatbot_id).with_kind_tools()  # its kind's tools, even if the DB says otherwise
+        chatbot = self.get_chatbot(conversation.chatbot_id)
         history = self._chatbots.list_messages(conversation_id)
         self._chatbots.save_message(ChatMessage(conversation_id=conversation_id, role=MessageRole.USER, content=text))
 
@@ -228,8 +228,11 @@ class ChatbotService:
         return conversation
 
     def _validate(self, chatbot: Chatbot) -> None:
-        """The model is usable, the tools are available, the name is unique within the project."""
+        """The model is usable, the tools are available and allowed to its kind, the name is unique within the project."""
         require_usable_model(self._catalog, chatbot.model)
+        wrong = chatbot.tools_not_allowed()
+        if wrong:
+            raise ValidationError(f"Un chatbot {chatbot.kind.value} non può usare: {', '.join(wrong)}.")
         available = {tool.name for tool in self.available_tools()}
         unavailable = [name for name in chatbot.tool_names if name not in available]
         if unavailable:

@@ -23,8 +23,9 @@ just the elements chosen from it.
 At startup ``seed_global_agents()`` creates the agents of ``global-agent.yml``
 that do not exist yet (a new installation has them; changes made from the UI
 stay until the next sync), and ``seed_default_chatbots(projects)`` the
-default chatbots (domain/chat/chatbots_default.py) that a project misses, by
-name: also when a project is created."""
+chatbots of the files (``global-chat-bots.yml`` and the project's own) that a
+project misses, by name: also when a project is created. The code creates no
+chatbot of its own: without the files a project has none."""
 from collections.abc import Callable, Collection
 from dataclasses import dataclass
 from typing import Any
@@ -33,8 +34,7 @@ import yaml
 from pydantic import BaseModel, ValidationError as PydanticValidationError
 
 from core.error import AppError, NotFoundError, ValidationError
-from core.observability import LogPrefix, log_info, log_warning, observed
-from domain.chat.chatbots_default import ARCHITECT, DEFAULT_CHATBOTS, OLD_AUTOMATION_BOT
+from core.observability import LogPrefix, log_warning, observed
 from domain.pipeline import yaml_format
 from domain.pipeline.graph import linear_edges
 from domain.project.data_paths import (
@@ -50,7 +50,6 @@ from domain.project.data_paths import (
     project_definitions,
 )
 from models.domain.agent import AgentConfig, AgentRole
-from models.domain.chatbot import KIND_TOOLS, ChatbotKind
 from models.domain.definitions import (
     AgentFile,
     AutomationFile,
@@ -146,40 +145,26 @@ class DefinitionService:
 
     @observed(LogPrefix.DEFINITION_SERVICE)
     def seed_default_chatbots(self, project_names: list[str]) -> int:
-        """The default chatbots the projects miss (by name, case-insensitive);
-        the existing ones are left as they are. Errors (e.g. the model not in
-        the catalog) are logged, never raised: they must not stop the app.
-        Returns how many were created."""
+        """The chatbots of the files (the project's ``chat-bots.yml``, then
+        ``global-chat-bots.yml``) the projects miss, by name (case-insensitive);
+        the existing ones are left as they are. No file, no chatbot. Errors (e.g.
+        the model not in the catalog) are logged, never raised: they must not
+        stop the app. Returns how many were created."""
         created = 0
         for project_name in project_names:
-            self._architect_from_old_bot(project_name)
             names = {bot.name.lower() for bot in self._chatbots.list_chatbots(project_name)}
-            for spec in DEFAULT_CHATBOTS:
-                if spec.name.lower() in names:
+            for element in self._chatbots_of(project_name, project_definitions(project_name)):
+                if element.raw is None or not element.name or element.name.lower() in names:
+                    if element.error:
+                        log_warning(LogPrefix.DEFINITION_SERVICE, "chatbot di %s: %s", project_name, element.error)
                     continue
-                try:
-                    self._sync_chatbot(project_name, spec, "")
+                item = element.apply_to_item()  # also the API and the worker starting together: the name is unique in the DB
+                if item.outcome is SyncOutcome.CREATED:
                     created += 1
-                except Exception as exc:  # also the API and the worker starting together: the name is unique in the DB
-                    log_warning(LogPrefix.DEFINITION_SERVICE, "chatbot di default %s · %s: %s", project_name, spec.name, exc)
+                    names.add(element.name.lower())
+                else:
+                    log_warning(LogPrefix.DEFINITION_SERVICE, "chatbot %s · %s: %s", project_name, element.name, item.message)
         return created
-
-    def _architect_from_old_bot(self, project_name: str) -> None:
-        """Blocco 05: the default automation chatbot «Chat bot» becomes the
-        «Architetto» (name, prompt, model, tools), its conversations kept;
-        nothing when there is no such bot or an Architect exists already."""
-        bots = {bot.name.lower(): bot for bot in self._chatbots.list_chatbots(project_name)}
-        old = bots.get(OLD_AUTOMATION_BOT.lower())
-        if old is None or old.id is None or old.kind is not ChatbotKind.AUTOMATION or ARCHITECT.lower() in bots:
-            return
-        spec = next(spec for spec in DEFAULT_CHATBOTS if spec.name == ARCHITECT)
-        try:
-            self._chatbots.update_chatbot(old.id, name=ARCHITECT, kind=spec.kind, system_prompt=(spec.system_prompt or "").strip(),
-                                          model=spec.model, description=spec.description, max_steps=spec.max_steps,
-                                          tool_names=list(KIND_TOOLS[spec.kind]), wip_prompt="", plan_prompt="")
-            log_info(LogPrefix.DEFINITION_SERVICE, "%s: «%s» è diventato «%s»", project_name, OLD_AUTOMATION_BOT, ARCHITECT)
-        except Exception as exc:  # e.g. the model not in the catalog: logged, the app starts anyway
-            log_warning(LogPrefix.DEFINITION_SERVICE, "%s: «%s» non diventato «%s»: %s", project_name, OLD_AUTOMATION_BOT, ARCHITECT, exc)
 
     # ---------------------------------------------------------------- files
     def _list(self, kind: DefinitionKind, path: str, key: str, schema: type[BaseModel], sync: Callable[[Any], SyncOutcome],
@@ -279,7 +264,7 @@ class DefinitionService:
             model=spec.model,
             description=spec.description.strip(),
             max_steps=spec.max_steps,
-            tool_names=list(KIND_TOOLS.get(spec.kind, spec.tools)),  # a kind's fixed tools: compared as saved
+            tool_names=list(spec.tools),
             wip_prompt=(spec.wip_prompt or "").strip(),
             plan_prompt=(spec.plan_prompt or "").strip(),
         )

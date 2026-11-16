@@ -1,5 +1,7 @@
 """Shared fixtures: real repositories on in-memory backends (SQLite, fakeredis,
 tmp dir), so unit tests need neither Docker nor API keys."""
+from pathlib import Path
+
 import fakeredis
 import pytest
 from cryptography.fernet import Fernet
@@ -40,6 +42,8 @@ execute_prompt: Ok, procedi con il piano concordato, senza commit.
 denied_tools: ["shell(git commit)", "shell(git push)", "shell(git reset)"]
 """
 """Copilot's prompts and denied tools (global-coding-agent.yml): required to use Copilot."""
+EXAMPLE_CHATBOTS = Path(__file__).parents[1] / "resource" / "definition-example" / "global-chat-bots.yml"
+"""The chatbots every project gets (the code creates none): the example file, as a new installation has it."""
 
 
 @pytest.fixture(autouse=True)
@@ -71,6 +75,12 @@ def config(tmp_path):
     Config.set(test_config)
     yield test_config
     Config.set(None)
+
+
+@pytest.fixture
+def default_chatbots(config):
+    """The example global-chat-bots.yml in the data folder: a Container (or a new project) creates its chatbots, as a new installation."""
+    (config.definitions_root / "global-chat-bots.yml").write_text(EXAMPLE_CHATBOTS.read_text(encoding="utf-8"), encoding="utf-8")
 
 
 @pytest.fixture
