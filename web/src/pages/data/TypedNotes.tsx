@@ -1,5 +1,5 @@
 import {
-  ActionIcon, Alert, Anchor, Badge, Button, Checkbox, Grid, Group, Loader, Menu, Modal, NavLink, SegmentedControl, Select, Stack, Stepper, Text,
+  Alert, Anchor, Badge, Button, Checkbox, Grid, Group, Loader, Menu, Modal, NavLink, SegmentedControl, Stack, Stepper, Text,
   TextInput, Textarea, UnstyledButton,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
@@ -8,15 +8,15 @@ import { useSearchParams } from "react-router-dom";
 
 import { useCopilotSessions, useDeleteTaskSessions } from "../../api/copilot";
 import {
-  type Activity, type ActivityBody, type AgentTask, type AgentTaskBody, useActivities, useAgentTasks, useCreateTaskFromItem, useDeleteNote, useSaveActivity, useSaveAgentTask,
+  type AgentTask, type AgentTaskBody, useActivities, useAgentTasks, useDeleteNote, useSaveAgentTask,
 } from "../../api/projectData";
 import { SCOPE_LABELS, type TestScope } from "../../api/dev";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { useAgentPanel } from "../project/AgentPanel";
 import { DelegateModal } from "../copilot/DelegateModal";
-import { ActivityPath } from "../work/ActivityPath";
+import { ActivityPage } from "../work/ActivityPage";
 import { SendBackModal } from "../copilot/SendBackModal";
-import { ActivityFromReferences } from "./ActivityFromReferences";
+import { NewActivityModal } from "./NewActivityModal";
 import { ChecklistEditor } from "./ChecklistEditor";
 import { ReferencesSection } from "./ReferencesSection";
 import { PublishButton } from "./PublishModal";
@@ -110,9 +110,8 @@ export const ACTIVITY_STATUS = [
 export function Activities({ project }: { project: string }) {
   const activities = useActivities(project);
   const tasks = useAgentTasks(project);
-  const save = useSaveActivity(project);
   const [search, setSearch] = useSearchParams();
-  const [fromReferences, setFromReferences] = useState(false);
+  const [creating, setCreating] = useState(false);
   const requested = search.get("note");
   const task = tasks.data?.find((item) => item.name === requested);
   const parent = task && activities.data?.find((activity) => activity.agent_tasks.includes(task.name));
@@ -124,8 +123,8 @@ export function Activities({ project }: { project: string }) {
         items={activities.data}
         error={activities.error?.message}
         newLabel="Nuova attività"
-        toolbar={<Button variant="light" onClick={() => setFromReferences(true)}>📎 Da riferimenti</Button>}
-        intro="Un'attività è una cosa da fare: una descrizione, la sua todo list (priorità e scadenza facoltative per voce) e gli agent task che ne nascono. È una nota attivita-<titolo>.md."
+        onNew={() => setCreating(true)}
+        intro="Un'attività è una cosa da fare, in quattro step: Descrivi, Pianifica (i task), Lavora (il giro con Copilot), Chiudi. È una nota attivita-<titolo>.md."
         describe={(activity) => {
           const status = ACTIVITY_STATUS.find((item) => item.value === activity.status) ?? ACTIVITY_STATUS[0];
           const done = activity.items.filter((item) => item.done).length;
@@ -136,8 +135,8 @@ export function Activities({ project }: { project: string }) {
             </Group>
           );
         }}
-        create={(title, done) => save.mutate({ body: { title, status: "todo", description: "", items: [], agent_tasks: [], references: [], learned: "" } }, done)}
-        creating={save.isPending}
+        create={() => setCreating(true)}
+        creating={false}
         renderEditor={(activity) => (task && parent?.name === activity.name ? (
           <Stack gap="sm">
             <Group>
@@ -145,10 +144,10 @@ export function Activities({ project }: { project: string }) {
             </Group>
             <TaskPane key={task.name} project={project} task={task} />
           </Stack>
-        ) : <ActivityEditor key={activity.name} project={project} activity={activity} />)}
+        ) : <ActivityPage key={activity.name} project={project} activity={activity} />)}
       />
-      <ActivityFromReferences project={project} opened={fromReferences} onClose={() => setFromReferences(false)}
-                              onCreated={(created) => setSearch({ note: created.name }, { replace: true })} />
+      <NewActivityModal project={project} opened={creating} onClose={() => setCreating(false)}
+        onCreated={(created) => setSearch({ note: created.name, step: "describe" }, { replace: true })} />
     </>
   );
 }
@@ -169,7 +168,7 @@ type Done = { onSuccess: (created: Named) => void; onError: (error: Error) => vo
 type Group = { key: string; label: string; color: string; collapsed?: boolean };
 
 function TypedNotes<T extends Named>({
-  items, error, newLabel, intro, toolbar, groups, groupOf, describe, create, creating, onSelected, renderEditor, selectedName,
+  items, error, newLabel, intro, toolbar, groups, groupOf, describe, create, creating, onSelected, renderEditor, selectedName, onNew,
 }: {
   project: string;
   /** The open one whatever ``?note=`` says (an activity whose task is open inside it). */
@@ -185,6 +184,8 @@ function TypedNotes<T extends Named>({
   groupOf?: (item: T) => string;
   describe: (item: T) => ReactNode;
   create: (title: string, done: Done) => void;
+  /** Its own window for «New» instead of the title-only one (the activities). */
+  onNew?: () => void;
   creating: boolean;
   /** The open one (or none), whenever it changes. */
   onSelected?: (item: T | undefined) => void;
@@ -207,7 +208,7 @@ function TypedNotes<T extends Named>({
     <Grid gutter="md">
       <Grid.Col span={{ base: 12, md: 3 }}>
         <Stack gap="xs">
-          <Button onClick={() => setAdding(true)}>➕ {newLabel}</Button>
+          <Button onClick={() => (onNew ? onNew() : setAdding(true))}>➕ {newLabel}</Button>
           {toolbar}
           {!items && !error && <Loader size="sm" />}
           {error && <Alert color="red">{error}</Alert>}
@@ -519,176 +520,5 @@ function AgentTaskEditor({ project, task, onRefine }: { project: string; task: A
       <Textarea label="Vincoli" description="Cosa non deve fare o toccare." autosize minRows={2} value={form.constraints ?? ""} onChange={(event) => set({ constraints: event.currentTarget.value })} />
       <ReferencesSection project={project} value={form.references ?? []} onChange={(references) => set({ references })} />
     </EditorShell>
-  );
-}
-
-function ActivityEditor({ project, activity }: { project: string; activity: Activity }) {
-  const save = useSaveActivity(project);
-  const [form, setForm] = useState<ActivityBody>(() => fields(activity));
-  const [base, setBase] = useState<ActivityBody>(() => fields(activity));
-  const set = (patch: Partial<ActivityBody>) => setForm((current) => ({ ...current, ...patch }));
-  const dirty = JSON.stringify(form) !== JSON.stringify(base);
-  const latest = JSON.stringify(fields(activity));
-  useEffect(() => { // changed elsewhere (e.g. by the secretary): reloaded when nothing is unsaved
-    if (latest !== JSON.stringify(base) && !dirty) { setForm(fields(activity)); setBase(fields(activity)); }
-  }, [latest]); // eslint-disable-line react-hooks/exhaustive-deps
-  const items = form.items ?? [];
-  const done = items.filter((item) => item.done).length;
-  const write = (body: ActivityBody, message: string) =>
-    save.mutate(
-      { name: activity.name, body: { ...body, items: (body.items ?? []).filter((item) => item.text.trim()) } },
-      { onSuccess: (saved) => { setForm(fields(saved)); setBase(fields(saved)); notifications.show({ message }); } },
-    );
-  return (
-    <EditorShell
-      project={project} name={activity.name} dirty={dirty} valid={!!form.title.trim()} saving={save.isPending} error={save.error?.message}
-      onSave={() => write(form, `${form.title} salvata.`)}
-    >
-      <ActivityPath project={project} activity={activity.name} onLearned={(learned) => set({ learned })} />
-      <TextInput label="Titolo" value={form.title} onChange={(event) => set({ title: event.currentTarget.value })} />
-      <Group align="flex-end" gap="sm">
-        <div>
-          <Text size="sm" fw={500} mb={4}>Stato</Text>
-          <SegmentedControl
-            aria-label="Stato dell'attività"
-            data={ACTIVITY_STATUS.map(({ value, label }) => ({ value, label }))}
-            value={form.status ?? "todo"}
-            onChange={(value) => set({ status: value as ActivityBody["status"] })}
-          />
-        </div>
-        {!!items.length && done === items.length && form.status !== "done" && (
-          <Button size="xs" variant="light" color="green" loading={save.isPending}
-            onClick={() => write({ ...form, status: "done" }, form.learned?.trim() ? `${form.title}: fatta, «Imparato» nel contesto.` : `${form.title}: fatta. Scrivi «Imparato» se c'è una lezione da ricordare.`)}>
-            ✅ Tutte le voci sono fatte: segna fatta
-          </Button>
-        )}
-      </Group>
-      <Textarea label="Descrizione" description="Di cosa si tratta, perché, per quando." autosize minRows={2} value={form.description ?? ""}
-        onChange={(event) => set({ description: event.currentTarget.value })} />
-      <div>
-        <Text size="sm" fw={500} mb={4}>Todo <Text span size="xs" c="dimmed">· {done} di {items.length} fatte</Text></Text>
-        <ChecklistEditor
-          items={items} onChange={(next) => set({ items: next })} withDetails addLabel="Voce"
-          extra={(item, index) => (
-            <ItemTask project={project} activity={activity.name} item={item} number={index + 1} saved={base.items?.[index]?.text === item.text && !dirty} />
-          )}
-        />
-      </div>
-      <Textarea
-        label="Imparato" autosize minRows={2}
-        description="Cosa hai imparato: quando l'attività è fatta entra nel contesto del progetto, che il Refiner e Copilot consultano."
-        value={form.learned ?? ""} onChange={(event) => set({ learned: event.currentTarget.value })}
-      />
-      <LinkedAgentTasks
-        project={project}
-        value={form.agent_tasks ?? []}
-        onChange={(agent_tasks) => set({ agent_tasks })}
-        onCreated={(name) => write({ ...form, agent_tasks: [...(form.agent_tasks ?? []), name] }, "Agent task creato e collegato.")}
-      />
-      <ReferencesSection project={project} value={form.references ?? []} onChange={(references) => set({ references })} />
-    </EditorShell>
-  );
-}
-
-/** The agent task born from an item: its status as a badge (a click opens it);
- * none: the «🤖» menu creates one of the chosen type and opens it (only on a
- * saved item, since the activity is rewritten). */
-function ItemTask({ project, activity, item, number, saved }: {
-  project: string; activity: string; item: NonNullable<ActivityBody["items"]>[number]; number: number; saved: boolean;
-}) {
-  const tasks = useAgentTasks(project);
-  const create = useCreateTaskFromItem(project);
-  const [, setSearch] = useSearchParams();
-  const open = (note: string) => setSearch({ note }, { replace: true });
-  if (item.agent_task) {
-    const task = tasks.data?.find((candidate) => candidate.name === item.agent_task);
-    const status = STATUS.find((candidate) => candidate.value === (task?.status ?? "created")) ?? STATUS[0];
-    return (
-      <Badge
-        component="button" type="button" size="sm" variant="light" color={task ? status.color : "gray"} style={{ cursor: "pointer", flexShrink: 0 }}
-        title={`${task?.title ?? item.agent_task}: apri il task`} onClick={() => open(item.agent_task!)} aria-label={`Task della voce ${number}`}
-      >
-        🤖 {task ? status.label : "task"}
-      </Badge>
-    );
-  }
-  return (
-    <Menu position="bottom-end" withinPortal>
-      <Menu.Target>
-        <ActionIcon variant="subtle" size="sm" disabled={!saved || !item.text.trim()} loading={create.isPending}
-          title={saved ? "Crea un agent task da questa voce" : "Salva prima l'attività"} aria-label={`Crea un agent task dalla voce ${number}`}>
-          🤖
-        </ActionIcon>
-      </Menu.Target>
-      <Menu.Dropdown>
-        <Menu.Label>Agent task da «{item.text}»</Menu.Label>
-        {TYPES.map((type) => (
-          <Menu.Item key={type.value} onClick={() => create.mutate({ activity, item: number, text: item.text, type: type.value }, {
-            onSuccess: (task) => { notifications.show({ message: `Agent task «${task.title}» creato e collegato alla voce.` }); open(task.name); },
-            onError: (error) => notifications.show({ color: "red", message: error.message }),
-          })}>
-            {type.label}
-          </Menu.Item>
-        ))}
-      </Menu.Dropdown>
-    </Menu>
-  );
-}
-
-/** The agent tasks born from an activity: each with its status (a click opens
- * it), unlink, link an existing one, or create a new one already linked
- * (``onCreated``: the activity is saved at once, so the task is not left alone). */
-function LinkedAgentTasks({ project, value, onChange, onCreated }: {
-  project: string; value: string[]; onChange: (names: string[]) => void; onCreated: (name: string) => void;
-}) {
-  const tasks = useAgentTasks(project);
-  const save = useSaveAgentTask(project);
-  const [adding, setAdding] = useState(false);
-  const [, setSearch] = useSearchParams();
-  const byName = new Map((tasks.data ?? []).map((task) => [task.name, task]));
-  const others = (tasks.data ?? []).filter((task) => !value.includes(task.name));
-  return (
-    <Stack gap="xs">
-      <Group justify="space-between">
-        <Text size="sm" fw={500}>🤖 Agent task</Text>
-        <Button size="xs" variant="light" onClick={() => setAdding(true)}>➕ Nuovo agent task</Button>
-      </Group>
-      {!value.length && <Text size="xs" c="dimmed">Nessun agent task nato da questa attività: creane uno o collega uno esistente.</Text>}
-      {value.map((name) => {
-        const task = byName.get(name);
-        const status = STATUS.find((item) => item.value === task?.status) ?? STATUS[0];
-        return (
-          <Group key={name} justify="space-between" wrap="nowrap">
-            {task ? (
-              <Anchor size="sm" component="button" type="button" onClick={() => setSearch({ note: name }, { replace: true })}>{task.title}</Anchor>
-            ) : <Text size="sm" c="orange"><code>{name}</code> · non trovato</Text>}
-            <Group gap={4} wrap="nowrap">
-              {task && <Badge size="xs" variant="light" color={status.color}>{status.label}</Badge>}
-              <ActionIcon variant="subtle" color="gray" aria-label={`Scollega ${task?.title ?? name}`} onClick={() => onChange(value.filter((item) => item !== name))}>✕</ActionIcon>
-            </Group>
-          </Group>
-        );
-      })}
-      {others.length > 0 && (
-        <Select
-          size="xs"
-          placeholder="Collega un agent task esistente…"
-          searchable
-          data={others.map((task) => ({ value: task.name, label: task.title }))}
-          value={null}
-          onChange={(name) => name && onChange([...value, name])}
-        />
-      )}
-      <TitleModal
-        title="Nuovo agent task"
-        opened={adding}
-        loading={save.isPending}
-        onClose={() => setAdding(false)}
-        onCreate={(title, onError) => save.mutate(
-          { body: { title, status: "created", type: "development", objective: "", context: "", criteria: [], constraints: "", references: [] } },
-          { onSuccess: (created) => { setAdding(false); onCreated(created.name); }, onError },
-        )}
-      />
-    </Stack>
   );
 }

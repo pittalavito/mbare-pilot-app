@@ -233,7 +233,7 @@ describe("typed notes", () => {
     expect(body.criteria).toEqual([{ text: "test verdi", done: false }]); // the empty criterion is dropped
   });
 
-  it("creates an activity from its title and shows status and progress", async () => {
+  it("creates an activity from «Scrivo io» (title and description) and shows status and progress", async () => {
     const created = vi.fn(async (request: Request) => ({ name: "attivita-spesa.md", ...(await request.json()) }));
     mockApi({ "GET /projects/acme/notes": NOTES, "GET /projects/acme/activities": [TODO], "POST /projects/acme/activities": created,
       "GET /projects/acme/agent-tasks": [] });
@@ -241,17 +241,18 @@ describe("typed notes", () => {
 
     expect(await screen.findByRole("tab", { name: /Attività/, selected: true })).toBeInTheDocument(); // «Lavoro» opens on the activities
     expect(await screen.findByText("1/2")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("La 2.0")).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("La 2.0")).toBeInTheDocument();
     expect(screen.getByDisplayValue("2026-11-02")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Nuova attività/ }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText("Titolo"), { target: { value: "Spesa" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Crea" }));
+    fireEvent.change(within(dialog).getByLabelText(/Descrizione/), { target: { value: "Per sabato" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Crea attività" }));
 
     await waitFor(() => expect(created).toHaveBeenCalled());
     expect(await created.mock.results[0].value).toEqual({
-      name: "attivita-spesa.md", title: "Spesa", status: "todo", description: "", items: [], agent_tasks: [], references: [], learned: "",
+      name: "attivita-spesa.md", title: "Spesa", status: "todo", description: "Per sabato", items: [], agent_tasks: [], references: [],
     });
   });
 

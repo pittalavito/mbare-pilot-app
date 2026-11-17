@@ -127,6 +127,14 @@ describe("the agent of what is open", () => {
     await waitFor(() => expect(approved).toHaveBeenCalled());
   });
 
+  it("a task picked in the step «Lavora» of an activity: its Copilot chat", async () => {
+    api();
+    renderAt(`/projects/acme/work?note=${ACTIVITY.name}&step=work&task=${DELEGATED.name}`);
+
+    expect(await agent()).toHaveValue("Copilot");
+    expect(await screen.findByText("Domanda")).toBeInTheDocument();
+  });
+
   it("a plan-only delegated task: Copilot's answer is saved as a note, no ok", async () => {
     const saved = vi.fn(() => ({ note: "analisi-fix.md", session: session() }));
     api({ "GET /projects/acme/agent-tasks": [CREATED, { ...DELEGATED, type: "analysis" }], "POST /copilot-sessions/4/save-note": saved });

@@ -34,7 +34,7 @@ from domain.project.note_templates import (
     render_reference,
 )
 from models.domain.dev import TestScope
-from models.domain.note import Activity, AgentTask, ItemChange, NoteType, Reference, TaskLink, TaskStatus, TaskType
+from models.domain.note import Activity, AgentTask, ItemChange, NoteType, Reference, TaskLink, TaskStatus
 from models.domain.project import DEFAULT_VISIBLE_NOTE_TYPES, ProjectDataFile, ProjectDataKind
 from models.store.files import StoredFile
 from service.store.project_file_store import ProjectFileStore
@@ -146,22 +146,6 @@ class ProjectDataService:
         activity = _with_item_tasks(activity)
         _check_links(activity)
         self._save_typed(project_name, NoteType.ACTIVITY, note_name, render_activity(activity))
-
-    def create_task_from_item(self, project_name: str, activity_name: str, item: int, text: str, task_type: TaskType) -> str:
-        """«🤖» on an item: a new agent task «created», titled as the item, with
-        the activity's title and description as context and its references,
-        linked to the activity and to the item. Returns its name. Checked
-        against the item's text (ConflictError when it changed or already has a task)."""
-        name = note_file_name(activity_name)
-        activity = self.activity(project_name, name)
-        index = self.item_index(activity, item, text)
-        if activity.items[index].agent_task:
-            raise ConflictError(f"La voce ha già un agent task: {activity.items[index].agent_task}.")
-        context = f"Nasce dalla voce {item} dell'attività «{activity.title}»." + (f"\n\n{activity.description.strip()}" if activity.description.strip() else "")
-        task = self.create_agent_task(project_name, AgentTask(
-            title=activity.items[index].text, status=TaskStatus.CREATED, type=task_type, context=context, references=activity.references))
-        self.link_item(project_name, name, item, task)
-        return task
 
     def link_item(self, project_name: str, activity_name: str, item: int, task_name: str) -> None:
         """The agent task on the item's line (replacing another one) and among the activity's tasks; both must exist."""
@@ -367,14 +351,6 @@ class ProjectDataService:
         project = self._projects.get(self._project(project_name))
         cleaned = {repository.strip("/\\"): command.strip() for repository, command in commands.items() if command.strip()}
         self._projects.save(project.model_copy(update={"test_scope": scope, "test_commands": cleaned}))
-
-    def auto_retries(self, project_name: str) -> int:
-        """«Lavora attività»: how many times failed tests go back to Copilot by themselves."""
-        return self._projects.get(self._project(project_name)).auto_retries
-
-    def save_auto_retries(self, project_name: str, retries: int) -> None:
-        project = self._projects.get(self._project(project_name))
-        self._projects.save(project.model_copy(update={"auto_retries": retries}))
 
     def operator_chatbot_id(self, project_name: str) -> int | None:
         """The Operator of the preparation before Copilot (plan 11); None = the project's first one."""

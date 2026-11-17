@@ -1,0 +1,22 @@
+"""Step «Chiudi» of an activity (plan 18): what it taught goes in ``context/imparato.md``."""
+from pydantic import BaseModel, Field
+
+
+class LearnedAnswer(BaseModel):
+    """The agent ``imparato``'s structured answer."""
+    points: list[str] = Field(default_factory=list, description="Poche cose da ricordare per i lavori futuri, una per punto, brevi.")
+
+
+class LearnedDraft(BaseModel):
+    """The proposal in clear, for the user to correct before closing."""
+    points: list[str] = []
+    run_id: str
+    cost_eur: float = 0.0
+
+
+class ActivityClosed(BaseModel):
+    activity: str
+    context: str | None = None
+    """The context document written (``imparato.md``); None when nothing was learned."""
+    index_error: str | None = None
+    """Why the context index was not updated (the document is saved anyway)."""

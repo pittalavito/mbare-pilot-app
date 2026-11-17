@@ -118,6 +118,8 @@ class RunOrigin(StrEnum):
     """«Elabora WIP»: one structured call of the secretary's model (service/wip_service.py)."""
     PLAN = "plan"
     """The Pianificatore of «▶️ Lavora attività»: one structured call of the secretary's model (service/plan_service.py)."""
+    LEARNED = "learned"
+    """Step «Chiudi»: what an activity taught, proposed by the agent ``imparato`` (service/activity_close_service.py)."""
     DRAFT = "draft"
     """«📎 Da riferimenti»: the new activity proposed by the secretary's model from titles (service/activity_draft_service.py)."""
 

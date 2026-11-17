@@ -42,12 +42,3 @@ def test_a_save_reports_an_index_error_but_keeps_the_document(client, config):
     assert client.post("/projects/acme/context-index/reindex").status_code == 400
 
 
-def test_a_done_activity_with_imparato_enters_the_context(client):
-    name = client.post("/projects/acme/activities", json={"title": "Rilascio"}).json()["name"]
-    body = {"title": "Rilascio", "status": "done", "learned": "Le note di rilascio vanno scritte prima del tag."}
-
-    saved = client.put(f"/projects/acme/activities/{name}", json=body).json()
-
-    assert saved["learned"] == body["learned"]
-    [hit, *_] = client.post("/projects/acme/context-index/search", json={"question": "Quando scrivo le note di rilascio?"}).json()
-    assert (hit["path"], hit["section"]) == (f"notes/{name}", "Imparato")

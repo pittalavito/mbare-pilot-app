@@ -5,9 +5,9 @@ import { dataKeys } from "./projectData";
 import type { components } from "./schema";
 import { todayKey } from "./today";
 
-/** «▶️ Lavora attività» (plan 12a): the Pianificatore's proposals for an
- * activity, confirming them (the tasks are created), the activity's path and
- * «Conferma del task». */
+/** An activity's steps «Pianifica», «Lavora», «Chiudi» (plan 18): the
+ * Pianificatore's proposals, creating the tasks, the round and its settings,
+ * what was learned and the closing. */
 
 export type ActivityPath = components["schemas"]["ActivityPath"];
 export type ActivityPlan = components["schemas"]["ActivityPlan"];
@@ -16,20 +16,20 @@ export type PlanChoice = components["schemas"]["PlanChoice"];
 export type PathTask = components["schemas"]["PathTask"];
 export type PathStep = components["schemas"]["PathStep"];
 
-/** The path is moving by itself (Copilot works, or the worker is about to prepare and delegate): refreshed. */
+/** The round is moving by itself (Copilot works, or the worker is about to prepare and delegate): refreshed. */
 export function pathMoving(path: ActivityPath | undefined): boolean {
-  if (!path?.plan || path.plan.status !== "confirmed") return false;
+  if (!path?.plan || !path.tasks.length) return false;
   if (path.tasks.some((task) => task.steps.some((step) => step.state === "running"))) return true;
   const current = path.tasks.find((task) => task.current);
   const step = current?.steps.find((item) => item.state !== "done" && item.state !== "skipped");
   if (path.plan.paused || !step) return false;
-  return (["before", "prepare", "delegate", "after"].includes(step.key) && step.state === "todo")
+  return (["prepare", "delegate", "after"].includes(step.key) && step.state === "todo")
     || (step.key === "copilot_plan" && step.state === "you" && !!path.plan.auto_approve);
 }
 
 const pathKey = (project: string, activity: string) => ["projects", project, "activities", activity, "path"] as const;
 
-/** The plan waiting for a choice, or the confirmed one with each task's steps (refreshed while Copilot works). */
+/** The plan (proposals waiting, tasks with their steps, the summary), refreshed while the round moves. */
 export function useActivityPath(project: string, activity: string) {
   return useQuery({
     queryKey: pathKey(project, activity),
@@ -73,30 +73,11 @@ export function useDismissPlan(project: string, activity: string) {
   });
 }
 
-/** «Conferma del task»: from «in refinement» to «to do». */
-export function useConfirmTask(project: string, activity: string) {
-  const refresh = useRefresh(project, activity);
-  return useMutation({
-    mutationFn: (task: string) => unwrap(api.POST("/projects/{project}/agent-tasks/{task}/confirm", { params: { path: { project, task } } })),
-    onSuccess: refresh,
-  });
-}
-
 export function usePausePlan(project: string, activity: string) {
   const refresh = useRefresh(project, activity);
   return useMutation({
     mutationFn: (paused: boolean) =>
       unwrap(api.POST("/projects/{project}/activities/{activity}/plan/pause", { params: { path: { project, activity } }, body: { paused } })),
-    onSuccess: refresh,
-  });
-}
-
-/** How the path prepares the repositories: ``""`` (automatic), ``none``, ``dev``, ``learned:<id>``. */
-export function useSetPrepare(project: string, activity: string) {
-  const refresh = useRefresh(project, activity);
-  return useMutation({
-    mutationFn: (prepare: string) =>
-      unwrap(api.POST("/projects/{project}/activities/{activity}/plan/prepare", { params: { path: { project, activity } }, body: { prepare } })),
     onSuccess: refresh,
   });
 }
@@ -123,12 +104,41 @@ export function useRetryStep(project: string, activity: string) {
 
 export type PlanOptions = components["schemas"]["PlanOptions"];
 
-/** 12c: the automations before and after each task and the automatic ok to Copilot's plan. */
+/** Before delegating (``none``, ``dev``, ``automation:<id>``), the automation after the verification, the automatic ok. */
 export function useSetPlanOptions(project: string, activity: string) {
   const refresh = useRefresh(project, activity);
   return useMutation({
     mutationFn: (body: PlanOptions) =>
       unwrap(api.POST("/projects/{project}/activities/{activity}/plan/options", { params: { path: { project, activity } }, body })),
+    onSuccess: refresh,
+  });
+}
+
+export type LearnedDraft = components["schemas"]["LearnedDraft"];
+
+/** «✨ Proponi cosa ho imparato»: one call to the agent ``imparato``. */
+export function useProposeLearned(project: string, activity: string) {
+  return useMutation({
+    mutationFn: () => unwrap(api.POST("/projects/{project}/activities/{activity}/learned", { params: { path: { project, activity } } })),
+  });
+}
+
+/** «✅ Chiudi attività»: what was learned at the top of context/imparato.md, the activity done. */
+export function useCloseActivity(project: string, activity: string) {
+  const refresh = useRefresh(project, activity);
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (learned: string) =>
+      unwrap(api.POST("/projects/{project}/activities/{activity}/close", { params: { path: { project, activity } }, body: { learned } })),
+    onSuccess: () => { refresh(); queryClient.invalidateQueries({ queryKey: ["projects", project, "context"] }); },
+  });
+}
+
+/** «↩ Riapri»: back to «in progress». */
+export function useReopenActivity(project: string, activity: string) {
+  const refresh = useRefresh(project, activity);
+  return useMutation({
+    mutationFn: () => unwrap(api.POST("/projects/{project}/activities/{activity}/reopen", { params: { path: { project, activity } } })),
     onSuccess: refresh,
   });
 }

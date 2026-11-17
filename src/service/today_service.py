@@ -17,7 +17,6 @@ from core.error import ConflictError
 from domain.project.data_paths import note_file_name
 from models.domain.copilot import CopilotMessageRole, CopilotSessionStatus
 from models.domain.note import ActivityStatus, TaskStatus
-from models.domain.plan import PlanStatus
 from models.domain.today import Today, TodayActivity, TodayItem, TodayWaiting, WaitingKind
 from service.copilot_service import CopilotService
 from service.project_data_service import ProjectDataService
@@ -50,7 +49,7 @@ class TodayService:
         activities = self._data.activities(project_name)
         activity_titles = {name: activity.title for name, activity in activities}
         for plan in self._plans.latest_per_activity(project_name) if self._plans else []:
-            if plan.status is PlanStatus.PROPOSED and plan.activity in activity_titles:
+            if plan.proposals and plan.activity in activity_titles:
                 waiting.insert(0, TodayWaiting(kind=WaitingKind.PLAN, task=plan.activity, title=activity_titles[plan.activity], status="plan", session_id=None))
         overdue, due_soon, to_close = [], [], []
         for name, activity in activities:

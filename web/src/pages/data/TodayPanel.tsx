@@ -1,9 +1,8 @@
-import { Alert, Anchor, Badge, Button, Card, Collapse, Group, Menu, Modal, Stack, Text, TextInput, Textarea, UnstyledButton } from "@mantine/core";
+import { Anchor, Badge, Button, Card, Collapse, Group, Menu, Modal, Stack, Text, TextInput, UnstyledButton } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { type ReactNode, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import { useActivities, useSaveActivity } from "../../api/projectData";
 import { type Today, type TodayItem, useCheckItem, useSetDue, useToday } from "../../api/today";
 
 /** «📌 Oggi» at the top of the Attività tab: who waits for the user, overdue and
@@ -50,7 +49,6 @@ const WAITING_LABEL: Record<string, string> = {
 export function TodayPanel({ project }: { project: string }) {
   const today = useToday(project);
   const [collapsed, setCollapsed] = useState(() => readCollapsed(project));
-  const [closing, setClosing] = useState<{ activity: string; title: string }>();
   const toggle = () => { writeCollapsed(project, !collapsed); setCollapsed(!collapsed); };
   const data = today.data;
   const count = data ? data.waiting.length + data.overdue.length + data.due_soon.length + data.to_close.length : 0;
@@ -67,15 +65,14 @@ export function TodayPanel({ project }: { project: string }) {
         <Stack gap="sm" mt="xs">
           {today.error && <Text size="sm" c="dimmed">Oggi non disponibile: {today.error.message}</Text>}
           {data && !count && <Text size="sm" c="dimmed">Niente che ti aspetta, niente in scadenza nei prossimi {data.due_soon_days} giorni.</Text>}
-          {data && <Sections project={project} data={data} onClose={setClosing} />}
+          {data && <Sections project={project} data={data} />}
         </Stack>
       </Collapse>
-      <CloseModal project={project} closing={closing} onClose={() => setClosing(undefined)} />
     </Card>
   );
 }
 
-function Sections({ project, data, onClose }: { project: string; data: Today; onClose: (activity: { activity: string; title: string }) => void }) {
+function Sections({ project, data }: { project: string; data: Today }) {
   const [, setSearch] = useSearchParams();
   const open = (note: string) => setSearch({ note }, { replace: true }); // the Dati tab opens the note's tab
   return (
@@ -108,7 +105,7 @@ function Sections({ project, data, onClose }: { project: string; data: Today; on
             <Group key={activity.activity} gap="xs" wrap="nowrap">
               <Anchor size="sm" component="button" type="button" onClick={() => open(activity.activity)}>{activity.title}</Anchor>
               <Text size="xs" c="dimmed">{activity.items} voci fatte</Text>
-              <Button size="compact-xs" variant="light" color="green" onClick={() => onClose({ activity: activity.activity, title: activity.title })}>Segna fatta</Button>
+              <Button size="compact-xs" variant="light" color="green" onClick={() => setSearch({ note: activity.activity, step: "close" }, { replace: true })}>Chiudi →</Button>
             </Group>
           ))}
         </Section>
@@ -169,36 +166,3 @@ function DatedItem({ project, item, today, onOpen, late }: {
   );
 }
 
-/** «Segna fatta» from the panel: the activity done, with an optional «Imparato» (it enters the project's context). */
-function CloseModal({ project, closing, onClose }: { project: string; closing?: { activity: string; title: string }; onClose: () => void }) {
-  const activities = useActivities(project);
-  const save = useSaveActivity(project);
-  const [learned, setLearned] = useState<string>();
-  const activity = activities.data?.find((item) => item.name === closing?.activity);
-  const text = learned ?? activity?.learned ?? "";
-  const close = () => { setLearned(undefined); save.reset(); onClose(); };
-  const done = () => {
-    if (!activity) return;
-    const { name, ...body } = activity;
-    save.mutate({ name, body: { ...body, status: "done", learned: text } }, {
-      onSuccess: () => { notifications.show({ message: `${activity.title}: fatta.` }); close(); },
-    });
-  };
-  return (
-    <Modal opened={!!closing} onClose={close} title={`Segna fatta «${closing?.title ?? ""}»`}>
-      <Stack>
-        <Textarea
-          label="Imparato (facoltativo)" autosize minRows={3}
-          description="Una lezione da ricordare: entra nel contesto del progetto, che il Refiner e Copilot consultano."
-          value={text} onChange={(event) => setLearned(event.currentTarget.value)}
-        />
-        {save.error && <Alert color="red">{save.error.message}</Alert>}
-        {closing && activities.data && !activity && <Alert color="orange">L'attività non c'è più: ricarica.</Alert>}
-        <Group justify="flex-end">
-          <Button variant="default" onClick={close}>Annulla</Button>
-          <Button color="green" disabled={!activity} loading={save.isPending} onClick={done}>Segna fatta</Button>
-        </Group>
-      </Stack>
-    </Modal>
-  );
-}

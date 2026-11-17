@@ -9,7 +9,7 @@ references, linked to them by name, under /references (deleting one unlinks it);
 /code-todos gathers the code's todoMbarePilot comments into one of them."""
 from fastapi import APIRouter, Depends, Request, Response, status
 
-from controller.dependencies import code_todo_service, project_data_service, rag_service
+from controller.dependencies import code_todo_service, project_data_service
 from core.error import NotFoundError
 from models.controller.project_data import (
     ActivityBody,
@@ -20,7 +20,6 @@ from models.controller.project_data import (
     CodeTodoScanResponse,
     DataFileResponse,
     DataSettingsBody,
-    ItemTaskBody,
     NoteRequest,
     NoteResponse,
     ReferenceBody,
@@ -30,7 +29,6 @@ from models.controller.project_data import (
 from models.domain.note import NoteType
 from service.code_todo_service import CodeTodoService
 from service.project_data_service import ProjectDataService
-from service.rag_service import RagService
 
 router = APIRouter(prefix="/projects/{project}", tags=["project data"])
 
@@ -93,24 +91,10 @@ def create_activity(project: str, request: ActivityBody, service: ProjectDataSer
     return ActivityResponse.from_activity(service.create_activity(project, activity), activity)
 
 
-@router.post("/activities/{note}/items/{item}/agent-task", status_code=status.HTTP_201_CREATED)
-def create_task_from_item(project: str, note: str, item: int, request: ItemTaskBody,
-                          service: ProjectDataService = Depends(project_data_service)) -> AgentTaskResponse:
-    """«🤖» on item ``item`` (1-based): a task «created» titled as the item, with
-    the activity's context and references, linked to the activity and the item.
-    409 when the item changed meanwhile, already has a task or the name is taken."""
-    name = service.create_task_from_item(project, note, item, request.text, request.type)
-    return AgentTaskResponse.from_task(name, service.agent_task(project, name))
-
-
 @router.put("/activities/{note}")
-def save_activity(project: str, note: str, request: ActivityBody, service: ProjectDataService = Depends(project_data_service),
-                  rag: RagService = Depends(rag_service)) -> ActivityResponse:
-    """A done activity with «Imparato» is (re)indexed in the project's context
-    (best effort: the save never fails for the index)."""
+def save_activity(project: str, note: str, request: ActivityBody, service: ProjectDataService = Depends(project_data_service)) -> ActivityResponse:
     activity = request.to_activity()
     service.save_activity(project, note, activity)
-    rag.index_quietly(project, "activity", note)
     return ActivityResponse.from_activity(note, activity)
 
 

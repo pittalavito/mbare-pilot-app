@@ -1,11 +1,14 @@
-"""«▶️ Lavora attività» (plan 12a), under /projects/{project}: the Pianificatore's
-proposals for an activity (one call), confirming them (the tasks are created,
-no LLM) or dismissing them, the activity's path and «Conferma del task»."""
+"""An activity's steps «Pianifica», «Lavora» and «Chiudi» (plan 18), under
+/projects/{project}: the Pianificatore's proposals (one call), creating the
+tasks (no LLM), the round of the tasks and its settings, and the closing
+(what was learned goes in context/imparato.md)."""
 from fastapi import APIRouter, Depends, Response, status
 from pydantic import BaseModel
 
-from controller.dependencies import plan_service
+from controller.dependencies import activity_close_service, plan_service
+from models.domain.activity_close import ActivityClosed, LearnedDraft
 from models.domain.plan import ActivityPath, ActivityPlan, PlanChoice, PlanOptions, StepKey
+from service.activity_close_service import ActivityCloseService
 from service.plan_service import PlanService
 
 router = APIRouter(prefix="/projects/{project}", tags=["plan"])
@@ -13,46 +16,11 @@ router = APIRouter(prefix="/projects/{project}", tags=["plan"])
 
 class PlanConfirmRequest(BaseModel):
     choices: list[PlanChoice]
-    """The proposals kept, as corrected, in the plan's order."""
-
-
-@router.get("/activities/{activity}/path")
-def activity_path(project: str, activity: str, service: PlanService = Depends(plan_service)) -> ActivityPath:
-    """The plan waiting for a choice, or the confirmed plan with the steps of each task."""
-    return service.path(project, activity)
-
-
-@router.post("/activities/{activity}/plan")
-def propose_plan(project: str, activity: str, service: PlanService = Depends(plan_service)) -> ActivityPlan:
-    """One call to the Pianificatore (the secretary's model): the proposed tasks (502 when the model fails)."""
-    return service.propose(project, activity)
-
-
-@router.post("/activities/{activity}/plan/confirm")
-def confirm_plan(project: str, activity: str, request: PlanConfirmRequest, service: PlanService = Depends(plan_service)) -> ActivityPlan:
-    """The chosen proposals become agent tasks «in refinement», linked to their items (409 when the plan no longer waits)."""
-    return service.confirm(project, activity, request.choices)
-
-
-@router.post("/activities/{activity}/plan/dismiss")
-def dismiss_plan(project: str, activity: str, service: PlanService = Depends(plan_service)) -> ActivityPlan:
-    return service.dismiss(project, activity)
-
-
-@router.post("/agent-tasks/{task}/confirm", status_code=status.HTTP_204_NO_CONTENT)
-def confirm_task(project: str, task: str, service: PlanService = Depends(plan_service)) -> Response:
-    """«Conferma del task»: from «in refinement» to «to do» (409 when already confirmed, 400 without an objective)."""
-    service.confirm_task(project, task)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    """The proposals kept, as corrected, and the tasks written by hand, in order."""
 
 
 class PauseRequest(BaseModel):
     paused: bool
-
-
-class PrepareRequest(BaseModel):
-    prepare: str = ""
-    """``""`` (automatic), ``none``, ``dev`` or ``learned:<id>``."""
 
 
 class StepRequest(BaseModel):
@@ -60,31 +28,74 @@ class StepRequest(BaseModel):
     step: StepKey
 
 
+class CloseRequest(BaseModel):
+    learned: str = ""
+    """What to remember, one point per line; empty = context/imparato.md is not touched."""
+
+
+@router.get("/activities/{activity}/path")
+def activity_path(project: str, activity: str, service: PlanService = Depends(plan_service)) -> ActivityPath:
+    """The activity's plan (proposals waiting, tasks) with the steps of each task; the summary once none is left."""
+    return service.path(project, activity)
+
+
+@router.post("/activities/{activity}/plan")
+def propose_plan(project: str, activity: str, service: PlanService = Depends(plan_service)) -> ActivityPlan:
+    """One call to the agent ``pianificatore``: tasks for the items still uncovered (502 when the model fails)."""
+    return service.propose(project, activity)
+
+
+@router.post("/activities/{activity}/plan/confirm")
+def confirm_plan(project: str, activity: str, request: PlanConfirmRequest, service: PlanService = Depends(plan_service)) -> ActivityPlan:
+    """The chosen proposals and the tasks written by hand become agent tasks «to do» (409 when a proposal is gone)."""
+    return service.confirm(project, activity, request.choices)
+
+
+@router.post("/activities/{activity}/plan/dismiss")
+def dismiss_plan(project: str, activity: str, service: PlanService = Depends(plan_service)) -> ActivityPlan:
+    """The proposals waiting are dropped; the tasks stay."""
+    return service.dismiss(project, activity)
+
+
 @router.post("/activities/{activity}/plan/pause")
 def pause_plan(project: str, activity: str, request: PauseRequest, service: PlanService = Depends(plan_service)) -> ActivityPlan:
-    """Pause or resume the path (409 without a confirmed plan)."""
+    """«▶️ Avvia» (false) or «⏸ Pausa» (true); 409 without tasks."""
     return service.set_paused(project, activity, request.paused)
-
-
-@router.post("/activities/{activity}/plan/prepare")
-def prepare_plan(project: str, activity: str, request: PrepareRequest, service: PlanService = Depends(plan_service)) -> ActivityPlan:
-    """How the path prepares the repositories before Copilot."""
-    return service.set_prepare(project, activity, request.prepare)
 
 
 @router.post("/activities/{activity}/plan/options")
 def plan_options(project: str, activity: str, request: PlanOptions, service: PlanService = Depends(plan_service)) -> ActivityPlan:
-    """The automations before and after each task and the automatic ok to Copilot's plan (12c)."""
+    """Before delegating (``none``, ``dev``, ``automation:<id>``), the automation after the verification, the automatic ok."""
     return service.set_options(project, activity, request)
 
 
 @router.post("/activities/{activity}/plan/skip")
 def skip_step(project: str, activity: str, request: StepRequest, service: PlanService = Depends(plan_service)) -> ActivityPlan:
-    """Skip a task's preparation or verification."""
+    """Skip a task's preparation, verification or automation after it."""
     return service.skip(project, activity, request.task, request.step)
 
 
 @router.post("/activities/{activity}/plan/retry")
 def retry_step(project: str, activity: str, request: StepRequest, service: PlanService = Depends(plan_service)) -> ActivityPlan:
-    """Run a failed preparation, delegation (at the path's next turn) or verification (now) again."""
+    """Run a failed step again: preparation, delegation, automation (at the round's next turn) or the tests (now)."""
     return service.retry(project, activity, request.task, request.step)
+
+
+@router.post("/activities/{activity}/learned")
+def propose_learned(project: str, activity: str, service: ActivityCloseService = Depends(activity_close_service)) -> LearnedDraft:
+    """One call to the agent ``imparato``: the points to remember (502 when the model fails)."""
+    return service.propose_learned(project, activity)
+
+
+@router.post("/activities/{activity}/close")
+def close_activity(project: str, activity: str, request: CloseRequest,
+                   service: ActivityCloseService = Depends(activity_close_service)) -> ActivityClosed:
+    """What was learned at the top of context/imparato.md, the activity done, its round stopped."""
+    return service.close(project, activity, request.learned)
+
+
+@router.post("/activities/{activity}/reopen", status_code=status.HTTP_204_NO_CONTENT)
+def reopen_activity(project: str, activity: str, service: ActivityCloseService = Depends(activity_close_service)) -> Response:
+    """Back to «in progress»; context/imparato.md is not touched."""
+    service.reopen(project, activity)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

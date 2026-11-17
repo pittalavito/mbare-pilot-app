@@ -28,7 +28,7 @@ def save_context(project: str, name: str, request: NoteRequest, service: Project
                  rag: RagService = Depends(rag_service)) -> ContextSavedResponse:
     """Create or overwrite, then index it (best effort: ``index_error`` says why it was not)."""
     saved = service.save_context(project, name, request.content)
-    return ContextSavedResponse(name=saved.name, index_error=rag.index_quietly(project, "context", saved.name))
+    return ContextSavedResponse(name=saved.name, index_error=rag.index_quietly(project, saved.name))
 
 
 @router.delete("/context/{name}", status_code=status.HTTP_204_NO_CONTENT)

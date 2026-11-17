@@ -1,42 +1,41 @@
-import { Alert, Badge, Button, Card, Checkbox, CloseButton, Group, Modal, ScrollArea, Stack, Tabs, Text, TextInput, Textarea } from "@mantine/core";
+import { Alert, Badge, Button, Card, Checkbox, CloseButton, Group, ScrollArea, Stack, Tabs, Text, TextInput, Textarea } from "@mantine/core";
 import { useState } from "react";
 
 import { useSearchContext } from "../../api/context";
 import { useDraftActivity, useReferences, useSaveActivity } from "../../api/projectData";
 import { ConfluenceImport, JiraImport } from "./AtlassianImport";
 
-/** «📎 Da riferimenti» (plan 16): choose references of the project (also copied
- * from Jira or Confluence, they become references) and pieces of the context
- * index (only their titles, for the proposal); the secretary proposes title,
+/** «📎 Parto da riferimenti», the second way of «➕ Nuova attività» (plans 16
+ * and 18): choose references of the project (also copied from Jira or
+ * Confluence, they become references) and pieces of the context index (only
+ * their titles, for the proposal); the agent ``bozza-attivita`` proposes title,
  * description and todo items in one call; the user corrects them and creates
  * the activity, with the references linked. */
 
 type Created = { name: string };
 
-export function ActivityFromReferences({ project, opened, onClose, onCreated }: {
-  project: string; opened: boolean; onClose: () => void; onCreated: (created: Created) => void;
-}) {
+export function FromReferences({ project, onCreated }: { project: string; onCreated: (created: Created) => void }) {
   const [references, setReferences] = useState<string[]>([]);
   const [context, setContext] = useState<string[]>([]);
   const draft = useDraftActivity(project);
   const save = useSaveActivity(project);
   const [form, setForm] = useState<{ title: string; description: string; items: string }>();
-  const close = () => { setReferences([]); setContext([]); setForm(undefined); draft.reset(); save.reset(); onClose(); };
+  const reset = () => { setReferences([]); setContext([]); setForm(undefined); draft.reset(); save.reset(); };
   const toggle = (list: string[], value: string) => (list.includes(value) ? list.filter((item) => item !== value) : [...list, value]);
   const propose = () => draft.mutate({ references, context }, {
     onSuccess: (proposal) => setForm({ title: proposal.title, description: proposal.description, items: (proposal.items ?? []).join("\n") }),
   });
   const create = () => form && save.mutate({
     body: {
-      title: form.title.trim(), status: "todo", description: form.description.trim(), agent_tasks: [], references, learned: "",
+      title: form.title.trim(), status: "todo", description: form.description.trim(), agent_tasks: [], references,
       items: form.items.split("\n").map((text) => text.trim()).filter(Boolean).map((text) => ({ text, done: false })),
     },
-  }, { onSuccess: (created) => { close(); onCreated(created); } });
+  }, { onSuccess: (created) => { reset(); onCreated(created); } });
   return (
-    <Modal opened={opened} onClose={close} size="xl" title="📎 Nuova attività da riferimenti">
+    <>
       {form ? (
         <Stack gap="sm">
-          <Text size="sm" c="dimmed">La proposta del Segretario: correggila e crea l'attività.</Text>
+          <Text size="sm" c="dimmed">La proposta: correggila e crea l'attività.</Text>
           <TextInput label="Titolo" value={form.title} onChange={(event) => setForm({ ...form, title: event.currentTarget.value })} data-autofocus />
           <Textarea label="Descrizione" autosize minRows={2} value={form.description}
                     onChange={(event) => setForm({ ...form, description: event.currentTarget.value })} />
@@ -85,7 +84,7 @@ export function ActivityFromReferences({ project, opened, onClose, onCreated }: 
           </Group>
         </Stack>
       )}
-    </Modal>
+    </>
   );
 }
 

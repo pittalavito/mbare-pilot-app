@@ -54,8 +54,6 @@ class ProjectTable(SQLModel, table=True):
     """«📌 Oggi»: items due within this many days are «In scadenza»."""
     test_scope: str = Field(default="all", sa_column_kwargs={"server_default": "all"})
     test_commands: dict[str, str] | None = Field(default=None, sa_type=JSON)
-    auto_retries: int = Field(default=1, sa_column_kwargs={"server_default": "1"})
-    """«Lavora attività»: how many times failed tests go back to Copilot by themselves."""
     allowed_commands: list[str] | None = Field(default=None, sa_type=JSON)
     """The commands the Operator may run (plan 11); NULL = none."""
     command_requests: list[dict] | None = Field(default=None, sa_type=JSON)
@@ -369,27 +367,24 @@ class WipRunTable(SQLModel, table=True):
 
 
 class ActivityPlanTable(SQLModel, table=True):
-    """«▶️ Lavora attività» (plan 12a): the Pianificatore's plan of an activity, the
-    latest one counts; the call itself is the agent run with the same ``run_id``."""
+    """The plan of an activity (one per activity, plan 18): tasks, proposals waiting,
+    how the round goes; the Pianificatore's latest call is the agent run with ``run_id``."""
     __tablename__ = "activity_plan"
 
     id: int | None = Field(default=None, primary_key=True)
     project_name: str = _project_fk(nullable=False)
     activity: str = Field(index=True)
-    run_id: str
-    status: str = "proposed"
+    run_id: str = ""
     proposals: list[dict] = Field(default_factory=list, sa_type=JSON)
     tasks: list[dict] = Field(default_factory=list, sa_type=JSON)
     cost_eur: float = 0.0
-    paused: bool = Field(default=False, sa_column_kwargs={"server_default": "0"})
-    prepare: str = Field(default="", sa_column_kwargs={"server_default": ""})
+    paused: bool = True
+    prepare: str = "dev"
     skipped: list[str] | None = Field(default=None, sa_type=JSON)
     errors: dict | None = Field(default=None, sa_type=JSON)
-    retries: dict | None = Field(default=None, sa_type=JSON)
-    before_automation: int | None = None
     after_automation: int | None = None
     automation_runs: dict | None = Field(default=None, sa_type=JSON)
-    auto_approve: bool = Field(default=False, sa_column_kwargs={"server_default": "0"})
+    auto_approve: bool = False
     approved: list[str] | None = Field(default=None, sa_type=JSON)
     created_at: datetime = _timestamp()
     updated_at: datetime = _timestamp()

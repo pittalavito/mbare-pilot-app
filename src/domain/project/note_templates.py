@@ -46,9 +46,6 @@ date per item, the agent tasks born from it)::
     ## Agent task
     - agent-task-note-di-rilascio.md
 
-    ## Imparato
-    Le note di rilascio vanno scritte prima del tag.
-
     ## Riferimenti
     - context-reference-procedura-di-rilascio.md
 
@@ -102,7 +99,7 @@ _TYPE = "Tipo:"
 _TESTS = "Test:"
 _SECTIONS = {"objective": "Obiettivo", "context": "Contesto", "criteria": "Criteri di accettazione", "constraints": "Vincoli"}
 _REFERENCES = "Riferimenti"
-_DESCRIPTION, _TODO, _AGENT_TASKS, _LEARNED = "Descrizione", "Todo", "Agent task", "Imparato"
+_DESCRIPTION, _TODO, _AGENT_TASKS = "Descrizione", "Todo", "Agent task"
 _SOURCE, _SOURCE_SEPARATOR = "Fonte:", " · "
 _CODE_FIELDS = {"repository": "Repository:", "path": "File:", "lines": "Righe:"}
 _CONTENT = "Contenuto"
@@ -156,12 +153,11 @@ def render_activity(activity: Activity) -> str:
         task = _line(item.agent_task or "")
         lines.append(_check(item) + (f"  ({', '.join(details)})" if details else "") + (f"  → {task}" if task else ""))
     lines += _links(_AGENT_TASKS, activity.agent_tasks)
-    lines += ["", f"## {_LEARNED}", activity.learned.strip()] if activity.learned.strip() else []
     return "\n".join(lines + _references(activity.references)) + "\n"
 
 
 def parse_activity(text: str, fallback_title: str) -> Activity:
-    title, head, sections = _split(text, fallback_title, {_DESCRIPTION, _TODO, _AGENT_TASKS, _LEARNED, _REFERENCES})
+    title, head, sections = _split(text, fallback_title, {_DESCRIPTION, _TODO, _AGENT_TASKS, _REFERENCES})
     items = [_todo_item(text, done) for done, text in _checks(head + sections.get(_TODO.lower(), []))]  # head: an old todo list
     label = _value(head, _STATUS).lower()
     status = next((key for key, value in ACTIVITY_STATUS_LABELS.items() if value == label), None)
@@ -174,7 +170,6 @@ def parse_activity(text: str, fallback_title: str) -> Activity:
         items=items,
         agent_tasks=_bullets(sections.get(_AGENT_TASKS.lower(), [])),
         references=_bullets(sections.get(_REFERENCES.lower(), [])),
-        learned=_text(sections.get(_LEARNED.lower(), [])),
     )
 
 

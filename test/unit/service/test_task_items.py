@@ -7,10 +7,10 @@ from fastapi.testclient import TestClient
 
 from core.app import create_app
 from core.container import Container
-from core.error import ConflictError, ValidationError
+from core.error import ValidationError
 from domain.project.note_templates import parse_activity, render_activity
 from models.domain.copilot import CopilotSession, CopilotSessionStatus
-from models.domain.note import Activity, AgentTask, TaskStatus, TaskType, TodoItem, TodoPriority
+from models.domain.note import Activity, AgentTask, TaskStatus, TodoItem, TodoPriority
 from models.domain.project import Project, ProjectSource
 from service.copilot_service import CopilotService
 
@@ -88,23 +88,14 @@ def test_an_item_s_task_is_among_the_activity_s_and_deleting_it_unlinks_the_item
     assert data.activity("acme", activity).agent_tasks == []
 
 
-def test_a_task_from_an_item(data):
+def test_an_item_is_linked_to_an_existing_task(data):
     activity = _release(data)
-    data.save_activity("acme", activity, data.activity("acme", activity).model_copy(
-        update={"items": [*data.activity("acme", activity).items, TodoItem(text="Taggare")]}))
+    name = data.create_agent_task("acme", AgentTask(title="Taggare", status=TaskStatus.TODO))
 
-    name = data.create_task_from_item("acme", activity, 3, "Taggare", TaskType.ANALYSIS)
+    data.link_item("acme", activity, 2, name)
 
-    task = data.agent_task("acme", name)
-    assert (name, task.title, task.status, task.type, task.references) == (
-        "agent-task-taggare.md", "Taggare", TaskStatus.CREATED, TaskType.ANALYSIS, ["note-varie.md"])
-    assert task.context == "Nasce dalla voce 3 dell'attività «Rilascio».\n\nLa 2.0"
     saved = data.activity("acme", activity)
-    assert saved.items[2].agent_task == name and saved.agent_tasks == [TASK, name]
-    with pytest.raises(ConflictError, match="già un agent task"):
-        data.create_task_from_item("acme", activity, 3, "Taggare", TaskType.DEVELOPMENT)
-    with pytest.raises(ConflictError, match="cambiata"):
-        data.create_task_from_item("acme", activity, 1, "Altro", TaskType.DEVELOPMENT)
+    assert saved.items[1].agent_task == name and name in saved.agent_tasks
     with pytest.raises(ValidationError, match="Voce 9"):
         data.link_item("acme", activity, 9, name)
 
@@ -114,12 +105,10 @@ def test_the_api(stores, project_store, tmp_path):
     with TestClient(create_app(Container(stores=stores))) as client:
         name = client.post("/projects/acme/activities", json={"title": "Rilascio", "items": [{"text": "Note"}]}).json()["name"]
 
-        created = client.post(f"/projects/acme/activities/{name}/items/1/agent-task", json={"text": "Note", "type": "analysis"})
-        assert created.status_code == 201
-        task = created.json()
-        assert (task["name"], task["status"], task["type"]) == ("agent-task-note.md", "created", "analysis")
+        client.post(f"/projects/acme/activities/{name}/plan/confirm", json={"choices": [{"title": "Note", "type": "analysis", "items": [1]}]})
+        task = client.get("/projects/acme/agent-tasks").json()[0]
+        assert (task["name"], task["status"], task["type"]) == ("agent-task-note.md", "todo", "analysis")
         assert client.get("/projects/acme/activities").json()[0]["items"][0]["agent_task"] == "agent-task-note.md"
-        assert client.post(f"/projects/acme/activities/{name}/items/1/agent-task", json={"text": "Note"}).status_code == 409
 
         body = {key: value for key, value in task.items() if key != "name"} | {"status": "done"}
         saved = client.put("/projects/acme/agent-tasks/agent-task-note.md", json=body).json()

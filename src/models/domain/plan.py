@@ -38,14 +38,6 @@ class PlanProposal(PlannedTask):
     """No item: a task for something the todo list does not have (it becomes an item too)."""
 
 
-class PlanStatus(StrEnum):
-    PROPOSED = "proposed"
-    """The proposals wait for the user."""
-    CONFIRMED = "confirmed"
-    """The tasks exist: the path follows them."""
-    DISMISSED = "dismissed"
-
-
 class PlanTask(BaseModel):
     """A task of the confirmed plan, in its place."""
     task: str
@@ -55,46 +47,46 @@ class PlanTask(BaseModel):
 
 
 class ActivityPlan(BaseModel):
+    """The activity's one plan (plan 18): the tasks created, in order, the
+    Pianificatore's proposals still waiting for the user, and how the round goes."""
     id: int | None = None
     project_name: str
     activity: str
     """The activity's note."""
-    run_id: str
-    """The Pianificatore's call (agent run: tokens, cost)."""
-    status: PlanStatus = PlanStatus.PROPOSED
+    run_id: str = ""
+    """The Pianificatore's latest call (agent run: tokens, cost); ``""`` = only tasks written by hand."""
     proposals: list[PlanProposal] = []
+    """Waiting for the user (none = nothing to choose)."""
     tasks: list[PlanTask] = []
-    """Once confirmed: the tasks created, in order."""
+    """The tasks created, in order: the round follows them."""
     cost_eur: float = 0.0
-    paused: bool = False
-    """The automatic path (12b) stops where it is until resumed."""
-    prepare: str = ""
-    """How the path prepares the repositories before Copilot: ``none``, ``dev``
-    («Prepara sviluppo»), ``learned:<id>`` (an automation learned from the
-    Operator); ``""`` = the learned one if any, else «Prepara sviluppo» if any, else none."""
+    """Every call of the Pianificatore for this activity."""
+    paused: bool = True
+    """The round starts only with «▶️ Avvia» and stops with «⏸ Pausa»."""
+    prepare: str = "dev"
+    """Before delegating a development: ``none``, ``dev`` («Prepara sviluppo»), ``automation:<id>`` (an automation of the project)."""
     skipped: list[str] = []
     """The steps skipped by the user, as ``<task>|<step>``."""
     errors: dict[str, str] = {}
-    """Why a step the path ran failed (preparation, delegation), as ``<task>|<step>`` → error."""
-    retries: dict[str, int] = {}
-    """How many times the path sent a task's failed tests back to Copilot by itself."""
-    before_automation: int | None = None
-    """12c: an automation the path runs before each development task (after its confirmation)."""
+    """Why a step the round ran failed (preparation, delegation, automation), as ``<task>|<step>`` → error."""
     after_automation: int | None = None
-    """12c: an automation the path runs after each development task's verification, before the final confirmation."""
+    """An automation the round runs after each development's verification, before the final confirmation."""
     automation_runs: dict[str, int] = {}
-    """The runs of those automations, as ``<task>|before`` / ``<task>|after`` → pipeline run id."""
+    """The runs of that automation, as ``<task>|after`` → pipeline run id."""
     auto_approve: bool = False
-    """12c: the path gives the ok to Copilot's plan by itself (developments only)."""
+    """The round gives the ok to Copilot's plan by itself (developments only)."""
     approved: list[str] = []
-    """The tasks whose plan the path approved by itself (once each)."""
+    """The tasks whose plan the round approved by itself (once each)."""
     created_at: datetime = Field(default_factory=_utc_now)
     updated_at: datetime = Field(default_factory=_utc_now)
 
 
 class PlanChoice(BaseModel):
-    """A proposal the user keeps, as corrected; the order of the choices is the plan's."""
-    id: int
+    """A proposal the user keeps, as corrected, or a task written by hand (``id`` None,
+    with the numbers of its ``items``); the order of the choices is the plan's."""
+    id: int | None = None
+    items: list[int] = []
+    """Only for a task written by hand: the items it covers."""
     title: str = Field(min_length=1)
     type: TaskType
     repository: str = ""
@@ -113,10 +105,6 @@ class StepState(StrEnum):
 
 
 class StepKey(StrEnum):
-    CONFIRM = "confirm"
-    """«Conferma del task»: objective and criteria written by the Pianificatore."""
-    BEFORE = "before"
-    """12c: the activity's automation before each development task."""
     PREPARE = "prepare"
     """The repositories got ready before Copilot (developments): skippable."""
     DELEGATE = "delegate"
@@ -127,7 +115,7 @@ class StepKey(StrEnum):
     VERIFY = "verify"
     """«Verifica sviluppo»: cleaning and tests."""
     AFTER = "after"
-    """12c: the activity's automation after each development task's verification."""
+    """The activity's automation after each development's verification."""
     ANSWER = "answer"
     """Copilot's answer, saved as a note (the types that do not change the code)."""
     FINAL = "final"
@@ -135,22 +123,20 @@ class StepKey(StrEnum):
 
 
 STEP_LABELS: dict[StepKey, str] = {
-    StepKey.CONFIRM: "Conferma del task",
-    StepKey.BEFORE: "Automation prima",
     StepKey.PREPARE: "Preparazione",
     StepKey.DELEGATE: "Delega a Copilot",
     StepKey.COPILOT_PLAN: "Piano di Copilot",
     StepKey.EXECUTION: "Esecuzione",
     StepKey.VERIFY: "Verifica",
-    StepKey.AFTER: "Automation dopo",
+    StepKey.AFTER: "Dopo la verifica",
     StepKey.ANSWER: "Risposta di Copilot",
     StepKey.FINAL: "Conferma finale",
 }
 
 
-SKIPPABLE: set[StepKey] = {StepKey.PREPARE, StepKey.VERIFY, StepKey.BEFORE, StepKey.AFTER}
+SKIPPABLE: set[StepKey] = {StepKey.PREPARE, StepKey.VERIFY, StepKey.AFTER}
 """The steps the user can skip."""
-RETRYABLE: set[StepKey] = {StepKey.PREPARE, StepKey.DELEGATE, StepKey.VERIFY, StepKey.BEFORE, StepKey.AFTER}
+RETRYABLE: set[StepKey] = {StepKey.PREPARE, StepKey.DELEGATE, StepKey.VERIFY, StepKey.AFTER}
 """The failed steps the user can run again."""
 
 
@@ -188,7 +174,7 @@ class ActivityPath(BaseModel):
 
 
 class PlanOptions(BaseModel):
-    """12c: the activity's automations before and after each task, and the automatic ok to Copilot's plan."""
-    before_automation: int | None = None
+    """How the round goes: the preparation before delegating, the automation after the verification, the automatic ok."""
+    prepare: str = "dev"
     after_automation: int | None = None
     auto_approve: bool = False

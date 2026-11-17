@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { mockApi, renderPage } from "../../test/render";
-import { ActivityFromReferences } from "./ActivityFromReferences";
+import { NewActivityModal } from "./NewActivityModal";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -26,12 +26,14 @@ function api(draft: unknown = { title: "Login con OTP", description: "L'OTP al l
   return { drafted, created };
 }
 
+/** «➕ Nuova attività» on its second way, «📎 Parto da riferimenti». */
 const render = (onCreated = vi.fn()) => {
-  renderPage(<ActivityFromReferences project="acme" opened onClose={() => {}} onCreated={onCreated} />);
+  renderPage(<NewActivityModal project="acme" opened onClose={() => {}} onCreated={onCreated} />);
+  fireEvent.click(screen.getByText("📎 Parto da riferimenti"));
   return onCreated;
 };
 
-describe("«📎 Da riferimenti»", () => {
+describe("«➕ Nuova attività» · «📎 Parto da riferimenti»", () => {
   it("chooses references and context, gets the proposal, corrects it and creates the activity", async () => {
     const { drafted, created } = api();
     const onCreated = render();

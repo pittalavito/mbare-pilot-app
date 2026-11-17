@@ -77,10 +77,11 @@ agents:
 
 - **Ruolo**: deve essere dello stesso ambito dell'agente. Un ruolo con lo stesso nome ma di un altro progetto (o globale, per un agente di progetto) è un errore: scegli un altro nome.
 - **Prompt**: se il testo cambia diventa la **versione successiva** del prompt del ruolo, e l'agente la usa. Le versioni vecchie restano. Testo uguale = nessuna nuova versione.
-- **`output`** (piano 17): la **risposta strutturata**, il nome di uno schema del codice (`STRUCTURED_OUTPUTS` in `domain/agent/outputs.py`); un nome sconosciuto è un errore; omesso = testo. L'app chiama per nome tre agenti di `global-agent.yml`, ognuno con una chiamata sola e senza tool ([service](src/service/README.md#agenti-con-risposta-strutturata-piano-17)):
+- **`output`** (piano 17): la **risposta strutturata**, il nome di uno schema del codice (`STRUCTURED_OUTPUTS` in `domain/agent/outputs.py`); un nome sconosciuto è un errore; omesso = testo. L'app chiama per nome quattro agenti di `global-agent.yml`, ognuno con una chiamata sola e senza tool ([service](src/service/README.md#agenti-con-risposta-strutturata-piano-17)):
   - `wip` (`output: wip`) per «📥 Elabora WIP»;
-  - `pianificatore` (`output: plan`) per «▶️ Lavora attività»;
-  - `bozza-attivita` (`output: draft`) per «📎 Da riferimenti».
+  - `pianificatore` (`output: plan`) per lo step Pianifica di un'attività;
+  - `bozza-attivita` (`output: draft`) per «📎 Parto da riferimenti» in «➕ Nuova attività»;
+  - `imparato` (`output: learned`) per lo step Chiudi: cosa ha insegnato l'attività, per `context/imparato.md`.
 
   Prompt e modello si cambiano qui (o nella Libreria); un agente che manca o con un altro `output` è un errore quando la funzione parte.
 

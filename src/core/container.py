@@ -10,6 +10,7 @@ from domain.chat.models_default import DEFAULT_CHAT_MODELS
 from domain.client.embedding.embedder import Factory as EmbedderFactory
 from domain.process.manager import ProcessManager
 from domain.project.folder_browser import FolderBrowser
+from service.activity_close_service import ActivityCloseService
 from service.activity_draft_service import ActivityDraftService
 from service.agent_config_service import AgentConfigService
 from service.agent_service import AgentService
@@ -131,6 +132,9 @@ class Container:
             project_data=self.project_data_service, masking=self.masking_service, agents=self.structured_agents, plans=stores.plans,
             git=self.git_service, rag=self.rag_service, copilot=self.copilot_service, pipelines=stores.pipelines,
         )
+        self.activity_close_service = ActivityCloseService(project_data=self.project_data_service, masking=self.masking_service,
+                                                           agents=self.structured_agents, plan=self.plan_service, plans=stores.plans,
+                                                           rag=self.rag_service)
         self.activity_draft_service = ActivityDraftService(project_data=self.project_data_service, masking=self.masking_service,
                                                            agents=self.structured_agents)
         self.definition_service = DefinitionService(

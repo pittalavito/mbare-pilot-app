@@ -57,16 +57,6 @@ def test_the_new_types_and_status_are_written_in_italian():
     assert parse_agent_task("# Storia\n\nTipo: Task Jira\n", "x").type == TaskType.JIRA
 
 
-def test_imparato_is_written_only_when_there_is_something_and_comes_back():
-    activity = Activity(title="Rilascio", status=ActivityStatus.DONE, learned="Le note prima del tag.\nE il changelog.")
-
-    text = render_activity(activity)
-
-    assert "## Imparato\nLe note prima del tag.\nE il changelog.\n" in text
-    assert parse_activity(text, "x") == activity
-    assert "## Imparato" not in render_activity(Activity(title="Vuota"))
-
-
 def test_only_a_development_is_executed_by_copilot():
     assert [kind for kind in TaskType if not kind.plan_only] == [TaskType.DEVELOPMENT]
 
