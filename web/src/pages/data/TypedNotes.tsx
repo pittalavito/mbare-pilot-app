@@ -16,6 +16,7 @@ import { useAgentPanel } from "../project/AgentPanel";
 import { DelegateModal } from "../copilot/DelegateModal";
 import { ActivityPath } from "../work/ActivityPath";
 import { SendBackModal } from "../copilot/SendBackModal";
+import { ActivityFromReferences } from "./ActivityFromReferences";
 import { ChecklistEditor } from "./ChecklistEditor";
 import { ReferencesSection } from "./ReferencesSection";
 import { PublishButton } from "./PublishModal";
@@ -111,6 +112,7 @@ export function Activities({ project }: { project: string }) {
   const tasks = useAgentTasks(project);
   const save = useSaveActivity(project);
   const [search, setSearch] = useSearchParams();
+  const [fromReferences, setFromReferences] = useState(false);
   const requested = search.get("note");
   const task = tasks.data?.find((item) => item.name === requested);
   const parent = task && activities.data?.find((activity) => activity.agent_tasks.includes(task.name));
@@ -122,6 +124,7 @@ export function Activities({ project }: { project: string }) {
         items={activities.data}
         error={activities.error?.message}
         newLabel="Nuova attività"
+        toolbar={<Button variant="light" onClick={() => setFromReferences(true)}>📎 Da riferimenti</Button>}
         intro="Un'attività è una cosa da fare: una descrizione, la sua todo list (priorità e scadenza facoltative per voce) e gli agent task che ne nascono. È una nota attivita-<titolo>.md."
         describe={(activity) => {
           const status = ACTIVITY_STATUS.find((item) => item.value === activity.status) ?? ACTIVITY_STATUS[0];
@@ -144,6 +147,8 @@ export function Activities({ project }: { project: string }) {
           </Stack>
         ) : <ActivityEditor key={activity.name} project={project} activity={activity} />)}
       />
+      <ActivityFromReferences project={project} opened={fromReferences} onClose={() => setFromReferences(false)}
+                              onCreated={(created) => setSearch({ note: created.name }, { replace: true })} />
     </>
   );
 }

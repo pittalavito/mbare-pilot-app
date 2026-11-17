@@ -2220,6 +2220,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/activities/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Draft Activity
+         * @description One call to the secretary's model: title, description and todo items (400 with nothing chosen, 502 when the model fails).
+         */
+        post: operations["draft_activity_projects__project__activities_draft_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project}/context": {
         parameters: {
             query?: never;
@@ -2557,6 +2577,49 @@ export interface components {
              * @default
              */
             learned: string;
+        };
+        /**
+         * ActivityDraft
+         * @description The proposal in clear, for the user to correct before creating the activity.
+         */
+        ActivityDraft: {
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Items */
+            items?: string[];
+            /**
+             * References
+             * @default []
+             */
+            references: string[];
+            /** Run Id */
+            run_id: string;
+            /**
+             * Cost Eur
+             * @default 0
+             */
+            cost_eur: number;
+        };
+        /** ActivityDraftRequest */
+        ActivityDraftRequest: {
+            /**
+             * References
+             * @default []
+             */
+            references: string[];
+            /**
+             * Context
+             * @default []
+             */
+            context: string[];
         };
         /**
          * ActivityPath
@@ -9941,6 +10004,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActivityPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    draft_activity_projects__project__activities_draft_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActivityDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityDraft"];
                 };
             };
             /** @description Validation Error */

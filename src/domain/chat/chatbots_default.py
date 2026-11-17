@@ -31,3 +31,11 @@ DEFAULT_PLAN_PROMPT = (
     "Le parole come REPO_1 o TERMINE_2 sono nomi nascosti: usale così come sono. Non inventare."
 )
 """The secretary's instructions for the Pianificatore when its ``plan_prompt`` is empty."""
+
+DEFAULT_DRAFT_PROMPT = (
+    "Dai titoli dei riferimenti e del contesto che ti do proponi una nuova attività di lavoro.\n"
+    "Rispondi solo nello schema dato, in italiano, breve: un titolo, una descrizione di una o due frasi e poche voci\n"
+    "della todo, concrete, nell'ordine in cui farle. Hai solo i titoli: non inventare dettagli che non ci sono.\n"
+    "Le parole come REPO_1 o TERMINE_2 sono nomi nascosti: usale così come sono."
+)
+"""The secretary's instructions for «📎 Da riferimenti» (titles only, one structured call)."""
