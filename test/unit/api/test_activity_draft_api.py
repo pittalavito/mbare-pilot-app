@@ -29,8 +29,8 @@ def client(stores, monkeypatch, project_store, tmp_path, model, default_chatbots
 
 
 def test_a_proposal_from_references_and_context(client, model):
-    draft = client.post("/projects/acme/activities/draft",
-                        json={"references": ["context-reference-spec-login", "context-reference-spec-login.md"], "context": ["Architettura · Login", " "]}).json()
+    references = ["context-reference-spec-login", "context-reference-spec-login.md"]
+    draft = client.post("/projects/acme/activities/draft", json={"references": references, "context": ["Architettura · Login", " "]}).json()
 
     assert (draft["title"], draft["items"]) == ("Login con OTP", ["Analisi", "Sviluppo"])
     assert draft["references"] == ["context-reference-spec-login.md"]
