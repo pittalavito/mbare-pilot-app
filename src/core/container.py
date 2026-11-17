@@ -12,6 +12,7 @@ from domain.client.embedding.embedder import Factory as EmbedderFactory
 from domain.pipeline.legacy import TOOL_NAMES_RENAMED
 from domain.process.manager import ProcessManager
 from domain.project.folder_browser import FolderBrowser
+from service.activity_draft_service import ActivityDraftService
 from service.agent_config_service import AgentConfigService
 from service.agent_service import AgentService
 from service.atlassian_service import AtlassianService
@@ -136,6 +137,10 @@ class Container:
             project_data=self.project_data_service, masking=self.masking_service, chatbots=stores.chatbots, chat=self.chat_service,
             catalog=stores.catalog, runs=stores.runs, plans=stores.plans, git=self.git_service, rag=self.rag_service, copilot=self.copilot_service,
             pipelines=stores.pipelines,
+        )
+        self.activity_draft_service = ActivityDraftService(
+            project_data=self.project_data_service, masking=self.masking_service, chatbots=stores.chatbots, chat=self.chat_service,
+            catalog=stores.catalog, runs=stores.runs,
         )
         self.definition_service = DefinitionService(
             definitions=stores.definitions,

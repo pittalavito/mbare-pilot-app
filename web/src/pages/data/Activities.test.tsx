@@ -45,6 +45,16 @@ function api() {
 }
 
 describe("activities", () => {
+  it("opens «📎 Da riferimenti» next to «Nuova attività»", async () => {
+    api();
+    renderData();
+    fireEvent.click(await screen.findByRole("tab", { name: /Attività/ }));
+
+    fireEvent.click(await screen.findByRole("button", { name: "📎 Da riferimenti" }));
+
+    expect(await screen.findByText("📎 Nuova attività da riferimenti")).toBeInTheDocument();
+  });
+
   it("suggests «done» when every item is done", async () => {
     const { savedActivity } = api();
     renderData();

@@ -204,6 +204,15 @@ export function useDeleteFile(project: string) {
   });
 }
 
+/** «📎 Da riferimenti»: the secretary proposes title, description and todo items
+ * from the titles of the chosen references and context pieces (nothing is created). */
+export function useDraftActivity(project: string) {
+  return useMutation({
+    mutationFn: (body: { references: string[]; context: string[] }) =>
+      unwrap(api.POST("/projects/{project}/activities/draft", { params: { path: { project } }, body })),
+  });
+}
+
 // --------------------------------------------------------------- references
 
 /** Every code and context reference, with the tasks and activities that link it. */

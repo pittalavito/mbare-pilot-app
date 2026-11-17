@@ -19,6 +19,7 @@ src/controller/
   masking_controller.py       /projects/{progetto}/masking
   wip_controller.py           /projects/{progetto}/wip
   plan_controller.py          /projects/{progetto}/activities/{a}/plan|path, /agent-tasks/{t}/confirm («▶️ Lavora attività»)
+  activity_draft_controller.py /projects/{progetto}/activities/draft («📎 Da riferimenti»: la proposta del Segretario)
   context_controller.py       /projects/{progetto}/context, /context-index (RAG)
   metrics_controller.py       /observability/metrics, /observability/evaluations
   today_controller.py         /projects/{progetto}/today, Spunta e Rimanda di una voce

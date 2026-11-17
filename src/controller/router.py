@@ -3,6 +3,7 @@ core/app.py includes only the aggregate ``router`` below — adding a scope
 means adding a ``<scope>_controller.py`` and one include here."""
 from fastapi import APIRouter
 
+from controller.activity_draft_controller import router as activity_draft_router
 from controller.admin_controller import router as admin_router
 from controller.agent_controller import router as agent_router
 from controller.atlassian_controller import router as atlassian_router
@@ -52,6 +53,7 @@ router.include_router(process_router)
 router.include_router(copilot_router)
 router.include_router(wip_router)
 router.include_router(plan_router)
+router.include_router(activity_draft_router)
 router.include_router(context_router)
 router.include_router(metrics_router)
 router.include_router(today_router)
