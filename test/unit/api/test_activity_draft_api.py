@@ -6,7 +6,6 @@ from fastapi.testclient import TestClient
 
 from core.app import create_app
 from core.container import Container
-from domain.chat.chatbots_default import DEFAULT_DRAFT_PROMPT
 from fakes import FakeStructuredClient as FakeClient
 from models.domain.activity_draft import DraftAnswer
 from models.domain.project import Project, ProjectSource
@@ -35,7 +34,7 @@ def test_a_proposal_from_references_and_context(client, model):
     assert (draft["title"], draft["items"]) == ("Login con OTP", ["Analisi", "Sviluppo"])
     assert draft["references"] == ["context-reference-spec-login.md"]
     [call] = model.calls
-    assert call["system_prompt"] == DEFAULT_DRAFT_PROMPT
+    assert call["system_prompt"].startswith("Dai titoli dei riferimenti")
     assert "spec login" in call["input"] and "Architettura · Login" in call["input"]
     assert "segreto" not in call["input"]  # only the titles
     assert client.get("/projects/acme/activities").json() == []  # nothing created
@@ -71,11 +70,17 @@ def test_an_empty_structured_answer_is_a_502(client, model, monkeypatch):
     assert client.post("/projects/acme/activities/draft", json={"context": ["Architettura"]}).status_code == 502
 
 
-def test_without_a_secretary_is_a_400(client, stores):
-    for bot in stores.chatbots.list_chatbots("acme"):
-        stores.chatbots.delete_chatbot(bot.id)
+def test_without_the_agent_is_a_404(client, stores):
+    stores.agents.delete_config("bozza-attivita")
 
-    assert client.post("/projects/acme/activities/draft", json={"context": ["Architettura"]}).status_code == 400
+    assert client.post("/projects/acme/activities/draft", json={"context": ["Architettura"]}).status_code == 404
+
+
+def test_the_run_is_the_agent_s(client, stores):
+    draft = client.post("/projects/acme/activities/draft", json={"context": ["Architettura"]}).json()
+
+    [run] = [run for run in stores.runs.list_runs() if run.run_id == draft["run_id"]]
+    assert (run.origin, run.config_name, run.model) == ("draft", "bozza-attivita", "gpt-4o-mini")
 
 
 def test_model_input_keeps_the_call_small():

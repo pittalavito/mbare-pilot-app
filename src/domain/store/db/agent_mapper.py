@@ -29,6 +29,7 @@ class Adapter:
             model=row.model,
             max_steps=row.max_steps,
             tool_names=list(row.tool_names),
+            output=row.output,
         )
 
 
@@ -50,4 +51,5 @@ class Factory:
             model=config.model,
             max_steps=config.max_steps,
             tool_names=list(config.tool_names),
+            output=config.output,
         )

@@ -48,7 +48,7 @@ function api() {
   return { created, saved };
 }
 
-const renderData = (route = "/projects/acme/data") =>
+const renderData = (route = "/projects/acme/work") =>
   renderPage(<Routes>{zoneRoutes()}</Routes>, { route });
 
 describe("an item's agent task", () => {
@@ -91,7 +91,7 @@ describe("an item's agent task", () => {
   it("confirming the task says which items got checked", async () => {
     const shown = vi.spyOn(notifications, "show");
     const { saved } = api();
-    renderData(`/projects/acme/data?note=${NOTE_TASK.name}`);
+    renderData(`/projects/acme/work?note=${NOTE_TASK.name}`);
 
     fireEvent.click(await screen.findByRole("button", { name: /Conferma/ }));
 

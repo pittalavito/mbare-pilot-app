@@ -73,7 +73,7 @@ export function CopilotUsage() {
                   <Table.Td>{localTime(turn.created_at)}</Table.Td>
                   <Table.Td>{turn.project_name}</Table.Td>
                   <Table.Td>
-                    <Anchor component={Link} size="sm" to={`/projects/${encodeURIComponent(turn.project_name)}/copilot?session=${turn.session_id}`}>
+                    <Anchor component={Link} size="sm" to={`/projects/${encodeURIComponent(turn.project_name)}/work?note=${encodeURIComponent(turn.task_note)}`}>
                       {taskLabel(turn.task_note)}
                     </Anchor>
                   </Table.Td>

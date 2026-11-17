@@ -45,7 +45,7 @@ def test_check_does_not_save_and_completes_the_chain(acme, pipeline_service):
     ("name: Vuota\nsteps: []", "steps"),
     ("name: X\nsteps: [{name: S, tool: non_esiste}]", "non esiste"),
     ("name: X\nsteps: [{name: S, tool: git_log, args: {limite: 0}}]", "limite"),
-    ("name: X\nsteps: [{name: S, function: git_status}]", "le funzioni ora sono tool"),
+    ("name: X\nsteps: [{name: S, function: git_status}]", "function: extra inputs"),
     ("name: X\nsteps: [{name: A, tool: git_status}, {name: B, tool: git_status}]\n"
      "edges: [{from: input, to: A}, {from: A, to: B}, {from: B, to: A}]", "ciclo"),
     ("name: X\nsteps: [{name: S, agent: inesistente}]", "non esiste più"),

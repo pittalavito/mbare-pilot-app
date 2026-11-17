@@ -1,7 +1,6 @@
 import { Alert, Button, Group, Modal, Stack, Text, Textarea } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 
 import { useCopilotMessages, useCopilotSessions, useSendBackCopilot } from "../../api/copilot";
 
@@ -38,7 +37,7 @@ export function SendBackModal({ project, task, opened, onClose }: { project: str
         )}
         {session && (
           <Text size="sm" c="dimmed">
-            Nella stessa sessione (<SessionLink project={project} id={session.id} />): Copilot ricorda il piano e le sue modifiche e riparte in
+            Nella stessa sessione (sessione #{session.id}): Copilot ricorda il piano e le sue modifiche e riparte in
             esecuzione con il tuo messaggio.
           </Text>
         )}
@@ -57,8 +56,4 @@ export function SendBackModal({ project, task, opened, onClose }: { project: str
       </Stack>
     </Modal>
   );
-}
-
-function SessionLink({ project, id }: { project: string; id: number }) {
-  return <Link to={`/projects/${encodeURIComponent(project)}/copilot?session=${id}`}>apri la sessione</Link>;
 }

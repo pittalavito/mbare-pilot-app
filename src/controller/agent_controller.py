@@ -1,9 +1,11 @@
 """Agents endpoints — everything under /agents. ``?project=<name>`` selects a
 project's agents; without it, the global ones (Library)."""
 from fastapi import APIRouter, Depends, Response, status
+from pydantic import BaseModel
 
 from controller.dependencies import agent_config_service
 from core.error import NotFoundError
+from domain.agent.outputs import OUTPUT_DESCRIPTIONS, STRUCTURED_OUTPUTS
 from models.controller.agent import AgentCreateRequest, AgentResponse, AgentUpdateRequest
 from models.domain.agent import AgentConfig
 from service.agent_config_service import AgentConfigService
@@ -15,6 +17,17 @@ router = APIRouter(prefix="/agents", tags=["agents"])
 def list_agents(project: str | None = None, include_global: bool = False, service: AgentConfigService = Depends(agent_config_service)) -> list[AgentResponse]:
     """The agents of ``project`` (optionally with the global ones), or the global ones."""
     return _responses(service, service.list_configs(project, include_global=include_global))
+
+
+class AgentOutput(BaseModel):
+    name: str
+    description: str
+
+
+@router.get("/outputs")
+def agent_outputs() -> list[AgentOutput]:
+    """The structured answers an agent can give (``output``); ``""`` = text."""
+    return [AgentOutput(name=name, description=OUTPUT_DESCRIPTIONS[name]) for name in STRUCTURED_OUTPUTS]
 
 
 @router.get("/{name}")

@@ -29,7 +29,7 @@ const PROPOSALS = {
 };
 
 const renderData = () =>
-  renderPage(<Routes>{zoneRoutes()}</Routes>, { route: "/projects/acme/data?note=wip.md" }); // an old link: «Lavoro» → WIP
+  renderPage(<Routes>{zoneRoutes()}</Routes>, { route: "/projects/acme/work?note=wip.md" }); // an old link: «Lavoro» → WIP
 
 describe("the WIP note", () => {
   it("has its tab in «Lavoro», even before it exists, and can be processed only with new saved text", async () => {

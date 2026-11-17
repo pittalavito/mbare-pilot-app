@@ -443,18 +443,6 @@ def test_the_task_type_picks_the_planning_prompt_unless_one_is_chosen(data, proj
         assert session.prompt == "" and first_turn(session).startswith("Ti affido il task")  # plan_prompt
 
 
-def test_older_files_with_the_refinement_type_still_read_as_jira(data, project, config, stores):
-    (config.definitions_root / "coding-agent").mkdir()
-    (config.definitions_root / "coding-agent" / "storia.md").write_text("Rifinisci la storia.\n{task_folder}", encoding="utf-8")
-    path = config.definitions_root / "global-coding-agent.yml"
-    path.write_text(path.read_text(encoding="utf-8") + "type_prompts:\n  refinement: storia\ntask_checklists:\n  refinement: [chiave]\n",
-                    encoding="utf-8")
-
-    settings = _service(stores, data).coding_agent()
-
-    assert settings.type_prompts == {TaskType.JIRA: "storia"} and settings.task_checklists == {TaskType.JIRA: ["chiave"]}
-
-
 def test_task_checklists_per_type_and_the_project_replaces_them(data, project, config, stores):
     path = config.definitions_root / "global-coding-agent.yml"
     path.write_text(path.read_text(encoding="utf-8") + "task_checklists:\n  development: [repository, criteri]\n  jira: [chiave]\n",

@@ -8,6 +8,7 @@ project) or owned by one project. A project config may use a global role or
 one of its own; a global config only global roles. Prompts follow their role.
 Names are unique across all scopes."""
 from core.error import ConflictError, NotFoundError, ValidationError
+from domain.agent.outputs import STRUCTURED_OUTPUTS
 from models.domain.agent import AgentConfig, AgentRole, AgentSpec, SystemPrompt, ToolInfo
 from service.model_service import require_usable_model
 from service.store.agent_store import AgentStore
@@ -125,6 +126,8 @@ class AgentConfigService:
         unusable = [name for name in config.tool_names if name not in usable]
         if unusable:
             raise ValidationError(f"Tool non disponibili: {', '.join(unusable)}")
+        if config.output and config.output not in STRUCTURED_OUTPUTS:
+            raise ValidationError(f"Risposta strutturata sconosciuta: {config.output} (si può: {', '.join(STRUCTURED_OUTPUTS)}).")
         return self._agents.save_config(config)
 
     def delete_config(self, name: str) -> bool:

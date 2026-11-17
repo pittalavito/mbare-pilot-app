@@ -7,6 +7,7 @@ src/domain/agent/
   base.py       Factory: agente datapizza e memoria della conversazione
   tracing.py    Adapter: dagli span di datapizza a token, costi e tool call
   masking.py    AgentMask: l'unico punto dove una run maschera (input, cronologia, output dei tool) e smaschera (risposta, argomenti)
+  outputs.py    STRUCTURED_OUTPUTS: le risposte strutturate di un agente (output: wip, plan, draft) e i nomi degli agenti che l'app chiama
 ```
 
 I modelli dati (`AgentDefinition`, `RunTelemetry`, `TokenSummary`, …) stanno in [`models/domain/agent.py`](../../models/README.md). Chi usa questo package è `AgentService` (`service/agent_service.py`): costruisce l'agente, lo esegue dentro il tracing e salva la run.

@@ -4,12 +4,12 @@ of a proposal (the same rules as a save, nothing saved) and, after the
 user's ok, the agent task for a missing tool. Saving a proposal is the
 user's click in the chat, never a tool. Only in a chatbot's run of a project."""
 from typing import Annotated
-from urllib.parse import quote
 
 from datapizza.tools import Tool, tool
 
 from core.error import AppError
 from domain.pipeline import yaml_format
+from domain.project.links import note_link
 from models.domain.dev import PREPARE_AUTOMATION, VERIFY_AUTOMATION
 from models.domain.note import AgentTask, ChecklistItem, TaskStatus, TaskType
 from models.domain.pipeline import EdgeConditionKind, StepKind
@@ -130,7 +130,7 @@ def build_create_tool_task(context: ToolContext) -> Tool:
                 data.link_agent_task(project, parent, name)
         except AppError as exc:
             return ToolErrorResponse(error=str(exc))
-        return ToolTaskResponse(task=name, title=title.strip(), activity=parent, link=f"/projects/{quote(project)}/data?note={quote(name)}")
+        return ToolTaskResponse(task=name, title=title.strip(), activity=parent, link=note_link(project, name))
 
     return create_tool_task
 

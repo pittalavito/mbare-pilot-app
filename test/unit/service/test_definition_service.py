@@ -131,14 +131,14 @@ def test_the_project_chatbot_takes_its_prompt_from_a_file_next_to_it(services, d
     existing = chatbots.create_chatbot("acme", "assistente", "Prompt da UI.", MODEL)
     other = chatbots.create_chatbot("acme", "Vecchio", "Resta com'è.", MODEL)
     _write(definition_store, f"{PROJECT_DIR}/prompt.md", "Sei il mio assistente.\n")
-    _write(definition_store, f"{PROJECT_DIR}/chat-bot.yml", f"""
-name: Assistente
-model: {MODEL}
-tools: [list_automations, run_automation]
-system_prompt_file: prompt.md
+    _write(definition_store, f"{PROJECT_DIR}/chat-bots.yml", f"""chatbots:
+  - name: Assistente
+    model: {MODEL}
+    tools: [list_automations, run_automation]
+    system_prompt_file: prompt.md
 """)
 
-    assert _outcomes(definitions.sync("acme")) == [(f"{PROJECT_DIR}/chat-bot.yml", "Assistente", "updated")]
+    assert _outcomes(definitions.sync("acme")) == [(f"{PROJECT_DIR}/chat-bots.yml", "Assistente", "updated")]
 
     by_id = {bot.id: bot for bot in chatbots.list_chatbots("acme")}
     assert (by_id[existing.id].name, by_id[existing.id].system_prompt, by_id[existing.id].tool_names) == (
@@ -157,23 +157,22 @@ def test_a_project_has_many_chatbots_and_gets_the_global_ones_it_does_not_redefi
   - {{name: automazioni, model: {MODEL}, system_prompt: Sostituito dal progetto.}}
   - {{name: Generico, model: {MODEL}, system_prompt: Per tutti.}}
 """)
-    _write(definition_store, "global-chat-bot.yml", f"name: Vecchio formato\nmodel: {MODEL}\nsystem_prompt: Ancora letto.\n")
 
     assert _outcomes(definitions.sync("acme")) == [
         (f"{PROJECT_DIR}/chat-bots.yml", "Automazioni", "created"), (f"{PROJECT_DIR}/chat-bots.yml", "Codice", "created"),
-        ("global-chat-bots.yml", "Generico", "created"), ("global-chat-bot.yml", "Vecchio formato", "created"),
+        ("global-chat-bots.yml", "Generico", "created"),
     ]
     assert sorted((bot.name, bot.system_prompt) for bot in chatbots.list_chatbots("acme")) == [
-        ("Automazioni", "Lancia automation."), ("Codice", "Delega a Copilot."), ("Generico", "Per tutti."), ("Vecchio formato", "Ancora letto."),
+        ("Automazioni", "Lancia automation."), ("Codice", "Delega a Copilot."), ("Generico", "Per tutti."),
     ]
-    assert [entry.state.value for entry in definitions.preview("acme")] == ["exists"] * 4
+    assert [entry.state.value for entry in definitions.preview("acme")] == ["exists"] * 3
 
 
 def test_without_its_own_the_project_gets_the_global_chatbot(services, definition_store):
     definitions, chatbots, _ = services
-    _write(definition_store, "global-chat-bot.yml", f"name: Globale\nmodel: {MODEL}\nsystem_prompt: Sei generico.\n")
+    _write(definition_store, "global-chat-bots.yml", f"chatbots:\n  - {{name: Globale, model: {MODEL}, system_prompt: Sei generico.}}\n")
 
-    assert _outcomes(definitions.sync("acme")) == [("global-chat-bot.yml", "Globale", "created")]
+    assert _outcomes(definitions.sync("acme")) == [("global-chat-bots.yml", "Globale", "created")]
     assert [bot.name for bot in chatbots.list_chatbots("acme")] == ["Globale"]
 
 
@@ -278,7 +277,7 @@ def test_the_preview_lists_what_the_files_define_and_applies_nothing(services, d
     definitions, chatbots, pipelines = services
     _write(definition_store, f"{PROJECT_DIR}/agent.yml", "agents:" + REVIEWER + "  - {name: rotto}\n")
     _write(definition_store, f"{PROJECT_DIR}/automation.yml", "automations:" + CONTROLLO)
-    _write(definition_store, "global-chat-bot.yml", f"name: Assistente\nmodel: {MODEL}\nsystem_prompt: Ciao.\n")
+    _write(definition_store, "global-chat-bots.yml", f"chatbots:\n  - {{name: Assistente, model: {MODEL}, system_prompt: Ciao.}}\n")
     _write(definition_store, "global-automation.yml", "automations: [rotto")
     definitions.sync("acme", only=[DefinitionKey(kind=DefinitionKind.AGENT, file=f"{PROJECT_DIR}/agent.yml", name="reviewer")])
 
@@ -287,7 +286,7 @@ def test_the_preview_lists_what_the_files_define_and_applies_nothing(services, d
     assert preview == [
         ("agent", f"{PROJECT_DIR}/agent.yml", "reviewer", "exists"),
         ("agent", f"{PROJECT_DIR}/agent.yml", "rotto", "error"),
-        ("chatbot", "global-chat-bot.yml", "Assistente", "new"),
+        ("chatbot", "global-chat-bots.yml", "Assistente", "new"),
         ("automation", f"{PROJECT_DIR}/automation.yml", "Controllo", "new"),
         ("automation", "global-automation.yml", None, "error"),
     ]
@@ -299,7 +298,7 @@ def test_a_sync_can_apply_only_the_chosen_elements(services, definition_store):
     definitions, chatbots, pipelines = services
     _write(definition_store, f"{PROJECT_DIR}/agent.yml", "agents:" + REVIEWER)
     _write(definition_store, f"{PROJECT_DIR}/automation.yml", "automations:" + CONTROLLO + "  - {name: Altra, steps: [{name: S, tool: git_status}]}\n")
-    _write(definition_store, "global-chat-bot.yml", f"name: Assistente\nmodel: {MODEL}\nsystem_prompt: Ciao.\n")
+    _write(definition_store, "global-chat-bots.yml", f"chatbots:\n  - {{name: Assistente, model: {MODEL}, system_prompt: Ciao.}}\n")
     chosen = [entry for entry in definitions.preview("acme") if entry.name in {"reviewer", "Controllo"}]
 
     report = definitions.sync("acme", only=chosen)
@@ -323,26 +322,6 @@ def test_a_chatbot_s_tools_come_from_the_files_and_must_suit_its_kind(services, 
     assert (bot.kind.value, bot.tool_names) == ("automation", ["list_tools", "validate_automation"])  # as written, not imposed
     assert _outcomes(definitions.sync("acme"))[0] == (f"{PROJECT_DIR}/chat-bots.yml", "Automazioni", "unchanged")
     assert "non può usare git_status" in definitions.preview("acme")[1].message
-
-
-def test_the_secretary_s_wip_prompt_comes_from_the_files(services, definition_store):
-    definitions, chatbots, _ = services
-    _write(definition_store, f"{PROJECT_DIR}/chat-bots.yml", f"""chatbots:
-  - {{name: Segretario, kind: secretary, model: {MODEL}, system_prompt: Segretario., wip_prompt: Proponi solo voci.}}
-  - {{name: Sbagliato, model: {MODEL}, system_prompt: X., wip_prompt: Non mio.}}
-""")
-
-    assert [outcome for _, _, outcome in _outcomes(definitions.sync("acme"))] == ["created", "error"]
-    [bot] = chatbots.list_chatbots("acme")
-    assert (bot.wip_prompt, bot.wip_prompt_version) == ("Proponi solo voci.", 1)
-    assert "wip_prompt vale solo per un chatbot secretary" in definitions.preview("acme")[1].message
-
-    _write(definition_store, f"{PROJECT_DIR}/chat-bots.yml", f"""chatbots:
-  - {{name: Segretario, kind: secretary, model: {MODEL}, system_prompt: Segretario., wip_prompt: Proponi anche attività.}}
-""")
-    assert _outcomes(definitions.sync("acme"))[0][2] == "updated"
-    [bot] = chatbots.list_chatbots("acme")
-    assert (bot.wip_prompt, bot.wip_prompt_version) == ("Proponi anche attività.", 2)
 
 
 def test_the_chatbots_of_the_files_are_created_where_missing_and_never_changed(services, caplog, catalog_store, project_store,

@@ -1,6 +1,6 @@
 """«Elabora WIP»: the new text of a project's WIP note (``wip.md``, after the
 last sign) turned into proposals for its activities by **one call** to the
-secretary's model, with a **structured answer** (``WipAnswer``), then applied
+agent ``wip`` of global-agent.yml, with a **structured answer** (``WipAnswer``), then applied
 by the app **without LLM** once the user chose them.
 
 1. **Preview** (no LLM): the text the model would get, exactly, masked: the
@@ -9,8 +9,8 @@ by the app **without LLM** once the user chose them.
    emails, URLs, IPs and keys are masked only for this call
    (domain/masking/preview.py). Over ``WORD_LIMIT`` words the user may
    process only the first paragraphs.
-2. **Process**: the same text, masked again the same way, to the secretary's
-   model with its ``wip_prompt`` (``""`` = ``DEFAULT_WIP_PROMPT``). The
+2. **Process**: the same text, masked again the same way, to the agent
+   ``wip`` (its prompt and model from global-agent.yml). The
    proposals come back with their values in clear; one naming an activity or
    an item that is not in the list is dropped. The call is recorded as an
    agent run (origin ``wip``: tokens, cost, latency) and as a ``WipRun``.
@@ -21,20 +21,13 @@ by the app **without LLM** once the user chose them.
    proposals without applying any; all of them count as discarded, no sign."""
 import json
 from datetime import date, datetime, timezone
-from time import perf_counter
-from uuid import uuid4
-
-from datapizza.tracing import ContextTracing
 
 from core.error import AppError, ConflictError, NotFoundError, UpstreamError, ValidationError
-from core.observability import LogPrefix, log_exception, observed
-from domain.agent.tracing import Adapter as TracingAdapter
-from domain.chat.chatbots_default import DEFAULT_WIP_PROMPT
+from core.observability import LogPrefix, observed
+from domain.agent.outputs import WIP as WIP_OUTPUT, WIP_AGENT
 from domain.masking.preview import MaskedText, masked_text, tagged_terms, unmask, without_tags
 from domain.project import wip
-from models.domain.agent import AgentRunRecord, RunOrigin
-from models.domain.chat import split_model_key
-from models.domain.chatbot import Chatbot, ChatbotKind
+from models.domain.agent import RunOrigin
 from models.domain.masking import MaskCategory, MaskEntry
 from models.domain.note import Activity, ActivityStatus, TodoItem, TodoPriority
 from models.domain.wip import (
@@ -49,14 +42,10 @@ from models.domain.wip import (
     WipRun,
     WipState,
 )
-from service.chat_service import ChatService
 from service.masking_service import MIN_LENGTH, MaskingService
-from service.model_service import require_usable_model
 from service.project_data_service import ProjectDataService
-from service.store.catalog_store import CatalogStore
-from service.store.chatbot_store import ChatbotStore
-from service.store.run_store import RunStore
 from service.store.wip_store import WipStore
+from service.structured_agent_service import StructuredAgentService
 
 _WEEKDAYS = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"]
 _PRIORITIES = {ProposalPriority.HIGH: TodoPriority.HIGH, ProposalPriority.MEDIUM: TodoPriority.MEDIUM, ProposalPriority.LOW: TodoPriority.LOW}
@@ -83,14 +72,10 @@ class Listing:
 
 class WipService:
 
-    def __init__(self, project_data: ProjectDataService, masking: MaskingService, chatbots: ChatbotStore, chat: ChatService,
-                 catalog: CatalogStore, runs: RunStore, wip_runs: WipStore):
+    def __init__(self, project_data: ProjectDataService, masking: MaskingService, agents: StructuredAgentService, wip_runs: WipStore):
         self._data = project_data
         self._masking = masking
-        self._chatbots = chatbots
-        self._chat = chat
-        self._catalog = catalog
-        self._runs = runs
+        self._agents = agents
         self._wip_runs = wip_runs
 
     # ------------------------------------------------------------------ read
@@ -122,7 +107,7 @@ class WipService:
     # --------------------------------------------------------------- process
     @observed(LogPrefix.WIP_SERVICE)
     def process(self, project_name: str, paragraphs: int | None = None, today: date | None = None) -> WipResult:
-        """One call to the secretary's model on the previewed text; the
+        """One call to the agent ``wip`` on the previewed text; the
         proposals in clear. UpstreamError when the model fails (the run is
         recorded anyway)."""
         today = today or date.today()
@@ -130,40 +115,18 @@ class WipService:
         if not new:
             raise ValidationError("Niente da elaborare: la WIP non ha testo nuovo dopo l'ultimo segno.")
         processed = wip.first_paragraphs(new, paragraphs)
+        agent = self._agents.agent(WIP_AGENT, WIP_OUTPUT)
         masked, listing = self._masked(project_name, processed, today)
-        secretary = self._secretary(project_name)
-        require_usable_model(self._catalog, secretary.model)
-        client = self._chat.get_client(secretary.model)
-        system_prompt = secretary.wip_prompt or DEFAULT_WIP_PROMPT
-
-        answer, error = None, None
-        start = perf_counter()
-        with ContextTracing().trace(f"wip.{secretary.name}") as current_trace:
-            try:
-                response = client.structured_response(input=masked.text, output_cls=WipAnswer, system_prompt=system_prompt)
-                if not response.structured_data:
-                    raise ValueError("nessuna risposta strutturata")
-                data = response.structured_data[0]
-                answer = WipAnswer.model_validate(data.model_dump() if hasattr(data, "model_dump") else data)
-            except Exception as exc:  # noqa: BLE001 - any failure of the call is recorded and reported
-                log_exception(LogPrefix.WIP_SERVICE, "Elabora WIP fallita (%s)", project_name)
-                error = str(exc) or type(exc).__name__
-            telemetry = TracingAdapter.to_run_telemetry(current_trace.get_spans(), self._catalog.price_list())
-        latency_ms = round((perf_counter() - start) * 1000, 1)
-
+        call = self._agents.call(agent, masked.text)
         entries = self._masking.entries(project_name)
+        answer = call.answer if isinstance(call.answer, WipAnswer) else None
         proposals = to_proposals(answer, listing, entries, masked.temporary) if answer else []
-        run_id = str(uuid4())
-        self._runs.save(AgentRunRecord(
-            run_id=run_id, project_name=project_name, origin=RunOrigin.WIP, config_name=f"wip/{secretary.name}", role_name="wip",
-            prompt_id=0, prompt_version=secretary.wip_prompt_version, model=split_model_key(secretary.model)[1], ok=error is None,
-            error=error, latency_ms=latency_ms, input=unmask(masked.text, entries, masked.temporary),
-            output=json.dumps([proposal.model_dump(mode="json") for proposal in proposals], ensure_ascii=False), telemetry=telemetry,
-        ))
-        if error is not None:
-            raise UpstreamError(f"Il segretario non ha risposto: {error}")
-        self._wip_runs.save_run(WipRun(run_id=run_id, project_name=project_name, model=secretary.model,
-                                       prompt_version=secretary.wip_prompt_version, proposed=len(proposals), processed=processed))
+        run_id = self._agents.save(call, project_name=project_name, origin=RunOrigin.WIP, input=unmask(masked.text, entries, masked.temporary),
+                                   output=json.dumps([proposal.model_dump(mode="json") for proposal in proposals], ensure_ascii=False))
+        if call.error is not None:
+            raise UpstreamError(f"L'agente {agent.name} non ha risposto: {call.error}")
+        self._wip_runs.save_run(WipRun(run_id=run_id, project_name=project_name, model=agent.model,
+                                       prompt_version=agent.prompt_version, proposed=len(proposals), processed=processed))
         return WipResult(run_id=run_id, proposals=proposals)
 
     # ----------------------------------------------------------------- apply
@@ -221,12 +184,6 @@ class WipService:
             return self._data.read_note(project_name, wip.WIP_NOTE)
         except NotFoundError:
             return ""
-
-    def _secretary(self, project_name: str) -> Chatbot:
-        secretary = next((bot for bot in self._chatbots.list_chatbots(project_name) if bot.kind is ChatbotKind.SECRETARY), None)
-        if secretary is None:
-            raise ValidationError("Nessun segretario nel progetto: aggiungilo in global-chat-bots.yml (si crea all'avvio o con «Sincronizza da file»).")
-        return secretary
 
     def _masked(self, project_name: str, processed: str, today: date) -> tuple[MaskedText, Listing]:
         """The whole input of the call, masked: the ``mask{}`` terms are added to the map first."""

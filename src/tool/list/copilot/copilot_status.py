@@ -7,9 +7,10 @@ from typing import Annotated
 from datapizza.tools import Tool, tool
 
 from core.error import AppError
+from domain.project.links import note_link
 from models.domain.tool import CopilotStatusResponse, ToolErrorResponse
 from tool.context import ToolContext
-from tool.list.copilot.delegate_task import chat_link, copilot_run
+from tool.list.copilot.delegate_task import copilot_run
 from tool.spec import ToolSpec
 
 SessionId = Annotated[int, "The session id that delegate_task answered with."]
@@ -39,7 +40,7 @@ def build(context: ToolContext) -> Tool:
             status=session.status.value,
             changed_files=len(session.changed_files),
             head_moved=session.head_moved,
-            chat=chat_link(session.project_name, session_id),
+            chat=note_link(session.project_name, session.task_note),
         )
 
     return copilot_status

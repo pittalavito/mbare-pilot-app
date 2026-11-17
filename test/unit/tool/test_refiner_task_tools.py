@@ -77,7 +77,7 @@ def test_reading_the_open_task_gives_its_references_and_its_types_checklist(cont
         "content": "Il login ci mette 10 s.",
     }]  # the deleted one is left out
     assert task["checklist"] == ["chiave della issue", "criteri attesi"]  # only its type's
-    assert task["link"] == f"/projects/Acme%20Srl/data?note={IN_LAVORO}"
+    assert task["link"] == f"/projects/Acme%20Srl/work?note={IN_LAVORO}"
 
 
 def test_no_checklist_when_the_type_has_none_or_the_definition_cannot_be_read(context):

@@ -57,12 +57,7 @@ class Factory:
         )
 
 
-_RENAMED_NOTE_TYPES = {"todo_list": NoteType.ACTIVITY.value}
-"""Saved before a type was renamed: read as the new one."""
-
-
 def _note_types(values: list[str]) -> list[NoteType]:
-    """The saved values that are note types (renamed ones as the new name); unknown ones dropped."""
+    """The saved values that are note types; unknown ones dropped."""
     known = set(NoteType.__members__.values())
-    return list(dict.fromkeys(NoteType(_RENAMED_NOTE_TYPES.get(value, value)) for value in values
-                              if _RENAMED_NOTE_TYPES.get(value, value) in known))
+    return list(dict.fromkeys(NoteType(value) for value in values if value in known))

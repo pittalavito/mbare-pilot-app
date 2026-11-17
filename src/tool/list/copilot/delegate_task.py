@@ -7,11 +7,11 @@ user to confirm task and repository before calling it.
 Copilot's answer stays in its chat (it can quote code): the tool returns only
 the session and the link. Only in a chatbot's run of a project."""
 from typing import Annotated
-from urllib.parse import quote
 
 from datapizza.tools import Tool, tool
 
 from core.error import AppError
+from domain.project.links import note_link
 from models.domain.agent import RunOrigin
 from models.domain.copilot import CopilotMessageRole
 from models.domain.tool import DelegateTaskResponse, ToolErrorResponse
@@ -49,7 +49,7 @@ def build(context: ToolContext) -> Tool:
             task=task,
             repository=repository,
             copilot_answered=answered,
-            chat=chat_link(project_name, session.id),
+            chat=note_link(project_name, task),
             next_step=(
                 "Apri la chat di Copilot, rispondi alle sue domande e premi «Ok, parti» quando il piano ti va bene."
                 if answered else "Copilot non ha risposto: apri la chat per vedere l'errore."
@@ -63,11 +63,6 @@ def build(context: ToolContext) -> Tool:
 def copilot_run(context: ToolContext) -> bool:
     """The Copilot tools work only here: a chatbot's run of a project."""
     return context.copilot is not None and context.project_name is not None and context.origin is RunOrigin.CHAT
-
-
-def chat_link(project_name: str, session_id: int) -> str:
-    """The session's chat in the app: the link opens its task, whose agent panel shows it."""
-    return f"/projects/{quote(project_name)}/copilot?session={session_id}"
 
 
 DELEGATE_TASK = ToolSpec(

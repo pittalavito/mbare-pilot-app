@@ -3,7 +3,7 @@ under ``<MBARE_PILOT_HOME>/definition/`` (layout in domain/project/data_paths.py
 ``agent.yml`` / ``global-agent.yml`` hold a list ``agents:`` of ``AgentFile``,
 ``automation.yml`` / ``global-automation.yml`` a list ``automations:`` of
 ``AutomationFile``, ``chat-bots.yml`` / ``global-chat-bots.yml`` a list
-``chatbots:`` of ``ChatbotFile`` (``chat-bot.yml`` / ``global-chat-bot.yml``: one),
+``chatbots:`` of ``ChatbotFile``,
 ``coding-agent.yml`` / ``global-coding-agent.yml`` one ``CodingAgentFile``
 (read by CopilotService at every use, never synced).
 
@@ -39,11 +39,13 @@ class AgentFile(_File):
     model: ModelKey
     max_steps: int = Field(default=4, ge=1, le=50)
     tools: list[str] = Field(default_factory=list)
+    output: str = ""
+    """The structured answer: ``wip``, ``plan``, ``draft`` (STRUCTURED_OUTPUTS); omitted = text."""
     system_prompt: Prompt
 
 
 class ChatbotFile(_File):
-    """An element of ``chatbots:`` (or the whole ``chat-bot.yml``): a chatbot of
+    """An element of ``chatbots:``: a chatbot of
     the project, matched by name. The prompt is written here or in a file next
     to this one (``system_prompt_file``), used as it is."""
     name: Name
@@ -55,19 +57,11 @@ class ChatbotFile(_File):
     tools: list[str] = Field(default_factory=list)
     system_prompt: Prompt | None = None
     system_prompt_file: str | None = None
-    wip_prompt: Prompt | None = None
-    """Only ``kind: secretary``: the instructions of «Elabora WIP» (omitted = the default in the code)."""
-    plan_prompt: Prompt | None = None
-    """Only ``kind: secretary``: the instructions of the Pianificatore, «▶️ Lavora attività» (omitted = the default in the code)."""
 
     @model_validator(mode="after")
     def _one_prompt(self) -> "ChatbotFile":
         if (self.system_prompt is None) == (self.system_prompt_file is None):
             raise ValueError("scrivi system_prompt oppure system_prompt_file (uno dei due)")
-        if self.wip_prompt is not None and self.kind is not ChatbotKind.SECRETARY:
-            raise ValueError("wip_prompt vale solo per un chatbot secretary")
-        if self.plan_prompt is not None and self.kind is not ChatbotKind.SECRETARY:
-            raise ValueError("plan_prompt vale solo per un chatbot secretary")
         wrong = not_allowed(self.kind, self.tools)
         if wrong:
             raise ValueError(f"un chatbot {self.kind} non può usare {', '.join(wrong)} (può: {', '.join(KIND_TOOLS[self.kind])})")
@@ -129,14 +123,6 @@ class CodingAgentFile(_File):
     """Copilot models to choose from when delegating (``--model``): a name, or
     ``{name, input, cached_input, cache_write, output, note, long_context}``."""
 
-    @field_validator("type_prompts", "task_checklists", mode="before")
-    @classmethod
-    def _old_types(cls, value: Any) -> Any:
-        """``refinement`` (rifinire una storia) is now ``jira``: an older file still reads."""
-        if isinstance(value, dict) and "refinement" in value and TaskType.JIRA.value not in value:
-            value = {(TaskType.JIRA.value if key == "refinement" else key): item for key, item in value.items()}
-        return value
-
     @field_validator("models", mode="before")
     @classmethod
     def _plain_names(cls, value: Any) -> Any:
@@ -154,15 +140,10 @@ class CodingAgentFile(_File):
 class StepFile(_File):
     """A step of an automation: exactly one of ``tool`` (a tool of the registry,
     with its ``args``), ``agent`` (an agent of the project or of the Library) or
-    an own agent (``system_prompt`` + ``model``, optional ``tools`` and ``max_steps``).
-    ``function`` (before plan 15) is refused with how to write it now."""
+    an own agent (``system_prompt`` + ``model``, optional ``tools`` and ``max_steps``)."""
     name: Name
     input: str = INPUT
     """What the step receives: ``{input}``, ``{pipeline_input}``, ``{nodo:Nome}``, ``{in:campo}``."""
-    function: str | None = None
-    """Refused: the functions are tools now (plan 15)."""
-    params: dict[str, Any] = Field(default_factory=dict)
-    """Refused, with ``function``."""
     tool: str | None = None
     args: dict[str, Any] = Field(default_factory=dict)
     """The tool's arguments; strings can use ``{input}``, ``{pipeline_input}``, ``{nodo:Nome}``, ``{in:campo}``."""
@@ -174,8 +155,6 @@ class StepFile(_File):
 
     @model_validator(mode="after")
     def _one_kind(self) -> "StepFile":
-        if self.function is not None or self.params:
-            raise ValueError(f"step {self.name}: le funzioni ora sono tool: scrivi «tool: {self.function or '…'}» con «args:» al posto di params")
         kinds = [self.tool is not None, self.agent is not None, self.system_prompt is not None]
         if sum(kinds) != 1:
             raise ValueError(f"step {self.name}: scrivi uno solo tra tool, agent e system_prompt")

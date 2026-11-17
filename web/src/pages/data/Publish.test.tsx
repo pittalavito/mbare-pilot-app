@@ -40,7 +40,7 @@ const renderData = (route: string) =>
 describe("publish a draft", () => {
   it("a new Confluence page, under a parent, from the task", async () => {
     const { published } = api("confluence", { mode: "create", space_key: "DOC", unmasked: ["REPO_1 → login-api"] });
-    renderData("/projects/acme/data?note=agent-task-guida.md");
+    renderData("/projects/acme/work?note=agent-task-guida.md");
 
     fireEvent.click(await screen.findByRole("button", { name: /Pubblica su Confluence/ }));
     const dialog = await screen.findByRole("dialog");
@@ -57,7 +57,7 @@ describe("publish a draft", () => {
 
   it("a new Jira issue needs its type; from the draft note", async () => {
     const { published } = api("jira", { mode: "create", project_key: "NAV" });
-    renderData("/projects/acme/data?note=bozza-guida.md");
+    renderData("/projects/acme/project?note=bozza-guida.md");
 
     fireEvent.click(await screen.findByRole("button", { name: /Pubblica su Jira/ }));
     const dialog = await screen.findByRole("dialog");
@@ -74,7 +74,7 @@ describe("publish a draft", () => {
   it("an update shows the comparison with the current text", async () => {
     api("jira", { mode: "update", reference: "context-reference-nav-7.md", target_title: "NAV-7 · Login lento", target_body: "## Contesto\nTesto vecchio",
                   target_url: "https://acme.atlassian.net/browse/NAV-7" });
-    renderData("/projects/acme/data?note=agent-task-guida.md");
+    renderData("/projects/acme/work?note=agent-task-guida.md");
 
     fireEvent.click(await screen.findByRole("button", { name: /Pubblica su Jira/ }));
     const dialog = await screen.findByRole("dialog");
@@ -87,7 +87,7 @@ describe("publish a draft", () => {
 
   it("no button without a draft or for another type", async () => {
     api("confluence", { mode: "create" }, []);
-    renderData("/projects/acme/data?note=agent-task-guida.md");
+    renderData("/projects/acme/work?note=agent-task-guida.md");
     expect(await screen.findByDisplayValue("Guida")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Pubblica su/ })).not.toBeInTheDocument();
   });

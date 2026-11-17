@@ -1,11 +1,11 @@
 """«▶️ Lavora attività» (plan 12a): from an activity to its agent tasks, in order,
 and the path of each one.
 
-1. **Propose**: **one call** to the secretary's model with its ``plan_prompt``
-   (``""`` = ``DEFAULT_PLAN_PROMPT``) and a **structured answer**
-   (``PlanAnswer``), no tools, few tokens: the activity's title, description
-   and items not done yet (numbered), the project's repositories, the task
-   types and the 3 nearest pieces of the context index. Masked like «Elabora
+1. **Propose**: **one call** to the agent ``pianificatore`` of global-agent.yml
+   with a **structured answer** (``PlanAnswer``), no tools, few tokens: the
+   activity's title, description and items not done yet (numbered), the titles
+   of its references, the project's repositories, the task types and the 3
+   nearest pieces of the context index. Masked like «Elabora
    WIP»; the proposals come back in clear. A task on items that do not exist
    loses them; one without items is «new». Recorded as an agent run (origin
    ``plan``) and as the activity's plan, waiting for the user.
@@ -28,20 +28,13 @@ and the path of each one.
    (switched on per activity) and, once no task is left, the summary composed
    by the code, to put in «Imparato»."""
 import json
-from time import perf_counter
-from uuid import uuid4
-
-from datapizza.tracing import ContextTracing
 
 from core.error import AppError, ConflictError, NotFoundError, UpstreamError, ValidationError
 from core.observability import LogPrefix, log_exception, observed
-from domain.agent.tracing import Adapter as TracingAdapter
-from domain.chat.chatbots_default import DEFAULT_PLAN_PROMPT
+from domain.agent.outputs import PLAN, PLAN_AGENT
 from domain.masking.preview import masked_text, unmask
 from domain.project.data_paths import note_file_name
-from models.domain.agent import AgentRunRecord, RunOrigin
-from models.domain.chat import split_model_key
-from models.domain.chatbot import Chatbot, ChatbotKind
+from models.domain.agent import RunOrigin
 from models.domain.copilot import CopilotMessageRole, CopilotSession, CopilotSessionStatus
 from models.domain.dev import PREPARE_AUTOMATION, VERIFY_FAILED, VERIFY_OK, LearnedPreparation, PrepareTarget
 from models.domain.masking import MaskCategory
@@ -65,19 +58,15 @@ from models.domain.plan import (
     StepState,
     step_id,
 )
-from service.chat_service import ChatService
 from service.copilot_service import CopilotService
 from service.dev_checks_service import DevChecksService
 from service.git_service import GitService
 from service.masking_service import MaskingService
-from service.model_service import require_usable_model
 from service.project_data_service import ProjectDataService
 from service.rag_service import RagService
-from service.store.catalog_store import CatalogStore
-from service.store.chatbot_store import ChatbotStore
 from service.store.pipeline_store import PipelineStore
 from service.store.plan_store import PlanStore
-from service.store.run_store import RunStore
+from service.structured_agent_service import StructuredAgentService
 
 PREPARE_NONE = "none"
 PREPARE_DEV = "dev"
@@ -93,15 +82,12 @@ _TYPES = "development (cambia il codice), analysis (analisi del codice), conflue
 
 class PlanService:
 
-    def __init__(self, project_data: ProjectDataService, masking: MaskingService, chatbots: ChatbotStore, chat: ChatService,
-                 catalog: CatalogStore, runs: RunStore, plans: PlanStore, git: GitService, rag: RagService | None = None,
+    def __init__(self, project_data: ProjectDataService, masking: MaskingService, agents: StructuredAgentService,
+                 plans: PlanStore, git: GitService, rag: RagService | None = None,
                  copilot: CopilotService | None = None, pipelines: PipelineStore | None = None):
         self._data = project_data
         self._masking = masking
-        self._chatbots = chatbots
-        self._chat = chat
-        self._catalog = catalog
-        self._runs = runs
+        self._agents = agents
         self._plans = plans
         self._git = git
         self._rag = rag
@@ -124,41 +110,31 @@ class PlanService:
         repositories = [repository.path for repository in self._git.repositories(project_name)]
         for path in repositories:
             self._masking.register(project_name, MaskCategory.REPOSITORY, path)
+        agent = self._agents.agent(PLAN_AGENT, PLAN)
         entries = self._masking.entries(project_name)
-        masked = masked_text(model_input(activity, open_items, repositories, self._context(project_name, activity)), entries)
-        secretary = self._secretary(project_name)
-        require_usable_model(self._catalog, secretary.model)
-        client = self._chat.get_client(secretary.model)
-
-        answer, error = None, None
-        start = perf_counter()
-        with ContextTracing().trace(f"plan.{secretary.name}") as current_trace:
-            try:
-                response = client.structured_response(input=masked.text, output_cls=PlanAnswer,
-                                                      system_prompt=secretary.plan_prompt or DEFAULT_PLAN_PROMPT)
-                if not response.structured_data:
-                    raise ValueError("nessuna risposta strutturata")
-                data = response.structured_data[0]
-                answer = PlanAnswer.model_validate(data.model_dump() if hasattr(data, "model_dump") else data)
-            except Exception as exc:  # noqa: BLE001 - any failure of the call is recorded and reported
-                log_exception(LogPrefix.PLAN_SERVICE, "Pianificatore fallito (%s · %s)", project_name, name)
-                error = str(exc) or type(exc).__name__
-            telemetry = TracingAdapter.to_run_telemetry(current_trace.get_spans(), self._catalog.price_list())
-        latency_ms = round((perf_counter() - start) * 1000, 1)
+        references = self._reference_titles(project_name, activity)
+        masked = masked_text(model_input(activity, open_items, repositories, self._context(project_name, activity), references), entries)
+        call = self._agents.call(agent, masked.text)
 
         clear = lambda text: unmask(text, entries, masked.temporary).strip()  # noqa: E731
+        answer = call.answer if isinstance(call.answer, PlanAnswer) else None
         proposals = to_proposals(answer, open_items, repositories, clear) if answer else []
-        run_id = str(uuid4())
-        self._runs.save(AgentRunRecord(
-            run_id=run_id, project_name=project_name, origin=RunOrigin.PLAN, config_name=f"plan/{secretary.name}", role_name="plan",
-            prompt_id=0, prompt_version=secretary.plan_prompt_version, model=split_model_key(secretary.model)[1], ok=error is None,
-            error=error, latency_ms=latency_ms, input=unmask(masked.text, entries, masked.temporary),
-            output=json.dumps([proposal.model_dump(mode="json") for proposal in proposals], ensure_ascii=False), telemetry=telemetry,
-        ))
-        if error is not None:
-            raise UpstreamError(f"Il Pianificatore non ha risposto: {error}")
+        run_id = self._agents.save(call, project_name=project_name, origin=RunOrigin.PLAN, input=unmask(masked.text, entries, masked.temporary),
+                                   output=json.dumps([proposal.model_dump(mode="json") for proposal in proposals], ensure_ascii=False))
+        if call.error is not None:
+            raise UpstreamError(f"Il Pianificatore non ha risposto: {call.error}")
         return self._plans.save(ActivityPlan(project_name=project_name, activity=name, run_id=run_id, proposals=proposals,
-                                             cost_eur=round(telemetry.total_tokens.cost_eur, 6)))
+                                             cost_eur=round(call.telemetry.total_tokens.cost_eur, 6)))
+
+    def _reference_titles(self, project_name: str, activity: Activity) -> list[str]:
+        """The titles of the activity's references; one that is gone is left out."""
+        titles = []
+        for name in activity.references:
+            try:
+                titles.append(self._data.reference(project_name, name)[1].title)
+            except AppError:
+                continue
+        return titles
 
     def _context(self, project_name: str, activity: Activity) -> list[str]:
         """The nearest pieces of the context index, as lines; none without an index (best effort)."""
@@ -170,12 +146,6 @@ class PlanService:
         except AppError:
             return []
         return [f"[{hit.title}{' · ' + hit.section if hit.section else ''}] {' '.join(hit.text.split())[:_PIECE_CHARS]}" for hit in hits]
-
-    def _secretary(self, project_name: str) -> Chatbot:
-        secretary = next((bot for bot in self._chatbots.list_chatbots(project_name) if bot.kind is ChatbotKind.SECRETARY), None)
-        if secretary is None:
-            raise ValidationError("Nessun segretario nel progetto: aggiungilo in global-chat-bots.yml (si crea all'avvio o con «Sincronizza da file»).")
-        return secretary
 
     # --------------------------------------------------------------- confirm
     @observed(LogPrefix.PLAN_SERVICE)
@@ -540,11 +510,13 @@ def _path_steps(steps: list[tuple[StepKey, StepState, str]]) -> list[PathStep]:
     return [PathStep(key=key, label=STEP_LABELS[key], state=state, detail=detail) for key, state, detail in steps]
 
 
-def model_input(activity: Activity, items: dict[int, str], repositories: list[str], context: list[str]) -> str:
+def model_input(activity: Activity, items: dict[int, str], repositories: list[str], context: list[str], references: list[str] | None = None) -> str:
     """The text the Pianificatore gets, before masking."""
     lines = [f"Attività: {activity.title}"]
     if activity.description.strip():
         lines.append(activity.description.strip())
+    if references:
+        lines.append("Riferimenti: " + ", ".join(references))
     lines.append("\nVoci da fare:")
     lines += [f"{number}. {text}" for number, text in items.items()] or ["(nessuna)"]
     lines.append("\nRepository: " + (", ".join(path or "(cartella del progetto)" for path in repositories) or "(nessuno)"))

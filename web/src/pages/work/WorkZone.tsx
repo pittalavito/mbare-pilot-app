@@ -7,7 +7,7 @@ import { WIP_NOTE } from "../../api/wip";
 import { WipEditor } from "../data/DataTab";
 import { TodayPanel } from "../data/TodayPanel";
 import { Activities, AgentTasks } from "../data/TypedNotes";
-import { noteZone } from "../project/redirects";
+import { noteZone } from "../project/noteZone";
 
 /** The zone «Lavoro» of a project, where it opens: «📌 Oggi» on top, then the
  * activities (an agent task opens inside the activity it is born from), every

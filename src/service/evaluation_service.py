@@ -22,19 +22,16 @@ import re
 from collections.abc import Callable
 from datetime import date, datetime, timezone
 from pathlib import Path
-from time import perf_counter
-
-from datapizza.tracing import ContextTracing
 
 from core.error import AppError, NotFoundError, ValidationError
 from core.observability import LogPrefix, log_exception, observed
-from domain.agent.tracing import Adapter as TracingAdapter
-from domain.chat.chatbots_default import DEFAULT_WIP_PROMPT
+from domain.agent.outputs import WIP as WIP_OUTPUT, WIP_AGENT
 from domain.client.embedding.embedder import Embedder, Factory
 from domain.evaluation.scoring import compare, describe, describe_expected, rank, retrieval
 from domain.masking.preview import masked_text, tagged_terms
 from domain.project.data_paths import typed_note_file_name
 from domain.rag.chunking import split_markdown, title_of
+from models.domain.agent import AgentDefinition
 from models.domain.evaluation import (
     EvaluationKind,
     EvaluationReport,
@@ -47,11 +44,11 @@ from models.domain.evaluation import (
 from models.domain.masking import MaskCategory, MaskEntry
 from models.domain.note import Activity, NoteType, TodoItem
 from models.domain.wip import WipAnswer
-from service.chat_service import ChatService
 from service.model_service import require_usable_model
 from service.rag_service import KEYWORD_BONUS, keywords, score
 from service.store.catalog_store import CatalogStore
 from service.store.evaluation_store import EvaluationStore
+from service.structured_agent_service import StructuredAgentService
 from service.wip_service import Listing, model_input, to_proposals
 
 DEFAULT_TODAY = date(2026, 11, 10)
@@ -60,12 +57,12 @@ _REPORT = re.compile(r"^(wip|rag)-\d{8}-\d{6}(-\d+)?$")
 
 class EvaluationService:
 
-    def __init__(self, catalog: CatalogStore, chat: ChatService, evaluations: EvaluationStore, data_root: Path, reports_root: Path,
+    def __init__(self, catalog: CatalogStore, agents: StructuredAgentService, evaluations: EvaluationStore, data_root: Path, reports_root: Path,
                  embedders: Callable[[str], Embedder] = Factory.create):
-        """``data_root``: the data sets (``resource/eval``); ``reports_root``:
-        where reports go; ``embedders``: builds an embedder by name (tests: the mock)."""
+        """``agents``: the agent ``wip`` and its call; ``data_root``: the data sets (``resource/eval``);
+        ``reports_root``: where reports go; ``embedders``: builds an embedder by name (tests: the mock)."""
         self._catalog = catalog
-        self._chat = chat
+        self._agents = agents
         self._evaluations = evaluations
         self._data = data_root
         self._reports = reports_root
@@ -75,22 +72,23 @@ class EvaluationService:
     @observed(LogPrefix.EVALUATION_SERVICE)
     def run_wip(self, models: list[str], prompt: str = "") -> tuple[str, list[WipModelResult]]:
         """Every case with every model; the report's name and the results.
-        ``prompt``: the instructions (``""`` = the default secretary's)."""
+        ``prompt``: the instructions (``""`` = the agent ``wip``'s)."""
         models = [model.strip() for model in models if model.strip()]
         if not models:
             raise ValidationError("Scegli almeno un modello da valutare.")
         for model in models:
             require_usable_model(self._catalog, model)
+        agent = self._agents.agent(WIP_AGENT, WIP_OUTPUT)
+        if prompt.strip():
+            agent = agent.model_copy(update={"system_prompt": prompt.strip()})
         cases = sorted((self._data / "wip").glob("*.json"))
         if not cases:
             raise ValidationError(f"Nessun caso in {self._data / 'wip'}.")
-        results = [self._wip_model(model, cases, prompt or DEFAULT_WIP_PROMPT) for model in models]
+        results = [self._wip_model(agent.model_copy(update={"model": model}), cases) for model in models]
         name = self._write(EvaluationKind.WIP, _wip_markdown(results), [result.model_dump(mode="json") for result in results])
         return name, results
 
-    def _wip_model(self, model: str, cases: list[Path], prompt: str) -> WipModelResult:
-        client = self._chat.get_client(model)
-        prices = self._catalog.price_list()
+    def _wip_model(self, agent: AgentDefinition, cases: list[Path]) -> WipModelResult:
         details, cost, proposed = [], 0.0, 0
         for path in cases:
             spec = json.loads(path.read_text(encoding="utf-8"))
@@ -101,19 +99,11 @@ class EvaluationService:
             listing = Listing(activities)
             today = date.fromisoformat(spec["today"]) if spec.get("today") else DEFAULT_TODAY
             masked = masked_text(model_input(today, listing, spec["wip"]), entries, tagged)
-            start = perf_counter()
-            with ContextTracing().trace(f"eval.wip.{path.stem}") as current_trace:
-                try:
-                    response = client.structured_response(input=masked.text, output_cls=WipAnswer, system_prompt=prompt)
-                    if not response.structured_data:
-                        raise ValueError("nessuna risposta strutturata")
-                    data = response.structured_data[0]
-                    answer = WipAnswer.model_validate(data.model_dump() if hasattr(data, "model_dump") else data)
-                    error = None
-                except Exception as exc:  # noqa: BLE001 - a failed case is counted, the evaluation goes on
-                    answer, error = WipAnswer(proposals=[]), str(exc) or type(exc).__name__
-                cost += TracingAdapter.to_run_telemetry(current_trace.get_spans(), prices).total_tokens.cost_eur
-            latency = round((perf_counter() - start) * 1000, 1)
+            call = self._agents.call(agent, masked.text)
+            answer = call.answer if isinstance(call.answer, WipAnswer) else WipAnswer(proposals=[])
+            error = call.error
+            cost += call.telemetry.total_tokens.cost_eur
+            latency = call.latency_ms
             proposals = to_proposals(answer, listing, entries, masked.temporary)
             proposed += len(proposals)
             correct, missing, extra = compare(spec.get("expected", []), proposals)
@@ -123,7 +113,7 @@ class EvaluationService:
         expected = sum(item.expected for item in details)
         correct = sum(item.correct for item in details)
         return WipModelResult(
-            model=model, cases=len(details), expected=expected, proposed=proposed, correct=correct,
+            model=agent.model, cases=len(details), expected=expected, proposed=proposed, correct=correct,
             precision=round(correct / proposed, 3) if proposed else None, recall=round(correct / expected, 3) if expected else None,
             cost_eur=round(cost, 6), latency_avg_ms=round(sum(item.latency_ms for item in details) / len(details), 1),
             errors=sum(item.error is not None for item in details), details=details,

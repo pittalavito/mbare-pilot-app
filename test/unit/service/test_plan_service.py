@@ -11,15 +11,12 @@ from fastapi.testclient import TestClient
 from core.app import create_app
 from core.container import Container
 from core.error import ConflictError, NotFoundError, UpstreamError, ValidationError
-from domain.chat.chatbots_default import DEFAULT_PLAN_PROMPT
 from fakes import FakeStructuredClient
-from models.domain.chatbot import Chatbot, ChatbotKind
 from models.domain.copilot import CopilotMessage, CopilotMessageRole, CopilotSession, CopilotSessionStatus
 from models.domain.dev import VERIFY_FAILED, VERIFY_OK
-from models.domain.note import Activity, AgentTask, TaskStatus, TaskType, TodoItem
+from models.domain.note import Activity, AgentTask, NoteType, Reference, TaskStatus, TaskType, TodoItem
 from models.domain.plan import PlanAnswer, PlanChoice, PlannedTask, PlanStatus, StepKey, StepState
 from models.domain.rag import RagHit
-from service.chat_service import ChatService
 from service.plan_service import PlanService, model_input
 from service.today_service import TodayService
 from unit.service.test_copilot_service import project  # noqa: F401 (fixture: acme with api and web)
@@ -101,12 +98,10 @@ def copilot():
 
 
 @pytest.fixture
-def service(project, project_data_service, masking_service, chatbot_store, catalog_store, run_store, stores, client, git_service, copilot,  # noqa: F811
+def service(project, project_data_service, masking_service, structured_agent_service, stores, client, git_service, copilot,  # noqa: F811
             monkeypatch):
-    chatbot_store.save_chatbot(Chatbot(project_name="acme", name="Segretario", kind=ChatbotKind.SECRETARY, system_prompt="x", model=MODEL))
-    chat = ChatService()
-    monkeypatch.setattr(chat, "get_client", lambda model: client)
-    return PlanService(project_data_service, masking_service, chatbot_store, chat, catalog_store, run_store, stores.plans, git_service,
+    monkeypatch.setattr(structured_agent_service._chat, "get_client", lambda model: client)
+    return PlanService(project_data_service, masking_service, structured_agent_service, stores.plans, git_service,
                        FakeRag(), copilot, stores.pipelines)  # type: ignore[arg-type]
 
 
@@ -121,7 +116,8 @@ def test_the_pianificatore_proposes_the_tasks_from_one_masked_call(service, clie
     plan = service.propose("acme", activity)
 
     call = client.calls[0]
-    assert call["system_prompt"] == DEFAULT_PLAN_PROMPT and call["output_cls"] is PlanAnswer
+    assert call["system_prompt"].startswith("Sei il Pianificatore") and call["output_cls"] is PlanAnswer
+    assert "Riferimenti:" not in call["input"]
     assert "1. Capire il flusso" in call["input"] and "Fatta" not in call["input"] and "[Architettura · Login] Il login passa da auth." in call["input"]
     assert "api" not in call["input"].split("Repository:")[1].split("\n")[0]  # the repositories are masked
     assert [proposal.title for proposal in plan.proposals] == ["Aggiorna la libreria", "Login con OTP", "Analizza il flusso"]
@@ -179,7 +175,17 @@ def test_an_item_that_changed_meanwhile_is_not_linked(service, activity, project
     assert after.items[1].agent_task is None and after.items[2].agent_task == plan.tasks[0].task
 
 
-def test_a_failing_model_or_no_secretary_is_reported(service, client, activity, chatbot_store, run_store):
+def test_the_pianificatore_reads_the_titles_of_the_references(service, client, activity, project_data_service):
+    reference = project_data_service.create_reference("acme", NoteType.CONTEXT_REFERENCE, Reference(title="Spec OTP", content="segreto"))
+    current = project_data_service.activity("acme", activity)
+    project_data_service.save_activity("acme", activity, current.model_copy(update={"references": [reference, "context-reference-sparito.md"]}))
+
+    service.propose("acme", activity)
+
+    assert "Riferimenti: Spec OTP\n" in client.calls[0]["input"] and "segreto" not in client.calls[0]["input"]
+
+
+def test_a_failing_model_or_no_agent_is_reported(service, client, activity, agent_config_service, run_store):
     client.error = RuntimeError("quota")
     with pytest.raises(UpstreamError, match="quota"):
         service.propose("acme", activity)
@@ -191,9 +197,8 @@ def test_a_failing_model_or_no_secretary_is_reported(service, client, activity, 
     assert service.propose("acme", activity).proposals == []
     client.answer = SimpleNamespace(model_dump=lambda: {"tasks": [{"title": "Da dict", "type": "jira"}]})
     assert service.propose("acme", activity).proposals[0].title == "Da dict"
-    for bot in chatbot_store.list_chatbots("acme"):
-        chatbot_store.delete_chatbot(bot.id)
-    with pytest.raises(ValidationError, match="Nessun segretario"):
+    agent_config_service.delete_config("pianificatore")
+    with pytest.raises(NotFoundError):
         service.propose("acme", activity)
 
 

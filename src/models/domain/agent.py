@@ -63,6 +63,8 @@ class AgentConfig(BaseModel):
     model: ModelKey
     max_steps: int = Field(default=4, ge=1, le=50)
     tool_names: list[str] = Field(default_factory=list)
+    output: str = ""
+    """The structured answer (a name of ``STRUCTURED_OUTPUTS``); ``""`` = text."""
 
 
 class AgentSpec(BaseModel):
@@ -86,6 +88,8 @@ class AgentDefinition(BaseModel):
     tool_names: list[str] = Field(default_factory=list)
     project_name: str | None = None
     """Project the agent belongs to (None = global): its runs default to it."""
+    output: str = ""
+    """The structured answer (a name of ``STRUCTURED_OUTPUTS``); ``""`` = text."""
 
     @classmethod
     def from_spec(cls, spec: AgentSpec) -> "AgentDefinition":
@@ -99,6 +103,7 @@ class AgentDefinition(BaseModel):
             max_steps=spec.config.max_steps,
             tool_names=list(spec.config.tool_names),
             project_name=spec.config.project_name,
+            output=spec.config.output,
         )
 
 
@@ -109,8 +114,6 @@ class RunOrigin(StrEnum):
     CHAT = "chat"
     PIPELINE = "pipeline"
     MANUAL = "manual"
-    AGENT = "agent"
-    """Delegated by another agent (tool ask_agent, removed): kept for the runs already recorded."""
     WIP = "wip"
     """«Elabora WIP»: one structured call of the secretary's model (service/wip_service.py)."""
     PLAN = "plan"

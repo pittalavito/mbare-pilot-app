@@ -57,7 +57,7 @@ def test_a_new_task_is_in_refinement_with_its_fields_and_references(context):
         "task": "agent-task-rilascio-automatico.md", "title": "Rilascio automatico", "type": "analysis", "status": "refinement",
         "references": ["context-reference-procedura-di-rilascio.md", "code-reference-login.md"],  # .md added, once each
         "activity": None, "item": None,
-        "link": "/projects/Acme%20Srl/data?note=agent-task-rilascio-automatico.md",
+        "link": "/projects/Acme%20Srl/work?note=agent-task-rilascio-automatico.md",
     }
     task = context.project_data.agent_task("Acme Srl", result["task"])
     assert (task.status, task.type, task.objective, task.context, task.constraints) == (

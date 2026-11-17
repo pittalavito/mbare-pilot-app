@@ -14,7 +14,6 @@ from fakes import fake_generation, make_run_record
 from models.domain.copilot import CopilotPhase, CopilotTurnRecord, CopilotUsage
 from models.domain.evaluation import EvaluationKind, EvaluationStatus
 from models.domain.wip import ProposalKind, WipAnswer, WipAnswerProposal, WipProposal, WipRun
-from service.chat_service import ChatService
 from service.evaluation_service import EvaluationService
 from service.metrics_service import MetricsService, percentile
 
@@ -129,11 +128,11 @@ class _CaseModel:
 
 
 @pytest.fixture
-def models(monkeypatch):
+def models(monkeypatch, structured_agent_service):
+    """The agent ``wip`` with a fake model per name."""
     by_name = {MODEL: _CaseModel(), "openai/gpt-5.3": _CaseModel(fail=True)}
-    chat = ChatService()
-    monkeypatch.setattr(chat, "get_client", lambda name: by_name[name])
-    return chat, by_name
+    monkeypatch.setattr(structured_agent_service._chat, "get_client", lambda name: by_name[name])
+    return structured_agent_service, by_name
 
 
 @pytest.fixture
@@ -156,6 +155,17 @@ def test_the_wip_evaluation_compares_models_on_the_data_set(evaluations, models,
     assert json.loads(evaluations.report(name, "json"))[0]["model"] == MODEL
     with pytest.raises(ValidationError, match="almeno un modello"):
         evaluations.run_wip([" "])
+
+
+def test_the_wip_evaluation_can_try_another_prompt(evaluations, models, monkeypatch):
+    prompts = []
+    model = models[1][MODEL]
+    original = model.structured_response
+    monkeypatch.setattr(model, "structured_response", lambda **kwargs: prompts.append(kwargs["system_prompt"]) or original(**kwargs))
+
+    evaluations.run_wip([MODEL], prompt=" Solo attività nuove. ")
+
+    assert set(prompts) == {"Solo attività nuove."}
 
 
 def test_the_rag_evaluation_reports_hits_with_and_without_the_bonus(evaluations):

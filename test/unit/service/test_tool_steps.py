@@ -7,7 +7,6 @@ import subprocess
 import pytest
 
 from core.error import ValidationError
-from domain.pipeline.legacy import function_as_tool
 from fakes import FakeAgent
 from models.domain.pipeline import PipelineStep, RunStatus, StepAgent, StepKind
 from models.domain.project import Project, ProjectSource
@@ -71,9 +70,7 @@ def masked_runner(masking, monkeypatch, make_agent_service, git_service, project
     return PipelineRunner(pipeline_store, agents, git, project_data_service, masking_service=masking)
 
 
-def _function(name="F", function="git_status", template="{input}", **params) -> PipelineStep:
-    """A tool step as a function step of before becomes one (the same arguments)."""
-    tool, args = function_as_tool(function, params)
+def _tool(name="F", tool="git_status", template="{input}", **args) -> PipelineStep:
     return PipelineStep(name=name, kind=StepKind.TOOL, tool_name=tool, params=args, input_template=template)
 
 
@@ -97,7 +94,7 @@ def test_registry_keys_and_schemas():
 
 @pytest.mark.parametrize("step, message", [
     (PipelineStep(name="F", kind=StepKind.TOOL), "non esiste"),
-    (_function(function="missing"), "non esiste"),
+    (_tool(tool="missing"), "non esiste"),
     (PipelineStep(name="F", kind=StepKind.TOOL, tool_name="save_note", params={"titolo": "x"}), "non ha gli argomenti titolo"),
     (PipelineStep(name="F", kind=StepKind.TOOL, tool_name="delegate_task"), "solo in una chat"),
 ])
@@ -110,7 +107,7 @@ def test_invalid_tool_steps_rejected_on_save(service, step, message):
 
 def test_function_feeds_the_next_agent_step(service, runner):
     run = _run(service, runner, [
-        _function("Stato", repository="api"),
+        _tool("Stato", repository="api"),
         PipelineStep(name="Riassumi", kind=StepKind.AGENT,
                      agent=StepAgent(system_prompt="Riassumi.", model="openai/gpt-4o")),
     ])
@@ -123,7 +120,7 @@ def test_function_feeds_the_next_agent_step(service, runner):
 
 
 def test_empty_repository_param_uses_the_step_input(service, runner):
-    run = _run(service, runner, [_function()], pipeline_input="api")
+    run = _run(service, runner, [_tool(repository="{input}")], pipeline_input="api")
 
     assert run.status is RunStatus.DONE and run.output.startswith("Repository api")
 
@@ -131,7 +128,7 @@ def test_empty_repository_param_uses_the_step_input(service, runner):
 def test_git_status_function(service, runner, project):
     (project / "main.py").write_text("changed", encoding="utf-8")
 
-    run = _run(service, runner, [_function(function="git_status", repository="api")])
+    run = _run(service, runner, [_tool(repository="api")])
 
     assert "1 file modificati" in run.output and "- main.py: modified, non staged" in run.output
 
@@ -144,7 +141,7 @@ def test_git_status_of_every_repository(service, masked_runner, masking, project
     broken = project.parent / "rotto"
     (broken / ".git").mkdir(parents=True)  # looks like a repository, git cannot read it
 
-    run = _run(service, masked_runner, [_function(function="git_status", repository="*")])
+    run = _run(service, masked_runner, [_tool(repository="*")])
 
     assert run.status is RunStatus.DONE and run.output.startswith("3 repository nel progetto: 2 da guardare, 1 a posto.")
     # first the ones with something to report (path order), then the clean ones
@@ -157,7 +154,7 @@ def test_git_status_of_every_repository(service, masked_runner, masking, project
 
 
 def test_git_status_of_every_clean_repository(service, runner, project):
-    run = _run(service, runner, [_function(function="git_status", repository="*")])
+    run = _run(service, runner, [_tool(repository="*")])
 
     assert run.output.startswith("1 repository nel progetto: tutti a posto.\n\nRepository api ·")
 
@@ -177,7 +174,7 @@ def test_git_status_counts_what_needs_a_look(service, runner, project, change):
         _git(clone, "add", "new.py")
         _git(clone, "commit", "-q", "-m", "local")
 
-    run = _run(service, runner, [_function(function="git_status", repository="*")])
+    run = _run(service, runner, [_tool(repository="*")])
 
     expected = "2 repository nel progetto: 1 da guardare, 1 a posto." if change == "commit" else "1 repository nel progetto: 1 da guardare, 0 a posto."
     assert run.output.startswith(expected)
@@ -187,7 +184,7 @@ def test_git_status_of_every_repository_needs_one(service, runner, tmp_path, pro
     empty = tmp_path / "vuoto"
     empty.mkdir()
     project_store.save(Project(name="vuoto", source=ProjectSource.FOLDER, root_path=str(empty)))
-    pipeline = service.create_pipeline("vuoto", "P", steps=[_function(function="git_status", repository="*")])
+    pipeline = service.create_pipeline("vuoto", "P", steps=[_tool(repository="*")])
     service.enqueue(pipeline.id, "")
 
     run = runner.run_next()
@@ -196,7 +193,7 @@ def test_git_status_of_every_repository_needs_one(service, runner, tmp_path, pro
 
 
 def test_save_note_function(service, runner, project_data_service):
-    run = _run(service, runner, [_function(function="save_note", title="Report {date}")], pipeline_input="Testo")
+    run = _run(service, runner, [_tool(tool="save_note", title="Report {date}", content="{input}")], pipeline_input="Testo")
 
     assert run.status is RunStatus.DONE and run.output.startswith("Nota salvata: Report ")
     [note] = project_data_service.list_notes("shop")
@@ -206,14 +203,14 @@ def test_save_note_function(service, runner, project_data_service):
 def test_function_steps_register_the_values_they_declare_sensitive(service, masked_runner, masking):
     """Only functions, no agent (which would register the repositories itself):
     git_status declares its repository, save_note declares nothing."""
-    run = _run(service, masked_runner, [_function("Stato", repository="api"), _function("Nota", function="save_note")])
+    run = _run(service, masked_runner, [_tool("Stato", repository="api"), _tool("Nota", tool="save_note", content="{input}")])
 
     assert run.status is RunStatus.DONE
     assert [(entry.category.value, entry.value) for entry in masking.entries("shop")] == [("repository", "api")]
 
 
 def test_function_error_fails_the_step_with_its_message(service, runner):
-    run = _run(service, runner, [_function(repository="nope")])
+    run = _run(service, runner, [_tool(repository="nope")])
 
     assert run.status is RunStatus.FAILED and "Cartella inesistente" in run.steps[0].error
 
@@ -229,6 +226,6 @@ def test_unexpected_exception_fails_the_step(service, runner, monkeypatch):
 
     monkeypatch.setitem(TOOL_REGISTRY, "broken", params_tool("broken", "x", NoArgs, boom))
 
-    run = _run(service, runner, [_function(function="broken")])
+    run = _run(service, runner, [_tool(tool="broken")])
 
     assert run.status is RunStatus.FAILED and run.steps[0].error == "errore imprevisto: kaboom"

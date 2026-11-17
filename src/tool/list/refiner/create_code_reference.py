@@ -3,11 +3,11 @@
 reference (service/code_todo_service.py). The agent never sees the comments
 nor the code: it gets the counts and the link to the note, which the user
 opens and edits. Only in a chatbot's run of a project."""
-from urllib.parse import quote
 
 from datapizza.tools import Tool, tool
 
 from core.error import AppError
+from domain.project.links import note_link
 from models.domain.agent import RunOrigin
 from models.domain.tool import CreateCodeReferenceResponse, ToolErrorResponse
 from tool.context import ToolContext
@@ -38,9 +38,6 @@ def build(context: ToolContext) -> Tool:
     return create_code_reference
 
 
-def note_link(project_name: str, note: str) -> str:
-    """The note in the app (Dati); the refiner's panel opens it in place."""
-    return f"/projects/{quote(project_name)}/data?note={quote(note)}"
 
 
 CREATE_CODE_REFERENCE = ToolSpec(

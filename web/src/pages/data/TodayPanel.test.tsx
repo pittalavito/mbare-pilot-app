@@ -47,7 +47,7 @@ function api(today: unknown = TODAY) {
 }
 
 async function renderActivities() {
-  renderPage(<Routes>{zoneRoutes()}</Routes>, { route: "/projects/acme/data" });
+  renderPage(<Routes>{zoneRoutes()}</Routes>, { route: "/projects/acme/work" });
   fireEvent.click(await screen.findByRole("tab", { name: /Attività/ }));
 }
 
@@ -64,7 +64,7 @@ describe("📌 Oggi", () => {
       "⏳ Aspettano te", "🔴 Scadute", "🟠 In scadenza (3 giorni)", "✅ Da chiudere",
     ]);
     expect(screen.getByText("Copilot ti fa una domanda")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Pronto/ })).toHaveAttribute("href", "/projects/acme/copilot?session=7");
+    expect(screen.getByRole("button", { name: /🤖 Pronto/ })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Nuovo" })); // the task opens in its tab
     expect(await screen.findByRole("tab", { name: /Tutti i task/, selected: true })).toBeInTheDocument();

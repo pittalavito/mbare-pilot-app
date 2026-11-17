@@ -40,7 +40,7 @@ def test_the_agent_gets_counts_and_the_link_never_the_comments(context):
 
     assert result == {
         "note": "code-reference-todo-mbare-pilot.md", "created": True, "files": 1, "comments": 1, "malformed": 0,
-        "link": "/projects/Acme%20Srl/data?note=code-reference-todo-mbare-pilot.md",
+        "link": "/projects/Acme%20Srl/project?note=code-reference-todo-mbare-pilot.md",
     }
     assert SECRET not in json.dumps(result) and "login.py" not in json.dumps(result)
     assert SECRET in context.project_data.reference("Acme Srl", result["note"])[1].content  # the user reads them in the note

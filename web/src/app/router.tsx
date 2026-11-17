@@ -6,7 +6,6 @@ import { AutomationTab } from "../pages/automation/AutomationTab";
 import { LibraryPage } from "../pages/library/LibraryPage";
 import { ProjectPage } from "../pages/project/ProjectPage";
 import { ProjectZone } from "../pages/project/ProjectZone";
-import { CopilotRedirect, DataRedirect, SectionRedirect } from "../pages/project/redirects";
 import { ProjectsPage } from "../pages/projects/ProjectsPage";
 import { WorkZone } from "../pages/work/WorkZone";
 import { Layout } from "./Layout";
@@ -21,13 +20,6 @@ const PROJECT_TABS = [
   { path: "automation/new", lazy: automationEditor },
   { path: "automation/:pipelineId/edit", lazy: automationEditor },
   { path: "project", element: <ProjectZone /> },
-  // The tabs of before: their links (also the ones the agents and the API write) open the new place.
-  { path: "chat", element: <Navigate to="../work" replace /> },
-  { path: "copilot", element: <CopilotRedirect /> },
-  { path: "data", element: <DataRedirect /> },
-  { path: "git", element: <SectionRedirect section="git" /> },
-  { path: "atlassian", element: <SectionRedirect section="atlassian" /> },
-  { path: "settings", element: <SectionRedirect section="settings" /> },
 ];
 
 /** One URL per page: a project and its tab can be bookmarked and reloaded. */

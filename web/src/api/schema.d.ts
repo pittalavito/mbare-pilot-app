@@ -177,6 +177,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/agents/outputs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Agent Outputs
+         * @description The structured answers an agent can give (``output``); ``""`` = text.
+         */
+        get: operations["agent_outputs_agents_outputs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/agents/{name}": {
         parameters: {
             query?: never;
@@ -2790,6 +2810,11 @@ export interface components {
             max_steps: number;
             /** Tool Names */
             tool_names?: string[];
+            /**
+             * Output
+             * @default
+             */
+            output: string;
         };
         /**
          * AgentMetrics
@@ -2815,6 +2840,13 @@ export interface components {
             /** Models */
             models?: string[];
         };
+        /** AgentOutput */
+        AgentOutput: {
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+        };
         /** AgentResponse */
         AgentResponse: {
             /** Name */
@@ -2835,6 +2867,8 @@ export interface components {
             max_steps: number;
             /** Tool Names */
             tool_names: string[];
+            /** Output */
+            output: string;
             /** Blocked Reason */
             blocked_reason: string | null;
         };
@@ -2975,6 +3009,11 @@ export interface components {
             max_steps: number;
             /** Tool Names */
             tool_names?: string[];
+            /**
+             * Output
+             * @default
+             */
+            output: string;
         };
         /** AtlassianSettingsRequest */
         AtlassianSettingsRequest: {
@@ -5850,6 +5889,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    agent_outputs_agents_outputs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentOutput"][];
                 };
             };
         };
