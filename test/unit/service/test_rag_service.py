@@ -107,33 +107,15 @@ def test_text_is_masked_before_it_reaches_an_embedder_that_is_not_local(rag, dat
     assert hits[0].text.startswith("Marco Rossi segue i pagamenti")  # the stored text stays in clear
 
 
-def test_only_done_activities_with_imparato_are_indexed(rag, data, rag_store):
-    name = data.create_activity("acme", Activity(title="Rilascio v2", description="La 2.0", learned="Le note prima del tag."))
-    assert rag.index_activity("acme", name) is False  # not done yet
-    data.save_activity("acme", name, data.activity("acme", name).model_copy(update={"status": ActivityStatus.DONE}))
-
-    assert rag.index_activity("acme", name) is True
-    pieces = rag_store.pieces("acme", "hashing-512")
-    assert [(document.path, document.source.value, piece.section, piece.text) for piece, document in pieces] == [
-        (f"notes/{name}", "activity", "", "La 2.0"), (f"notes/{name}", "activity", "Imparato", "Le note prima del tag."),
-    ]  # title, description and «Imparato»: not the items
-
-    data.save_activity("acme", name, data.activity("acme", name).model_copy(update={"learned": ""}))
-    assert rag.index_activity("acme", name) is False and rag_store.list_documents("acme") == []
-    data.delete_note("acme", name)
-    assert rag.index_activity("acme", name) is False
-
-
 def test_reindex_takes_everything_and_drops_what_is_gone(rag, data, rag_store):
     _load_corpus(data)
-    data.create_activity("acme", Activity(title="Fatta", status=ActivityStatus.DONE, learned="Si impara."))
-    data.create_activity("acme", Activity(title="Aperta", learned="Non ancora."))
+    data.create_activity("acme", Activity(title="Fatta", status=ActivityStatus.DONE))  # activities are never indexed
 
     state = rag.reindex("acme")
 
-    assert (state.documents, state.embedder, state.error) == (9, "hashing-512", None) and state.pieces > 20  # 8 documents, 1 activity
+    assert (state.documents, state.embedder, state.error) == (8, "hashing-512", None) and state.pieces > 20
     data.delete_context("acme", "decisioni.md")  # deleted by hand, without the API
-    assert rag.reindex("acme").documents == 8
+    assert rag.reindex("acme").documents == 7
     assert "context/decisioni.md" not in [document.path for document in rag_store.list_documents("acme")]
 
 
@@ -157,11 +139,7 @@ def test_indexing_quietly_reports_instead_of_failing(rag, data, monkeypatch):
 
     monkeypatch.setattr(rag, "embedder", broken)
 
-    name = data.create_activity("acme", Activity(title="Fatta", status=ActivityStatus.DONE, learned="Qualcosa."))
-
-    assert rag.index_quietly("acme", "context", "doc") == "OPENROUTER_API_KEY is not set"
-    assert rag.index_quietly("acme", "activity", name) == "OPENROUTER_API_KEY is not set"
-    assert rag.index_quietly("acme", "activity", "attivita-inesistente.md") is None  # nothing to index: no embedder needed
+    assert rag.index_quietly("acme", "doc") == "OPENROUTER_API_KEY is not set"
 
 
 # ----------------------------------------------------------------- search

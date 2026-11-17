@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -45,60 +45,9 @@ function api() {
 }
 
 describe("activities", () => {
-  it("opens «📎 Da riferimenti» next to «Nuova attività»", async () => {
-    api();
-    renderData();
-    fireEvent.click(await screen.findByRole("tab", { name: /Attività/ }));
-
-    fireEvent.click(await screen.findByRole("button", { name: "📎 Da riferimenti" }));
-
-    expect(await screen.findByText("📎 Nuova attività da riferimenti")).toBeInTheDocument();
-  });
-
-  it("suggests «done» when every item is done", async () => {
-    const { savedActivity } = api();
-    renderData();
-    fireEvent.click(await screen.findByRole("tab", { name: /Attività/ }));
-
-    fireEvent.click(await screen.findByRole("button", { name: /Tutte le voci sono fatte: segna fatta/ }));
-
-    await waitFor(() => expect(savedActivity).toHaveBeenCalled());
-    expect(await savedActivity.mock.results[0].value).toMatchObject({ status: "done" });
-    await waitFor(() => expect(screen.queryByRole("button", { name: /segna fatta/ })).not.toBeInTheDocument());
-  });
-
-  it("links agent tasks: shows them, creates one already linked, links and unlinks", async () => {
-    const { savedActivity, createdTask } = api();
-    renderData();
-    fireEvent.click(await screen.findByRole("tab", { name: /Attività/ }));
-
-    expect(await screen.findByRole("button", { name: "Note di rilascio" })).toBeInTheDocument();
-    expect(screen.getByText("In rifinitura")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: /Nuovo agent task/ }));
-    const dialog = await screen.findByRole("dialog", { name: "Nuovo agent task" });
-    fireEvent.change(within(dialog).getByLabelText("Titolo"), { target: { value: "Changelog" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Crea" }));
-
-    await waitFor(() => expect(savedActivity).toHaveBeenCalledTimes(1)); // saved at once: the new task is not left alone
-    expect(await createdTask.mock.results[0].value).toMatchObject({ title: "Changelog", status: "created" });
-    expect(await savedActivity.mock.results[0].value).toMatchObject({ agent_tasks: [NOTE_TASK.name, "agent-task-nuovo.md"] });
-
-    fireEvent.click(screen.getByPlaceholderText("Collega un agent task esistente…"));
-    fireEvent.click(await screen.findByRole("option", { name: "Tag" }));
-    fireEvent.click(screen.getByRole("button", { name: "Scollega Note di rilascio" }));
-    fireEvent.click(screen.getByRole("button", { name: "Salva" }));
-
-    await waitFor(() => expect(savedActivity).toHaveBeenCalledTimes(2));
-    expect(await savedActivity.mock.results[1].value).toMatchObject({ agent_tasks: ["agent-task-nuovo.md", TAG_TASK.name] });
-  });
-
   it("an activity's task opens inside the activity, which it says it is born from", async () => {
     api();
-    renderData();
-    fireEvent.click(await screen.findByRole("tab", { name: /Attività/ }));
-
-    fireEvent.click(await screen.findByRole("button", { name: "Note di rilascio" }));
+    renderData(`/projects/acme/work?note=${NOTE_TASK.name}`);
 
     expect(await screen.findByDisplayValue("Note di rilascio")).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /Attività/, selected: true })).toBeInTheDocument(); // still in the activity

@@ -1,10 +1,10 @@
 """The projects' context index (RAG): what the Refiner and Copilot search
 (tool ``search_context``) instead of reading everything.
 
-**What is indexed**: the documents of the project's ``context/`` folder and
-the **done** activities with «Imparato» (title, description, «Imparato»).
+**What is indexed**: the documents of the project's ``context/`` folder only
+(what an activity taught goes in ``context/imparato.md`` when it is closed).
 
-**Indexing** (``index_context``, ``index_activity``, ``reindex``): the text is
+**Indexing** (``index_context``, ``reindex``): the text is
 split by heading (domain/rag/chunking.py, at most ``MAX_WORDS`` per piece),
 each piece **masked** before it reaches an embedder that is not local (the
 project's map plus automatic recognition, domain/masking/preview.py) and
@@ -34,9 +34,8 @@ from core.error import AppError, NotFoundError, ValidationError
 from core.observability import LogPrefix, log_exception, observed
 from domain.client.embedding.embedder import Embedder, Factory, cosine_similarity
 from domain.masking.preview import masked_text
-from domain.project.data_paths import CONTEXT_DIR, NOTES_DIR, note_file_name
+from domain.project.data_paths import CONTEXT_DIR, note_file_name
 from domain.rag.chunking import split_markdown, title_of
-from models.domain.note import Activity, ActivityStatus
 from models.domain.rag import RagDocument, RagHit, RagIndexState, RagPiece, RagSource
 from service.masking_service import MaskingService
 from service.project_data_service import ProjectDataService
@@ -102,48 +101,27 @@ class RagService:
             return False
         return self._index(project_name, path, RagSource.CONTEXT, text, title_of(text, note_file_name(name).removesuffix(".md")))
 
-    @observed(LogPrefix.RAG_SERVICE)
-    def index_activity(self, project_name: str, name: str) -> bool:
-        """One activity: indexed while it is done with «Imparato», out of the index otherwise."""
-        note = note_file_name(name)
-        path = f"{NOTES_DIR}/{note}"
-        try:
-            activity = self._data.activity(project_name, note)
-        except NotFoundError:
-            self._rag.remove_document(project_name, path)
-            return False
-        if activity.status != ActivityStatus.DONE or not activity.learned.strip():
-            self._rag.remove_document(project_name, path)
-            return False
-        return self._index(project_name, path, RagSource.ACTIVITY, _activity_text(activity), activity.title)
-
     def remove_context(self, project_name: str, name: str) -> None:
         self._rag.remove_document(project_name, f"{CONTEXT_DIR}/{note_file_name(name)}")
 
     @observed(LogPrefix.RAG_SERVICE)
     def reindex(self, project_name: str) -> RagIndexState:
-        """Every context document and done activity with «Imparato»; what is
-        indexed but no longer exists leaves the index. Unchanged documents
-        are not embedded again."""
+        """Every context document; what is indexed but no longer exists leaves
+        the index. Unchanged documents are not embedded again."""
         self.embedder(project_name)  # an error here before touching anything
         wanted = {f"{CONTEXT_DIR}/{item.name}" for item in self._data.list_context(project_name)}
         for item in self._data.list_context(project_name):
             self.index_context(project_name, item.name)
-        for name, activity in self._data.activities(project_name):
-            if activity.status == ActivityStatus.DONE and activity.learned.strip():
-                wanted.add(f"{NOTES_DIR}/{name}")
-            self.index_activity(project_name, name)
         for document in self._rag.list_documents(project_name):
             if document.path not in wanted:
                 self._rag.remove_document(project_name, document.path)
         return self.state(project_name)
 
-    def index_quietly(self, project_name: str, index: str, name: str) -> str | None:
-        """``index_context`` or ``index_activity`` without failing the caller
-        (a save must not fail because the embedder is down): why it did not
-        work, None when it did."""
+    def index_quietly(self, project_name: str, name: str) -> str | None:
+        """``index_context`` without failing the caller (a save must not fail
+        because the embedder is down): why it did not work, None when it did."""
         try:
-            (self.index_context if index == "context" else self.index_activity)(project_name, name)
+            self.index_context(project_name, name)
             return None
         except AppError as exc:
             log_exception(LogPrefix.RAG_SERVICE, "Indicizzazione di %s non riuscita", name)
@@ -182,15 +160,6 @@ class RagService:
             value = score(query, words, f"{document.title} {piece.section} {piece.text}", piece.embedding)
             hits.append(RagHit(path=document.path, title=document.title, section=piece.section, text=piece.text, score=round(value, 4)))
         return sorted(hits, key=lambda hit: hit.score, reverse=True)[:limit]
-
-
-def _activity_text(activity: Activity) -> str:
-    """What of a done activity enters the index: title, description, «Imparato»."""
-    parts = [f"# {activity.title}"]
-    if activity.description.strip():
-        parts.append(activity.description.strip())
-    parts.append(f"## Imparato\n{activity.learned.strip()}")
-    return "\n\n".join(parts)
 
 
 def _plain(text: str) -> str:

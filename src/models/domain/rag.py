@@ -15,8 +15,6 @@ def _utc_now() -> datetime:
 class RagSource(StrEnum):
     CONTEXT = "context"
     """A ``.md`` of the project's ``context/`` folder."""
-    ACTIVITY = "activity"
-    """A done activity with its «Imparato» section."""
 
 
 class RagPiece(BaseModel):

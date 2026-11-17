@@ -90,12 +90,6 @@ class TodoItemBody(ChecklistItemBody):
     """The agent task born from the item (by name): it is checked when the task gets «done»."""
 
 
-class ItemTaskBody(BaseModel):
-    """«🤖» on an item: the task to create from it (checked against the item's text)."""
-    text: str
-    type: TaskType = TaskType.DEVELOPMENT
-
-
 class ActivityBody(BaseModel):
     title: str = Field(min_length=1)
     status: ActivityStatus = ActivityStatus.TODO
@@ -106,8 +100,6 @@ class ActivityBody(BaseModel):
     """The agent tasks born from it, by name."""
     references: list[str] = []
     """The linked reference notes, by name."""
-    learned: str = ""
-    """What was learned (``## Imparato``): a done activity with it enters the context index."""
 
     def to_activity(self) -> Activity:
         return Activity(**self.model_dump(exclude={"items"}), items=[TodoItem(**item.model_dump()) for item in self.items])

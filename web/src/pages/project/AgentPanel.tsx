@@ -70,9 +70,12 @@ function useChoices(project: string, zone: Zone): { choices: Choice[]; preferred
   if (!chatbots.data) return undefined;
   const note = zone === "work" ? search.get("note") ?? "" : "";
   const byKind = (kind: Chatbot["kind"]) => chatbots.data.find((bot) => bot.kind === kind);
-  const task = note.startsWith(NOTE_PREFIXES.agent_task) ? tasks.data?.find((item) => item.name === note) : undefined;
+  // a task picked in the step «Lavora» of an activity (``?task=``) counts as the task open
+  const picked = zone === "work" && note.startsWith(NOTE_PREFIXES.activity) ? search.get("task") ?? "" : "";
+  const taskNote = picked || (note.startsWith(NOTE_PREFIXES.agent_task) ? note : "");
+  const task = taskNote ? tasks.data?.find((item) => item.name === taskNote) : undefined;
   const delegated = !!task && !!sessions.data?.some((session) => session.task_note === task.name);
-  const activity = note.startsWith(NOTE_PREFIXES.activity) ? note : "";
+  const activity = note.startsWith(NOTE_PREFIXES.activity) && !task ? note : "";
 
   let preferred: string;
   let context = "";
@@ -97,7 +100,7 @@ function useChoices(project: string, zone: Zone): { choices: Choice[]; preferred
     context: bot.kind === "refiner" || bot.kind === "operator" ? task?.name ?? "" : bot.kind === "secretary" ? activity : context, why,
   }));
   if (delegated) choices.unshift({ key: COPILOT, label: "Copilot", context: "", why });
-  return { choices, preferred, openNote: note };
+  return { choices, preferred, openNote: task?.name ?? note };
 }
 
 export function AgentPanel({ project, zone }: { project: string; zone: Zone }) {
@@ -106,7 +109,7 @@ export function AgentPanel({ project, zone }: { project: string; zone: Zone }) {
   const [manual, setManual] = useState<string>();
   const { draft } = useAgentPanel();
   const operator = useOperator(project);
-  const where = `${zone}:${search.get("note") ?? ""}`;
+  const where = `${zone}:${search.get("note") ?? ""}:${search.get("task") ?? ""}`;
   useEffect(() => setManual(undefined), [where]); // a hand-picked agent lasts until what is open changes
   useEffect(() => { // asked for the Operator: it becomes the panel's agent
     if (draft?.agent === "operator" && operator) setManual(String(operator.id));

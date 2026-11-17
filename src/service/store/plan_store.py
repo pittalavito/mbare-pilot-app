@@ -1,4 +1,4 @@
-"""The Pianificatore's plans of the activities (Postgres)."""
+"""The plans of the activities, one per activity (Postgres)."""
 from sqlalchemy.engine import Engine
 
 from domain.store.db.mapper import as_utc
@@ -9,7 +9,7 @@ from models.store.db import ActivityPlanTable
 
 def _plan(row: ActivityPlanTable) -> ActivityPlan:
     data = row.model_dump()
-    data.update(skipped=data["skipped"] or [], errors=data["errors"] or {}, retries=data["retries"] or {},
+    data.update(skipped=data["skipped"] or [], errors=data["errors"] or {},
                 automation_runs=data["automation_runs"] or {}, approved=data["approved"] or [])
     plan = ActivityPlan.model_validate(data)
     plan.created_at, plan.updated_at = as_utc(plan.created_at), as_utc(plan.updated_at)
@@ -27,19 +27,19 @@ class PlanStore:
                                                         created_at=plan.created_at, updated_at=plan.updated_at)))
 
     def latest(self, project_name: str, activity: str) -> ActivityPlan | None:
-        """The activity's latest plan, whatever its status."""
+        """The activity's plan (the latest row, should there be more)."""
         row = self._plans.latest(project_name, activity)
         return _plan(row) if row else None
 
     def running(self) -> list[ActivityPlan]:
-        """The latest plan of every activity of every project, confirmed and not paused: the paths to move on."""
+        """The plan of every activity of every project with tasks and not paused: the rounds to move on."""
         seen: set[tuple[str, str]] = set()
         plans = []
         for row in self._plans.list_all():
             if (row.project_name, row.activity) in seen:
                 continue
             seen.add((row.project_name, row.activity))
-            if row.status == "confirmed" and not row.paused:
+            if row.tasks and not row.paused:
                 plans.append(_plan(row))
         return plans
 

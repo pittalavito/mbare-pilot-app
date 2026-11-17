@@ -129,18 +129,6 @@ export function useActivities(project: string) {
   });
 }
 
-/** «🤖» on an item (1-based, checked against its text): a task «created» from it, linked to the item. */
-export function useCreateTaskFromItem(project: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ activity, item, text, type }: { activity: string; item: number; text: string; type: TaskType }) =>
-      unwrap(api.POST("/projects/{project}/activities/{note}/items/{item}/agent-task", {
-        params: { path: { project, note: activity, item } }, body: { text, type },
-      })),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: dataKeys.typed(project) }),
-  });
-}
-
 /** Create (``name`` undefined: the note is named after the title) or rewrite an activity. */
 export function useSaveActivity(project: string) {
   const queryClient = useQueryClient();

@@ -650,28 +650,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/projects/{project}/activities/{note}/items/{item}/agent-task": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create Task From Item
-         * @description «🤖» on item ``item`` (1-based): a task «created» titled as the item, with
-         *     the activity's context and references, linked to the activity and the item.
-         *     409 when the item changed meanwhile, already has a task or the name is taken.
-         */
-        post: operations["create_task_from_item_projects__project__activities__note__items__item__agent_task_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/projects/{project}/activities/{note}": {
         parameters: {
             query?: never;
@@ -680,11 +658,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /**
-         * Save Activity
-         * @description A done activity with «Imparato» is (re)indexed in the project's context
-         *     (best effort: the save never fails for the index).
-         */
+        /** Save Activity */
         put: operations["save_activity_projects__project__activities__note__put"];
         post?: never;
         delete?: never;
@@ -2052,7 +2026,7 @@ export interface paths {
         };
         /**
          * Activity Path
-         * @description The plan waiting for a choice, or the confirmed plan with the steps of each task.
+         * @description The activity's plan (proposals waiting, tasks) with the steps of each task; the summary once none is left.
          */
         get: operations["activity_path_projects__project__activities__activity__path_get"];
         put?: never;
@@ -2074,7 +2048,7 @@ export interface paths {
         put?: never;
         /**
          * Propose Plan
-         * @description One call to the Pianificatore (the secretary's model): the proposed tasks (502 when the model fails).
+         * @description One call to the agent ``pianificatore``: tasks for the items still uncovered (502 when the model fails).
          */
         post: operations["propose_plan_projects__project__activities__activity__plan_post"];
         delete?: never;
@@ -2094,7 +2068,7 @@ export interface paths {
         put?: never;
         /**
          * Confirm Plan
-         * @description The chosen proposals become agent tasks «in refinement», linked to their items (409 when the plan no longer waits).
+         * @description The chosen proposals and the tasks written by hand become agent tasks «to do» (409 when a proposal is gone).
          */
         post: operations["confirm_plan_projects__project__activities__activity__plan_confirm_post"];
         delete?: never;
@@ -2112,28 +2086,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Dismiss Plan */
-        post: operations["dismiss_plan_projects__project__activities__activity__plan_dismiss_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/projects/{project}/agent-tasks/{task}/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
         /**
-         * Confirm Task
-         * @description «Conferma del task»: from «in refinement» to «to do» (409 when already confirmed, 400 without an objective).
+         * Dismiss Plan
+         * @description The proposals waiting are dropped; the tasks stay.
          */
-        post: operations["confirm_task_projects__project__agent_tasks__task__confirm_post"];
+        post: operations["dismiss_plan_projects__project__activities__activity__plan_dismiss_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2151,29 +2108,9 @@ export interface paths {
         put?: never;
         /**
          * Pause Plan
-         * @description Pause or resume the path (409 without a confirmed plan).
+         * @description «▶️ Avvia» (false) or «⏸ Pausa» (true); 409 without tasks.
          */
         post: operations["pause_plan_projects__project__activities__activity__plan_pause_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/projects/{project}/activities/{activity}/plan/prepare": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Prepare Plan
-         * @description How the path prepares the repositories before Copilot.
-         */
-        post: operations["prepare_plan_projects__project__activities__activity__plan_prepare_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2191,7 +2128,7 @@ export interface paths {
         put?: never;
         /**
          * Plan Options
-         * @description The automations before and after each task and the automatic ok to Copilot's plan (12c).
+         * @description Before delegating (``none``, ``dev``, ``automation:<id>``), the automation after the verification, the automatic ok.
          */
         post: operations["plan_options_projects__project__activities__activity__plan_options_post"];
         delete?: never;
@@ -2211,7 +2148,7 @@ export interface paths {
         put?: never;
         /**
          * Skip Step
-         * @description Skip a task's preparation or verification.
+         * @description Skip a task's preparation, verification or automation after it.
          */
         post: operations["skip_step_projects__project__activities__activity__plan_skip_post"];
         delete?: never;
@@ -2231,9 +2168,69 @@ export interface paths {
         put?: never;
         /**
          * Retry Step
-         * @description Run a failed preparation, delegation (at the path's next turn) or verification (now) again.
+         * @description Run a failed step again: preparation, delegation, automation (at the round's next turn) or the tests (now).
          */
         post: operations["retry_step_projects__project__activities__activity__plan_retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/activities/{activity}/learned": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Propose Learned
+         * @description One call to the agent ``imparato``: the points to remember (502 when the model fails).
+         */
+        post: operations["propose_learned_projects__project__activities__activity__learned_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/activities/{activity}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close Activity
+         * @description What was learned at the top of context/imparato.md, the activity done, its round stopped.
+         */
+        post: operations["close_activity_projects__project__activities__activity__close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/activities/{activity}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reopen Activity
+         * @description Back to «in progress»; context/imparato.md is not touched.
+         */
+        post: operations["reopen_activity_projects__project__activities__activity__reopen_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2592,11 +2589,15 @@ export interface components {
              * @default []
              */
             references: string[];
-            /**
-             * Learned
-             * @default
-             */
-            learned: string;
+        };
+        /** ActivityClosed */
+        ActivityClosed: {
+            /** Activity */
+            activity: string;
+            /** Context */
+            context?: string | null;
+            /** Index Error */
+            index_error?: string | null;
         };
         /**
          * ActivityDraft
@@ -2658,7 +2659,11 @@ export interface components {
              */
             summary: string;
         };
-        /** ActivityPlan */
+        /**
+         * ActivityPlan
+         * @description The activity's one plan (plan 18): the tasks created, in order, the
+         *     Pianificatore's proposals still waiting for the user, and how the round goes.
+         */
         ActivityPlan: {
             /** Id */
             id?: number | null;
@@ -2666,10 +2671,11 @@ export interface components {
             project_name: string;
             /** Activity */
             activity: string;
-            /** Run Id */
+            /**
+             * Run Id
+             * @default
+             */
             run_id: string;
-            /** @default proposed */
-            status: components["schemas"]["PlanStatus"];
             /**
              * Proposals
              * @default []
@@ -2687,12 +2693,12 @@ export interface components {
             cost_eur: number;
             /**
              * Paused
-             * @default false
+             * @default true
              */
             paused: boolean;
             /**
              * Prepare
-             * @default
+             * @default dev
              */
             prepare: string;
             /**
@@ -2707,15 +2713,6 @@ export interface components {
             errors: {
                 [key: string]: string;
             };
-            /**
-             * Retries
-             * @default {}
-             */
-            retries: {
-                [key: string]: number;
-            };
-            /** Before Automation */
-            before_automation?: number | null;
             /** After Automation */
             after_automation?: number | null;
             /**
@@ -2772,11 +2769,6 @@ export interface components {
              * @default []
              */
             references: string[];
-            /**
-             * Learned
-             * @default
-             */
-            learned: string;
             /** Name */
             name: string;
         };
@@ -3266,6 +3258,14 @@ export interface components {
              */
             done: boolean;
         };
+        /** CloseRequest */
+        CloseRequest: {
+            /**
+             * Learned
+             * @default
+             */
+            learned: string;
+        };
         /**
          * CodeTodoScanResponse
          * @description What a scan of the todoMbarePilot comments wrote: counts only, the comments are in the note.
@@ -3726,18 +3726,11 @@ export interface components {
             allowed_commands?: string[] | null;
             /** Operator Chatbot Id */
             operator_chatbot_id?: number | null;
-            /** Auto Retries */
-            auto_retries?: number | null;
         };
         /** DevSettingsResponse */
         DevSettingsResponse: {
             /** @default all */
             test_scope: components["schemas"]["TestScope"];
-            /**
-             * Auto Retries
-             * @default 1
-             */
-            auto_retries: number;
             /**
              * Repositories
              * @default []
@@ -3962,16 +3955,6 @@ export interface components {
             /** Text */
             text: string;
         };
-        /**
-         * ItemTaskBody
-         * @description «🤖» on an item: the task to create from it (checked against the item's text).
-         */
-        ItemTaskBody: {
-            /** Text */
-            text: string;
-            /** @default development */
-            type: components["schemas"]["TaskType"];
-        };
         /** JiraIssueResponse */
         JiraIssueResponse: {
             /** Key */
@@ -4049,6 +4032,24 @@ export interface components {
             fields?: {
                 [key: string]: string;
             };
+        };
+        /**
+         * LearnedDraft
+         * @description The proposal in clear, for the user to correct before closing.
+         */
+        LearnedDraft: {
+            /**
+             * Points
+             * @default []
+             */
+            points: string[];
+            /** Run Id */
+            run_id: string;
+            /**
+             * Cost Eur
+             * @default 0
+             */
+            cost_eur: number;
         };
         /**
          * LearnedPreparation
@@ -4323,11 +4324,17 @@ export interface components {
         };
         /**
          * PlanChoice
-         * @description A proposal the user keeps, as corrected; the order of the choices is the plan's.
+         * @description A proposal the user keeps, as corrected, or a task written by hand (``id`` None,
+         *     with the numbers of its ``items``); the order of the choices is the plan's.
          */
         PlanChoice: {
             /** Id */
-            id: number;
+            id?: number | null;
+            /**
+             * Items
+             * @default []
+             */
+            items: number[];
             /** Title */
             title: string;
             type: components["schemas"]["TaskType"];
@@ -4354,11 +4361,14 @@ export interface components {
         };
         /**
          * PlanOptions
-         * @description 12c: the activity's automations before and after each task, and the automatic ok to Copilot's plan.
+         * @description How the round goes: the preparation before delegating, the automation after the verification, the automatic ok.
          */
         PlanOptions: {
-            /** Before Automation */
-            before_automation?: number | null;
+            /**
+             * Prepare
+             * @default dev
+             */
+            prepare: string;
             /** After Automation */
             after_automation?: number | null;
             /**
@@ -4421,11 +4431,6 @@ export interface components {
             new: boolean;
         };
         /**
-         * PlanStatus
-         * @enum {string}
-         */
-        PlanStatus: "proposed" | "confirmed" | "dismissed";
-        /**
          * PlanTask
          * @description A task of the confirmed plan, in its place.
          */
@@ -4437,14 +4442,6 @@ export interface components {
              * @default
              */
             repository: string;
-        };
-        /** PrepareRequest */
-        PrepareRequest: {
-            /**
-             * Prepare
-             * @default
-             */
-            prepare: string;
         };
         /**
          * PrepareTarget
@@ -5001,7 +4998,7 @@ export interface components {
          * StepKey
          * @enum {string}
          */
-        StepKey: "confirm" | "before" | "prepare" | "delegate" | "copilot_plan" | "execution" | "verify" | "after" | "answer" | "final";
+        StepKey: "prepare" | "delegate" | "copilot_plan" | "execution" | "verify" | "after" | "answer" | "final";
         /** StepRequest */
         StepRequest: {
             /** Task */
@@ -7020,43 +7017,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActivityResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_task_from_item_projects__project__activities__note__items__item__agent_task_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project: string;
-                note: string;
-                item: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ItemTaskBody"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentTaskResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9866,36 +9826,6 @@ export interface operations {
             };
         };
     };
-    confirm_task_projects__project__agent_tasks__task__confirm_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project: string;
-                task: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     pause_plan_projects__project__activities__activity__plan_pause_post: {
         parameters: {
             query?: never;
@@ -9909,42 +9839,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PauseRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ActivityPlan"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    prepare_plan_projects__project__activities__activity__plan_prepare_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project: string;
-                activity: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PrepareRequest"];
             };
         };
         responses: {
@@ -10064,6 +9958,104 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ActivityPlan"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    propose_learned_projects__project__activities__activity__learned_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                activity: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnedDraft"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    close_activity_projects__project__activities__activity__close_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                activity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CloseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityClosed"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reopen_activity_projects__project__activities__activity__reopen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                activity: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

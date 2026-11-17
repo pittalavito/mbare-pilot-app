@@ -9,7 +9,7 @@ import { addDays } from "./TodayPanel";
 afterEach(() => { vi.unstubAllGlobals(); window.localStorage.clear(); });
 
 const ACTIVITY = {
-  name: "attivita-rilascio.md", title: "Rilascio", status: "in_progress", description: "", learned: "",
+  name: "attivita-rilascio.md", title: "Rilascio", status: "in_progress", description: "",
   items: [{ text: "Note", done: false, priority: null, due: "2026-11-08" }, { text: "Tag", done: false, priority: null, due: "2026-11-12" }],
   agent_tasks: [], references: [],
 };
@@ -97,17 +97,13 @@ describe("📌 Oggi", () => {
     await waitFor(() => expect(postponed).toHaveBeenCalledTimes(2));
   });
 
-  it("closes an activity with «Imparato»", async () => {
-    const { saved } = api();
+  it("«Chiudi →» opens the activity at the step Chiudi", async () => {
+    api();
     await renderActivities();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Segna fatta" }));
-    const dialog = await screen.findByRole("dialog");
-    fireEvent.change(within(dialog).getByLabelText(/Imparato/), { target: { value: "Il tag dopo le note" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Segna fatta" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Chiudi →" }));
 
-    await waitFor(() => expect(saved).toHaveBeenCalled());
-    expect(await saved.mock.results[0].value).toMatchObject({ status: "done", learned: "Il tag dopo le note" });
+    expect(await screen.findByRole("tab", { name: /Chiudi/, selected: true })).toBeInTheDocument();
   });
 
   it("collapses, remembering it, and says when there is nothing", async () => {
