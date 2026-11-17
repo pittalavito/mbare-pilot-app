@@ -33,10 +33,10 @@ import { isPlanOnly } from "../data/TypedNotes";
 
 export type Zone = "work" | "automation";
 
-/** The note named by an app link to a note (``?note=``: the zones, or the Dati tab of before), or null. */
+/** The note named by an app link to a note (``?note=`` in a zone), or null. */
 export function noteOfLink(href: string): string | null {
   const url = new URL(href, window.location.origin);
-  const zone = ["/data", "/work", "/project"].some((suffix) => url.pathname.endsWith(suffix));
+  const zone = ["/work", "/project"].some((suffix) => url.pathname.endsWith(suffix));
   return url.origin === window.location.origin && zone ? url.searchParams.get("note") : null;
 }
 type Draft = { text: string; id: number; agent?: "operator" };

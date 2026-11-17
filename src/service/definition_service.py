@@ -5,8 +5,7 @@ to a project on request:
 - ``global-agent.yml``: agents of the Library (global);
 - ``project/<slug>/agent.yml``: the project's agents;
 - ``project/<slug>/chat-bots.yml``: the project's chatbots, plus those of
-  ``global-chat-bots.yml`` with a name the project does not use (the older
-  single-chatbot files ``chat-bot.yml`` / ``global-chat-bot.yml`` are still read);
+  ``global-chat-bots.yml`` with a name the project does not use;
 - ``project/<slug>/automation.yml``: the project's automations, plus those of
   ``global-automation.yml`` with a name the project does not use.
 
@@ -40,11 +39,9 @@ from domain.pipeline.graph import linear_edges
 from domain.project.data_paths import (
     AGENTS_FILE,
     AUTOMATIONS_FILE,
-    CHATBOT_FILE,
     CHATBOTS_FILE,
     GLOBAL_AGENTS_FILE,
     GLOBAL_AUTOMATIONS_FILE,
-    GLOBAL_CHATBOT_FILE,
     GLOBAL_CHATBOTS_FILE,
     data_file_name,
     project_definitions,
@@ -217,7 +214,7 @@ class DefinitionService:
         prompt = self._agents.create_prompt_version(spec.role, spec.system_prompt)  # same text = same version
         config = AgentConfig(
             name=spec.name, project_name=project_name, description=spec.description.strip(), role_name=spec.role,
-            prompt_id=prompt.id, model=spec.model, max_steps=spec.max_steps, tool_names=spec.tools,
+            prompt_id=prompt.id, model=spec.model, max_steps=spec.max_steps, tool_names=spec.tools, output=spec.output,
         )
         if existing == config:
             return SyncOutcome.UNCHANGED
@@ -226,28 +223,16 @@ class DefinitionService:
 
     # -------------------------------------------------------------- chatbot
     def _chatbots_of(self, project_name: str, folder: str) -> list["_Element"]:
-        """The project's chatbots (chat-bots.yml, then the single chat-bot.yml),
-        then the global ones (global-chat-bots.yml, global-chat-bot.yml) with a
-        name the project does not use: a base for every project."""
+        """The project's chatbots (chat-bots.yml), then the global ones
+        (global-chat-bots.yml) with a name the project does not use: a base for every project."""
         def sync(prompt_folder: str) -> Callable[[ChatbotFile], SyncOutcome]:
             return lambda spec: self._sync_chatbot(project_name, spec, prompt_folder)
 
         own = self._list(DefinitionKind.CHATBOT, f"{folder}/{CHATBOTS_FILE}", _CHATBOTS_KEY, ChatbotFile, sync(folder))
-        own += self._single(DefinitionKind.CHATBOT, f"{folder}/{CHATBOT_FILE}", ChatbotFile, sync(folder))
         names = {element.name.lower() for element in own if element.name}
         not_own = lambda raw: str(raw.get("name", "")).strip().lower() in names  # noqa: E731
         shared = self._list(DefinitionKind.CHATBOT, GLOBAL_CHATBOTS_FILE, _CHATBOTS_KEY, ChatbotFile, sync(""), skip=not_own)
-        shared += self._single(DefinitionKind.CHATBOT, GLOBAL_CHATBOT_FILE, ChatbotFile, sync(""), skip=not_own)
         return own + shared
-
-    def _single(self, kind: DefinitionKind, path: str, schema: type[BaseModel], sync: Callable[[Any], SyncOutcome],
-                skip: Callable[[dict], bool] = lambda raw: False) -> list["_Element"]:
-        """A file that is one element (no list); none when missing, empty or skipped."""
-        try:
-            raw = self._read(path)
-        except AppError as exc:
-            return [_Element(kind, path, None, None, schema, sync, error=str(exc))]
-        return [] if raw is None or skip(raw) else [_Element(kind, path, raw, None, schema, sync)]
 
     def _sync_chatbot(self, project_name: str, spec: ChatbotFile, prompt_folder: str) -> SyncOutcome:
         """The project's chatbot with this name (case-insensitive), else a new one."""
@@ -265,8 +250,6 @@ class DefinitionService:
             description=spec.description.strip(),
             max_steps=spec.max_steps,
             tool_names=list(spec.tools),
-            wip_prompt=(spec.wip_prompt or "").strip(),
-            plan_prompt=(spec.plan_prompt or "").strip(),
         )
         current = next((bot for bot in self._chatbots.list_chatbots(project_name) if bot.name.lower() == spec.name.lower()), None)
         if current is None:

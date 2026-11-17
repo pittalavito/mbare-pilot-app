@@ -87,19 +87,7 @@ describe("«Lavoro»", () => {
   });
 });
 
-describe("the links of the old tabs", () => {
-  it.each([
-    ["/projects/acme/data", "/projects/acme/work"],
-    [`/projects/acme/data?note=${BORN.name}`, `/projects/acme/work?note=${BORN.name}`],
-    ["/projects/acme/data?note=decisioni.md", "/projects/acme/project?note=decisioni.md"],
-    ["/projects/acme/git", "/projects/acme/project?tab=git"],
-    ["/projects/acme/settings", "/projects/acme/project?tab=settings"],
-  ])("%s → %s", async (from, to) => {
-    api();
-    renderAt(from);
-    expect(await screen.findByTestId("where")).toHaveTextContent(to);
-  });
-
+describe("a note linked in the wrong zone", () => {
   it("an activity linked from «Progetto» goes back to «Lavoro»", async () => {
     api();
     renderAt(`/projects/acme/project?note=${ACTIVITY.name}`);

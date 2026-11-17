@@ -10,7 +10,7 @@ import { DEFAULT_VISIBLE, DataSettings, REFERENCE_TYPES, References } from "../d
 import { Files, Notes } from "../data/DataTab";
 import { GitTab } from "../git/GitTab";
 import { SettingsTab } from "../settings/SettingsTab";
-import { noteZone } from "./redirects";
+import { noteZone } from "./noteZone";
 
 /** The zone «Progetto»: what the project knows and how it is set up. Notes,
  * references, uploaded files and the context (its own data, kept apart from

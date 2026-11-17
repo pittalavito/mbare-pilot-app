@@ -18,7 +18,7 @@ const ACTIVITY = {
   agent_tasks: [NOTE_TASK.name], references: [],
 };
 
-function renderData(route = "/projects/acme/data") {
+function renderData(route = "/projects/acme/work") {
   renderPage(<Routes>{zoneRoutes()}</Routes>, { route });
 }
 
@@ -112,7 +112,7 @@ describe("activities", () => {
 
   it("a task born from nothing says nothing", async () => {
     api();
-    renderData("/projects/acme/data?note=agent-task-tag.md");
+    renderData("/projects/acme/work?note=agent-task-tag.md");
 
     expect(await screen.findByDisplayValue("Tag")).toBeInTheDocument();
     expect(screen.queryByText(/Nasce da/)).not.toBeInTheDocument();

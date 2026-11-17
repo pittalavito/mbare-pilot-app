@@ -1,9 +1,9 @@
 """Project domain models: a project is a named folder on disk the agents work on."""
 from datetime import datetime, timezone
 from enum import StrEnum
-from typing import Annotated, Any
+from typing import Annotated
 
-from pydantic import BaseModel, Field, StringConstraints, field_validator
+from pydantic import BaseModel, Field, StringConstraints
 
 from models.domain.chat import EmbeddingModelName
 from models.domain.dev import TestScope
@@ -59,13 +59,6 @@ class Project(BaseModel):
     """Commands allowed «Solo stavolta»: each is used up by its next run."""
     operator_chatbot_id: int | None = None
     """The Operator of the preparation before Copilot; None = the project's first one."""
-
-    @field_validator("visible_note_types", mode="before")
-    @classmethod
-    def _old_todo_list(cls, value: Any) -> Any:
-        """Saved before the todo lists became activities."""
-        return [("activity" if item == "todo_list" else item) for item in value] if isinstance(value, list) else value
-
 
 class ProjectDataKind(StrEnum):
     NOTE = "note"

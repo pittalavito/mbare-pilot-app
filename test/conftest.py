@@ -4,6 +4,7 @@ from pathlib import Path
 
 import fakeredis
 import pytest
+import yaml
 from cryptography.fernet import Fernet
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, create_engine
@@ -13,6 +14,7 @@ from config import Config
 from domain.chat.models_default import DEFAULT_CHAT_MODELS
 from domain.store.files.store import LocalFileRepository
 from models.domain.agent import AgentConfig, AgentRole
+from models.domain.definitions import AgentFile
 from service.agent_config_service import AgentConfigService
 from service.agent_service import AgentService
 from service.chat_service import ChatService
@@ -23,6 +25,7 @@ from service.masking_service import MaskingService
 from service.pipeline_service import PipelineService
 from service.project_data_service import ProjectDataService
 from service.store.stores import Stores
+from service.structured_agent_service import StructuredAgentService
 
 HELLO_AGENT = """agents:
   - name: hello
@@ -42,6 +45,8 @@ execute_prompt: Ok, procedi con il piano concordato, senza commit.
 denied_tools: ["shell(git commit)", "shell(git push)", "shell(git reset)"]
 """
 """Copilot's prompts and denied tools (global-coding-agent.yml): required to use Copilot."""
+EXAMPLE_AGENTS = Path(__file__).parents[1] / "resource" / "definition-example" / "global-agent.yml"
+"""The agents of the Library: hello and the agents with a structured answer (wip, pianificatore, bozza-attivita)."""
 EXAMPLE_CHATBOTS = Path(__file__).parents[1] / "resource" / "definition-example" / "global-chat-bots.yml"
 """The chatbots every project gets (the code creates none): the example file, as a new installation has it."""
 
@@ -79,8 +84,29 @@ def config(tmp_path):
 
 @pytest.fixture
 def default_chatbots(config):
-    """The example global-chat-bots.yml in the data folder: a Container (or a new project) creates its chatbots, as a new installation."""
+    """The example global-chat-bots.yml and global-agent.yml in the data folder: a Container (or a new project)
+    creates their chatbots and agents (the structured ones too), as a new installation."""
     (config.definitions_root / "global-chat-bots.yml").write_text(EXAMPLE_CHATBOTS.read_text(encoding="utf-8"), encoding="utf-8")
+    (config.definitions_root / "global-agent.yml").write_text(EXAMPLE_AGENTS.read_text(encoding="utf-8"), encoding="utf-8")
+
+
+def seed_structured_agents(service: AgentConfigService) -> None:
+    """The agents of the example global-agent.yml with an ``output``, as a Container creates them."""
+    for raw in yaml.safe_load(EXAMPLE_AGENTS.read_text(encoding="utf-8"))["agents"]:
+        spec = AgentFile.model_validate(raw)
+        if not spec.output or any(config.name == spec.name for config in service.list_configs()):
+            continue
+        service.save_role(AgentRole(name=spec.role), create=True)
+        prompt = service.create_prompt_version(spec.role, spec.system_prompt)
+        service.save_config(AgentConfig(name=spec.name, role_name=spec.role, prompt_id=prompt.id, model=spec.model,
+                                        max_steps=spec.max_steps, output=spec.output))
+
+
+@pytest.fixture
+def structured_agent_service(agent_config_service, catalog_store, run_store):
+    """The agents with a structured answer seeded; tests replace ``_chat.get_client`` with a fake model."""
+    seed_structured_agents(agent_config_service)
+    return StructuredAgentService(agent_config_service, ChatService(), catalog_store, run_store)
 
 
 @pytest.fixture

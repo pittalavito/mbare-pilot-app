@@ -18,6 +18,7 @@ class AgentResponse(BaseModel):
     model: str
     max_steps: int
     tool_names: list[str]
+    output: str
     blocked_reason: str | None
     """Why the agent cannot run right now (inactive role/prompt/model, ...); None = runnable."""
 
@@ -35,6 +36,7 @@ class AgentCreateRequest(BaseModel):
     model: str
     max_steps: int = 4
     tool_names: list[str] = Field(default_factory=list)
+    output: str = ""
 
 
 class AgentUpdateRequest(BaseModel):
@@ -45,6 +47,7 @@ class AgentUpdateRequest(BaseModel):
     model: str
     max_steps: int = 4
     tool_names: list[str] = Field(default_factory=list)
+    output: str = ""
 
 
 class RoleResponse(BaseModel):

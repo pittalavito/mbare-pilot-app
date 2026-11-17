@@ -1,13 +1,15 @@
 import { Accordion, Alert, Button, Group, Modal, MultiSelect, NumberInput, Select, Stack, Text, TextInput } from "@mantine/core";
 import { useEffect, useState } from "react";
 
-import { type Agent, type Scope, useDeleteAgent, usePrompts, useRoles, useSaveAgent } from "../../api/agents";
+import { type Agent, type Scope, useAgentOutputs, useDeleteAgent, usePrompts, useRoles, useSaveAgent } from "../../api/agents";
 import { useTools } from "../../api/catalog";
 import { ConfirmButton } from "../ConfirmButton";
 import { ModelSelect } from "../ModelSelect";
 
-type Form = { name: string; description: string; role_name: string; prompt_id: number | null; model: string; max_steps: number; tool_names: string[] };
-const EMPTY: Form = { name: "", description: "", role_name: "", prompt_id: null, model: "", max_steps: 4, tool_names: [] };
+type Form = {
+  name: string; description: string; role_name: string; prompt_id: number | null; model: string; max_steps: number; tool_names: string[]; output: string;
+};
+const EMPTY: Form = { name: "", description: "", role_name: "", prompt_id: null, model: "", max_steps: 4, tool_names: [], output: "" };
 
 /** Create (``agent`` undefined) or edit an agent; editing also deletes it. A
  * project agent may use the global roles or the project's own. */
@@ -16,6 +18,7 @@ export function AgentModal({ scope, agent, opened, onClose }: { scope: Scope; ag
   const roles = useRoles(scope, scope !== null);
   const prompts = usePrompts(form.role_name || undefined);
   const tools = useTools({ chatbot: false });
+  const outputs = useAgentOutputs();
   const save = useSaveAgent();
   const remove = useDeleteAgent();
 
@@ -47,7 +50,7 @@ export function AgentModal({ scope, agent, opened, onClose }: { scope: Scope; ag
   const onSave = () => {
     const body = {
       description: form.description, role_name: form.role_name, prompt_id: form.prompt_id!, model: form.model,
-      max_steps: form.max_steps, tool_names: form.tool_names.filter((name) => usable.includes(name)),
+      max_steps: form.max_steps, tool_names: form.tool_names.filter((name) => usable.includes(name)), output: form.output,
     };
     save.mutate(agent ? { name: agent.name, update: body } : { create: { name: form.name.trim(), project_name: scope, ...body } }, { onSuccess: onClose });
   };
@@ -100,6 +103,14 @@ export function AgentModal({ scope, agent, opened, onClose }: { scope: Scope; ag
             <NumberInput label="Max steps" min={1} max={50} value={form.max_steps} onChange={(value) => set({ max_steps: Number(value) || 1 })} />
           </Group>
           <MultiSelect label="Tool" searchable data={usable} value={form.tool_names.filter((name) => usable.includes(name))} onChange={(value) => set({ tool_names: value })} />
+          <Select
+            label="Risposta strutturata"
+            description="Per gli agenti che l'app chiama da sola (Elabora WIP, Pianificatore, Da riferimenti): una chiamata, senza tool."
+            data={[{ value: "", label: "Nessuna (testo)" }, ...(outputs.data ?? []).map((item) => ({ value: item.name, label: `${item.name} — ${item.description}` }))]}
+            value={form.output}
+            allowDeselect={false}
+            onChange={(value) => set({ output: value ?? "" })}
+          />
           {missing.length > 0 && <Alert color="orange">Tool non più disponibili, verranno rimossi al salvataggio: {missing.join(", ")}</Alert>}
           {save.error && <Alert color="red">{save.error.message}</Alert>}
           <Group justify="space-between" mt="sm">

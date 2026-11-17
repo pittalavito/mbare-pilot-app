@@ -67,6 +67,7 @@ def test_delete_agent(client):
     ({"role_name": "ghost"}, 400),               # unknown role
     ({"model": "not-a-key"}, 400),               # domain model rejects the key
     ({"max_steps": 0}, 400),                     # domain range
+    ({"output": "romanzo"}, 400),                # unknown structured answer
 ])
 def test_invalid_agents(client, overrides, status):
     body = _agent(client, "new-bot")
@@ -75,6 +76,15 @@ def test_invalid_agents(client, overrides, status):
     response = client.post("/agents", json=body)
     assert response.status_code == status, response.json()
     assert response.json()["detail"]
+
+
+def test_an_agent_with_a_structured_answer(client):
+    outputs = client.get("/agents/outputs").json()
+    assert [item["name"] for item in outputs] == ["wip", "plan", "draft"] and all(item["description"] for item in outputs)
+
+    created = client.post("/agents", json={**_agent(client, "bozza"), "output": "draft"}).json()
+
+    assert created["output"] == "draft" and client.get("/agents/hello").json()["output"] == ""
 
 
 def test_missing_fields_are_422(client):

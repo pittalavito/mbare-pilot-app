@@ -135,6 +135,8 @@ class AgentConfigTable(SQLModel, table=True):
     max_steps: int
     tool_names: list[str] = Field(default_factory=list, sa_type=JSON)
     """Names of the catalog tools the agent can call, in order."""
+    output: str = ""
+    """The structured answer (``""`` = text)."""
 
 
 class ToolTable(SQLModel, table=True):
@@ -165,12 +167,6 @@ class ChatbotTable(SQLModel, table=True):
     model: str
     max_steps: int
     tool_names: list[str] = Field(default_factory=list, sa_type=JSON)
-    wip_prompt: str = Field(default="", sa_type=Text)
-    """Only a secretary: the instructions of «Elabora WIP»; ``""`` = the default in the code."""
-    wip_prompt_version: int = 1
-    plan_prompt: str = Field(default="", sa_type=Text)
-    """Only a secretary: the instructions of the Pianificatore («▶️ Lavora attività»); ``""`` = the default in the code."""
-    plan_prompt_version: int = 1
     rag_enabled: bool = False
     """NOTE: RAG behaviour of chatbots still to be defined (see README)."""
     created_at: datetime = _timestamp()
@@ -242,8 +238,7 @@ class PipelineTable(SQLModel, table=True):
 class PipelineStepTable(SQLModel, table=True):
     """One step of a pipeline. ``kind`` says which fields are used:
     ``agent`` (its own agent: system_prompt…tool_names), ``agent_config`` (a
-    Library agent) or ``tool`` (a tool of the registry: ``tool_name`` and its arguments in ``params``).
-    ``function`` (with ``function_name``) was the function steps of before plan 15, converted at startup."""
+    Library agent) or ``tool`` (a tool of the registry: ``tool_name`` and its arguments in ``params``)."""
     __tablename__ = "pipeline_step"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -259,7 +254,6 @@ class PipelineStepTable(SQLModel, table=True):
     tool_names: list[str] = Field(default_factory=list, sa_type=JSON)
     agent_config_name: str | None = None
     """Plain column, no FK: a deleted Library agent makes the step fail with a clear error."""
-    function_name: str | None = None
     tool_name: str | None = None
     """A ``tool`` step's tool (plan 11)."""
     params: dict = Field(default_factory=dict, sa_type=JSON)

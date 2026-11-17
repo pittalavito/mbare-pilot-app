@@ -11,11 +11,10 @@ from datetime import datetime, timezone
 from pydantic import BaseModel
 
 from core.error import ConflictError, NotFoundError, ValidationError
-from core.observability import LogPrefix, log_info, log_warning
+from core.observability import LogPrefix, log_info
 from domain.project.data_paths import (
     CONTEXT_DIR,
     FILES_DIR,
-    NOTE_PREFIXES,
     NOTE_SUFFIX,
     NOTES_DIR,
     data_file_name,
@@ -192,27 +191,6 @@ class ProjectDataService:
         activity = self.activity(project_name, activity_name)
         if task not in activity.agent_tasks:
             self.save_activity(project_name, activity_name, activity.model_copy(update={"agent_tasks": [*activity.agent_tasks, task]}))
-
-    def migrate_todo_lists(self, project_name: str) -> int:
-        """The old todo lists (``todo-list-<title>.md``) become activities
-        (``attivita-<title>.md``): same items and references, description
-        empty, status from the items. One whose new name is taken stays as it
-        is (logged). Returns how many were moved."""
-        moved = 0
-        for note in self.list_notes(project_name):
-            if not note.name.startswith(_OLD_TODO_LIST_PREFIX):
-                continue
-            new = NOTE_PREFIXES[NoteType.ACTIVITY] + note.name.removeprefix(_OLD_TODO_LIST_PREFIX)
-            if self._files.get(self._id(project_name, NOTES_DIR, new)) is not None:
-                log_warning(LogPrefix.PROJECT_SERVICE, "Todo list %s non migrata: %s esiste già", note.name, new)
-                continue
-            activity = parse_activity(self.read_note(project_name, note.name), _title(new))
-            self.save_note(project_name, new, render_activity(activity))
-            self._files.delete(self._id(project_name, NOTES_DIR, note.name))
-            moved += 1
-        if moved:
-            log_info(LogPrefix.PROJECT_SERVICE, "%s: %d todo list diventate attività", project_name, moved)
-        return moved
 
     # ------------------------------------------------------------ references
     def references(self, project_name: str) -> list[tuple[str, NoteType, Reference]]:
@@ -475,10 +453,6 @@ def _to_data_file(stored: StoredFile, kind: ProjectDataKind) -> ProjectDataFile:
         modified_at=datetime.fromtimestamp(stored.mtime_ns / 1e9, tz=timezone.utc),
         note_type=note_type(name) if kind == ProjectDataKind.NOTE else None,
     )
-
-
-_OLD_TODO_LIST_PREFIX = "todo-list-"
-"""The name of a todo list before they became activities (migrate_todo_lists)."""
 
 
 def _with_item_tasks(activity: Activity) -> Activity:

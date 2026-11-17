@@ -2,7 +2,6 @@
 ``pipeline`` / ``pipeline_step`` / ``pipeline_edge`` / ``pipeline_run`` /
 ``pipeline_step_run`` rows. Edges point to steps by id in the DB and by name in
 the domain: the mapper translates."""
-from domain.pipeline.legacy import function_as_tool
 from domain.store.db.mapper import as_utc
 from models.domain.pipeline import (
     INPUT_NODE,
@@ -18,9 +17,6 @@ from models.domain.pipeline import (
     StepKind,
 )
 from models.store.db import PipelineEdgeTable, PipelineRunTable, PipelineStepRunTable, PipelineStepTable, PipelineTable
-
-LEGACY_FUNCTION = "function"
-"""The kind of the function steps of before plan 15."""
 
 
 class Adapter:
@@ -54,9 +50,6 @@ class Adapter:
 
     @staticmethod
     def to_pipeline_step(row: PipelineStepTable) -> PipelineStep:
-        if row.kind == LEGACY_FUNCTION:  # a function step of before (plan 15): read as the tool step it became
-            tool_name, args = function_as_tool(row.function_name or "", dict(row.params))
-            row = row.model_copy(update={"kind": StepKind.TOOL.value, "tool_name": tool_name, "params": args, "function_name": None})
         kind = StepKind(row.kind)
         agent = None
         if kind is StepKind.AGENT:
@@ -97,10 +90,7 @@ class Adapter:
 
     @staticmethod
     def to_pipeline_step_run(row: PipelineStepRunTable) -> PipelineStepRun:
-        data = row.model_dump()
-        if data["kind"] == LEGACY_FUNCTION:  # the history of before: a function step ran as a tool does now
-            data["kind"] = StepKind.TOOL.value
-        step_run = PipelineStepRun.model_validate(data)
+        step_run = PipelineStepRun.model_validate(row.model_dump())
         step_run.started_at = as_utc(step_run.started_at) if step_run.started_at else None
         step_run.finished_at = as_utc(step_run.finished_at) if step_run.finished_at else None
         return step_run
@@ -130,7 +120,6 @@ class Factory:
             max_steps=agent.max_steps if agent else None,
             tool_names=list(agent.tool_names) if agent else [],
             agent_config_name=step.agent_config_name,
-            function_name=None,
             tool_name=step.tool_name,
             params=dict(step.params),
             position_x=step.position_x,

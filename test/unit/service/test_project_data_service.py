@@ -3,7 +3,7 @@ import pytest
 from core.error import ConflictError, NotFoundError, ValidationError
 from domain.project.data_paths import data_file_name, note_file_name, project_slug
 from domain.project.folder_browser import FolderBrowser
-from models.domain.note import Activity, ActivityStatus, AgentTask, ChecklistItem, NoteType, Reference, TaskStatus, TodoItem, TodoPriority
+from models.domain.note import Activity, AgentTask, ChecklistItem, NoteType, Reference, TaskStatus, TodoItem, TodoPriority
 from models.domain.project import Project, ProjectDataKind, ProjectSource
 from service.project_service import ProjectService
 
@@ -65,7 +65,6 @@ def test_files_round_trip(data_service, files_repository):
     assert (files_repository.root / "my-app" / "files" / "report.pdf").is_file()
     assert data_service.list_notes("My App") == []
     assert data_service.delete_file("My App", "report.pdf") is True
-
 
 
 def test_typed_notes_are_notes_named_by_type(data_service, files_repository):
@@ -174,32 +173,6 @@ def test_agent_tasks_born_from_an_activity_are_linked_and_unlinked_when_deleted(
     assert data_service.agent_task("My App", second).title == "Tag"  # the task stays
 
 
-def test_the_old_todo_lists_become_activities(data_service, files_repository):
-    notes = files_repository.root / "my-app" / "notes"
-    notes.mkdir(parents=True)
-    (notes / "todo-list-rilascio.md").write_text(
-        "# Rilascio v2\n\n- [x] Aggiornare  (alta, 2026-10-30)\n- [ ] Taggare\n\n## Riferimenti\n- context-reference-procedura.md\n",
-        encoding="utf-8")
-    (notes / "todo-list-fatta.md").write_text("# Fatta\n\n- [x] uno\n", encoding="utf-8")
-    (notes / "todo-list-doppia.md").write_text("# Doppia vecchia\n", encoding="utf-8")
-    (notes / "attivita-doppia.md").write_text("# Doppia\n\nStato: in corso\n", encoding="utf-8")
-
-    assert data_service.migrate_todo_lists("My App") == 2
-
-    activities = dict(data_service.activities("My App"))
-    assert set(activities) == {"attivita-rilascio.md", "attivita-fatta.md", "attivita-doppia.md"}
-    rilascio = activities["attivita-rilascio.md"]
-    assert (rilascio.title, rilascio.status, rilascio.description) == ("Rilascio v2", ActivityStatus.TODO, "")
-    assert [(item.text, item.done, item.priority) for item in rilascio.items] == [("Aggiornare", True, TodoPriority.HIGH), ("Taggare", False, None)]
-    assert rilascio.references == ["context-reference-procedura.md"]
-    assert activities["attivita-fatta.md"].status == ActivityStatus.DONE  # every item done
-    assert activities["attivita-doppia.md"].title == "Doppia"  # the existing one is not touched...
-    assert (notes / "todo-list-doppia.md").is_file()  # ...and the old one stays, logged
-    assert not (notes / "todo-list-rilascio.md").exists()
-    assert "Stato: da fare" in (notes / "attivita-rilascio.md").read_text(encoding="utf-8")  # written as an activity
-    assert data_service.migrate_todo_lists("My App") == 0  # once
-
-
 def test_a_link_from_jira_can_go_to_an_activity(data_service):
     from models.domain.note import Reference
 
@@ -211,15 +184,6 @@ def test_a_link_from_jira_can_go_to_an_activity(data_service):
     assert data_service.activity("My App", activity).references == [reference]
     with pytest.raises(ValidationError, match="né un'attività"):
         data_service.link_reference("My App", reference, ["appunti.md"])
-
-
-def test_the_settings_saved_before_the_activities_still_read(project_store):
-    from models.domain.project import Project, ProjectSource
-
-    project = Project.model_validate({"name": "Vecchio", "source": ProjectSource.FOLDER, "root_path": "/x",
-                                      "visible_note_types": ["generic", "todo_list"]})
-
-    assert project.visible_note_types == [NoteType.GENERIC, NoteType.ACTIVITY]
 
 
 # ------------------------------------------------------- notes and files

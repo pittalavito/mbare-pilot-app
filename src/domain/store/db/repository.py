@@ -3,12 +3,10 @@
 (unit of work across repositories). Concrete repositories live in their own
 files under domain/store/db/.
 
-Schema migrations are out of scope (no Alembic): ``create_all`` creates the
-missing tables at startup. A table renamed in code is renamed in place first
-(``RENAMED_TABLES``, rows kept). A column added in code that is nullable or has a
-scalar default is added in place (``ALTER TABLE ADD COLUMN``), rows kept. Any
-other change recreates the table only while it is empty (with the tables
-referencing it); with rows the app stops and says which table to migrate by hand.
+No migrations, no backward compatibility: ``create_all`` creates the missing
+tables at startup; a table whose columns changed in code is recreated only
+while it is empty (with the tables referencing it); with rows the app stops and
+says to delete the database.
 """
 import json
 from collections.abc import Callable, Iterator, Sequence
@@ -16,10 +14,9 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any, Generic, TypeVar
 
-from sqlalchemy import func, inspect, literal, text
+from sqlalchemy import func, inspect, text
 from sqlalchemy.engine import Engine as SqlAlchemyEngine
 from sqlalchemy.orm import class_mapper
-from sqlalchemy.sql.schema import ScalarElementColumnDefault
 from sqlmodel import Session, SQLModel, create_engine, select
 from sqlmodel.sql.expression import SelectOfScalar
 
@@ -28,10 +25,6 @@ import models.store.db  # noqa: F401
 from core.observability import LogPrefix, log_warning
 
 TableT = TypeVar("TableT", bound=SQLModel)
-
-RENAMED_TABLES = {"chat_route": "automation_cache"}
-"""Old name → new name: renamed at startup when only the old one exists."""
-
 
 class _TransactionSession(Session):
     """The Session of an open ``transaction``: the repositories' ``commit`` only
@@ -85,51 +78,9 @@ class Engine:
             # chunk.embedding is a pgvector column (image pgvector/pgvector).
             with engine.begin() as connection:
                 connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-        Engine._rename_tables(engine)
-        Engine._add_missing_columns(engine)
         Engine._drop_outdated_empty_tables(engine)
         SQLModel.metadata.create_all(engine)
         return engine
-
-    @staticmethod
-    def _rename_tables(engine: SqlAlchemyEngine) -> None:
-        """``ALTER TABLE old RENAME TO new`` for each table of RENAMED_TABLES
-        that still has its old name (and no table has the new one yet): the
-        rows stay. Its indexes and sequences keep their old names, which is harmless."""
-        existing = set(inspect(engine).get_table_names())
-        renamed = [(old, new) for old, new in RENAMED_TABLES.items() if old in existing and new not in existing]
-        if not renamed:
-            return
-        with engine.begin() as connection:
-            for old, new in renamed:
-                connection.execute(text(f"ALTER TABLE {old} RENAME TO {new}"))
-        log_warning(LogPrefix.DB_ENGINE, "Tabelle rinominate: %s", ", ".join(f"{old} → {new}" for old, new in renamed))
-
-    @staticmethod
-    def _add_missing_columns(engine: SqlAlchemyEngine) -> None:
-        """The columns the code has and an existing table lacks, when they can
-        be added without touching its rows: nullable, or with a scalar default
-        (written as the column's DEFAULT, so existing rows get it)."""
-        existing = set(inspect(engine).get_table_names())
-        added = []
-        with engine.begin() as connection:
-            for table in SQLModel.metadata.sorted_tables:
-                if table.name not in existing:
-                    continue
-                present = {column["name"] for column in inspect(connection).get_columns(table.name)}
-                for column in table.columns:
-                    if column.name in present or column.primary_key:
-                        continue
-                    default = column.default.arg if isinstance(column.default, ScalarElementColumnDefault) else None
-                    if default is None and not column.nullable:
-                        continue  # left to the recreate below
-                    ddl = f"ALTER TABLE {table.name} ADD COLUMN {column.name} {column.type.compile(dialect=engine.dialect)}"
-                    if default is not None:
-                        ddl += f" NOT NULL DEFAULT {literal(default).compile(dialect=engine.dialect, compile_kwargs={'literal_binds': True})}"
-                    connection.execute(text(ddl))
-                    added.append(f"{table.name}.{column.name}")
-        if added:
-            log_warning(LogPrefix.DB_ENGINE, "Colonne aggiunte allo schema: %s", ", ".join(added))
 
     @staticmethod
     def _drop_outdated_empty_tables(engine: SqlAlchemyEngine) -> None:
@@ -153,7 +104,7 @@ class Engine:
             if filled:
                 raise RuntimeError(
                     f"Lo schema di {', '.join(sorted(outdated))} è cambiato nel codice, ma {', '.join(filled)} "
-                    "contiene dati: migrale a mano (o svuotale) e riavvia."
+                    "contiene dati: cancella il database e riavvia."
                 )
             for table in reversed(to_drop):  # children first
                 table.drop(connection)

@@ -40,12 +40,10 @@ Le tabelle stanno in [`models/store/db.py`](../../../models/README.md), con la m
 `Engine.create_db_engine(DATABASE_URL)` si connette e prepara lo schema all'avvio:
 
 1. su Postgres attiva l'estensione **pgvector** (`CREATE EXTENSION IF NOT EXISTS vector`);
-1. rinomina le **tabelle rinominate nel codice** (`RENAMED_TABLES` in `repository.py`, es. `chat_route` → `automation_cache`) con `ALTER TABLE … RENAME TO`, se c'è ancora solo quella vecchia: le righe restano; indici e sequenze tengono il vecchio nome, senza conseguenze;
-2. aggiunge alle tabelle esistenti le **colonne nuove** che si possono aggiungere senza toccare le righe: nullable, o con un default scalare (es. `model: str = ""`), che diventa il `DEFAULT` della colonna (`ALTER TABLE … ADD COLUMN`, nel log);
-3. controlla le tabelle esistenti: se le colonne nel codice sono ancora diverse (una tolta, rinominata, nuova obbligatoria senza default), la tabella va ricreata;
-4. `create_all` crea le tabelle che mancano.
+2. controlla le tabelle esistenti: se le colonne nel codice sono diverse, la tabella va ricreata;
+3. `create_all` crea le tabelle che mancano.
 
-**Niente migrazioni** (niente Alembic). A parte l'aggiunta di colonne del punto 2, una tabella cambiata nel codice viene ricreata, insieme alle tabelle che la referenziano, **solo se sono tutte vuote**. Se ha dati l'app non parte e dice quale tabella migrare o svuotare a mano: così non si perde mai niente in silenzio. Il tipo di una colonna esistente non viene confrontato.
+**Niente migrazioni né retrocompatibilità** (piano 17). Una tabella cambiata nel codice viene ricreata, insieme alle tabelle che la referenziano, **solo se sono tutte vuote**. Se ha dati l'app non parte e dice di **cancellare il database**: così non si perde mai niente in silenzio. Il tipo di una colonna esistente non viene confrontato.
 
 ## Base dei repository (`SqlRepository`)
 

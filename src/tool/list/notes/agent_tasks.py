@@ -5,12 +5,12 @@ refinement: the user refines it and sets it to todo. The secretary never
 reads a reference's content, only its title, to choose which ones to link.
 Only in a chatbot's run of a project."""
 from typing import Annotated
-from urllib.parse import quote
 
 from datapizza.tools import Tool, tool
 
 from core.error import AppError
 from domain.project.data_paths import note_file_name
+from domain.project.links import note_link
 from models.domain.note import AgentTask, ChecklistItem, NoteType, TaskStatus, TaskType
 from models.domain.tool import AgentTaskCreatedResponse, ListReferencesResponse, ReferenceInfo, ToolErrorResponse
 from tool.context import ToolContext
@@ -99,7 +99,7 @@ def build_create(run: ToolContext) -> Tool:
             return ToolErrorResponse(error=str(exc))
         return AgentTaskCreatedResponse(
             task=name, title=task.title, type=task.type.value, status=task.status.value, references=names, activity=parent, item=item or None,
-            link=f"/projects/{quote(project_name)}/data?note={quote(name)}",
+            link=note_link(project_name, name),
         )
 
     return create_agent_task

@@ -66,11 +66,8 @@ class ChatbotService:
         max_steps: int = 4,
         tool_names: list[str] | None = None,
         kind: ChatbotKind = ChatbotKind.CUSTOM,
-        wip_prompt: str = "",
-        plan_prompt: str = "",
     ) -> Chatbot:
-        """``tool_names`` only among the ones its kind allows (KIND_TOOLS).
-        ``wip_prompt`` and ``plan_prompt``: only a secretary («Elabora WIP», the Pianificatore)."""
+        """``tool_names`` only among the ones its kind allows (KIND_TOOLS)."""
         if self._projects.get(project_name) is None:
             raise NotFoundError(f"Progetto non trovato: {project_name}")
         chatbot = Chatbot(
@@ -82,8 +79,6 @@ class ChatbotService:
             model=model,
             max_steps=max_steps,
             tool_names=tool_names or [],
-            wip_prompt=_wip_prompt(kind, wip_prompt),
-            plan_prompt=_secretary_prompt(kind, plan_prompt, "del Pianificatore"),
         )
         self._validate(chatbot)
         return self._chatbots.save_chatbot(chatbot)
@@ -100,13 +95,9 @@ class ChatbotService:
         max_steps: int = 4,
         tool_names: list[str] | None = None,
         kind: ChatbotKind | None = None,
-        wip_prompt: str | None = None,
-        plan_prompt: str | None = None,
     ) -> Chatbot:
-        """Everything but the project (``kind`` None = unchanged, ``wip_prompt``
-        None = unchanged). A changed system prompt gets the next
-        ``prompt_version``, so runs say which prompt answered; the same for
-        ``wip_prompt`` and ``wip_prompt_version``."""
+        """Everything but the project (``kind`` None = unchanged). A changed
+        system prompt gets the next ``prompt_version``, so runs say which prompt answered."""
         current = self.get_chatbot(chatbot_id)
         chatbot = Chatbot.model_validate({
             **current.model_dump(),
@@ -117,16 +108,10 @@ class ChatbotService:
             "model": model,
             "max_steps": max_steps,
             "tool_names": tool_names or [],
-            "wip_prompt": _wip_prompt(kind or current.kind, current.wip_prompt if wip_prompt is None else wip_prompt),
-            "plan_prompt": _secretary_prompt(kind or current.kind, current.plan_prompt if plan_prompt is None else plan_prompt, "del Pianificatore"),
             "updated_at": datetime.now(timezone.utc),
         })
         if chatbot.system_prompt != current.system_prompt:
             chatbot.prompt_version = current.prompt_version + 1
-        if chatbot.wip_prompt != current.wip_prompt:
-            chatbot.wip_prompt_version = current.wip_prompt_version + 1
-        if chatbot.plan_prompt != current.plan_prompt:
-            chatbot.plan_prompt_version = current.plan_prompt_version + 1
         self._validate(chatbot)
         return self._chatbots.save_chatbot(chatbot)
 
@@ -240,17 +225,6 @@ class ChatbotService:
         for other in self._chatbots.list_chatbots(chatbot.project_name):
             if other.name.lower() == chatbot.name.lower() and other.id != chatbot.id:
                 raise ConflictError(f"Esiste già un chatbot chiamato {other.name} in questo progetto.")
-
-
-def _wip_prompt(kind: ChatbotKind, prompt: str) -> str:
-    """Only a secretary has one; ValidationError for another kind."""
-    return _secretary_prompt(kind, prompt, "di «Elabora WIP»")
-
-
-def _secretary_prompt(kind: ChatbotKind, prompt: str, what: str) -> str:
-    if prompt.strip() and kind is not ChatbotKind.SECRETARY:
-        raise ValidationError(f"Solo il segretario ha il prompt {what}.")
-    return prompt.strip()
 
 
 def with_open_note(request: str, open_note: str) -> str:

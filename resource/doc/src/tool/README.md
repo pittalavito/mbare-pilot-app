@@ -92,7 +92,6 @@ C'è **un solo registro**, `TOOL_REGISTRY`: gli stessi tool li chiama un agente 
 - **`chatbot_only`**: funziona solo in una chat (note, Copilot, Refiner, Architetto): uno step non lo può usare (`step_tools()`).
 - **Negli step** gli argomenti possono usare `{input}` (l'input dello step), `{pipeline_input}`, `{nodo:Nome}` e `{in:campo}`; li riempie `PipelineRunner` (`render_args`).
 - **Provare un tool**: Admin → Tool (`GET /tool-specs`, `POST /tools/{nome}/try`, `AgentService.try_tool`): sul progetto scelto, con gli argomenti del form, senza LLM e senza run registrata.
-- **Le automation salvate prima** con step funzione si leggono come step tool (`domain/pipeline/legacy.py`) e all'avvio si salvano così; negli yml `function:` è rifiutato con come scriverlo ora.
 
 | Tool | Cosa fa | Argomenti |
 |---|---|---|
@@ -209,7 +208,7 @@ Gli altri tool del chatbot `refiner`, in `refiner/agent_tasks.py`. Lavorano **so
 Il chatbot delega un agent task (`agent-task-<titolo>.md`, l'elenco lo dà `list_agent_tasks`) a GitHub Copilot su un repository del progetto ([service](../service/README.md#copilot)).
 
 - **Conferma**: la descrizione del tool chiede al chatbot di dire quale task e quale repository e di aspettare un sì esplicito nel messaggio successivo. La rete di sicurezza vera è dopo: il tool apre solo la **chat di preparazione** (Copilot legge e fa domande, non può modificare niente); l'esecuzione parte solo con «Ok, parti» nella chat.
-- **Cosa restituisce**: id della sessione, se Copilot ha risposto, il **link** alla chat (`/projects/<progetto>/copilot?session=<id>`) e il passo successivo. Le domande di Copilot restano nella sua chat: possono citare il codice.
+- **Cosa restituisce**: id della sessione, se Copilot ha risposto, il **link** al task (`/projects/<progetto>/work?note=<task>`, dove il pannello mostra la chat di Copilot) e il passo successivo. Le domande di Copilot restano nella sua chat: possono citare il codice.
 - **Tempo**: il primo turno di Copilot gira dentro la chiamata (decine di secondi).
 - `copilot_status(session_id)`: solo lo stato, quanti file sono cambiati e `head_moved`; sessioni di altri progetti non trovate.
 - Solo nel chatbot di un progetto (`copilot_run()`), come i tool delle automation.

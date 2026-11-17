@@ -25,6 +25,11 @@ export function useAgents(scope: Scope) {
   return useQuery({ queryKey: agentKeys.agents(scope), queryFn: () => unwrap(api.GET("/agents", { params: { query: query(scope) } })) });
 }
 
+/** The structured answers an agent can give (``output``); none = text. */
+export function useAgentOutputs() {
+  return useQuery({ queryKey: ["agents", "outputs"], queryFn: () => unwrap(api.GET("/agents/outputs")), staleTime: Infinity });
+}
+
 /** Create (``name`` undefined) or update an agent. */
 export function useSaveAgent() {
   const queryClient = useQueryClient();

@@ -66,10 +66,23 @@ agents:
     tools: [git_status]            # default nessuno
     system_prompt: |
       Sei un revisore di codice...
+  - name: pianificatore            # un agente che l'app chiama da sola
+    role: pianificatore
+    model: openai/gpt-4o-mini
+    max_steps: 1
+    output: plan                   # risposta strutturata: wip, plan, draft
+    system_prompt: |
+      Sei il Pianificatore...
 ```
 
 - **Ruolo**: deve essere dello stesso ambito dell'agente. Un ruolo con lo stesso nome ma di un altro progetto (o globale, per un agente di progetto) è un errore: scegli un altro nome.
 - **Prompt**: se il testo cambia diventa la **versione successiva** del prompt del ruolo, e l'agente la usa. Le versioni vecchie restano. Testo uguale = nessuna nuova versione.
+- **`output`** (piano 17): la **risposta strutturata**, il nome di uno schema del codice (`STRUCTURED_OUTPUTS` in `domain/agent/outputs.py`); un nome sconosciuto è un errore; omesso = testo. L'app chiama per nome tre agenti di `global-agent.yml`, ognuno con una chiamata sola e senza tool ([service](src/service/README.md#agenti-con-risposta-strutturata-piano-17)):
+  - `wip` (`output: wip`) per «📥 Elabora WIP»;
+  - `pianificatore` (`output: plan`) per «▶️ Lavora attività»;
+  - `bozza-attivita` (`output: draft`) per «📎 Da riferimenti».
+
+  Prompt e modello si cambiano qui (o nella Libreria); un agente che manca o con un altro `output` è un errore quando la funzione parte.
 
 ## Chatbot (`chat-bots.yml`, `global-chat-bots.yml`)
 
@@ -89,20 +102,15 @@ chatbots:
     model: openrouter/google/gemini-3.1-flash-lite-preview
     system_prompt: |
       Sei il mio segretario sul progetto...
-    wip_prompt: |                  # solo secretary, facoltativo: le istruzioni di «Elabora WIP»
-      Leggi il testo nuovo della mia nota WIP...
   - name: Un altro
     ...
 ```
 
 - Uno dei due tra `system_prompt` e `system_prompt_file`.
-- **`plan_prompt`** (solo `kind: secretary`): le istruzioni del **Pianificatore** di «▶️ Lavora attività» (piano 12a), la chiamata unica con risposta strutturata che dall'attività propone gli agent task in ordine, con obiettivo e criteri ([service](src/service/README.md#lavora-attività-piano-12a)). Omesso: `DEFAULT_PLAN_PROMPT` del codice; ha la sua versione (`plan_prompt_version`). Su un altro tipo è un errore.
-- **`wip_prompt`** (solo `kind: secretary`): le istruzioni di «📥 Elabora WIP», la chiamata unica con risposta strutturata che trasforma la nota WIP in proposte ([service](src/service/README.md#elabora-wip)). Omesso: il testo di riserva del codice (`DEFAULT_WIP_PROMPT`). Ha la sua versione (`wip_prompt_version`, cresce quando il testo cambia), registrata con ogni elaborazione per le metriche. Su un altro tipo è un errore.
 - **Tipo e tool**: i tool di un chatbot sono quelli scritti in `tools:` (il codice non ne aggiunge). Ogni tipo accetta solo i suoi (`KIND_TOOLS`): un tool di un altro tipo è un errore. `kind: automation` è l'**Architetto**: progetta con te le automation (`list_tools`, `list_agents`, `list_automations`, `read_automation`, `validate_automation`, `create_tool_task`; non lancia automation, niente cache). `kind: secretary` aiuta con le note (`list_activities`, `read_activity`, `create_activity`, `update_activity`, `list_agent_tasks`, `list_references`, `create_agent_task`, `today`; dei riferimenti vede solo i titoli). `kind: refiner` rifinisce gli agent task aperti accanto alla chat (`create_code_reference`, `read_agent_task`, `update_agent_task`, `finish_refinement`, `search_context`). `kind: operator` è l'**Operatore** (piano 11): procedure sui repository di uno stack con git che non perde niente (`git_status`, `git_fetch`, `git_branches`, `git_checkout`, `git_create_branch`, `git_pull_fast_forward`, `git_stash`, `git_stash_list`, `git_stash_apply`; niente commit né push), `run_command` (solo i comandi permessi del progetto) e `maven_parent_alignment`; per un altro stack scrivi un altro chatbot `operator`. `kind: custom` (il default): i tool li scegli tu.
 - **Chatbot di ogni progetto**: il codice non ne crea nessuno. Si creano quelli di `global-chat-bots.yml` (e del `chat-bots.yml` del progetto) che un progetto non ha, per nome: alla creazione del progetto e all'avvio di API e worker; quelli che ci sono non si toccano. Senza file, nessun chatbot. «Sincronizza da file» li aggiorna (il file vince, anche sul modello). Dalla UI i chatbot **non si creano né si eliminano**, e se ne cambia solo il **modello** nella finestra «ℹ️ Dettagli» (`PATCH /chatbots/{id}/model`, solo un modello del catalogo attivo).
 - **Più chatbot per progetto**, ognuno con il suo agente: si trovano **per nome** (maiuscole e minuscole indifferenti); quelli che non sono nei file restano come sono.
 - **Globali**: quelli di `global-chat-bots.yml` valgono per ogni progetto, salvo che il progetto ne abbia uno con lo stesso nome nel suo file.
-- **Formato vecchio**: `chat-bot.yml` e `global-chat-bot.yml` (un solo chatbot, senza `chatbots:`) si leggono ancora, come un elenco di uno.
 
 **Come si scrivono i file**: in testa un commento di due o tre righe su cosa contiene il file, poi un'intestazione per elemento e nessun altro commento (i campi sono spiegati qui):
 

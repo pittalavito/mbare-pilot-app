@@ -5,11 +5,9 @@ import sys
 import datapizza.tracing
 
 from config import Config
-from core.error import AppError
-from core.observability import LogPrefix, log_exception, log_info, observed
+from core.observability import LogPrefix, observed
 from domain.chat.models_default import DEFAULT_CHAT_MODELS
 from domain.client.embedding.embedder import Factory as EmbedderFactory
-from domain.pipeline.legacy import TOOL_NAMES_RENAMED
 from domain.process.manager import ProcessManager
 from domain.project.folder_browser import FolderBrowser
 from service.activity_draft_service import ActivityDraftService
@@ -41,6 +39,7 @@ from service.publish_service import PublishService
 from service.rag_service import RagService
 from service.run_service import RunService
 from service.store.stores import Stores
+from service.structured_agent_service import StructuredAgentService
 from service.today_service import TodayService
 from service.wip_service import WipService
 
@@ -122,26 +121,18 @@ class Container:
         )
         self.today_service = TodayService(project_data=self.project_data_service, copilot=self.copilot_service, plans=stores.plans)
         self.metrics_service = MetricsService(runs=stores.runs, copilot=stores.copilot, wip_runs=stores.wip)
-        self.evaluation_service = EvaluationService(catalog=stores.catalog, chat=self.chat_service, evaluations=stores.evaluations,
+        self.structured_agents = StructuredAgentService(agents=self.agent_config_service, chat=self.chat_service, catalog=stores.catalog,
+                                                        runs=stores.runs)
+        self.evaluation_service = EvaluationService(catalog=stores.catalog, agents=self.structured_agents, evaluations=stores.evaluations,
                                                     data_root=config.eval_data_root, reports_root=config.evaluations_root)
-        self.wip_service = WipService(
-            project_data=self.project_data_service,
-            masking=self.masking_service,
-            chatbots=stores.chatbots,
-            chat=self.chat_service,
-            catalog=stores.catalog,
-            runs=stores.runs,
-            wip_runs=stores.wip,
-        )
+        self.wip_service = WipService(project_data=self.project_data_service, masking=self.masking_service, agents=self.structured_agents,
+                                      wip_runs=stores.wip)
         self.plan_service = PlanService(
-            project_data=self.project_data_service, masking=self.masking_service, chatbots=stores.chatbots, chat=self.chat_service,
-            catalog=stores.catalog, runs=stores.runs, plans=stores.plans, git=self.git_service, rag=self.rag_service, copilot=self.copilot_service,
-            pipelines=stores.pipelines,
+            project_data=self.project_data_service, masking=self.masking_service, agents=self.structured_agents, plans=stores.plans,
+            git=self.git_service, rag=self.rag_service, copilot=self.copilot_service, pipelines=stores.pipelines,
         )
-        self.activity_draft_service = ActivityDraftService(
-            project_data=self.project_data_service, masking=self.masking_service, chatbots=stores.chatbots, chat=self.chat_service,
-            catalog=stores.catalog, runs=stores.runs,
-        )
+        self.activity_draft_service = ActivityDraftService(project_data=self.project_data_service, masking=self.masking_service,
+                                                           agents=self.structured_agents)
         self.definition_service = DefinitionService(
             definitions=stores.definitions,
             projects=stores.projects,
@@ -174,32 +165,13 @@ class Container:
 
         self._seed_defaults()
 
-    def _one_registry(self, projects: list[str]) -> None:
-        """Plan 15, once: the automations' function steps become tool steps, the
-        chatbots saved with the Architect's old tool names get the new ones."""
-        converted = self._stores.pipelines.convert_function_steps()
-        if converted:
-            log_info(LogPrefix.PIPELINE_SERVICE, "%s automation con step funzione convertite in step tool", converted)
-        for project in projects:
-            for bot in self._stores.chatbots.list_chatbots(project):
-                renamed = [TOOL_NAMES_RENAMED.get(name, name) for name in bot.tool_names]
-                if renamed != bot.tool_names:
-                    self._stores.chatbots.save_chatbot(bot.model_copy(update={"tool_names": renamed}))
-
     def _seed_defaults(self) -> None:
         """At startup, what is missing: the default models, the tool catalog and
         the global agents of definition/global-agent.yml (edits made from the UI
         are never overwritten) and the default chatbots each project misses.
-        Models first: agents and chatbots need them. Then the old todo lists
-        of every project become activities (once: the files are renamed)."""
+        Models first: agents and chatbots need them."""
         self.model_service.seed_defaults(DEFAULT_CHAT_MODELS)
         self.agent_config_service.sync_tools()
         self.definition_service.seed_global_agents()
         projects = [project.name for project in self.project_service.list_projects()]
-        self._one_registry(projects)
         self.definition_service.seed_default_chatbots(projects)
-        for name in projects:  # the todo lists of before become activities
-            try:
-                self.project_data_service.migrate_todo_lists(name)
-            except AppError:
-                log_exception(LogPrefix.PROJECT_SERVICE, "Todo list del progetto %s non migrate", name)

@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from typing import ClassVar
 
-from pydantic import AliasChoices, Field, SecretStr
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -63,13 +63,13 @@ class Config(BaseSettings):
     ollama_url: str = "http://localhost:11434/v1"
 
     # --- Automation cache (automation chatbots) ---
-    automation_cache_threshold: float = Field(0.9, validation_alias=AliasChoices("automation_cache_threshold", "chat_route_threshold"))
+    automation_cache_threshold: float = 0.9
     """How similar (cosine, 0..1) a message must be to a cached one to launch
-    its automation without the agent. CHAT_ROUTE_THRESHOLD, its old name, still works."""
-    automation_cache_embedder: str = Field("hashing", validation_alias=AliasChoices("automation_cache_embedder", "chat_route_embedder"))
+    its automation without the agent."""
+    automation_cache_embedder: str = "hashing"
     """Embedder of the cache: ``hashing`` (a mock: same words = similar) or
     ``openrouter/<model>`` (e.g. ``openrouter/openai/text-embedding-3-small``;
-    the text is masked before it leaves the PC). CHAT_ROUTE_EMBEDDER, its old name, still works."""
+    the text is masked before it leaves the PC)."""
     rag_embedder: str = ""
     """Embedder of the projects' context index (RAG): ``""`` = each project's
     ``embedding_model`` through OpenRouter (``openai/text-embedding-3-small`` →

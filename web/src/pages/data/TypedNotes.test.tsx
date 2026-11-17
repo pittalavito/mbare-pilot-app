@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mockApi, renderPage } from "../../test/render";
 import { zoneRoutes } from "../../test/zones";
 import { sectionOfNote } from "../project/ProjectZone";
-import { noteZone } from "../project/redirects";
+import { noteZone } from "../project/noteZone";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -22,7 +22,7 @@ const NOTES = [
   { name: "decisioni.md", kind: "note", size: 1, modified_at: "2026-10-25T10:00:00Z", note_type: "generic" },
 ];
 
-const renderData = (route = "/projects/acme/data") =>
+const renderData = (route = "/projects/acme/work") =>
   renderPage(<Routes>{zoneRoutes()}</Routes>, { route });
 
 describe("agent task status and type", () => {
@@ -266,7 +266,7 @@ describe("typed notes", () => {
         lines: "", content: "", linked_from: [],
       }],
     });
-    renderData("/projects/acme/settings"); // the old tab: «Progetto» → Impostazioni
+    renderData("/projects/acme/project?tab=settings"); // the old tab: «Progetto» → Impostazioni
 
     expect(await screen.findByRole("tab", { name: /Impostazioni/, selected: true })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: /Riferimenti/ })).not.toBeInTheDocument();
@@ -292,7 +292,7 @@ describe("links to a note", () => {
       "GET /projects/acme/chatbots": [],
       "GET /projects/acme/activities": [], // born from no activity: it opens in «Tutti i task»
     });
-    renderPage(<Routes>{zoneRoutes()}</Routes>, { route: "/projects/acme/data?note=agent-task-altro.md" });
+    renderPage(<Routes>{zoneRoutes()}</Routes>, { route: "/projects/acme/work?note=agent-task-altro.md" });
 
     expect(await screen.findByRole("tab", { name: /Tutti i task/, selected: true })).toBeInTheDocument();
     expect(await screen.findByDisplayValue("Altro")).toBeInTheDocument(); // the linked task, not the first one

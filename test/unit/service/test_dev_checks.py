@@ -11,7 +11,6 @@ from core.app import create_app
 from core.container import Container
 from core.error import ConflictError
 from domain.pipeline.graph import linear_edges
-from domain.pipeline.legacy import function_as_tool
 from models.domain.copilot import CopilotSessionStatus
 from models.domain.dev import PREPARE_AUTOMATION, VERIFY_AUTOMATION, PrepareTarget, TestScope
 from models.domain.note import AgentTask, TaskStatus
@@ -24,9 +23,12 @@ from unit.service.test_copilot_service import _git, _service, _task, _task_dir, 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
 
 
-def _automation(pipeline_store, name, *functions, active=True):
-    steps = [PipelineStep(name=function, kind=StepKind.TOOL, tool_name=tool, params=args)
-             for function, params in functions for tool, args in [function_as_tool(function, params)]]
+_ARGS = {"git_check_clean": {"targets": "{pipeline_input}"}, "git_checkout_branches": {"targets": "{pipeline_input}"},
+         "clean_mbare_pilot": {"target": "{pipeline_input}"}, "run_tests": {"target": "{pipeline_input}"}}
+
+
+def _automation(pipeline_store, name, *tools, active=True):
+    steps = [PipelineStep(name=tool, kind=StepKind.TOOL, tool_name=tool, params=_ARGS[tool]) for tool in tools]
     return pipeline_store.save_pipeline(Pipeline(project_name="acme", name=name, active=active, steps=steps, edges=linear_edges(steps)))
 
 
@@ -45,7 +47,7 @@ def _branch(root, repository="api"):
 
 def test_the_delegation_prepares_the_repositories_first(project, data, copilot, pipeline_store, copilot_store):  # noqa: F811
     service, _ = copilot
-    _automation(pipeline_store, PREPARE_AUTOMATION, ("git_check_clean", {}), ("git_checkout_branches", {}))
+    _automation(pipeline_store, PREPARE_AUTOMATION, "git_check_clean", "git_checkout_branches")
     note = _task(data)
     branch = _branch(project)
 
@@ -69,7 +71,7 @@ def test_without_the_automation_the_delegation_says_so_and_without_targets_nothi
 
     session = service.start("acme", note, "api", prepare=[PrepareTarget(repository="api", branch=_branch(project))])
     assert service.messages(session.id)[0].content.startswith("🧰 Il progetto non ha l'automation «Prepara sviluppo»")
-    _automation(pipeline_store, PREPARE_AUTOMATION, ("git_check_clean", {}), active=False)
+    _automation(pipeline_store, PREPARE_AUTOMATION, "git_check_clean", active=False)
     assert not checks.has("acme", PREPARE_AUTOMATION)
     session = service.start("acme", note, "api")
     assert not service.messages(session.id)[0].content.startswith("🧰")
@@ -77,7 +79,7 @@ def test_without_the_automation_the_delegation_says_so_and_without_targets_nothi
 
 def test_a_development_to_verify_is_cleaned_and_tested(project, data, copilot, pipeline_store):  # noqa: F811
     service, _ = copilot
-    _automation(pipeline_store, VERIFY_AUTOMATION, ("clean_mbare_pilot", {}), ("run_tests", {}))
+    _automation(pipeline_store, VERIFY_AUTOMATION, "clean_mbare_pilot", "run_tests")
     note = _task(data)
     session = service.start("acme", note, "api")
     assert _task_dir(project, note).is_dir()
@@ -93,7 +95,7 @@ def test_a_development_to_verify_is_cleaned_and_tested(project, data, copilot, p
 
 def test_failing_tests_are_reported_and_the_task_stays_to_verify(project, data, copilot, pipeline_store):  # noqa: F811
     service, _ = copilot
-    _automation(pipeline_store, VERIFY_AUTOMATION, ("run_tests", {}))
+    _automation(pipeline_store, VERIFY_AUTOMATION, "run_tests")
     failing = f"{sys.executable} -c \"print('FAILED test_x - boom'); raise SystemExit(1)\""
     data.save_test_settings("acme", TestScope.ALL, {"api": failing})
     note = _task(data, tests=TestScope.ALL)
@@ -114,7 +116,7 @@ def test_failing_tests_are_reported_and_the_task_stays_to_verify(project, data, 
 
 def test_a_verification_that_cannot_start_is_reported(project, data, copilot, pipeline_store):  # noqa: F811
     service, _ = copilot
-    _automation(pipeline_store, VERIFY_AUTOMATION, ("run_tests", {}))
+    _automation(pipeline_store, VERIFY_AUTOMATION, "run_tests")
     note = _task(data)
     session = service.approve(service.start("acme", note, "api").id)
     data.delete_note("acme", note)  # the task is gone: its scope cannot be read

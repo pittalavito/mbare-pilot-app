@@ -1,7 +1,7 @@
 import { Alert, Anchor, Badge, Button, Card, Collapse, Group, Menu, Modal, Stack, Text, TextInput, Textarea, UnstyledButton } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { type ReactNode, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 
 import { useActivities, useSaveActivity } from "../../api/projectData";
 import { type Today, type TodayItem, useCheckItem, useSetDue, useToday } from "../../api/today";
@@ -84,11 +84,9 @@ function Sections({ project, data, onClose }: { project: string; data: Today; on
         <Section title="⏳ Aspettano te" count={data.waiting.length}>
           {data.waiting.map((waiting) => (
             <Group key={`${waiting.kind}-${waiting.task}-${waiting.session_id ?? ""}`} gap="xs" wrap="nowrap">
-              {waiting.kind === "copilot" && waiting.session_id != null ? (
-                <Anchor size="sm" component={Link} to={`/projects/${encodeURIComponent(project)}/copilot?session=${waiting.session_id}`}>🤖 {waiting.title}</Anchor>
-              ) : (
-                <Anchor size="sm" component="button" type="button" onClick={() => open(waiting.task)}>{waiting.title}</Anchor>
-              )}
+              <Anchor size="sm" component="button" type="button" onClick={() => open(waiting.task)}>
+                {waiting.kind === "copilot" ? "🤖 " : ""}{waiting.title}
+              </Anchor>
               <Text size="xs" c="dimmed">{WAITING_LABEL[waiting.status] ?? waiting.status}</Text>
             </Group>
           ))}

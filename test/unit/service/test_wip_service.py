@@ -9,14 +9,11 @@ from types import SimpleNamespace
 import pytest
 
 from core.error import ConflictError, NotFoundError, UpstreamError, ValidationError
-from domain.chat.chatbots_default import DEFAULT_WIP_PROMPT
 from fakes import FakeStructuredClient as FakeClient
-from models.domain.chatbot import Chatbot, ChatbotKind
 from models.domain.masking import MaskCategory
 from models.domain.note import Activity, TodoItem, TodoPriority
 from models.domain.project import Project, ProjectSource
 from models.domain.wip import ProposalKind, WipAnswer, WipAnswerProposal, WipChoice
-from service.chat_service import ChatService
 from service.wip_service import WipService
 
 TODAY = date(2026, 11, 10)
@@ -31,13 +28,10 @@ def client():
 
 
 @pytest.fixture
-def service(project_store, project_data_service, masking_service, chatbot_store, catalog_store, run_store, stores, client, monkeypatch):
+def service(project_store, project_data_service, masking_service, structured_agent_service, stores, client, monkeypatch):
     project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
-    chatbot_store.save_chatbot(Chatbot(project_name="acme", name="Segretario", kind=ChatbotKind.SECRETARY, system_prompt="Sei il segretario.",
-                                       model=MODEL))
-    chat = ChatService()
-    monkeypatch.setattr(chat, "get_client", lambda model: client)
-    return WipService(project_data_service, masking_service, chatbot_store, chat, catalog_store, run_store, stores.wip)
+    monkeypatch.setattr(structured_agent_service._chat, "get_client", lambda model: client)
+    return WipService(project_data_service, masking_service, structured_agent_service, stores.wip)
 
 
 @pytest.fixture
@@ -109,12 +103,19 @@ def test_a_tag_too_short_is_an_error(service, data):
         service.preview("acme")
 
 
-def test_without_a_secretary_nothing_is_processed(service, data, chatbot_store):
+def test_without_the_agent_nothing_is_processed(service, data, agent_config_service):
     _write(data, "qualcosa")
-    for bot in chatbot_store.list_chatbots("acme"):
-        chatbot_store.delete_chatbot(bot.id)
+    agent_config_service.delete_config("wip")
 
-    with pytest.raises(ValidationError, match="Nessun segretario"):
+    with pytest.raises(NotFoundError):
+        service.process("acme")
+
+
+def test_the_agent_must_answer_with_its_schema(service, data, agent_config_service):
+    _write(data, "qualcosa")
+    agent_config_service.save_config(agent_config_service.get_config("wip").model_copy(update={"output": "plan"}))
+
+    with pytest.raises(ValidationError, match="output: wip"):
         service.process("acme")
 
 
@@ -139,7 +140,7 @@ def test_one_call_gives_the_proposals_in_clear_and_drops_those_not_in_the_list(s
     result = service.process("acme", today=TODAY)
 
     sent = client.calls[0]
-    assert sent["system_prompt"] == DEFAULT_WIP_PROMPT and sent["output_cls"] is WipAnswer
+    assert sent["system_prompt"].startswith("Leggi il testo nuovo della mia nota WIP") and sent["output_cls"] is WipAnswer
     assert "Marco" not in sent["input"] and "ada@acme.it" not in sent["input"] and "PERSONA_1" in sent["input"]
     assert [(p.id, p.kind.value) for p in result.proposals] == [(1, "check_item"), (2, "set_item"), (3, "new_activity"), (4, "add_item")]
     check, due, new, add = result.proposals
@@ -149,30 +150,30 @@ def test_one_call_gives_the_proposals_in_clear_and_drops_those_not_in_the_list(s
     assert (add.text, add.priority.value) == ("Sentire Marco", "high")
 
     [summary] = run_store.list_runs()
-    assert (summary.run_id, summary.origin, summary.config_name, summary.ok) == (result.run_id, "wip", "wip/Segretario", True)
+    assert (summary.run_id, summary.origin, summary.config_name, summary.ok) == (result.run_id, "wip", "wip", True)
     assert summary.total_tokens.input_tokens == 300
     trace = run_store.get_trace(result.run_id)
     assert "Marco" in trace.input and "Sentire Marco" in trace.output  # the record keeps the real values
     run = stores.wip.get_run(result.run_id)
-    assert (run.proposed, run.prompt_version, run.model, run.applied_at) == (4, 1, MODEL, None)
+    assert (run.proposed, run.prompt_version, run.model, run.applied_at) == (4, 1, "openai/gpt-4o-mini", None)
 
 
-def test_the_secretary_s_own_prompt_is_used_when_written(service, data, client, chatbot_store):
-    [secretary] = chatbot_store.list_chatbots("acme")
-    chatbot_store.save_chatbot(secretary.model_copy(update={"wip_prompt": "Solo attività nuove.", "wip_prompt_version": 3}))
+def test_the_agent_s_new_prompt_version_is_used(service, data, client, agent_config_service):
+    prompt = agent_config_service.create_prompt_version("wip", "Solo attività nuove.")
+    agent_config_service.save_config(agent_config_service.get_config("wip").model_copy(update={"prompt_id": prompt.id}))
     _write(data, "qualcosa da fare")
 
     result = service.process("acme")
 
     assert client.calls[0]["system_prompt"] == "Solo attività nuove."
-    assert service.runs("acme")[0].run_id == result.run_id and service.runs("acme")[0].prompt_version == 3
+    assert service.runs("acme")[0].run_id == result.run_id and service.runs("acme")[0].prompt_version == 2
 
 
 def test_a_failed_call_is_recorded_and_reported(service, data, client, run_store, stores):
     _write(data, "qualcosa da fare")
     client.error = RuntimeError("quota finita")
 
-    with pytest.raises(UpstreamError, match="Il segretario non ha risposto: quota finita"):
+    with pytest.raises(UpstreamError, match="L'agente wip non ha risposto: quota finita"):
         service.process("acme")
 
     [summary] = run_store.list_runs()

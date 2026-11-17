@@ -31,7 +31,7 @@ function api(extra: Record<string, unknown> = {}) {
   return scan;
 }
 
-const renderData = (route = "/projects/acme/data") =>
+const renderData = (route = "/projects/acme/work") =>
   renderPage(<Routes>{zoneRoutes()}</Routes>, { route });
 
 describe("Todo del codice", () => {

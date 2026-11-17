@@ -19,7 +19,7 @@ const FILES = [
   { name: "dati.csv", kind: "file", size: 2048, modified_at: "2026-11-03T10:00:00Z", note_type: null },
 ];
 
-const renderData = (route = "/projects/acme/data") =>
+const renderData = (route = "/projects/acme/work") =>
   renderPage(<Routes>{zoneRoutes()}</Routes>, { route });
 
 describe("notes and files as references", () => {

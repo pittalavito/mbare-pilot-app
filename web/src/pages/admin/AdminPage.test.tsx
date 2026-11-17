@@ -45,7 +45,7 @@ describe("AdminPage", () => {
     fireEvent.click(await screen.findByRole("tab", { name: "Copilot" }));
     expect(await screen.findAllByText("1,27")).toHaveLength(2); // per model and the turn
     expect(screen.getAllByText("26.736 / 97")).toHaveLength(2);
-    expect(screen.getByRole("link", { name: "fix porto" })).toHaveAttribute("href", "/projects/acme/copilot?session=4");
+    expect(screen.getByRole("link", { name: "fix porto" })).toHaveAttribute("href", "/projects/acme/work?note=agent-task-fix-porto.md");
     expect(screen.getByText("esecuzione")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Sempre"));

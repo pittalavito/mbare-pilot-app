@@ -9,6 +9,8 @@ DEFAULT_CHAT_MODELS: list[ChatModel] = [
     ChatModel(provider=ModelProvider.OPENROUTER, model="google/gemini-3.1-flash-lite-preview", input_per_1m=0.07, output_per_1m=0.28),
     ChatModel(provider=ModelProvider.OPENAI, model="gpt-5.3", input_per_1m=4.6, output_per_1m=13.8),
     ChatModel(provider=ModelProvider.OPENAI, model="gpt-4o", input_per_1m=3.5, output_per_1m=10.0),
+    # Small, for the agents with a structured answer (WIP, Pianificatore, Da riferimenti).
+    ChatModel(provider=ModelProvider.OPENAI, model="gpt-4o-mini", input_per_1m=0.14, output_per_1m=0.55),
     ChatModel(provider=ModelProvider.OLLAMA, model="gemma3:4b"),
     ChatModel(provider=ModelProvider.OLLAMA, model="mistral:7b"),
     # No LLM, free: echoes, "/tool name {json}" calls a tool. To try the flows.

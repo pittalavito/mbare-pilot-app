@@ -193,7 +193,7 @@ describe("the panel", () => {
     const NOTE = "code-reference-todo-mbare-pilot.md";
     const reference = { name: NOTE, title: "TODO Mbare Pilot", kind: "code_reference", source: "todoMbarePilot", source_url: "", repository: "",
       path: "", lines: "", content: "### api/login.py\n- riga 2: Rifattorizza", linked_from: [] };
-    const answer = [message(1, "user", "raccogli i todo"), message(2, "assistant", `Fatto: [TODO Mbare Pilot](/projects/acme/data?note=${NOTE}).`)];
+    const answer = [message(1, "user", "raccogli i todo"), message(2, "assistant", `Fatto: [TODO Mbare Pilot](/projects/acme/project?note=${NOTE}).`)];
     const conversations = [{ id: 3, chatbot_id: 7, title: "Todo", context: CREATED.name, created_at: "", updated_at: "" }];
     api({ "GET /chatbots/7/conversations": conversations, "GET /conversations/3/messages": answer, "GET /projects/acme/references": [reference] });
     renderAt(`/projects/acme/work?note=${CREATED.name}`);
@@ -248,22 +248,12 @@ describe("the panel", () => {
   });
 });
 
-describe("the links of the Chat and Copilot tabs", () => {
-  it.each([
-    ["/projects/acme/chat", "/projects/acme/work"],
-    ["/projects/acme/copilot?session=4", `/projects/acme/work?note=${DELEGATED.name}`],
-    ["/projects/acme/copilot?session=99", "/projects/acme/work"],
-  ])("%s → %s", async (from, to) => {
-    api();
-    renderAt(from);
-    await waitFor(() => expect(screen.getByTestId("where").textContent).toContain(to));
-  });
-
+describe("links in the answers", () => {
   it("reads the note of an app link only", () => {
     const NOTE = "code-reference-x.md";
-    expect(noteOfLink(`/projects/acme/data?note=${NOTE}`)).toBe(NOTE);
     expect(noteOfLink(`/projects/acme/project?note=${NOTE}`)).toBe(NOTE);
-    expect(noteOfLink("/projects/acme/copilot?session=1")).toBeNull();
-    expect(noteOfLink(`https://altro.it/projects/acme/data?note=${NOTE}`)).toBeNull();
+    expect(noteOfLink(`/projects/acme/work?note=${NOTE}`)).toBe(NOTE);
+    expect(noteOfLink(`/projects/acme/data?note=${NOTE}`)).toBeNull();
+    expect(noteOfLink(`https://altro.it/projects/acme/project?note=${NOTE}`)).toBeNull();
   });
 });

@@ -9,13 +9,13 @@ user's. The references' content reaches the agent through the project's
 masking, as every tool output. Only in a chatbot's run of a project."""
 from collections.abc import Callable
 from typing import Annotated
-from urllib.parse import quote
 
 from datapizza.tools import Tool, tool
 
 from core.error import AppError
 from domain.project import coding_agent
 from domain.project.data_paths import note_file_name, note_type
+from domain.project.links import note_link
 from domain.project.note_templates import STATUS_LABELS
 from models.domain.note import AgentTask, ChecklistItem, NoteType, TaskStatus
 from models.domain.tool import AgentTaskDetailResponse, LinkedReferenceInfo, ToolErrorResponse
@@ -68,7 +68,7 @@ def _detail(run: ToolContext, note: str, task: AgentTask) -> AgentTaskDetailResp
     return AgentTaskDetailResponse(
         task=note, title=task.title, type=task.type.value, status=task.status.value, objective=task.objective, context=task.context,
         criteria=[item.text for item in task.criteria], constraints=task.constraints, references=references,
-        checklist=_checklist(run, task), link=f"/projects/{quote(project)}/data?note={quote(note)}",
+        checklist=_checklist(run, task), link=note_link(project, note),
     )
 
 
