@@ -46,9 +46,9 @@ export function WorkZone() {
       <TodayPanel project={project} />
       <Tabs value={view} onChange={change} keepMounted={false}>
         <Tabs.List mb="md">
+          <Tabs.Tab value="wip">📥 WIP</Tabs.Tab>
           <Tabs.Tab value="activities">📋 Attività</Tabs.Tab>
           <Tabs.Tab value="tasks">🤖 Tutti i task{tasks.data ? ` (${tasks.data.length})` : ""}</Tabs.Tab>
-          <Tabs.Tab value="wip">📥 WIP</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="activities"><Activities project={project} /></Tabs.Panel>
         <Tabs.Panel value="tasks"><AgentTasks project={project} /></Tabs.Panel>

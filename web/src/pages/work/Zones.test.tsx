@@ -55,6 +55,8 @@ describe("«Lavoro»", () => {
     expect(await screen.findByRole("tab", { name: /Attività/, selected: true })).toBeInTheDocument();
     expect(screen.getByText("📌 Oggi")).toBeInTheDocument();
     expect(await screen.findByRole("tab", { name: "🤖 Tutti i task (2)" })).toBeInTheDocument();
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent).filter((text) => /WIP|Attività|Tutti i task/.test(text ?? "")))
+      .toEqual(["📥 WIP", "📋 Attività", "🤖 Tutti i task (2)"]); // the WIP first, the activities open
     fireEvent.click(screen.getByRole("tab", { name: /WIP/ }));
     expect(await screen.findByPlaceholderText(/Scrivi di getto/)).toBeInTheDocument();
     expect(screen.getByTestId("where")).toHaveTextContent("/projects/acme/work?note=wip.md");
