@@ -4,8 +4,8 @@ import type { Pipeline, Step } from "../../api/automation";
 import { INPUT_NODE, addStep, connect, edgeId, edgeLabel, fromPipeline, removeEdge, removeStep, toRequest, updateEdge, updateStep } from "./graphDraft";
 
 const step = (name: string, x = 0, y = 0): Step => ({
-  name, kind: "function", input_template: "{input}", agent: null, agent_config_name: null,
-  function_name: "git_status", params: {}, position_x: x, position_y: y,
+  name, kind: "tool", input_template: "{input}", agent: null, agent_config_name: null,
+  tool_name: "git_status", params: {}, position_x: x, position_y: y,
 });
 
 const pipeline = (steps: Step[], edges: Pipeline["edges"]): Pipeline => ({
@@ -44,9 +44,9 @@ describe("graphDraft", () => {
   });
 
   it("connects only valid, new edges", () => {
-    let [draft, a] = addStep(fromPipeline(undefined), "function");
+    let [draft, a] = addStep(fromPipeline(undefined), "tool");
     let b: string;
-    [draft, b] = addStep(draft, "function");
+    [draft, b] = addStep(draft, "tool");
     draft = connect(draft, INPUT_NODE, a);
     draft = connect(draft, a, b);
 

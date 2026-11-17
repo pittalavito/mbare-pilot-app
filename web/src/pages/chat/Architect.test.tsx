@@ -12,7 +12,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 const YAML = "name: Stato\nsteps:\n  - {name: Stato, function: git_status}\n";
 const step = (name: string) => ({
-  name, kind: "function", input_template: "{input}", agent: null, agent_config_name: null, function_name: "git_status", params: {},
+  name, kind: "tool", input_template: "{input}", agent: null, agent_config_name: null, tool_name: "git_status", params: {},
   position_x: 0, position_y: 0,
 });
 const CHECK = {
@@ -85,7 +85,7 @@ describe("«Esporta YAML»", () => {
   it("shows the saved automation in the definitions' format", async () => {
     const PIPELINE = { ...CHECK, id: 7, project_name: "acme" };
     mockApi({
-      "GET /functions": [{ name: "git_status", description: "Lo stato", params: [] }],
+      "GET /tool-specs": [],
       "GET /models/choices": { choices: ["mock/echo"], usable: ["mock/echo"] },
       "GET /tools": [],
       "GET /agents": [],

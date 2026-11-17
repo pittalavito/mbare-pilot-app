@@ -14,7 +14,7 @@ Schema overview (project-centric):
            ├─ copilot_turn                                  (usage per turn, no FK: kept after deletion)
            ├─ wip_run                                       («Elabora WIP»: what the user did with the proposals)
            └─ agent_run ── tool_call                        (+ verbatim trace in Redis)
-  tool, function, chat_model: global catalogs.
+  tool, chat_model: global catalogs.
   evaluation_run: the evaluations launched from the Metriche page (also the worker's queue).
 """
 from datetime import datetime
@@ -145,14 +145,6 @@ class ToolTable(SQLModel, table=True):
     description: str = ""
 
 
-class FunctionTable(SQLModel, table=True):
-    """Function catalog (Python pipeline steps), synced from code at startup."""
-    __tablename__ = "function"
-
-    name: str = Field(primary_key=True)
-    description: str = ""
-
-
 # --------------------------------------------------------------------- chat
 
 class ChatbotTable(SQLModel, table=True):
@@ -250,7 +242,8 @@ class PipelineTable(SQLModel, table=True):
 class PipelineStepTable(SQLModel, table=True):
     """One step of a pipeline. ``kind`` says which fields are used:
     ``agent`` (its own agent: system_prompt…tool_names), ``agent_config`` (a
-    Library agent) or ``function`` (a function implemented in code)."""
+    Library agent) or ``tool`` (a tool of the registry: ``tool_name`` and its arguments in ``params``).
+    ``function`` (with ``function_name``) was the function steps of before plan 15, converted at startup."""
     __tablename__ = "pipeline_step"
 
     id: int | None = Field(default=None, primary_key=True)

@@ -46,8 +46,8 @@ def test_git_status_on_the_runs_project(git, tmp_path):
 
     result = _call(GIT_STATUS.build(ToolContext("Shop", git)), repository="api")
 
-    assert result["clean"] is False
-    assert [change["path"] for change in result["status"]["changes"]] == ["main.py"]
+    assert "1 file modificati" in result["text"] and "- main.py: modified, non staged" in result["text"]
+    assert result["repositories"] == ["api"]
 
 
 def test_the_project_comes_from_the_run_not_from_the_model(git):

@@ -141,7 +141,7 @@ def test_unknown_step_ids_become_new_steps(service):
     (_own(tool_names=["missing"]), "tool non disponibili"),
     (PipelineStep(name="L", kind=StepKind.AGENT_CONFIG), "scegli l'agente"),
     (_library(agent="missing"), "non esiste più"),
-    (PipelineStep(name="F", kind=StepKind.FUNCTION, function_name="x"), "funzione"),
+    (PipelineStep(name="F", kind=StepKind.TOOL, tool_name="x"), "non esiste"),
 ])
 def test_invalid_steps_rejected(service, step, message):
     with pytest.raises(ValidationError, match=message):

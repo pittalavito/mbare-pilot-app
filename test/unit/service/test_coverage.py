@@ -1,7 +1,7 @@
 """JaCoCo coverage of the code not pushed yet: the report parser
 (domain/maven/jacoco.py), the lines git says are not pushed (GitClient,
 GitService), the Maven client, MavenService.new_code_coverage with its gate
-on the parent alignment, and the function coverage_new_code. On real git
+on the parent alignment, and the tool coverage_new_code. On real git
 repositories in a tmp dir (needs ``git`` on PATH); Maven is a fake."""
 import os
 import shutil
@@ -16,12 +16,12 @@ from core.error import UpstreamError, ValidationError
 from domain.client.git.client import GitClient
 from domain.client.maven.client import MavenClient
 from domain.maven.jacoco import parse_jacoco
-from function.context import FunctionContext
-from function.list import coverage_new_code
-from function.registry import FUNCTION_REGISTRY
+from fakes import call_tool
 from models.domain.maven import CoverageStatus
 from models.domain.project import Project, ProjectSource
 from service.maven_service import MavenService
+from tool.context import ToolContext
+from tool.list.maven import coverage_new_code
 
 needs_git = pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
 NS = 'xmlns="http://maven.apache.org/POM/4.0.0"'
@@ -376,10 +376,10 @@ def test_nothing_to_measure_and_unknown_repository(shop, git_service):
     assert not service.new_code_coverage("Shop", "front").any_pom
 
 
-def _run_function(git_service, project_data_service, monkeypatch, maven: FakeMaven, step_input: str = "", **params):
+def _run_function(git_service, project_data_service, monkeypatch, maven: FakeMaven, repository: str = "", **params):
     monkeypatch.setattr("service.maven_service.MavenClient", lambda: maven)
-    context = FunctionContext(project_name="Shop", pipeline_input="", git=git_service, project_data=project_data_service)
-    return FUNCTION_REGISTRY["coverage_new_code"].execute(context, step_input, params)
+    context = ToolContext(project_name="Shop", git=git_service, project_data=project_data_service)
+    return call_tool("coverage_new_code", context, repository=repository, **params)
 
 
 @needs_git

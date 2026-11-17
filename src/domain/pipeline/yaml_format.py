@@ -45,8 +45,6 @@ def step_from_file(spec: StepFile, previous: PipelineStep | None = None) -> Pipe
         position_x=previous.position_x if previous else 0.0,
         position_y=previous.position_y if previous else 0.0,
     )
-    if spec.function is not None:
-        return PipelineStep(kind=StepKind.FUNCTION, function_name=spec.function, params=spec.params, **common)
     if spec.tool is not None:
         return PipelineStep(kind=StepKind.TOOL, tool_name=spec.tool, params=spec.args, **common)
     if spec.agent is not None:
@@ -90,11 +88,7 @@ def _step_to_file(step: PipelineStep) -> dict[str, Any]:
     item: dict[str, Any] = {"name": step.name}
     if step.input_template != INPUT:
         item["input"] = step.input_template
-    if step.kind is StepKind.FUNCTION:
-        item["function"] = step.function_name
-        if step.params:
-            item["params"] = dict(step.params)
-    elif step.kind is StepKind.TOOL:
+    if step.kind is StepKind.TOOL:
         item["tool"] = step.tool_name
         if step.params:
             item["args"] = dict(step.params)

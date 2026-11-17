@@ -1,6 +1,6 @@
 """The everyday git commands (log, diff, fetch, branches, checkout, create
 branch, commit, push, stash list, pull of every repository on a branch) in
-GitService, as the agents' tools and as pipeline functions, on real
+GitService and as the agents' and automations' tools, on real
 repositories (needs ``git`` on PATH): a bare "origin", the project "Shop"
 with two clones ``api`` and ``web``, and another clone that pushes."""
 import shutil
@@ -8,12 +8,10 @@ import subprocess
 
 import pytest
 
-from core.error import NotFoundError, UpstreamError, ValidationError
+from core.error import NotFoundError, ValidationError
 from domain.agent.masking import AgentMask
 from domain.client.git.client import _parse_numstat
-from fakes import as_dict
-from function.context import FunctionContext
-from function.registry import FUNCTION_REGISTRY
+from fakes import ToolFailed, as_dict, call_tool
 from models.domain.git import GitBulkStatus
 from models.domain.project import Project, ProjectSource
 from tool.context import ToolContext
@@ -359,7 +357,7 @@ def test_every_new_tool_answers(git, repos, api):
     assert as_dict(_tool("git_diff", git).func(repository="api", staged=False, commit=""))["files"][0]["path"] == "main.py"
     assert as_dict(_tool("git_log", git).func(repository="api", limit=5, author="", message="", commit=""))["commits"][0]["subject"] == "first"
     assert as_dict(_tool("git_branches", git).func(repository="api"))["current"] == "main"
-    assert as_dict(_tool("git_fetch", git).func(repository="api"))["behind"] == 0
+    assert "0 da pullare" in as_dict(_tool("git_fetch", git).func(repository="api"))["text"]
     assert as_dict(_tool("git_stash_list", git).func(repository="api"))["stashes"] == []
     created = as_dict(_tool("git_create_branch", git).func(repository="api", name="feature/y", start_point=""))
     assert created["branch"] == "feature/y" and created["created"]
@@ -384,7 +382,7 @@ def test_pull_all_tool_masks_repositories_and_authors(git, repos, masking_servic
 
     result = as_dict(pull_all.func(branch="main"))
 
-    assert [o["status"] for o in result["repositories"]] == ["updated", "updated"]
+    assert [o["status"] for o in result["outcomes"]] == ["updated", "updated"]
     assert {(e.category.value, e.value) for e in masking_service.entries("Shop")} == {
         ("repository", "api"), ("repository", "web"), ("person", "Bob"), ("email", "bob@example.com"),
     }
@@ -395,59 +393,61 @@ def test_pull_all_tool_hides_local_paths(git, repos):
 
     result = as_dict(_tool("git_pull_all_by_branch", git).func(branch="main"))
 
-    failed = next(o for o in result["repositories"] if o["status"] == "failed")
+    failed = next(o for o in result["outcomes"] if o["status"] == "failed")
     assert str(repos) not in failed["reason"]
 
 
-# ------------------------------------------------------------- functions
+# ---------------------------------------- the tools of the automations (plan 15)
 
-def _function(name, git, project_data_service, step_input="", **params):
-    context = FunctionContext(project_name="Shop", pipeline_input="", git=git, project_data=project_data_service)
-    return FUNCTION_REGISTRY[name].execute(context, step_input, params)
+def _step_tool(name, git, project_data_service, **args):
+    return call_tool(name, ToolContext(project_name="Shop", git=git, project_data=project_data_service), **args)
 
 
-def test_pull_all_function_uses_the_step_input_as_branch(git, repos, project_data_service):
+def test_pull_all_by_branch_tool(git, repos, project_data_service):
     _local_develop(git, "api", "web")
     _push(repos, "on develop", branch="develop")
 
-    result = _function("git_pull_all_repo_by_branch", git, project_data_service, step_input="develop\n")
+    result = _step_tool("git_pull_all_by_branch", git, project_data_service, branch="develop\n")
 
     assert result.text.startswith("Branch develop su 2 repository: 2 aggiornato.")
     assert "- api (era su main): aggiornato, 1 commit nuovi" in result.text
-    with pytest.raises(ValidationError, match="Indica il branch"):
-        _function("git_pull_all_repo_by_branch", git, project_data_service)
+    with pytest.raises(ToolFailed, match="Indica il branch"):
+        _step_tool("git_pull_all_by_branch", git, project_data_service, branch=" ")
 
 
-def test_pull_all_function_fails_when_every_repository_fails(git, repos, project_data_service):
+def test_pull_all_by_branch_fails_when_every_repository_fails(git, repos, project_data_service):
     for name in ("api", "web"):
         _git(repos / "shop" / name, "remote", "set-url", "origin", str(repos / "missing.git"))
 
-    with pytest.raises(UpstreamError, match="Nessun repository aggiornato"):
-        _function("git_pull_all_repo_by_branch", git, project_data_service, branch="main")
+    with pytest.raises(ToolFailed, match="Nessun repository aggiornato"):
+        _step_tool("git_pull_all_by_branch", git, project_data_service, branch="main")
 
 
-def test_fetch_function_on_every_repository(git, repos, project_data_service):
+def test_fetch_tool_on_every_repository(git, repos, project_data_service):
     _push(repos, "second")
 
-    result = _function("git_fetch", git, project_data_service, repository="*")
+    result = _step_tool("git_fetch", git, project_data_service, repository="*")
 
     assert result.text.splitlines() == [
         "Fetch di 2 repository.",
         "- api · branch main · origin/main: 0 da pushare, 1 da pullare",
         "- web · branch main · origin/main: 0 da pushare, 1 da pullare",
     ]
+    with pytest.raises(ToolFailed, match="Repository disponibili"):
+        _step_tool("git_fetch", git, project_data_service, repository="nope")
 
 
-def test_log_function_declares_the_authors(git, repos, project_data_service):
+def test_log_tool_declares_the_authors(git, repos, project_data_service):
     _push(repos, "second")
     git.pull_fast_forward("Shop", "api")
 
-    result = _function("git_log", git, project_data_service, repository="api", limit=5, author="bob")
+    result = _step_tool("git_log", git, project_data_service, repository="api", limit=5, author="bob")
 
     assert "Repository api · 1 commit:" in result.text and "Bob: second" in result.text
     assert [c.author for c in result.commits] == ["Bob"]
-    with pytest.raises(ValidationError, match="limit"):
-        _function("git_log", git, project_data_service, repository="api", limit=0)
+    with pytest.raises(ToolFailed, match="limit"):
+        _step_tool("git_log", git, project_data_service, repository="api", limit=0)
+    assert "nessun commit trovato" in _step_tool("git_log", git, project_data_service, repository="api", author="nessuno").text
 
 
 # ----------------------------------------------- one repository on a branch
@@ -471,35 +471,24 @@ def test_pull_one_repository_errors_are_not_skips(git):
     assert git.pull_repository_by_branch("Shop", "api", "release").status is GitBulkStatus.SKIPPED
 
 
-@pytest.mark.parametrize("step_input, params, branch", [
-    ("api", {}, "develop"),                          # default branch of the param
-    ("api main", {}, "main"),                        # the branch from the input
-    ("  api  \n", {"branch": "main"}, "main"),
-    ("", {"repository": "api"}, "develop"),          # repository fixed in the param
-    ("main", {"repository": "api"}, "main"),
+@pytest.mark.parametrize("args, branch", [
+    ({"repository": "api"}, "develop"),                    # the default branch
+    ({"repository": "api", "branch": "main"}, "main"),
 ])
-def test_pull_repo_function_reads_repository_and_branch(git, repos, project_data_service, step_input, params, branch):
-    result = _function("git_pull_repo_by_branch", git, project_data_service, step_input=step_input, **params)
+def test_pull_by_branch_tool(git, repos, project_data_service, args, branch):
+    result = _step_tool("git_pull_by_branch", git, project_data_service, **args)
 
     assert result.text.startswith(f"Branch {branch}:\n- api")
     assert result.outcome.repository == "api"
     assert git.status("Shop", "api").branch == branch
 
 
-@pytest.mark.parametrize("step_input, params, message", [
-    ("", {}, "Indica il repository"),
-    ("api develop altro", {}, "Input non valido"),
-    ("api", {"branch": ""}, "Indica il branch"),
-])
-def test_pull_repo_function_input_errors(git, repos, project_data_service, step_input, params, message):
-    with pytest.raises(ValidationError, match=message):
-        _function("git_pull_repo_by_branch", git, project_data_service, step_input=step_input, **params)
-
-
-def test_pull_repo_function_skip_is_text_failure_fails_the_step(git, repos, project_data_service):
-    result = _function("git_pull_repo_by_branch", git, project_data_service, step_input="api release")
+def test_pull_by_branch_tool_errors_skip_and_failure(git, repos, project_data_service):
+    with pytest.raises(ToolFailed, match="Indica il branch"):
+        _step_tool("git_pull_by_branch", git, project_data_service, repository="api", branch="")
+    result = _step_tool("git_pull_by_branch", git, project_data_service, repository="api", branch="release")
     assert "saltato, il branch release non c'è" in result.text
 
     _git(repos / "shop" / "api", "remote", "set-url", "origin", str(repos / "missing.git"))
-    with pytest.raises(UpstreamError, match="Repository api non aggiornato"):
-        _function("git_pull_repo_by_branch", git, project_data_service, step_input="api main")
+    with pytest.raises(ToolFailed, match="Repository api non aggiornato"):
+        _step_tool("git_pull_by_branch", git, project_data_service, repository="api", branch="main")

@@ -1,4 +1,4 @@
-"""Blocco 09: the functions of «Prepara sviluppo» (git_check_clean,
+"""Blocco 09: the tools of «Prepara sviluppo» (git_check_clean,
 git_checkout_branches) and «Verifica sviluppo» (clean_mbare_pilot, run_tests)
 on real repositories (needs ``git``): a bare "origin" and the project "Shop"
 with the clones ``api`` and ``lib``."""
@@ -7,15 +7,15 @@ import subprocess
 
 import pytest
 
-from core.error import ConflictError, NotFoundError, ValidationError
+from core.error import NotFoundError, ValidationError
 from domain.client.command.client import CommandClient, CommandResult
 from domain.dev import tests
 from domain.dev.inputs import parse_prepare, parse_verify, render_prepare, render_verify
 from domain.project import code_todos
-from function.context import FunctionContext
-from function.registry import FUNCTION_REGISTRY
+from fakes import ToolFailed, call_tool
 from models.domain.dev import PrepareTarget, TestKind, TestScope
 from models.domain.project import Project, ProjectSource
+from tool.context import ToolContext
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
 
@@ -64,12 +64,16 @@ class FakeCommands(CommandClient):
 
 
 def _context(git_service, project_data_service, pipeline_input, commands=None):
-    return FunctionContext(project_name="Shop", pipeline_input=pipeline_input, git=git_service, project_data=project_data_service,
-                           commands=commands or FakeCommands())
+    """The tools' context and the text an automation passes them (its run input)."""
+    return ToolContext(project_name="Shop", git=git_service, project_data=project_data_service, command_client=commands or FakeCommands()), pipeline_input
+
+
+_ARGUMENT = {"git_check_clean": "targets", "git_checkout_branches": "targets", "clean_mbare_pilot": "target", "run_tests": "target"}
 
 
 def _call(name, context, params=None):
-    return FUNCTION_REGISTRY[name].execute(context, "", params or {})
+    tool_context, text = context
+    return call_tool(name, tool_context, **{_ARGUMENT[name]: text, **(params or {})})
 
 
 # ------------------------------------------------------------------ inputs
@@ -95,7 +99,7 @@ def test_check_clean_stops_on_changes(shop, git_service, project_data_service):
     assert "nessuna modifica" in _call("git_check_clean", context).text
 
     (shop / "shop" / "api" / "main.py").write_text("changed", encoding="utf-8")
-    with pytest.raises(ConflictError, match="api: main.py"):
+    with pytest.raises(ToolFailed, match="api: main.py"):
         _call("git_check_clean", context)
 
 
@@ -120,10 +124,10 @@ def test_checkout_branches_switches_creates_and_pulls(shop, git_service, project
 
 
 def test_checkout_branches_stops_at_the_first_problem(shop, git_service, project_data_service):
-    with pytest.raises(ConflictError, match="lib non preparato: il branch nuovo non c'è") as error:
+    with pytest.raises(ToolFailed, match="lib non preparato: il branch nuovo non c'è") as error:
         _call("git_checkout_branches", _context(git_service, project_data_service, "api main\nlib nuovo"))
     assert "- api: su main" in str(error.value)  # what was done before
-    with pytest.raises(ConflictError, match="base manca non c'è"):
+    with pytest.raises(ToolFailed, match="base manca non c'è"):
         _call("git_checkout_branches", _context(git_service, project_data_service, "api altro manca"))
     _git(shop / "shop" / "lib", "switch", "-q", "-c", "locale")
     assert "creato da-locale da locale" in _call(
@@ -171,12 +175,12 @@ def test_run_tests_all_touched_and_failed(shop, git_service, project_data_servic
 
     project_data_service.save_test_settings("Shop", TestScope.ALL, {"api": "uv run pytest -q"})
     failing = FakeCommands(1, "....\nFAILED tests/test_login.py::test - assert 1 == 2\nE   assert 1 == 2\n1 failed")
-    with pytest.raises(ConflictError, match="Test falliti") as error:
+    with pytest.raises(ToolFailed, match="Test falliti") as error:
         _call("run_tests", _context(git_service, project_data_service, "api t.md", failing))
     assert "FAILED tests/test_login.py::test" in str(error.value) and "uv run pytest -q" in str(error.value)
 
     project_data_service.save_test_settings("Shop", TestScope.ALL, {"api": "pytest 'unclosed"})
-    with pytest.raises(ValidationError, match="non valido"):
+    with pytest.raises(ToolFailed, match="non valido"):
         _call("run_tests", _context(git_service, project_data_service, "api t.md", commands))
     assert "non lo riconosco" in _call("run_tests", _context(git_service, project_data_service, "lib t.md", commands)).text
 

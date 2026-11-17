@@ -289,8 +289,8 @@ class TodayResponse(BaseModel):
 
 # ----------------------------------------------------------------- architect
 
-class FunctionsResponse(BaseModel):
-    functions: list[str] = Field(..., description="One per function: name — what it does; params: name (type, default): description.")
+class ToolsResponse(BaseModel):
+    tools: list[str] = Field(..., description="One per tool a step can call: name — what it does; args: name (type, default): description.")
 
 
 class AgentsResponse(BaseModel):
@@ -311,7 +311,7 @@ class AutomationValidationResponse(BaseModel):
     edges: list[str] = Field(default_factory=list, description="The edges as they would be saved (the chain when none were written).")
 
 
-class FunctionTaskResponse(BaseModel):
+class ToolTaskResponse(BaseModel):
     task: str
     title: str
     activity: str | None = None

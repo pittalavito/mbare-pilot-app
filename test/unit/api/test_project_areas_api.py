@@ -199,8 +199,8 @@ def _pipeline_body(**overrides) -> dict:
     body = {"name": "Flow", "description": "", "active": True, "steps": [
         {"name": "Scrivi", "kind": "agent", "input_template": "{input}",
          "agent": {"system_prompt": "Scrivi.", "model": MODEL, "max_steps": 4, "tool_names": []}},
-        {"name": "Nota", "kind": "function", "input_template": "{input}", "function_name": "save_note",
-         "params": {"title": "Report"}},
+        {"name": "Nota", "kind": "tool", "input_template": "{input}", "tool_name": "save_note",
+         "params": {"title": "Report", "content": "{input}"}},
     ]}
     body.update(overrides)
     return body
@@ -210,7 +210,7 @@ def test_pipeline_crud_and_runs(client):
     created = client.post("/projects/acme/pipelines", json=_pipeline_body())
     assert created.status_code == 201, created.text
     pipeline = created.json()
-    assert [s["kind"] for s in pipeline["steps"]] == ["agent", "function"]
+    assert [s["kind"] for s in pipeline["steps"]] == ["agent", "tool"]
     assert pipeline["steps"][1]["params"]["title"] == "Report"
 
     renamed = client.put(f"/pipelines/{pipeline['id']}", json=_pipeline_body(name="Flow 2")).json()
@@ -252,12 +252,25 @@ def test_pipeline_graph_over_the_api(client):
         {"source": "input", "target": "Check", "condition": "boh"}]}).status_code == 422
 
 
-def test_functions_describe_their_params(client):
-    functions = {f["name"]: f for f in client.get("/functions").json()}
+def test_the_tools_describe_their_args_and_can_be_tried(client, project_root):
+    tools = {tool["name"]: tool for tool in client.get("/tool-specs").json()}
 
-    [title] = functions["save_note"]["params"]
-    assert (title["name"], title["type"], title["default"]) == ("title", "str", "Automation {date} {time}")
-    assert [p["name"] for p in functions["git_status"]["params"]] == ["repository"]
+    title, content = tools["save_note"]["args"]
+    assert (title["name"], title["type"], title["default"], title["required"]) == ("title", "str", "Automation {date} {time}", False)
+    assert (content["name"], content["required"]) == ("content", True)
+    assert tools["save_note"]["writes"] and not tools["git_status"]["writes"] and tools["delegate_task"]["chatbot_only"]
+    assert [arg["name"] for arg in tools["git_log"]["args"]][:2] == ["repository", "limit"]
+    assert tools["git_log"]["args"][1]["type"] == "int"
+
+    saved = client.post("/tools/save_note/try", json={"project": "acme", "args": {"title": "Prova", "content": "ciao"}}).json()
+    assert saved["ok"] and saved["text"].startswith("Nota salvata: Prova") and saved["result"]["text"] == saved["text"]
+    wrong = client.post("/tools/save_note/try", json={"project": "acme", "args": {"content": " "}}).json()
+    assert not wrong["ok"] and "vuoto" in wrong["error"]
+    unknown_arg = client.post("/tools/git_status/try", json={"project": "acme", "args": {}}).json()
+    assert not unknown_arg["ok"] and "repository" in unknown_arg["error"]
+    plain = client.post("/tools/hello_world/try", json={"project": "acme", "args": {}}).json()
+    assert plain["ok"] is not None
+    assert client.post("/tools/nessuno/try", json={"project": "acme", "args": {}}).status_code == 404
 
 
 # ---------------------------------------------------------------- atlassian

@@ -20,11 +20,11 @@ I tool che un agente può chiamare durante una run:
 | `git_push` | **con contesto** | push del branch corrente, mai forzato; senza upstream lo pubblica su origin |
 | `git_pull_all_by_branch` | **con contesto** | tutti i repository del progetto su un branch, aggiornati in fast-forward |
 | `list_automations` | **con contesto**, solo chatbot | le automation del progetto con la descrizione, se sono attive e quanti step hanno (si lanciano solo quelle attive con step) |
-| `list_functions` | **con contesto**, solo chatbot | le funzioni delle automation, ognuna con descrizione e parametri (nome, tipo, default) in una riga (l'Architetto) |
+| `list_tools` | **con contesto**, solo chatbot | i tool che uno step può chiamare, ognuno con descrizione e argomenti (nome, tipo, default) in una riga (l'Architetto) |
 | `list_agents` | **con contesto**, solo chatbot | gli agenti della Libreria e del progetto che uno step può usare, con la descrizione |
 | `read_automation` | **con contesto**, solo chatbot | un'automation del progetto in YAML, nel formato delle definizioni |
 | `validate_automation` | **con contesto**, solo chatbot | valida un'automation in YAML con le regole del salvataggio, senza salvare: errore, oppure step e collegamenti come sarebbero, se sostituisce quella con lo stesso nome e se è di sistema |
-| `create_function_task` | **con contesto**, solo chatbot | dopo l'ok dell'utente: l'agent task «Sviluppo» (in rifinitura) per una funzione che manca, collegato a un'attività se indicata |
+| `create_tool_task` | **con contesto**, solo chatbot | dopo l'ok dell'utente: l'agent task «Sviluppo» (in rifinitura) per un tool che manca, collegato a un'attività se indicata |
 | `run_automation` | **con contesto**, solo chatbot | lancia un'automation del progetto in background e riporta l'id dell'esecuzione |
 | `automation_status` | **con contesto**, solo chatbot | stato di un'esecuzione di un'automation del progetto e dei suoi step: solo gli stati, niente output né messaggi d'errore |
 | `list_activities` | **con contesto**, solo chatbot | le attività del progetto (nome, titolo, stato, voci fatte su totali, quanti agent task ne sono nati) e la data di oggi |
@@ -36,13 +36,13 @@ I tool che un agente può chiamare durante una run:
 | `delegate_task` | **con contesto**, solo chatbot | delega un agent task a Copilot su un repository: apre la chat di preparazione e restituisce il link |
 | `copilot_status` | **con contesto**, solo chatbot | stato di un task delegato: solo lo stato, quanti file ha cambiato e se l'HEAD si è mosso |
 | `run_command` | **con contesto** | l'Operatore (piano 11): lancia uno dei comandi permessi del progetto in un repository (senza shell); restituisce codice d'uscita e ultime righe. Un comando fuori elenco non parte: chiede il permesso all'utente nel pannello e dice all'agente di fermarsi. Codice d'uscita diverso da 0 = errore con le ultime righe |
-| `maven_parent_alignment` | **con contesto** | l'Operatore: i pom.xml dei repository confrontati con la versione del POM parent, prima quelli da allineare (come la funzione con lo stesso nome); solo lettura |
+| `maven_parent_alignment` | **con contesto** | l'Operatore: i pom.xml dei repository confrontati con la versione del POM parent, prima quelli da allineare; solo lettura (anche come step, vedi sotto) |
 | `search_context` | **con indice del contesto** | cerca nel contesto del progetto ([RAG](../service/README.md#contesto-rag)): i documenti di `context/` e le attività fatte con «Imparato». Restituisce i 5 pezzi migliori con documento e sezione, da citare. Ce l'ha il Refiner (tra i suoi tool fissi) e Copilot via MCP; ha sostituito `read_context`, che leggeva tutto |
 
 ```
 src/tool/
-  registry.py           TOOL_REGISTRY (tutti i tool, per nome) e build_tools()
-  spec.py               ToolSpec (nome, descrizione, builder) e static()
+  registry.py           TOOL_REGISTRY (tutti i tool, per nome: l'unico registro), build_tools() e step_tools()
+  spec.py               ToolSpec (nome, descrizione, builder, writes, chatbot_only), static() e params_tool()
   context.py            ToolContext: quello che un tool può usare durante la run
   list/
     hello_world.py      esempio statico
@@ -51,7 +51,7 @@ src/tool/
       automation_status.py  stato di un'esecuzione
       list_automations.py   automation del progetto (attive, step)
     architect/
-      tools.py          i tool dell'Architetto: funzioni, agenti, automation in YAML, validazione, task di una funzione
+      tools.py          i tool dell'Architetto: tool degli step, agenti, automation in YAML, validazione, task di un tool
     notes/
       activities.py     attività del segretario: elenco, lettura, creazione, descrizione, stato, voci e spunte
       today.py          «📌 Oggi» per il segretario, in righe brevi
@@ -81,6 +81,35 @@ src/tool/
 ```
 
 Gli output dei tool sono modelli in `models/domain/tool.py` (`HelloWorldResponse`, `GitStatusResponse`, `ToolErrorResponse`), serializzati in JSON.
+
+## I tool delle automation (piano 15: erano le funzioni)
+
+C'è **un solo registro**, `TOOL_REGISTRY`: gli stessi tool li chiama un agente e uno step di automation (`tool:` con `args:`, senza LLM). Le funzioni di prima (`src/function`) sono diventate tool; i doppioni sono uno solo (con `repository: "*"` lavorano su tutti i repository).
+
+- **Come si scrivono**: con `@tool` (la firma è lo schema) oppure con **`params_tool(nome, descrizione, Params, run, writes=…)`** (`tool/spec.py`): un modello pydantic `Params` (validato, con i default, il form dell'editor e di Admin → Tool) e `run(context, params)`. Un argomento sbagliato o un `AppError` tornano come `ToolErrorResponse` (percorsi locali nascosti).
+- **Il risultato** può avere un campo `text`: è l'output dello step (il resto va all'agente come JSON). Senza `text` lo step dà il JSON.
+- **`writes`**: il tool cambia qualcosa (file, git, note, comandi): Admin → Tool chiede conferma prima di provarlo (✏️ qui sotto).
+- **`chatbot_only`**: funziona solo in una chat (note, Copilot, Refiner, Architetto): uno step non lo può usare (`step_tools()`).
+- **Negli step** gli argomenti possono usare `{input}` (l'input dello step), `{pipeline_input}`, `{nodo:Nome}` e `{in:campo}`; li riempie `PipelineRunner` (`render_args`).
+- **Provare un tool**: Admin → Tool (`GET /tool-specs`, `POST /tools/{nome}/try`, `AgentService.try_tool`): sul progetto scelto, con gli argomenti del form, senza LLM e senza run registrata.
+- **Le automation salvate prima** con step funzione si leggono come step tool (`domain/pipeline/legacy.py`) e all'avvio si salvano così; negli yml `function:` è rifiutato con come scriverlo ora.
+
+| Tool | Cosa fa | Argomenti |
+|---|---|---|
+| `git_status` | branch, push/pull e file modificati di un repository del progetto, come testo; con `*` di tutti i repository: in cima il riepilogo (`N repository nel progetto: K da guardare, M a posto.` o `tutti a posto.`), poi **prima quelli da guardare** (file modificati, commit da pushare o pullare, HEAD staccato, stato non letto) e dopo gli altri, ognuno in ordine di cartella (un repository illeggibile lo dice nel testo, gli altri restano) | `repository` (`''` = la cartella del progetto; `*` = tutti; in uno step spesso `{input}`) |
+| `git_fetch` | `git fetch --all --prune` di un repository o di tutti con `*`: per ognuno branch e commit da pushare/pullare dopo il fetch (un fetch fallito lo dice nel testo, gli altri restano) | `repository` (`''` = la cartella del progetto; `*` = tutti; in uno step spesso `{input}`) |
+| `git_log` | ultimi commit di un repository come testo (hash, data, autore, oggetto), es. da passare a un agente che scrive le note di rilascio; gli autori sono dichiarati sensibili | `repository`, `limit` (1-500, default 20), `author`, `message` (vuoti = nessun filtro) |
+| `git_pull_all_by_branch` ✏️ | porta tutti i repository del progetto su un branch e li aggiorna in fast-forward: un riepilogo e una riga per repository; quelli con modifiche locali o senza il branch vengono saltati. Fallisce solo se falliscono tutti | `branch` |
+| `git_pull_by_branch` ✏️ | lo stesso per **un solo** repository: lo porta sul branch e lo aggiorna in fast-forward. Saltato (modifiche locali, branch che non c'è, nessun upstream) = testo con il motivo; un errore (es. remoto irraggiungibile) lo fa fallire | `repository`, `branch` (default `develop`) |
+| `maven_parent_alignment` | confronta il `pom.xml` alla radice di ogni repository (dalla cartella di lavoro) con la `version` del POM parent: il POM con `artifactId` = `parent_artifact_id` o, se vuoto, quello **riconosciuto** (il POM del progetto che i `pom.xml` alla radice nominano più spesso come `<parent>`, ma con la precedenza a uno il cui artifactId finisce con `-parent-lib`, il parent delle librerie, anche se il parent dei microservizi è nominato più volte; a parità il primo per nome). Il parent si cerca alla radice dei repository e anche nei loro **moduli** (fino a 3 cartelle, senza `target/`, `src/` e simili), per un parent tenuto in un repository multi-modulo, così una sola automation va bene per ogni progetto. Una **libreria** si controlla con la versione del suo `<parent>` (se è quel parent), un **microservizio** con le proprietà che corrispondono a `property` (un nome o un modello con `*`, es. `*.libraries.version`). In cima il riepilogo, poi «Da allineare» (valore attuale → atteso; `(non risolto)` se resta un `${...}` che il POM non definisce), «Allineati», «Non letti» (POM illeggibile) e i repository senza questi campi o senza `pom.xml`. Quando non trova il parent elenca i `<parent>` dichiarati dai POM; quando il modello non trova nessuna proprietà elenca le proprietà con «version» che ci sono davvero, per capire subito cosa cambiare. In un progetto senza nessun `pom.xml` il testo è solo `POM: nessun pom.xml nei repository del progetto.`, da usare in una condizione per non metterlo nella nota | `parent_artifact_id` (vuoto = riconosciuto), `property` (nome o modello con `*`; vuoto = solo le librerie) |
+| `coverage_new_code` ✏️ | la **coverage JaCoCo del codice non ancora pushato**: le righe di `src/main/java` (test esclusi) che i commit di HEAD che nessun branch remoto ha aggiungono o cambiano (dopo un merge di un branch remoto contano solo le righe che nessun commit remoto ha; niente fetch: i remoti sono quelli dell'ultimo fetch), confrontate con il `jacoco.xml` di ogni modulo. **Prima l'allineamento al parent** (JaCoCo viene dal POM parent), come `maven_parent_alignment` e con gli stessi parametri: un repository da allineare (anche con un valore `(non risolto)`) o il cui allineamento **non si può confermare** (nessun parent riconosciuto, POM senza il `<parent>` né la proprietà, POM illeggibile) viene saltato e lì **`mvn` non parte mai**. Negli altri, se il `target/jacoco.exec` di un modulo è più nuovo del suo `target/site/jacoco/jacoco.xml` (o l'XML manca), lancia `mvn -q -B jacoco:report` alla radice del repository (i test non girano; `mvnw` del repository se c'è). Un `jacoco.exec` più vecchio dell'ultimo commit dà un avviso (i test sono di prima). In cima il riepilogo, che contiene «sotto soglia» **solo** se un repository è sotto la soglia (`Coverage nuovo codice: K repository sotto soglia (80%).`, `… tutti sopra soglia (80%).`, `… niente di misurato.`), poi «Sotto soglia» (percentuale, righe coperte/totali, commit da pushare e per file le righe scoperte, es. `righe 5-6, 9`), «Sopra soglia», «Senza report» (motivo), «Saltati: non allineati al parent …», «Saltati: allineamento al parent non verificabile», «Non letti» e in una riga gli altri (niente da pushare, niente da misurare, senza `pom.xml`). Progetto senza `pom.xml`: solo `Coverage: nessun pom.xml nei repository del progetto.`; niente da pushare ovunque: solo `Coverage: nessun commit da pushare.` | `repository` (`*` = tutti), `threshold` (1-100, default 80), `parent_artifact_id` (vuoto = riconosciuto), `property` (nome o modello con `*`, es. `*.libraries.version`; vuoto = i microservizi vengono saltati) |
+| `save_note` ✏️ | salva un testo come nota del progetto (Progetto → Note) | `title` (`{date}` e `{time}` diventano data e ora; stesso nome = nota sovrascritta), `content` (in uno step di solito `{input}`) |
+| `git_check_clean` | **«Prepara sviluppo»**: i repository di `targets` (una riga `<repository> <branch> [<base>]`, `.` = la cartella del progetto) non hanno modifiche non committate ai file tracciati (i file nuovi vanno bene); altrimenti lo step fallisce con i file, e Copilot non parte | `targets` (nell'automation `{pipeline_input}`) |
+| `git_checkout_branches` ✏️ | **«Prepara sviluppo»**: per ogni riga di `targets`, dopo un fetch, il repository va sul branch (locale o solo remoto) e, se ha un upstream, si aggiorna **solo in fast-forward**; un branch che non c'è si crea dal `<base>` (`origin/<base>` se il remoto ce l'ha, senza tracciarlo, altrimenti quello locale). Il primo repository che non si può preparare (modifiche, branch divergente, branch o base che non c'è) fa fallire lo step, con quanto fatto prima; i successivi non si toccano | `targets` (nell'automation `{pipeline_input}`) |
+| `clean_mbare_pilot` ✏️ | **«Verifica sviluppo»**: toglie la cartella `mbare-pilot/<task>/` (e `mbare-pilot/` se resta vuota) e, nei **file cambiati** (`git status`), le righe che sono solo un commento `todoMbarePilot{…}` (qualsiasi sintassi di commento; i fine riga del file restano com'erano); una riga con anche codice resta e il testo la indica. Le modifiche restano non committate | `target` (`<repository> <task> [all\|touched]`; nell'automation `{pipeline_input}`), `remove_todos` (default vero) |
+| `run_tests` ✏️ | **«Verifica sviluppo»**: i test del repository, tutti o solo quelli **toccati** dalle modifiche (`domain/dev/tests.py`: il test del file cambiato, `FooTest`/`FooIT` per `Foo.java`, `test_foo.py`/`foo_test.py` per `foo.py`, `foo.test.ts`/`foo.spec.ts` per `foo.ts`, e i file di test cambiati). Il comando è quello del repository nelle impostazioni del progetto o quello rilevato (`pom.xml` → `mvn -B test` o `./mvnw` (`mvnw.cmd` su Windows), `pyproject.toml` → `uv run pytest` o `pytest`, `package.json` → `npm test`); i test toccati si aggiungono in fondo (`-Dtest=…`, i percorsi, `-- percorsi`). Il comando si divide come fa il sistema: su Windows le `\\` restano (sono separatori) e si tolgono solo le virgolette attorno a un argomento. Strumento non riconosciuto senza comando, o nessun test toccato: lo dice, senza fallire. Test falliti: fallisce con le righe che dicono cosa (estratte dal codice: pytest, surefire, jest/vitest; altrimenti le ultime righe) | `target` (come sopra), `timeout_minutes` (1-240, default 20) |
+
+**Aggiungere un tool**: un file in `tool/list/<gruppo>/` con `Params`, `Result` (con `text` se serve a uno step) e `run`, la sua `ToolSpec` con `params_tool` (o `@tool`) e una riga in `TOOL_REGISTRY`. Lo vedono subito l'editor delle automation, l'Architetto (`list_tools`), Admin → Tool e, se un tipo di chatbot lo ammette (`KIND_TOOLS`), gli agenti.
 
 ## Come funziona
 

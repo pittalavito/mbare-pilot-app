@@ -1,16 +1,29 @@
 """Automation endpoints: a project's pipelines (/projects/{project}/pipelines,
 /pipelines/{id}), their runs (queued here, executed by the worker), the
-running workers (/workers) and the functions a FUNCTION step can call (/functions)."""
+running workers (/workers), the tools of the registry (/tool-specs) and «Prova» of one (/tools/{name}/try)."""
 from fastapi import APIRouter, Depends, Response, status
 from pydantic import BaseModel
 
-from controller.dependencies import learn_service, pipeline_service
+from controller.dependencies import agent_service, learn_service, pipeline_service
 from core.error import NotFoundError
-from models.controller.pipeline import EdgeBody, FunctionResponse, PipelineRequest, PipelineResponse, RunRequest, RunResponse, StepBody, WorkerResponse
+from models.controller.pipeline import (
+    EdgeBody,
+    PipelineRequest,
+    PipelineResponse,
+    RunRequest,
+    RunResponse,
+    StepBody,
+    ToolSpecResponse,
+    ToolTryRequest,
+    ToolTryResponse,
+    WorkerResponse,
+)
 from models.domain.dev import PREPARE_AUTOMATION, VERIFY_AUTOMATION
 from models.domain.learn import LearnDraft, LearnRequest
+from service.agent_service import AgentService
 from service.learn_service import LearnService
 from service.pipeline_service import PipelineService
+from tool.registry import TOOL_REGISTRY
 
 router = APIRouter(tags=["automation"])
 
@@ -91,9 +104,20 @@ def delete_run(run_id: int, service: PipelineService = Depends(pipeline_service)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.get("/functions")
-def list_functions(service: PipelineService = Depends(pipeline_service)) -> list[FunctionResponse]:
-    return [FunctionResponse.from_spec(spec) for spec in service.available_functions()]
+@router.get("/tool-specs")
+def list_tool_specs() -> list[ToolSpecResponse]:
+    """Every tool of the registry with its arguments (plan 15): the editor offers the non chat-only ones for a step."""
+    return [ToolSpecResponse.from_spec(spec) for spec in sorted(TOOL_REGISTRY.values(), key=lambda spec: spec.name)]
+
+
+@router.post("/tools/{name}/try")
+def try_tool(name: str, request: ToolTryRequest, service: AgentService = Depends(agent_service)) -> ToolTryResponse:
+    """Admin → Tool, «▶️ Prova»: the tool on a project with these arguments, no LLM and no run recorded."""
+    result = service.try_tool(name, request.project, request.args)
+    error = getattr(result, "error", None)
+    text = getattr(result, "text", None)
+    return ToolTryResponse(ok=not error, text=text if isinstance(text, str) else result.model_dump_json(indent=2),
+                           result=result.model_dump(mode="json"), error=str(error) if error else None)
 
 
 @router.get("/workers")

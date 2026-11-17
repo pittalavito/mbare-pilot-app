@@ -1,5 +1,5 @@
 """Reading a pom.xml (domain/maven/pom.py) and comparing the root POMs of a
-project with its parent POM (MavenService, function maven_parent_alignment),
+project with its parent POM (MavenService, tool maven_parent_alignment),
 on real repositories in a tmp dir (needs ``git`` on PATH)."""
 import shutil
 import subprocess
@@ -8,11 +8,11 @@ import pytest
 
 from core.error import ValidationError
 from domain.maven.pom import parse_pom
-from function.context import FunctionContext
-from function.registry import FUNCTION_REGISTRY
+from fakes import call_tool
 from models.domain.maven import PomCheckKind
 from models.domain.project import Project, ProjectSource
 from service.maven_service import MavenService
+from tool.context import ToolContext
 
 NS = 'xmlns="http://maven.apache.org/POM/4.0.0"'
 
@@ -203,8 +203,7 @@ def test_property_pattern(tmp_path, project_store, git_service):
 
 
 def _function(git_service, project_data_service, **params):
-    context = FunctionContext(project_name="Shop", pipeline_input="", git=git_service, project_data=project_data_service)
-    return FUNCTION_REGISTRY["maven_parent_alignment"].execute(context, "", params)
+    return call_tool("maven_parent_alignment", ToolContext(project_name="Shop", git=git_service, project_data=project_data_service), **params)
 
 
 @pytestmark_git
@@ -313,9 +312,9 @@ def test_parent_kept_in_a_module_given_by_name(multi_module):
 
 @pytestmark_git
 def test_report_names_the_module_of_the_parent(multi_module, git_service, project_data_service):
-    context = FunctionContext(project_name="Multi", pipeline_input="", git=git_service, project_data=project_data_service)
+    context = ToolContext(project_name="Multi", git=git_service, project_data=project_data_service)
 
-    text = FUNCTION_REGISTRY["maven_parent_alignment"].execute(context, "", {"property": "*.libraries.version"}).text
+    text = call_tool("maven_parent_alignment", context, property="*.libraries.version").text
 
     assert text.startswith("POM: allineamento al parent acme-parent-lib 2.679.0 (parent/parent-lib/pom.xml, riconosciuto): 1 da allineare")
 
@@ -328,9 +327,9 @@ def test_report_says_which_parents_and_properties_it_saw(tmp_path, project_store
                           + "<properties><acme-libs.version>2.678.0</acme-libs.version></properties>"))
     _repo(root, "c", _pom("<artifactId>c</artifactId>" + _parent("3.3.2", "spring-boot-starter-parent")))
     project_store.save(Project(name="Unknown", source=ProjectSource.FOLDER, root_path=str(root)))
-    context = FunctionContext(project_name="Unknown", pipeline_input="", git=git_service, project_data=project_data_service)
+    context = ToolContext(project_name="Unknown", git=git_service, project_data=project_data_service)
 
-    text = FUNCTION_REGISTRY["maven_parent_alignment"].execute(context, "", {"property": "*.libraries.version"}).text
+    text = call_tool("maven_parent_alignment", context, property="*.libraries.version").text
 
     assert text.startswith("POM: nessun parent riconosciuto")
     assert ("Parent dichiarati dai pom.xml del progetto: acme-parent-lib (2), spring-boot-starter-parent (1). "

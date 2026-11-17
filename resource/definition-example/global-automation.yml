@@ -10,8 +10,8 @@ automations:
     description: Stato git di tutti i repository del progetto, riassunto in una nota (prima quelli che chiedono attenzione).
     steps:
       - name: Stato git
-        function: git_status
-        params: {repository: "*"}
+        tool: git_status
+        args: {repository: '*'}
       - name: Riassunto
         model: openrouter/google/gemini-3.1-flash-lite-preview
         system_prompt: |
@@ -21,8 +21,8 @@ automations:
           2. «A posto»: gli altri, tutti in una riga.
           Se è tutto a posto, dillo in una frase. Usa solo quello che c'è nel testo: non inventare niente.
       - name: Nota
-        function: save_note
-        params: {title: "stato-del-mattino-{date}"}
+        tool: save_note
+        args: {content: '{input}', title: 'stato-del-mattino-{date}'}
 
 #################################
 #### Coverage prima del push ####
@@ -33,11 +33,11 @@ automations:
       mvn jacoco:report (non i test) solo nei repository allineati al POM parent. Nota solo se qualcuno è sotto soglia.
     steps:
       - name: Coverage
-        function: coverage_new_code
-        params: {repository: "*", threshold: 80, parent_artifact_id: "", property: "*.libraries.version"}
+        tool: coverage_new_code
+        args: {parent_artifact_id: '', property: '*.libraries.version', repository: '*', threshold: 80}
       - name: Nota
-        function: save_note
-        params: {title: "coverage-nuovo-codice-{date}"}
+        tool: save_note
+        args: {content: '{input}', title: 'coverage-nuovo-codice-{date}'}
     edges:
       - {from: input, to: Coverage}
       - {from: Coverage, to: Nota, if: contains, value: "sotto soglia"}
@@ -53,12 +53,14 @@ automations:
       Input: una riga per repository, «<repository> <branch> [<base>]» (. = la cartella del progetto).
     steps:
       - name: Pulito
-        function: git_check_clean
+        tool: git_check_clean
+        args: {targets: '{pipeline_input}'}
       - name: Branch
-        function: git_checkout_branches
+        tool: git_checkout_branches
+        args: {targets: '{pipeline_input}'}
       - name: POM
-        function: maven_parent_alignment
-        params: {parent_artifact_id: "", property: "*.libraries.version"}
+        tool: maven_parent_alignment
+        args: {parent_artifact_id: '', property: '*.libraries.version'}
     edges:
       - {from: input, to: Pulito}
       - {from: Pulito, to: Branch}
@@ -75,11 +77,11 @@ automations:
       rimandare il task a Copilot. Input: «<repository> <task> [all|touched]».
     steps:
       - name: Pulizia
-        function: clean_mbare_pilot
-        params: {remove_todos: true}
+        tool: clean_mbare_pilot
+        args: {remove_todos: true, target: '{pipeline_input}'}
       - name: Test
-        function: run_tests
-        params: {timeout_minutes: 20}
+        tool: run_tests
+        args: {target: '{pipeline_input}', timeout_minutes: 20}
     edges:
       - {from: input, to: Pulizia}
       - {from: Pulizia, to: Test}

@@ -221,6 +221,6 @@ export function summary(pipeline: Pipeline): string {
 
 function stepLabel(step: Step): string {
   if (step.kind === "agent_config") return `${step.name} (Libreria: ${step.agent_config_name})`;
-  if (step.kind === "function") return `${step.name} (funzione ${step.function_name})`;
+  if (step.kind === "tool") return `${step.name} (tool ${step.tool_name})`;
   return `${step.name} (agente proprio)`;
 }

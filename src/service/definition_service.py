@@ -358,7 +358,6 @@ def _shape(pipeline: Pipeline) -> tuple:
          step.kind,
          step.input_template,
          step.agent_config_name,
-         step.function_name,
          step.tool_name,
          step.params,
          (

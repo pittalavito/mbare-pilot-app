@@ -65,4 +65,4 @@ Un file per ambito dell'API: `project`, `agent`, `chatbot`, `project_data`, `git
 
 ## Dipendenze
 
-`controller/pipeline.py` importa `function.spec.FunctionSpec` (per descrivere le funzioni degli step): è l'unico modello che dipende da un package fuori da `models/`.
+`controller/pipeline.py` importa `tool.spec.ToolSpec` (per descrivere i tool e i loro argomenti): è l'unico modello che dipende da un package fuori da `models/`.

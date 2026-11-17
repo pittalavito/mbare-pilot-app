@@ -3,6 +3,7 @@ built at startup (``app.state.container``). Use with ``Depends(...)``."""
 from fastapi import Request
 
 from service.agent_config_service import AgentConfigService
+from service.agent_service import AgentService
 from service.atlassian_service import AtlassianService
 from service.automation_cache_service import AutomationCacheService
 from service.backup_service import BackupService
@@ -32,6 +33,10 @@ from service.wip_service import WipService
 
 def project_service(request: Request) -> ProjectService:
     return request.app.state.container.project_service
+
+
+def agent_service(request: Request) -> AgentService:
+    return request.app.state.container.agent_service
 
 
 def agent_config_service(request: Request) -> AgentConfigService:

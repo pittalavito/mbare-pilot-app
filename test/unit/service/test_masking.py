@@ -140,7 +140,7 @@ def test_the_llm_sees_aliases_the_tools_and_the_user_real_values(agent_service, 
     assert seen["input"] == "PERSONA_1 chiede: REPO_1 ha modifiche?"
     assert seen["memory"] == ["ciao, sono PERSONA_1"]
     # the tool got the real repository (else: an error), its output is masked
-    assert '"repository":"REPO_1"' in seen["tool"] and "project-be" not in seen["tool"] and "error" not in seen["tool"]
+    assert "Repository REPO_1" in seen["tool"] and "project-be" not in seen["tool"] and "error" not in seen["tool"]
     assert record.output == "Ho controllato project-be per Mario Rossi."
     assert record.input == "Mario Rossi chiede: project-be ha modifiche?"
 
@@ -154,7 +154,7 @@ def test_tools_register_what_they_read(agent_service, masking, monkeypatch, tmp_
     agent_service.run_definition(_definition(agent_service), "stato?", project_name="acme")
 
     assert [(e.value, e.alias, e.manual) for e in masking.entries("acme")] == [("project-be", "REPO_1", False)]
-    assert '"repository":"REPO_1"' in seen["tool"] and "project-be" not in seen["tool"]
+    assert "Repository REPO_1" in seen["tool"] and "project-be" not in seen["tool"]
 
 
 def test_the_projects_repositories_are_masked_from_the_first_message(agent_service, masking, monkeypatch):

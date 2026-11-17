@@ -24,7 +24,7 @@ const TASK = {
   references: [], tests: null,
 };
 const step = (name: string, tool: string, params: Record<string, unknown>) => ({
-  name, kind: "tool", input_template: "{input}", agent: null, agent_config_name: null, function_name: null, tool_name: tool, params,
+  name, kind: "tool", input_template: "{input}", agent: null, agent_config_name: null, tool_name: tool, params,
   position_x: 0, position_y: 0,
 });
 const LEARNED = {

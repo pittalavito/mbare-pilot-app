@@ -1,13 +1,13 @@
 """Request/response models of the automation API: pipelines with their steps,
-runs, and the functions a FUNCTION step can call."""
+runs, and the tools of the registry (a TOOL step, Admin → Tool)."""
 from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
 
-from function.spec import FunctionSpec
 from models.domain.pipeline import AutomationPurpose, EdgeConditionKind, Pipeline, PipelineEdge, PipelineRun, PipelineStep
 from models.domain.worker import WorkerStatus
+from tool.spec import ToolSpec
 
 
 class StepAgentBody(BaseModel):
@@ -23,11 +23,10 @@ class StepBody(BaseModel):
     id: int | None = None
     name: str
     kind: str
-    """``agent`` | ``agent_config`` | ``function`` | ``tool``."""
+    """``agent`` | ``agent_config`` | ``tool``."""
     input_template: str
     agent: StepAgentBody | None = None
     agent_config_name: str | None = None
-    function_name: str | None = None
     tool_name: str | None = None
     params: dict[str, Any] = Field(default_factory=dict)
     position_x: float = 0.0
@@ -115,31 +114,51 @@ class RunRequest(BaseModel):
     input: str = ""
 
 
-class FunctionParamResponse(BaseModel):
+_TYPES = {"boolean": "bool", "integer": "int", "number": "float", "string": "str"}
+
+
+class ToolArgResponse(BaseModel):
     name: str
     type: str
-    """``bool`` | ``int`` | ``float`` | ``str``: the widget the editor shows."""
+    """``bool`` | ``int`` | ``float`` | ``str`` | ``json`` (a list or an object): the widget the forms show."""
     default: Any = None
     description: str | None = None
+    required: bool = False
 
 
-class FunctionResponse(BaseModel):
+class ToolSpecResponse(BaseModel):
+    """A tool of the registry with its arguments: the editor's form for a tool step, Admin → Tool."""
     name: str
     description: str
-    params: list[FunctionParamResponse]
+    writes: bool
+    """It changes something: «Prova» asks first."""
+    chatbot_only: bool
+    """Only in a chat: not offered for an automation step."""
+    args: list[ToolArgResponse]
 
     @classmethod
-    def from_spec(cls, spec: FunctionSpec) -> "FunctionResponse":
-        params = [
-            FunctionParamResponse(
-                name=name,
-                type=info.annotation.__name__ if info.annotation in (bool, int, float) else "str",
-                default=None if info.is_required() else info.default,
-                description=info.description,
-            )
-            for name, info in spec.params.model_fields.items()
+    def from_spec(cls, spec: ToolSpec) -> "ToolSpecResponse":
+        properties, required = spec.schema()
+        args = [
+            ToolArgResponse(name=name, type=_TYPES.get(str(field.get("type")), "json" if "type" in field else "str"),
+                            default=field.get("default"), description=field.get("description"), required=name in required)
+            for name, field in properties.items()
         ]
-        return cls(name=spec.name, description=spec.description, params=params)
+        return cls(name=spec.name, description=spec.description, writes=spec.writes, chatbot_only=spec.chatbot_only, args=args)
+
+
+class ToolTryRequest(BaseModel):
+    project: str
+    args: dict[str, Any] = {}
+
+
+class ToolTryResponse(BaseModel):
+    """What «▶️ Prova» got: the result as an agent sees it (JSON) and as a step outputs it (text)."""
+    ok: bool
+    text: str
+    """The step's output: the result's ``text``, else its JSON."""
+    result: dict[str, Any]
+    error: str | None = None
 
 
 class WorkerResponse(BaseModel):

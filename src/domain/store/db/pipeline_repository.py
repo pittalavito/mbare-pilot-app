@@ -32,6 +32,11 @@ class DbPipelineStepRepository(SqlRepository[PipelineStepTable]):
         with self._session() as session:
             return list(session.exec(statement).all())
 
+    def pipelines_with_kind(self, kind: str) -> list[int]:
+        """The pipelines that have a step of ``kind`` (the function steps of before plan 15)."""
+        with self._session() as session:
+            return sorted(set(session.exec(select(PipelineStepTable.pipeline_id).where(PipelineStepTable.kind == kind)).all()))
+
     def list_for_pipelines(self, pipeline_ids: list[int]) -> dict[int, list[PipelineStepTable]]:
         """The steps of many pipelines in one query, by pipeline id, in execution order."""
         statement = (

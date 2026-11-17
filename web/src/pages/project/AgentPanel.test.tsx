@@ -74,7 +74,7 @@ function api(extra: Record<string, unknown> = {}) {
     "GET /copilot/status": { installed: true, version: "x", prompts: [], default_model: "", models: [] },
     "GET /copilot-sessions/4/messages": COPILOT_MESSAGES,
     "GET /copilot-sessions/4/turns": TURNS,
-    "GET /functions": [], "GET /models/choices": { choices: ["mock/echo"], usable: ["mock/echo"] }, "GET /tools": [], "GET /agents": [],
+    "GET /tool-specs": [], "GET /models/choices": { choices: ["mock/echo"], usable: ["mock/echo"] }, "GET /tools": [], "GET /agents": [],
     ...extra,
   });
   return { bodies, created };
@@ -232,7 +232,7 @@ describe("the panel", () => {
     const entry: AutomationCacheEntry = {
       id: 1, chatbot_id: 8, message_id: 11, text: "com'è il repo?", pipeline_id: 7, pipeline_input: "main", hits: 3, created_at: "2026-11-13T10:00:00Z",
     };
-    const pipeline = { id: 7, project_name: "acme", name: "Git status", description: "", active: true, steps: [{ name: "S", kind: "function", params: {} }], edges: [] };
+    const pipeline = { id: 7, project_name: "acme", name: "Git status", description: "", active: true, steps: [{ name: "S", kind: "tool", params: {} }], edges: [] };
     api({
       "GET /projects/acme/chatbots": [{ ...SECRETARY, automation_cache: true }, REFINER],
       "GET /chatbots/8/conversations": [{ id: 3, chatbot_id: 8, title: "Repo", context: "", created_at: "", updated_at: "" }],

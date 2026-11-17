@@ -996,17 +996,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/functions": {
+    "/tool-specs": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List Functions */
-        get: operations["list_functions_functions_get"];
+        /**
+         * List Tool Specs
+         * @description Every tool of the registry with its arguments (plan 15): the editor offers the non chat-only ones for a step.
+         */
+        get: operations["list_tool_specs_tool_specs_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tools/{name}/try": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try Tool
+         * @description Admin → Tool, «▶️ Prova»: the tool on a project with these arguments, no LLM and no run recorded.
+         */
+        post: operations["try_tool_tools__name__try_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3802,26 +3825,6 @@ export interface components {
             /** Roots */
             roots: string[];
         };
-        /** FunctionParamResponse */
-        FunctionParamResponse: {
-            /** Name */
-            name: string;
-            /** Type */
-            type: string;
-            /** Default */
-            default?: unknown;
-            /** Description */
-            description?: string | null;
-        };
-        /** FunctionResponse */
-        FunctionResponse: {
-            /** Name */
-            name: string;
-            /** Description */
-            description: string;
-            /** Params */
-            params: components["schemas"]["FunctionParamResponse"][];
-        };
         /** GitBranchesResponse */
         GitBranchesResponse: {
             /** Current */
@@ -4875,8 +4878,6 @@ export interface components {
             agent?: components["schemas"]["StepAgentBody"] | null;
             /** Agent Config Name */
             agent_config_name?: string | null;
-            /** Function Name */
-            function_name?: string | null;
             /** Tool Name */
             tool_name?: string | null;
             /** Params */
@@ -5091,6 +5092,22 @@ export interface components {
             /** Cost Eur */
             cost_eur: number;
         };
+        /** ToolArgResponse */
+        ToolArgResponse: {
+            /** Name */
+            name: string;
+            /** Type */
+            type: string;
+            /** Default */
+            default?: unknown;
+            /** Description */
+            description?: string | null;
+            /**
+             * Required
+             * @default false
+             */
+            required: boolean;
+        };
         /** ToolCallResponse */
         ToolCallResponse: {
             /** Run Id */
@@ -5123,6 +5140,50 @@ export interface components {
              * @default false
              */
             chatbot_only: boolean;
+        };
+        /**
+         * ToolSpecResponse
+         * @description A tool of the registry with its arguments: the editor's form for a tool step, Admin → Tool.
+         */
+        ToolSpecResponse: {
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Writes */
+            writes: boolean;
+            /** Chatbot Only */
+            chatbot_only: boolean;
+            /** Args */
+            args: components["schemas"]["ToolArgResponse"][];
+        };
+        /** ToolTryRequest */
+        ToolTryRequest: {
+            /** Project */
+            project: string;
+            /**
+             * Args
+             * @default {}
+             */
+            args: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * ToolTryResponse
+         * @description What «▶️ Prova» got: the result as an agent sees it (JSON) and as a step outputs it (text).
+         */
+        ToolTryResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Text */
+            text: string;
+            /** Result */
+            result: {
+                [key: string]: unknown;
+            };
+            /** Error */
+            error?: string | null;
         };
         /** UpdateProjectRequest */
         UpdateProjectRequest: {
@@ -7704,7 +7765,7 @@ export interface operations {
             };
         };
     };
-    list_functions_functions_get: {
+    list_tool_specs_tool_specs_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -7719,7 +7780,42 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["FunctionResponse"][];
+                    "application/json": components["schemas"]["ToolSpecResponse"][];
+                };
+            };
+        };
+    };
+    try_tool_tools__name__try_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ToolTryRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToolTryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

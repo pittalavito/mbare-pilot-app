@@ -44,7 +44,7 @@ class ChatbotKind(StrEnum):
 
 KIND_TOOLS: dict[ChatbotKind, list[str]] = {
     ChatbotKind.AUTOMATION: [
-        "list_functions", "list_agents", "list_automations", "read_automation", "validate_automation", "create_function_task",
+        "list_tools", "list_agents", "list_automations", "read_automation", "validate_automation", "create_tool_task",
     ],
     ChatbotKind.SECRETARY: [
         "list_activities", "read_activity", "create_activity", "update_activity",
@@ -64,8 +64,6 @@ def not_allowed(kind: ChatbotKind, tools: list[str]) -> list[str]:
     return [] if allowed is None else [tool for tool in tools if tool not in allowed]
 
 
-STEP_TOOLS: list[str] = KIND_TOOLS[ChatbotKind.OPERATOR]
-"""The tools a ``tool`` step of an automation can call: the Operator's."""
 READ_ONLY_TOOLS: set[str] = {"git_status", "git_branches", "git_stash_list", "maven_parent_alignment"}
 """Tools that only read: promoting a run leaves them out unless chosen."""
 
