@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from controller.dependencies import activity_close_service, plan_service
 from models.domain.activity_close import ActivityClosed, LearnedDraft
-from models.domain.plan import ActivityPath, ActivityPlan, PlanChoice, PlanOptions, StepKey
+from models.domain.plan import ActivityPath, ActivityPlan, PlanChoice, PlanOptions, StepKey, TaskFields
 from service.activity_close_service import ActivityCloseService
 from service.plan_service import PlanService
 
@@ -26,6 +26,13 @@ class PauseRequest(BaseModel):
 class StepRequest(BaseModel):
     task: str
     step: StepKey
+
+
+class TaskFieldsRequest(BaseModel):
+    task: str
+    step: StepKey
+    fields: dict[str, str] = {}
+    """Empty = back to the activity's template."""
 
 
 class CloseRequest(BaseModel):
@@ -65,7 +72,8 @@ def pause_plan(project: str, activity: str, request: PauseRequest, service: Plan
 
 @router.post("/activities/{activity}/plan/options")
 def plan_options(project: str, activity: str, request: PlanOptions, service: PlanService = Depends(plan_service)) -> ActivityPlan:
-    """Before delegating (``none``, ``dev``, ``automation:<id>``), the automation after the verification, the automatic ok."""
+    """Before delegating (``none``, ``dev``, ``automation:<id>``) and the automation after the verification, each with its
+    fields as a template (``{task}``, ``{note}``, ``{repository}``, ``{base}``), and the automatic ok."""
     return service.set_options(project, activity, request)
 
 
@@ -79,6 +87,18 @@ def skip_step(project: str, activity: str, request: StepRequest, service: PlanSe
 def retry_step(project: str, activity: str, request: StepRequest, service: PlanService = Depends(plan_service)) -> ActivityPlan:
     """Run a failed step again: preparation, delegation, automation (at the round's next turn) or the tests (now)."""
     return service.retry(project, activity, request.task, request.step)
+
+
+@router.get("/activities/{activity}/plan/fields")
+def task_fields(project: str, activity: str, task: str, step: StepKey, service: PlanService = Depends(plan_service)) -> TaskFields:
+    """«⚙️ Campi»: what runs at ``step`` (prepare, after) for the task and its fields, resolved for it."""
+    return service.task_fields(project, activity, task, step)
+
+
+@router.put("/activities/{activity}/plan/fields")
+def save_task_fields(project: str, activity: str, request: TaskFieldsRequest, service: PlanService = Depends(plan_service)) -> ActivityPlan:
+    """The task's own fields for ``step`` (empty = the activity's template again)."""
+    return service.set_task_fields(project, activity, request.task, request.step, request.fields)
 
 
 @router.post("/activities/{activity}/learned")

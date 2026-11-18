@@ -69,8 +69,14 @@ class ActivityPlan(BaseModel):
     """The steps skipped by the user, as ``<task>|<step>``."""
     errors: dict[str, str] = {}
     """Why a step the round ran failed (preparation, delegation, automation), as ``<task>|<step>`` → error."""
+    prepare_fields: dict[str, str] = {}
+    """The fields of the preparation, as a template for every task (``{task}``, ``{note}``, ``{repository}``, ``{base}``); missing = the default."""
     after_automation: int | None = None
     """An automation the round runs after each development's verification, before the final confirmation."""
+    after_fields: dict[str, str] = {}
+    """The fields of the automation after the verification, as a template (like ``prepare_fields``)."""
+    task_fields: dict[str, dict[str, str]] = {}
+    """A task's own fields, instead of the template, as ``<task>|prepare`` / ``<task>|after`` → fields (already resolved)."""
     automation_runs: dict[str, int] = {}
     """The runs of that automation, as ``<task>|after`` → pipeline run id."""
     auto_approve: bool = False
@@ -174,7 +180,22 @@ class ActivityPath(BaseModel):
 
 
 class PlanOptions(BaseModel):
-    """How the round goes: the preparation before delegating, the automation after the verification, the automatic ok."""
+    """How the round goes: the preparation before delegating, the automation after the verification (each with
+    its fields as a template), the automatic ok."""
     prepare: str = "dev"
+    prepare_fields: dict[str, str] = {}
     after_automation: int | None = None
+    after_fields: dict[str, str] = {}
     auto_approve: bool = False
+
+
+class TaskFields(BaseModel):
+    """The fields of one task's preparation or automation after the verification, resolved."""
+    task: str
+    step: str
+    """``prepare`` or ``after``."""
+    automation: str = ""
+    """What runs: «Prepara sviluppo» or the automation's name; ``""`` = nothing (no fields)."""
+    fields: dict[str, str] = {}
+    own: bool = False
+    """The task has its own fields (not the activity's template)."""

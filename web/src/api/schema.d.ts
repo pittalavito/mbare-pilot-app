@@ -2128,7 +2128,8 @@ export interface paths {
         put?: never;
         /**
          * Plan Options
-         * @description Before delegating (``none``, ``dev``, ``automation:<id>``), the automation after the verification, the automatic ok.
+         * @description Before delegating (``none``, ``dev``, ``automation:<id>``) and the automation after the verification, each with its
+         *     fields as a template (``{task}``, ``{note}``, ``{repository}``, ``{base}``), and the automatic ok.
          */
         post: operations["plan_options_projects__project__activities__activity__plan_options_post"];
         delete?: never;
@@ -2171,6 +2172,30 @@ export interface paths {
          * @description Run a failed step again: preparation, delegation, automation (at the round's next turn) or the tests (now).
          */
         post: operations["retry_step_projects__project__activities__activity__plan_retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/activities/{activity}/plan/fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Task Fields
+         * @description «⚙️ Campi»: what runs at ``step`` (prepare, after) for the task and its fields, resolved for it.
+         */
+        get: operations["task_fields_projects__project__activities__activity__plan_fields_get"];
+        /**
+         * Save Task Fields
+         * @description The task's own fields for ``step`` (empty = the activity's template again).
+         */
+        put: operations["save_task_fields_projects__project__activities__activity__plan_fields_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2713,8 +2738,31 @@ export interface components {
             errors: {
                 [key: string]: string;
             };
+            /**
+             * Prepare Fields
+             * @default {}
+             */
+            prepare_fields: {
+                [key: string]: string;
+            };
             /** After Automation */
             after_automation?: number | null;
+            /**
+             * After Fields
+             * @default {}
+             */
+            after_fields: {
+                [key: string]: string;
+            };
+            /**
+             * Task Fields
+             * @default {}
+             */
+            task_fields: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
             /**
              * Automation Runs
              * @default {}
@@ -4361,7 +4409,8 @@ export interface components {
         };
         /**
          * PlanOptions
-         * @description How the round goes: the preparation before delegating, the automation after the verification, the automatic ok.
+         * @description How the round goes: the preparation before delegating, the automation after the verification (each with
+         *     its fields as a template), the automatic ok.
          */
         PlanOptions: {
             /**
@@ -4369,8 +4418,22 @@ export interface components {
              * @default dev
              */
             prepare: string;
+            /**
+             * Prepare Fields
+             * @default {}
+             */
+            prepare_fields: {
+                [key: string]: string;
+            };
             /** After Automation */
             after_automation?: number | null;
+            /**
+             * After Fields
+             * @default {}
+             */
+            after_fields: {
+                [key: string]: string;
+            };
             /**
              * Auto Approve
              * @default false
@@ -5057,6 +5120,46 @@ export interface components {
         SyncRequest: {
             /** Only */
             only?: components["schemas"]["DefinitionKeyRequest"][] | null;
+        };
+        /**
+         * TaskFields
+         * @description The fields of one task's preparation or automation after the verification, resolved.
+         */
+        TaskFields: {
+            /** Task */
+            task: string;
+            /** Step */
+            step: string;
+            /**
+             * Automation
+             * @default
+             */
+            automation: string;
+            /**
+             * Fields
+             * @default {}
+             */
+            fields: {
+                [key: string]: string;
+            };
+            /**
+             * Own
+             * @default false
+             */
+            own: boolean;
+        };
+        /** TaskFieldsRequest */
+        TaskFieldsRequest: {
+            /** Task */
+            task: string;
+            step: components["schemas"]["StepKey"];
+            /**
+             * Fields
+             * @default {}
+             */
+            fields: {
+                [key: string]: string;
+            };
         };
         /**
          * TaskStatus
@@ -9947,6 +10050,77 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["StepRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    task_fields_projects__project__activities__activity__plan_fields_get: {
+        parameters: {
+            query: {
+                task: string;
+                step: components["schemas"]["StepKey"];
+            };
+            header?: never;
+            path: {
+                project: string;
+                activity: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskFields"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_task_fields_projects__project__activities__activity__plan_fields_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                activity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskFieldsRequest"];
             };
         };
         responses: {

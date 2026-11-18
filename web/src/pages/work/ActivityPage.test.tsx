@@ -159,6 +159,43 @@ describe("3. Lavora", () => {
     await waitFor(() => expect(screen.getAllByTestId("work-task")[1]).toHaveAttribute("aria-selected", "true"));
   });
 
+  it("the fields of Prepara sviluppo as a template, a task's own fields, and the worker that is stopped", async () => {
+    const options = vi.fn(async (request: Request) => ({ ...PLAN, ...(await request.json()) }));
+    const savedFields = vi.fn(async (request: Request) => ({ ...PLAN, body: await request.json() }));
+    const started = vi.fn(() => ({ status: "running", pid: 1, workers: [] }));
+    api(working([step("prepare", "Preparazione", "todo"), step("delegate", "Delega a Copilot", "todo")]), {
+      "POST /projects/acme/activities/attivita-login.md/plan/options": options,
+      "GET /projects/acme/activities/attivita-login.md/plan/fields": (request: Request) => ({
+        task: new URL(request.url).searchParams.get("task"), step: "prepare", automation: "Prepara sviluppo", own: false,
+        fields: { branch: "feature/otp", base: "develop" },
+      }),
+      "PUT /projects/acme/activities/attivita-login.md/plan/fields": savedFields,
+      "GET /admin/worker": { status: "stopped", pid: null, workers: [] },
+      "POST /admin/worker/start": started,
+    }, { ...ACTIVITY, status: "in_progress" });
+    renderAt("&step=work");
+
+    expect(await screen.findByText("Il worker è fermo: il giro non parte")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Avvia il worker" }));
+    await waitFor(() => expect(started).toHaveBeenCalled());
+
+    const branch = screen.getByRole("textbox", { name: "branch" });
+    expect(branch).toHaveValue("feature/{task}");
+    expect(screen.getByRole("textbox", { name: "base" })).toHaveValue("{base}");
+    fireEvent.change(branch, { target: { value: "feat/{task}" } });
+    fireEvent.blur(branch);
+    await waitFor(() => expect(options).toHaveBeenCalled());
+    expect(await body(options)).toMatchObject({ prepare: "dev", prepare_fields: { branch: "feat/{task}", base: "{base}" } });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "⚙️ Campi" })[0]);
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByDisplayValue("feature/otp")).toBeInTheDocument();
+    fireEvent.change(within(dialog).getByDisplayValue("feature/otp"), { target: { value: "hotfix/otp" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Salva per questo task" }));
+    await waitFor(() => expect(savedFields).toHaveBeenCalled());
+    expect((await body(savedFields)).body).toEqual({ task: AGENT_TASK.name, step: "prepare", fields: { branch: "hotfix/otp", base: "develop" } });
+  });
+
   it("a failed verification: you decide (send back, retry the tests, skip)", async () => {
     const retried = vi.fn(async (request: Request) => ({ ...PLAN, body: await request.json() }));
     api(working([step("delegate", "Delega a Copilot", "done"), step("copilot_plan", "Piano di Copilot", "done"), step("execution", "Esecuzione", "done"),
