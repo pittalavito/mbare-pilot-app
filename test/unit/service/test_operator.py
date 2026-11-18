@@ -146,7 +146,7 @@ def test_the_operator_is_a_default_chatbot_with_fixed_tools():
 
     from conftest import EXAMPLE_CHATBOTS
     [operator] = [bot for bot in yaml.safe_load(EXAMPLE_CHATBOTS.read_text(encoding="utf-8"))["chatbots"] if bot["kind"] == "operator"]
-    assert operator["name"] == "Operatore Java" and operator["tools"] == KIND_TOOLS[ChatbotKind.OPERATOR]
+    assert operator["name"] == "Dev" and operator["tools"] == KIND_TOOLS[ChatbotKind.OPERATOR]
     assert not {"git_commit", "git_push"} & set(KIND_TOOLS[ChatbotKind.OPERATOR])
     assert all(name in TOOL_REGISTRY for name in KIND_TOOLS[ChatbotKind.OPERATOR])
 
@@ -360,7 +360,7 @@ def test_the_api_saves_the_commands_and_the_operator_answers_requests_and_promot
     container = Container(stores=stores)
     container.command_service._client = FakeCommands()
     with TestClient(create_app(container)) as client:
-        operator = next(bot for bot in client.get("/projects/acme/chatbots").json() if bot["name"] == "Operatore Java")
+        operator = next(bot for bot in client.get("/projects/acme/chatbots").json() if bot["name"] == "Dev")
         assert operator["kind"] == "operator" and "run_command" in operator["tool_names"]
         settings = client.put("/projects/acme/dev-settings", json={"allowed_commands": ["uv sync"], "operator_chatbot_id": operator["id"]}).json()
         assert settings["allowed_commands"] == ["uv sync"] and settings["operator_chatbot_id"] == operator["id"]

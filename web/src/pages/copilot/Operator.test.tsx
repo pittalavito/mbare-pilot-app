@@ -15,7 +15,7 @@ afterEach(() => vi.unstubAllGlobals());
 beforeEach(() => { try { window.localStorage.clear(); } catch { /* no storage */ } });
 
 const OPERATOR: Chatbot = {
-  id: 12, project_name: "acme", name: "Operatore Java", kind: "operator", description: "", system_prompt: "x", prompt_version: 1, model: "mock/echo",
+  id: 12, project_name: "acme", name: "Dev", kind: "operator", description: "", system_prompt: "x", prompt_version: 1, model: "mock/echo",
   max_steps: 12, tool_names: ["run_command"], automation_cache: false,
 };
 const REFINER: Chatbot = { ...OPERATOR, id: 7, name: "Refiner", kind: "refiner", tool_names: [] };
@@ -92,8 +92,8 @@ describe("the delegation's preparation", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Delega" }));
 
     fireEvent.click(await within(dialog).findByRole("button", { name: /Fallo fare all'Operatore/ }));
-    await waitFor(() => expect(screen.getByRole("textbox", { name: "Agente" })).toHaveValue("Operatore Java"));
-    const box = screen.getByPlaceholderText(/Scrivi a Operatore Java/) as HTMLTextAreaElement;
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Agente" })).toHaveValue("Dev"));
+    const box = screen.getByPlaceholderText(/Scrivi a Dev/) as HTMLTextAreaElement;
     expect(box.value).toContain("feature/login");
     expect(box.value).toContain("il branch c'è già");
   });
@@ -105,8 +105,8 @@ describe("the delegation's preparation", () => {
     fireEvent.click(await screen.findByRole("option", { name: /Fallo fare all'Operatore/ }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Chiedi all'Operatore" }));
 
-    await waitFor(() => expect(screen.getByRole("textbox", { name: "Agente" })).toHaveValue("Operatore Java"));
-    expect((screen.getByPlaceholderText(/Scrivi a Operatore Java/) as HTMLTextAreaElement).value)
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Agente" })).toHaveValue("Dev"));
+    expect((screen.getByPlaceholderText(/Scrivi a Dev/) as HTMLTextAreaElement).value)
       .toBe("Prepara api per il task agent-task-login.md: branch feature/login (crealo da develop se non c'è), aggiornato, poi il clean install.");
   });
 });
@@ -114,7 +114,7 @@ describe("the delegation's preparation", () => {
 describe("the Operator in the panel", () => {
   const pickOperator = async () => {
     fireEvent.click(await screen.findByRole("textbox", { name: "Agente" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Operatore Java" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Dev" }));
   };
 
   it("asks for the commands outside the list: «Sempre» allows it and readies «continua»", async () => {
@@ -129,7 +129,7 @@ describe("the Operator in the panel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sempre" }));
     await waitFor(() => expect(answered).toHaveBeenCalled());
     expect(bodies).toEqual([{ command: "mvn verify", allow: true, always: true }]);
-    await waitFor(() => expect((screen.getByPlaceholderText(/Scrivi a Operatore Java/) as HTMLTextAreaElement).value).toBe("Ho permesso «mvn verify»: continua."));
+    await waitFor(() => expect((screen.getByPlaceholderText(/Scrivi a Dev/) as HTMLTextAreaElement).value).toBe("Ho permesso «mvn verify»: continua."));
   });
 
   it("«No» drops the request and nothing is readied", async () => {
@@ -142,7 +142,7 @@ describe("the Operator in the panel", () => {
     await pickOperator();
     fireEvent.click(await screen.findByRole("button", { name: "No" }));
     await waitFor(() => expect(bodies).toEqual([{ command: "rm -rf .", allow: false, always: false }]));
-    expect((screen.getByPlaceholderText(/Scrivi a Operatore Java/) as HTMLTextAreaElement).value).toBe("");
+    expect((screen.getByPlaceholderText(/Scrivi a Dev/) as HTMLTextAreaElement).value).toBe("");
   });
 
   it("an answer that did things becomes an automation: steps kept, fields corrected, saved", async () => {
@@ -206,7 +206,7 @@ describe("settings and automations with fields", () => {
 
     fireEvent.click(await within(dialog).findByRole("button", { name: /mvn -B clean install/ }));
     fireEvent.click(within(dialog).getByRole("textbox", { name: "Operatore della preparazione" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Operatore Java" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Dev" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Salva" }));
 
     await waitFor(() => expect(saved).toHaveBeenCalled());
