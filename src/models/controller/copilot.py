@@ -4,7 +4,6 @@ from datetime import datetime
 from pydantic import BaseModel
 
 from models.domain.copilot import CopilotMessage, CopilotModel, CopilotModelUsage, CopilotSession, CopilotTurnRecord, CopilotUsage
-from models.domain.dev import LearnedPreparation, PrepareTarget
 
 
 class CopilotSessionRequest(BaseModel):
@@ -16,10 +15,6 @@ class CopilotSessionRequest(BaseModel):
     """One of the status' ``prompts``; ``""`` = the definition's ``plan_prompt``."""
     model: str = ""
     """One of the status' ``models``; ``""`` = the default."""
-    prepare: list[PrepareTarget] = []
-    """«Prepara sviluppo» first: the repositories to get ready, each on its branch (empty = none); 409 when it fails."""
-    learned: LearnedPreparation | None = None
-    """Or an automation learned from the Operator, with its fields (plan 11); 409 when it fails."""
     no_repository: bool = False
     """No repository (only a task without code): Copilot works in the project's data (plan 21); ``repository`` is ignored."""
 

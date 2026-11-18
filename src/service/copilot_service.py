@@ -47,7 +47,6 @@ import time
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING
 from uuid import uuid4
 
 import httpx
@@ -72,7 +71,6 @@ from models.domain.copilot import (
     CopilotTurnRecord,
     CopilotUsage,
 )
-from models.domain.dev import VERIFY_FAILED, VERIFY_OK, DevCheck, LearnedPreparation, PrepareTarget
 from models.domain.note import AgentTask, TaskLink, TaskStatus, TaskType
 from service.git_service import GitService
 from service.project_data_service import ProjectDataService
@@ -104,10 +102,6 @@ def not_refined_warning(status: TaskStatus) -> str | None:
         return None
     return (f"⚠️ Il task è «{STATUS_LABELS[status]}», non ancora «{STATUS_LABELS[TaskStatus.TODO]}»: "
             "Copilot lo legge com'è, magari ancora da rifinire.")
-
-
-if TYPE_CHECKING:
-    from service.dev_checks_service import DevChecksService
 
 
 class CopilotService:
@@ -142,13 +136,6 @@ class CopilotService:
         self._client = client
         self._planning_timeout = planning_timeout_seconds
         self._execution_timeout = execution_timeout_seconds
-        self._checks: DevChecksService | None = None
-
-    def use_dev_checks(self, checks: "DevChecksService") -> None:
-        """«Prepara sviluppo» at the delegation, «Verifica sviluppo» after an
-        execution (blocco 09). Set after construction: the checks run
-        automations, whose runner needs the agents, which need this service."""
-        self._checks = checks
 
     @classmethod
     def from_config(cls, definitions: DefinitionStore, copilot: CopilotStore, git_service: GitService,
@@ -231,7 +218,6 @@ class CopilotService:
     # -------------------------------------------------------------- planning
     @observed(LogPrefix.COPILOT_SERVICE)
     def start(self, project_name: str, task_note: str, repository: str = "", prompt: str = "", model: str = "",
-              prepare: list[PrepareTarget] | None = None, learned: LearnedPreparation | None = None,
               no_repository: bool = False) -> CopilotSession:
         """A new session on an agent task: the first planning turn runs now,
         so the session comes back with Copilot's questions (or the error).
@@ -239,23 +225,21 @@ class CopilotService:
         task's type in ``type_prompts``, else ``plan_prompt``); ``model``: one
         of its models (``""`` = the default), for every turn. A task not
         refined yet (created, refinement) can be delegated: the chat says so.
-        ``prepare``: the repositories to get ready first, each on its branch
-        («Prepara sviluppo»), or ``learned``: an automation learned from the
-        Operator with its fields (plan 11); if that fails, ConflictError and no session.
         ``no_repository``: only a task without code, Copilot works in its data folder (plan 21)."""
         if not self._client.available:
             raise UpstreamError(NOT_FOUND)
         settings = self.coding_agent(project_name)
         model = coding_agent.check_model(settings, model)
         task = self._data.agent_task(project_name, task_note)  # exists and is an agent task
+        if task.type.operations:
+            raise ValidationError("Un task pre o post sviluppo non va a Copilot: fallo fare a Dev o fallo tu, poi «Fatto».")
         if no_repository:
             _require_plan_only(task)
-            repository, prepare, learned = "", None, None
+            repository = ""
         folder = self._data.copilot_folder(project_name, task_note) if no_repository else self._git.repository_folder(project_name, repository)
         prompt = coding_agent.task_prompt(settings, task.type, prompt)
         first_turn = coding_agent.plan_prompt(settings, task_folder.relative_folder(task_note), prompt, task.type)
         self._require_mcp()
-        prepared = self._prepare(project_name, prepare or [], learned)
         task_folder.write(folder, task_note, task_folder.minimal_task(task_note, task.title, TYPE_LABELS[task.type]))  # errors stop here
         session = self._copilot.save_session(CopilotSession(
             project_name=project_name,
@@ -267,8 +251,6 @@ class CopilotService:
             model=model,
             mcp_token=secrets.token_urlsafe(32),
         ))
-        if prepared is not None:
-            self._message(session, CopilotMessageRole.EVENT, prepared)
         if (warning := not_refined_warning(task.status)):
             self._message(session, CopilotMessageRole.EVENT, warning)
         if task.type.plan_only:
@@ -278,41 +260,6 @@ class CopilotService:
             if task.status == TaskStatus.TODO:
                 self._set_task_status(session, TaskStatus.IN_PROGRESS)
         return self._plan_turn(session, folder, first_turn, refresh=False)
-
-    def _prepare(self, project_name: str, targets: list[PrepareTarget], learned: LearnedPreparation | None = None) -> str | None:
-        """«Prepara sviluppo» on ``targets`` (or the ``learned`` automation): the chat's event
-        when it ran (None when nothing was asked); ConflictError when it failed: Copilot does not start."""
-        if (not targets and learned is None) or self._checks is None:
-            return None
-        if learned is not None:
-            check = self._checks.prepare_learned(project_name, learned.automation_id, learned.fields)
-        else:
-            check = self._checks.prepare(project_name, targets)
-        if check.skipped:
-            return f"🧰 {check.text}"
-        if not check.ok:
-            raise ConflictError(f"Preparazione non riuscita, Copilot non è partito.\n\n{check.text}")
-        return f"🧰 Preparazione ok.\n\n{check.text}"
-
-    def verify_again(self, session_id: int) -> None:
-        """«Riprova» on a failed verification of «Lavora attività»: «Verifica sviluppo» again, its outcome a new event."""
-        session = self.session(session_id)
-        if session.status is not CopilotSessionStatus.DONE:
-            raise ConflictError("Si verifica solo un'esecuzione finita.")
-        self._verify(session)
-
-    def _verify(self, session: CopilotSession) -> None:
-        """«Verifica sviluppo» after a development went «to verify»: its outcome
-        as an event of the chat (``VERIFY_FAILED`` first when it failed: the UI
-        offers it as the message to send back). Best effort."""
-        if self._checks is None:
-            return
-        try:
-            check = self._checks.verify(session.project_name, session.repository, session.task_note)
-        except AppError as exc:
-            check = DevCheck(ok=False, text=str(exc))
-        if not check.skipped:
-            self._message(session, CopilotMessageRole.EVENT, f"{VERIFY_OK if check.ok else VERIFY_FAILED}\n\n{check.text}")
 
     @observed(LogPrefix.COPILOT_SERVICE)
     def send(self, session_id: int, text: str) -> CopilotSession:
@@ -622,8 +569,6 @@ class CopilotService:
                           f"Il task è «{STATUS_LABELS[TaskStatus.TO_VERIFY]}»: controlla le modifiche, poi confermalo "
                           "o rimandalo a Copilot dal form del task.")
         self._set_task_status(session, TaskStatus.TO_VERIFY if status == CopilotSessionStatus.DONE else TaskStatus.TODO)
-        if status == CopilotSessionStatus.DONE:
-            self._verify(session)
         return session
 
     # --------------------------------------------------------------- helpers

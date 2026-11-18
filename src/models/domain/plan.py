@@ -1,6 +1,7 @@
 """«▶️ Lavora attività» (plan 12a): the Pianificatore's plan of an activity
-(the agent tasks to create, in order) and the path of each task, the steps
-the app derives from the task and its Copilot session."""
+(the agent tasks to create, in order, with the pre/post development tasks
+around each development, plan 22) and the path of each task, the steps the
+app derives from the task and its Copilot session."""
 from datetime import datetime, timezone
 from enum import StrEnum
 
@@ -16,12 +17,15 @@ def _utc_now() -> datetime:
 class PlannedTask(BaseModel):
     """One task as the model proposes it (structured answer)."""
     title: str = Field(description="Titolo breve del task, all'imperativo.")
-    type: TaskType = Field(description="development (cambia il codice), analysis, confluence oppure jira.")
+    type: TaskType = Field(description="pre_dev (prima di uno sviluppo), development (cambia il codice), post_dev (dopo uno sviluppo), "
+                                       "analysis, confluence oppure jira.")
     repository: str = Field("", description="Il repository dove si lavora, uno dell'elenco; vuoto se non serve.")
     items: list[int] = Field(default_factory=list, description="I numeri delle voci da cui nasce; vuoto per un task nuovo.")
     reason: str = Field("", description="Perché questo task, in una riga.")
     objective: str = Field("", description="Obiettivo: cosa deve ottenere, in una o due frasi.")
     criteria: list[str] = Field(default_factory=list, description="Criteri di accettazione, brevi e verificabili.")
+    steps: list[str] = Field(default_factory=list, description="Solo per pre_dev e post_dev: i passi da fare, uno per riga "
+                                                               "(comandi git, maven o altri); vuoto per gli altri tipi.")
 
 
 class PlanAnswer(BaseModel):
@@ -63,22 +67,8 @@ class ActivityPlan(BaseModel):
     """Every call of the Pianificatore for this activity."""
     paused: bool = True
     """The round starts only with «▶️ Avvia» and stops with «⏸ Pausa»."""
-    prepare: str = "dev"
-    """Before delegating a development: ``none``, ``dev`` («Prepara sviluppo»), ``automation:<id>`` (an automation of the project)."""
-    skipped: list[str] = []
-    """The steps skipped by the user, as ``<task>|<step>``."""
     errors: dict[str, str] = {}
-    """Why a step the round ran failed (preparation, delegation, automation), as ``<task>|<step>`` → error."""
-    prepare_fields: dict[str, str] = {}
-    """The fields of the preparation, as a template for every task (``{task}``, ``{note}``, ``{repository}``, ``{base}``); missing = the default."""
-    after_automation: int | None = None
-    """An automation the round runs after each development's verification, before the final confirmation."""
-    after_fields: dict[str, str] = {}
-    """The fields of the automation after the verification, as a template (like ``prepare_fields``)."""
-    task_fields: dict[str, dict[str, str]] = {}
-    """A task's own fields, instead of the template, as ``<task>|prepare`` / ``<task>|after`` → fields (already resolved)."""
-    automation_runs: dict[str, int] = {}
-    """The runs of that automation, as ``<task>|after`` → pipeline run id."""
+    """Why the round's delegation failed, as ``<task>|delegate`` → error."""
     auto_approve: bool = False
     """The round gives the ok to Copilot's plan by itself (developments only)."""
     approved: list[str] = []
@@ -98,6 +88,8 @@ class PlanChoice(BaseModel):
     repository: str = ""
     objective: str = ""
     criteria: list[str] = []
+    steps: list[str] = []
+    """The suggested steps of a pre/post development task."""
 
 
 class StepState(StrEnum):
@@ -111,38 +103,30 @@ class StepState(StrEnum):
 
 
 class StepKey(StrEnum):
-    PREPARE = "prepare"
-    """The repositories got ready before Copilot (developments): skippable."""
     DELEGATE = "delegate"
     """The delegation to Copilot (its first planning turn)."""
     COPILOT_PLAN = "copilot_plan"
     """Copilot's plan: «Ok, parti» (developments)."""
     EXECUTION = "execution"
-    VERIFY = "verify"
-    """«Verifica sviluppo»: cleaning and tests."""
-    AFTER = "after"
-    """The activity's automation after each development's verification."""
     ANSWER = "answer"
     """Copilot's answer, saved as a note (the types that do not change the code)."""
     FINAL = "final"
     """«Conferma finale» of the changes: the task becomes done."""
+    OPERATION = "operation"
+    """A pre/post development task (plan 22): Dev or the user does it, then «Fatto»."""
 
 
 STEP_LABELS: dict[StepKey, str] = {
-    StepKey.PREPARE: "Preparazione",
     StepKey.DELEGATE: "Delega a Copilot",
     StepKey.COPILOT_PLAN: "Piano di Copilot",
     StepKey.EXECUTION: "Esecuzione",
-    StepKey.VERIFY: "Verifica",
-    StepKey.AFTER: "Dopo la verifica",
     StepKey.ANSWER: "Risposta di Copilot",
     StepKey.FINAL: "Conferma finale",
+    StepKey.OPERATION: "Dev o a mano",
 }
 
 
-SKIPPABLE: set[StepKey] = {StepKey.PREPARE, StepKey.VERIFY, StepKey.AFTER}
-"""The steps the user can skip."""
-RETRYABLE: set[StepKey] = {StepKey.PREPARE, StepKey.DELEGATE, StepKey.VERIFY, StepKey.AFTER}
+RETRYABLE: set[StepKey] = {StepKey.DELEGATE}
 """The failed steps the user can run again."""
 
 
@@ -180,22 +164,5 @@ class ActivityPath(BaseModel):
 
 
 class PlanOptions(BaseModel):
-    """How the round goes: the preparation before delegating, the automation after the verification (each with
-    its fields as a template), the automatic ok."""
-    prepare: str = "dev"
-    prepare_fields: dict[str, str] = {}
-    after_automation: int | None = None
-    after_fields: dict[str, str] = {}
+    """How the round goes: the automatic ok to Copilot's plan."""
     auto_approve: bool = False
-
-
-class TaskFields(BaseModel):
-    """The fields of one task's preparation or automation after the verification, resolved."""
-    task: str
-    step: str
-    """``prepare`` or ``after``."""
-    automation: str = ""
-    """What runs: «Prepara sviluppo» or the automation's name; ``""`` = nothing (no fields)."""
-    fields: dict[str, str] = {}
-    own: bool = False
-    """The task has its own fields (not the activity's template)."""

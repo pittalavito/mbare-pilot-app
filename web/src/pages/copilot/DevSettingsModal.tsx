@@ -37,13 +37,10 @@ export function DevSettingsModal({ project, opened, onClose }: { project: string
         {data && (
           <>
             <Text size="sm" c="dimmed">
-              Alla delega «Prepara sviluppo» porta i repository sul branch giusto; quando Copilot finisce uno sviluppo, «Verifica sviluppo»
-              pulisce e lancia i test, e l'esito arriva nella chat. Sono automation del progetto (Definizioni da file): le puoi cambiare.
+              Prima e dopo Copilot non parte niente da solo: il lavoro sui repository (branch, build, pulizia, test) sono i task pre e post
+              sviluppo, che fa Dev (con i comandi qui sotto e run_tests) o fai tu. Le regole che il Pianificatore segue stanno in
+              Progetto → Contesto, nel documento sviluppo.md.
             </Text>
-            <Group gap="xs">
-              <Badge variant="light" color={data.prepare_automation ? "green" : "gray"}>Prepara sviluppo: {data.prepare_automation ? "attiva" : "non c'è"}</Badge>
-              <Badge variant="light" color={data.verify_automation ? "green" : "gray"}>Verifica sviluppo: {data.verify_automation ? "attiva" : "non c'è"}</Badge>
-            </Group>
             <div>
               <Text size="sm" fw={500} mb={4}>Quali test, di default</Text>
               <SegmentedControl

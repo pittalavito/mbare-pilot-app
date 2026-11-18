@@ -56,8 +56,7 @@ def list_sessions(project: str, service: CopilotService = Depends(copilot_servic
 def start_session(project: str, request: CopilotSessionRequest, service: CopilotService = Depends(copilot_service)) -> CopilotSessionResponse:
     """Delegate an agent task: the first planning turn runs now (Copilot reads the code and asks)."""
     return CopilotSessionResponse.from_session(
-        service.start(project, request.task_note, request.repository, request.prompt, request.model, request.prepare, request.learned,
-                      request.no_repository))
+        service.start(project, request.task_note, request.repository, request.prompt, request.model, request.no_repository))
 
 
 @router.delete("/projects/{project}/copilot-sessions")

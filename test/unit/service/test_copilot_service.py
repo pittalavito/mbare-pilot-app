@@ -795,3 +795,10 @@ def test_a_task_without_code_moves_to_and_from_no_repository(data, project, stor
     session = service.change_repository(session.id, "web")
     assert not session.no_repository and session.repository == "web"
     assert not (data.copilot_folder("acme", note) / "mbare-pilot").exists()
+
+
+def test_a_pre_or_post_development_task_never_goes_to_copilot(data, project, stores):
+    service = _service(stores, data)
+    for kind in (TaskType.PRE_DEV, TaskType.POST_DEV):
+        with pytest.raises(ValidationError, match="non va a Copilot"):
+            service.start("acme", _task(data, f"Operazioni {kind.value}", type=kind), "api")

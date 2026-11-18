@@ -5,8 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mockApi, renderPage } from "../../test/render";
 import { PROJECT_API, projectRoutes } from "../../test/zones";
 
-/** Blocco 09: «Prepara sviluppo» in the delegation, the tests' settings, the
- * task's choice of tests and the failed verification ready to send back. */
+/** Blocco 09 and plan 22: the tests' settings, a post development task's
+ * choice of tests (run_tests, Dev) and a task to verify sent back. */
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -14,15 +14,13 @@ const TASK = {
   name: "agent-task-login.md", title: "Login", status: "to_verify", type: "development", objective: "o", context: "",
   criteria: [{ text: "c", done: false }], constraints: "", references: [], tests: null,
 };
-/** A task ready to delegate: «Delega a Copilot» in its form. */
-const READY = { ...TASK, name: "agent-task-pronto.md", title: "Pronto", status: "todo" };
 const SESSION = {
   id: 4, project_name: "acme", task_note: TASK.name, repository: "api", prompt: "", model: "", status: "done", cancel_requested: false,
   head_before: null, head_after: null, head_moved: false, changed_files: [], premium_requests: 1, error: null,
   created_at: "2026-11-11T10:00:00Z", updated_at: "2026-11-11T10:00:00Z", started_at: null, finished_at: null,
 };
 const DEV = {
-  test_scope: "all", prepare_automation: true, verify_automation: true,
+  test_scope: "all",
   repositories: [
     { repository: "api", kind: "python", detected_command: "uv run pytest", command: "" },
     { repository: "lib", kind: "maven", detected_command: "mvn -B test", command: "" },
@@ -42,7 +40,7 @@ function api(extra: Record<string, unknown> = {}) {
     ...PROJECT_API,
     "GET /copilot/status": { installed: true, version: "x", prompts: [], default_model: "", models: [] },
     "GET /projects/acme/notes": [],
-    "GET /projects/acme/agent-tasks": [TASK, READY],
+    "GET /projects/acme/agent-tasks": [TASK],
     "GET /projects/acme/activities": [],
     "GET /projects/acme/git/repositories": [{ path: "api", name: "api" }, { path: "lib", name: "lib" }],
     "GET /projects/acme/git/branches": (request: Request) => BRANCHES[new URL(request.url).searchParams.get("path") as "api" | "lib"],
@@ -68,50 +66,7 @@ function api(extra: Record<string, unknown> = {}) {
 
 const renderAt = (route: string) => renderPage(<Routes>{projectRoutes()}</Routes>, { route });
 
-/** The delegation window of the task ready to delegate, from its form. */
-async function delegate() {
-  renderAt(`/projects/acme/work?note=${READY.name}`);
-  fireEvent.click(await screen.findByRole("button", { name: /Delega a Copilot/ }));
-  return screen.findByRole("dialog");
-}
-
 describe("development checks", () => {
-  it("the delegation prepares the task's repository and a library on a new branch", async () => {
-    const { started } = api();
-    const dialog = await delegate();
-    fireEvent.click(within(dialog).getByPlaceholderText("Scegli il repository"));
-    fireEvent.click(await screen.findByRole("option", { name: "api" }));
-
-    expect(await within(dialog).findByDisplayValue("develop")).toBeInTheDocument(); // the current branch
-    fireEvent.click(within(dialog).getByRole("button", { name: /Un altro repository/ }));
-    const branch = await within(dialog).findByLabelText("Branch di lib");
-    await waitFor(() => expect(branch).toHaveValue("main"));
-    fireEvent.change(branch, { target: { value: "feature/login" } });
-    expect(await within(dialog).findByText(/non esiste: scegli da quale branch crearlo/)).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByLabelText("Base di lib"));
-    fireEvent.click(await screen.findByRole("option", { name: "release" }));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Delega" }));
-
-    await waitFor(() => expect(started).toHaveBeenCalled());
-    expect(await started.mock.results[0].value).toMatchObject({
-      prepare: [{ repository: "api", branch: "develop", base: "" }, { repository: "lib", branch: "feature/login", base: "release" }],
-    });
-  });
-
-  it("without preparing, the delegation sends no repositories and a failed preparation is shown", async () => {
-    const failing = vi.fn(() => new Response(JSON.stringify({ detail: "Preparazione non riuscita, Copilot non è partito." }), { status: 409 }));
-    api({ "POST /projects/acme/copilot-sessions": failing });
-    const dialog = await delegate();
-    fireEvent.click(within(dialog).getByPlaceholderText("Scegli il repository"));
-    fireEvent.click(await screen.findByRole("option", { name: "api" }));
-    fireEvent.click(await within(dialog).findByDisplayValue("🧰 Prepara sviluppo")); // the default when the project has it
-    fireEvent.click(await screen.findByRole("option", { name: "Non preparare" }));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Delega" }));
-
-    expect(await within(dialog).findByText("Preparazione non riuscita, Copilot non è partito.")).toBeInTheDocument();
-    expect(await (failing.mock.calls[0] as unknown as [Request])[0].json()).toMatchObject({ prepare: [] });
-  });
-
   it("the settings, in «Progetto» → Impostazioni, save the default scope and a command", async () => {
     const { savedSettings } = api({ "GET /projects/acme/data-settings": { visible_note_types: ["generic"], files_visible: true, due_soon_days: 3 } });
     renderAt("/projects/acme/project?tab=settings");
@@ -119,7 +74,7 @@ describe("development checks", () => {
     fireEvent.click(await screen.findByRole("button", { name: /🧪 Verifiche dello sviluppo/ }));
     fireEvent.click(await screen.findByRole("button", { name: /⚙️ Verifiche dello sviluppo/ }));
     const dialog = await screen.findByRole("dialog");
-    expect(await within(dialog).findByText("Prepara sviluppo: attiva")).toBeInTheDocument();
+    expect(await within(dialog).findByText(/Prima e dopo Copilot non parte niente da solo/)).toBeInTheDocument();
     fireEvent.click(within(dialog).getByText("Solo i test toccati"));
     fireEvent.change(within(dialog).getByLabelText("Comando dei test di lib"), { target: { value: "./mvnw -q test" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Salva" }));
@@ -128,20 +83,44 @@ describe("development checks", () => {
     expect(await savedSettings.mock.results[0].value).toMatchObject({ test_scope: "touched", commands: { api: "", lib: "./mvnw -q test" } });
   });
 
-  it("a task chooses its tests and its failed verification is ready to send back", async () => {
-    const { savedTask, sentBack } = api();
+  it("a post development task chooses its tests", async () => {
+    const { savedTask } = api({ "GET /projects/acme/agent-tasks": [{ ...TASK, type: "post_dev", status: "todo", steps: ["mvn test"] }] });
     renderAt(`/projects/acme/work?note=${TASK.name}`);
 
     fireEvent.click(await screen.findByText("Solo i test toccati"));
     fireEvent.click(screen.getByRole("button", { name: /Salva/ }));
     await waitFor(() => expect(savedTask).toHaveBeenCalled());
-    expect(await savedTask.mock.results[0].value).toMatchObject({ tests: "touched" });
+    expect(await savedTask.mock.results[0].value).toMatchObject({ tests: "touched", steps: ["mvn test"] });
+  });
 
-    fireEvent.click(screen.getByRole("button", { name: /Rimanda a Copilot/ }));
+  it("a development to verify is sent back to Copilot with what to fix", async () => {
+    const { sentBack } = api();
+    renderAt(`/projects/acme/work?note=${TASK.name}`);
+    expect(screen.queryByText("Solo i test toccati")).not.toBeInTheDocument(); // the tests are a post development task's
+
+    fireEvent.click(await screen.findByRole("button", { name: /Rimanda a Copilot/ }));
     const dialog = await screen.findByRole("dialog");
-    const message = await within(dialog).findByLabelText("Cosa deve sistemare");
-    await waitFor(() => expect((message as HTMLTextAreaElement).value).toContain("FAILED test_login"));
+    fireEvent.change(await within(dialog).findByLabelText("Cosa deve sistemare"), { target: { value: "Il test del login fallisce" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Rimanda" }));
     await waitFor(() => expect(sentBack).toHaveBeenCalled());
+    expect(await sentBack.mock.results[0].value).toMatchObject({ text: "Il test del login fallisce" });
+  });
+
+  it("a post development task opened from an activity: «Fatto» and «← Torna all'attività»", async () => {
+    const { savedTask } = api({
+      "GET /projects/acme/agent-tasks": [{ ...TASK, type: "post_dev", status: "todo", steps: [] }],
+      "GET /projects/acme/activities": [{ name: "attivita-login.md", title: "Login", status: "in_progress", description: "", items: [],
+        agent_tasks: [TASK.name], references: [] }],
+    });
+    renderAt(`/projects/acme/work?note=${TASK.name}&from=attivita-login.md`);
+
+    expect(await screen.findByRole("button", { name: "🤖 Fallo fare a Dev" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Delega a Copilot/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "✅ Fatto" }));
+    await waitFor(() => expect(savedTask).toHaveBeenCalled());
+    expect(await savedTask.mock.results[0].value).toMatchObject({ status: "done" });
+
+    fireEvent.click(screen.getByRole("button", { name: "← Torna all'attività" }));
+    expect(await screen.findByRole("tab", { name: /Lavora/ })).toBeInTheDocument();
   });
 });

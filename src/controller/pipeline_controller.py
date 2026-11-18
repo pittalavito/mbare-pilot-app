@@ -18,7 +18,6 @@ from models.controller.pipeline import (
     ToolTryResponse,
     WorkerResponse,
 )
-from models.domain.dev import PREPARE_AUTOMATION, VERIFY_AUTOMATION
 from models.domain.learn import LearnDraft, LearnRequest
 from service.agent_service import AgentService
 from service.learn_service import LearnService
@@ -149,8 +148,6 @@ class AutomationYamlCheckResponse(BaseModel):
     """As they would be saved (empty in the YAML = the chain of the steps)."""
     replaces: int | None
     """The project's automation with this name, which a save updates; None = a new one."""
-    system: bool
-    """It is «Prepara sviluppo» or «Verifica sviluppo»: the app runs them by itself."""
 
 
 class AutomationYamlResponse(BaseModel):
@@ -163,7 +160,7 @@ def check_pipeline_yaml(project: str, request: AutomationYamlRequest,
     """Validated as a save would (400 with the reason), nothing saved: the Architect's proposal in the chat."""
     pipeline, current = service.check_yaml(project, request.yaml)
     return AutomationYamlCheckResponse(**pipeline.model_dump(include={"name", "description", "active", "steps", "edges"}),
-                                       replaces=current.id if current else None, system=pipeline.name in (PREPARE_AUTOMATION, VERIFY_AUTOMATION))
+                                       replaces=current.id if current else None)
 
 
 @router.post("/projects/{project}/pipelines/yaml")

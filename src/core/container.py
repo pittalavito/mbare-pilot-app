@@ -133,7 +133,7 @@ class Container:
                                       wip_runs=stores.wip)
         self.plan_service = PlanService(
             project_data=self.project_data_service, masking=self.masking_service, agents=self.structured_agents, plans=stores.plans,
-            git=self.git_service, rag=self.rag_service, copilot=self.copilot_service, pipelines=stores.pipelines,
+            git=self.git_service, rag=self.rag_service, copilot=self.copilot_service,
         )
         self.activity_close_service = ActivityCloseService(project_data=self.project_data_service, masking=self.masking_service,
                                                            agents=self.structured_agents, plan=self.plan_service, plans=stores.plans,
@@ -157,10 +157,7 @@ class Container:
             masking_service=self.masking_service,
             command_service=self.command_service,
         )
-        self.dev_checks_service = DevChecksService(pipelines=stores.pipelines, runner=self.pipeline_runner, git=self.git_service,
-                                                   project_data=self.project_data_service)
-        self.copilot_service.use_dev_checks(self.dev_checks_service)
-        self.plan_service.use_checks(self.dev_checks_service)
+        self.dev_checks_service = DevChecksService(git=self.git_service, project_data=self.project_data_service)
         self.publish_service = PublishService(project_data=self.project_data_service, atlassian=self.atlassian_service,
                                               masking=self.masking_service)
         self.project_service = ProjectService(

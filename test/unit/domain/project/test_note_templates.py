@@ -58,7 +58,15 @@ def test_the_new_types_and_status_are_written_in_italian():
 
 
 def test_only_a_development_is_executed_by_copilot():
-    assert [kind for kind in TaskType if not kind.plan_only] == [TaskType.DEVELOPMENT]
+    assert [kind for kind in TaskType if not kind.plan_only and not kind.operations] == [TaskType.DEVELOPMENT]
+    assert [kind for kind in TaskType if kind.operations] == [TaskType.PRE_DEV, TaskType.POST_DEV]
+
+
+def test_a_pre_development_task_keeps_its_suggested_steps():
+    task = AgentTask(title="Branch", type=TaskType.PRE_DEV, steps=["git checkout -b feature/x", "mvn -B clean install"])
+    text = render_agent_task(task)
+    assert "Tipo: pre sviluppo" in text and "## Passi suggeriti\n- git checkout -b feature/x\n- mvn -B clean install" in text
+    assert parse_agent_task(text, "x") == task
 
 
 def test_markdown_headings_inside_a_section_do_not_cut_it():

@@ -6,7 +6,8 @@ import { mockApi, renderPage } from "../../test/render";
 import { PROJECT_API, projectRoutes } from "../../test/zones";
 import { stepOf } from "./ActivityPage";
 
-/** Plan 18, an activity in steps: Descrivi → Pianifica → Lavora → Chiudi. */
+/** Plan 18, an activity in steps: Descrivi → Pianifica → Lavora → Chiudi;
+ * plan 22: pre/post development tasks (Dev or by hand, «Fatto») and «Apri». */
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -18,8 +19,8 @@ const proposal = (id: number, title: string, extra = {}) => ({
   id, title, type: "development", repository: "", items: [], item_texts: [], new: false, reason: "", objective: "", criteria: [], ...extra,
 });
 const PLAN: Record<string, unknown> = {
-  id: 3, project_name: "acme", activity: ACTIVITY.name, run_id: "r", tasks: [], proposals: [], cost_eur: 0.0012, paused: true, prepare: "dev",
-  skipped: [], errors: {}, after_automation: null, automation_runs: {}, auto_approve: false, approved: [],
+  id: 3, project_name: "acme", activity: ACTIVITY.name, run_id: "r", tasks: [], proposals: [], cost_eur: 0.0012, paused: true,
+  errors: {}, auto_approve: false, approved: [],
   created_at: "2026-11-13T10:00:00Z", updated_at: "2026-11-13T10:00:00Z",
 };
 const step = (key: string, label: string, state: string, detail = "") => ({ key, label, state, detail });
@@ -129,47 +130,36 @@ describe("3. Lavora", () => {
     tasks: [TASK(AGENT_TASK.name, "Login con OTP", steps, { current: true, ...extra }), TASK("agent-task-b.md", "Analizza", [], { type: "analysis", repository: "" })],
   });
 
-  it("Avvia, the settings of the round and a row that shows its Copilot chat in the panel", async () => {
+  it("Avvia, the automatic ok, «Apri» towards the task and a row that shows its Copilot chat in the panel", async () => {
     const paused = vi.fn(async (request: Request) => ({ ...PLAN, ...(await request.json()) }));
     const options = vi.fn(async (request: Request) => ({ ...PLAN, ...(await request.json()) }));
-    api(working([step("prepare", "Preparazione", "todo"), step("delegate", "Delega a Copilot", "todo")]), {
+    api(working([step("delegate", "Delega a Copilot", "todo")]), {
       "POST /projects/acme/activities/attivita-login.md/plan/pause": paused,
       "POST /projects/acme/activities/attivita-login.md/plan/options": options,
-      "GET /projects/acme/pipelines": [{ id: 21, project_name: "acme", name: "Prepara stack", description: "", active: true, fields: [], purpose: "prepare",
-        steps: [{ name: "S" }], edges: [] }],
     }, { ...ACTIVITY, status: "in_progress" });
     renderAt();
 
     expect(await screen.findByRole("tab", { name: /Lavora/, selected: true })).toBeInTheDocument();
     expect(screen.getByText(/Pronto\. Premi «▶️ Avvia»/)).toBeInTheDocument();
+    expect(screen.queryByText("Prima di delegare a Copilot")).not.toBeInTheDocument(); // plan 22: pre/post development tasks instead
     expect(screen.getByRole("button", { name: "🤖 Delega a mano" })).toBeInTheDocument(); // paused: by hand
     fireEvent.click(screen.getByRole("button", { name: "▶️ Avvia" }));
     await waitFor(() => expect(paused).toHaveBeenCalled());
     expect(await body(paused)).toMatchObject({ paused: false });
 
-    fireEvent.click(screen.getByRole("textbox", { name: "Prima di delegare a Copilot" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Automation: Prepara stack" }));
-    await waitFor(() => expect(options).toHaveBeenCalled());
-    expect(await body(options)).toMatchObject({ prepare: "automation:21", after_automation: null, auto_approve: false });
     fireEvent.click(screen.getByRole("switch", { name: /Parti senza chiedermi l'ok/ }));
-    await waitFor(() => expect(options).toHaveBeenCalledTimes(2));
-    expect(await body(options, 1)).toMatchObject({ auto_approve: true });
+    await waitFor(() => expect(options).toHaveBeenCalled());
+    expect(await body(options)).toMatchObject({ auto_approve: true });
 
+    expect(screen.getAllByRole("link", { name: "Apri" })[0]).toHaveAttribute("href",
+      `/projects/acme/work?note=${AGENT_TASK.name}&from=${ACTIVITY.name}`);
     fireEvent.click(screen.getAllByTestId("work-task")[1]);
     await waitFor(() => expect(screen.getAllByTestId("work-task")[1]).toHaveAttribute("aria-selected", "true"));
   });
 
-  it("the fields of Prepara sviluppo as a template, a task's own fields, and the worker that is stopped", async () => {
-    const options = vi.fn(async (request: Request) => ({ ...PLAN, ...(await request.json()) }));
-    const savedFields = vi.fn(async (request: Request) => ({ ...PLAN, body: await request.json() }));
+  it("the worker that is stopped can be started", async () => {
     const started = vi.fn(() => ({ status: "running", pid: 1, workers: [] }));
-    api(working([step("prepare", "Preparazione", "todo"), step("delegate", "Delega a Copilot", "todo")]), {
-      "POST /projects/acme/activities/attivita-login.md/plan/options": options,
-      "GET /projects/acme/activities/attivita-login.md/plan/fields": (request: Request) => ({
-        task: new URL(request.url).searchParams.get("task"), step: "prepare", automation: "Prepara sviluppo", own: false,
-        fields: { branch: "feature/otp", base: "develop" },
-      }),
-      "PUT /projects/acme/activities/attivita-login.md/plan/fields": savedFields,
+    api(working([step("delegate", "Delega a Copilot", "todo")]), {
       "GET /admin/worker": { status: "stopped", pid: null, workers: [] },
       "POST /admin/worker/start": started,
     }, { ...ACTIVITY, status: "in_progress" });
@@ -178,42 +168,50 @@ describe("3. Lavora", () => {
     expect(await screen.findByText("Il worker è fermo: il giro non parte")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Avvia il worker" }));
     await waitFor(() => expect(started).toHaveBeenCalled());
-
-    const branch = screen.getByRole("textbox", { name: "branch" });
-    expect(branch).toHaveValue("feature/{task}");
-    expect(screen.getByRole("textbox", { name: "base" })).toHaveValue("{base}");
-    fireEvent.change(branch, { target: { value: "feat/{task}" } });
-    fireEvent.blur(branch);
-    await waitFor(() => expect(options).toHaveBeenCalled());
-    expect(await body(options)).toMatchObject({ prepare: "dev", prepare_fields: { branch: "feat/{task}", base: "{base}" } });
-
-    fireEvent.click(screen.getAllByRole("button", { name: "⚙️ Campi" })[0]);
-    const dialog = await screen.findByRole("dialog");
-    expect(await within(dialog).findByDisplayValue("feature/otp")).toBeInTheDocument();
-    fireEvent.change(within(dialog).getByDisplayValue("feature/otp"), { target: { value: "hotfix/otp" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Salva per questo task" }));
-    await waitFor(() => expect(savedFields).toHaveBeenCalled());
-    expect((await body(savedFields)).body).toEqual({ task: AGENT_TASK.name, step: "prepare", fields: { branch: "hotfix/otp", base: "develop" } });
   });
 
-  it("a failed verification: you decide (send back, retry the tests, skip)", async () => {
+  it("a pre development task: «Fallo fare a Dev» readies the request in the panel, «Fatto» closes it", async () => {
+    const done = vi.fn(async (request: Request) => ({ ...PLAN, body: await request.json() }));
+    const pre = { ...AGENT_TASK, name: "agent-task-branch.md", title: "Prepara il branch", type: "pre_dev", status: "todo",
+      steps: ["git checkout -b feature/otp"] };
+    api({ plan: PLAN, summary: "", tasks: [TASK(pre.name, pre.title, [step("operation", "Dev o a mano", "you")], { type: "pre_dev", current: true })] }, {
+      "GET /projects/acme/agent-tasks": [pre],
+      "POST /projects/acme/activities/attivita-login.md/plan/done": done,
+      "GET /projects/acme/chatbots": [{ id: 12, project_name: "acme", name: "Dev", kind: "operator", description: "", system_prompt: "x",
+        prompt_version: 1, model: "mock/echo", max_steps: 12, tool_names: ["run_command"], automation_cache: false }],
+      "GET /chatbots/12/conversations": [],
+      "GET /projects/acme/command-requests": [],
+    }, { ...ACTIVITY, status: "in_progress" });
+    renderAt("&step=work");
+
+    expect(await screen.findByText(/o fai tu i passi/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Delega a mano/ })).not.toBeInTheDocument(); // never Copilot
+    fireEvent.click(screen.getByRole("button", { name: "🤖 Fallo fare a Dev" }));
+    await waitFor(() => expect((screen.getByPlaceholderText(/Scrivi a Dev/) as HTMLTextAreaElement).value)
+      .toBe("Fai il task pre sviluppo «Prepara il branch» (agent-task-branch.md) sul repository api.\nPassi:\n- git checkout -b feature/otp\n"
+        + "Alla fine dimmi in una riga cosa hai fatto."));
+
+    fireEvent.click(screen.getByRole("button", { name: "✅ Fatto" }));
+    await waitFor(() => expect(done).toHaveBeenCalled());
+    expect((await body(done)).body).toEqual({ task: pre.name });
+  });
+
+  it("a failed delegation can be retried", async () => {
     const retried = vi.fn(async (request: Request) => ({ ...PLAN, body: await request.json() }));
-    api(working([step("delegate", "Delega a Copilot", "done"), step("copilot_plan", "Piano di Copilot", "done"), step("execution", "Esecuzione", "done"),
-      step("verify", "Verifica", "failed", "test falliti"), step("final", "Conferma finale", "you")], { status: "to_verify", session_id: 4 }), {
+    api(working([step("delegate", "Delega a Copilot", "failed", "Copilot non c'è")]), {
       "POST /projects/acme/activities/attivita-login.md/plan/retry": retried,
     }, { ...ACTIVITY, status: "in_progress" });
     renderAt("&step=work");
 
-    expect(await screen.findByRole("button", { name: "⏭ Salta" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "↩ Rimanda a Copilot" }).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole("button", { name: "🔁 Riprova i test" }));
+    expect(await screen.findByText("Copilot non c'è")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "🔁 Riprova" }));
     await waitFor(() => expect(retried).toHaveBeenCalled());
-    expect((await body(retried)).body).toEqual({ task: AGENT_TASK.name, step: "verify" });
+    expect((await body(retried)).body).toEqual({ task: AGENT_TASK.name, step: "delegate" });
   });
 
   it("«Controlla e conferma» makes the task done", async () => {
     const saved = vi.fn(async (request: Request) => ({ ...AGENT_TASK, ...(await request.json()) }));
-    api(working([step("verify", "Verifica", "done"), step("final", "Conferma finale", "you")], { status: "to_verify" }), {
+    api(working([step("execution", "Esecuzione", "done"), step("final", "Conferma finale", "you")], { status: "to_verify" }), {
       "GET /projects/acme/agent-tasks": [AGENT_TASK],
       [`PUT /projects/acme/agent-tasks/${AGENT_TASK.name}`]: saved,
     }, { ...ACTIVITY, status: "in_progress" });

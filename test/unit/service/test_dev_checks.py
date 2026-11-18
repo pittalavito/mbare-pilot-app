@@ -1,129 +1,31 @@
-"""Blocco 09: «Prepara sviluppo» at the delegation and «Verifica sviluppo»
-after Copilot's execution, with the fake Copilot CLI on real repositories and
-the two automations made of the real functions."""
+"""The tests' settings (blocco 09) and, since plan 22, nothing automatic
+around Copilot: a development finished by Copilot is «to verify» and nothing
+else runs (cleaning and tests are a post development task, for Dev)."""
 import shutil
-import sys
 
 import pytest
 from fastapi.testclient import TestClient
 
 from core.app import create_app
 from core.container import Container
-from core.error import ConflictError
-from domain.pipeline.graph import linear_edges
-from models.domain.copilot import CopilotSessionStatus
-from models.domain.dev import PREPARE_AUTOMATION, VERIFY_AUTOMATION, PrepareTarget, TestScope
+from models.domain.copilot import CopilotMessageRole, CopilotSessionStatus
+from models.domain.dev import TestScope
 from models.domain.note import AgentTask, TaskStatus
-from models.domain.pipeline import Pipeline, PipelineStep, StepKind
-from service.dev_checks_service import DevChecksService
-from service.git_service import GitService
-from service.pipeline_runner import PipelineRunner
-from unit.service.test_copilot_service import _git, _service, _task, _task_dir, data, project  # noqa: F401 (fixtures)
+from unit.service.test_copilot_service import _service, _task, _task_dir, data, project  # noqa: F401 (fixtures)
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
 
 
-_ARGS = {"git_check_clean": {"targets": "{pipeline_input}"}, "git_checkout_branches": {"targets": "{pipeline_input}"},
-         "clean_mbare_pilot": {"target": "{pipeline_input}"}, "run_tests": {"target": "{pipeline_input}"}}
-
-
-def _automation(pipeline_store, name, *tools, active=True):
-    steps = [PipelineStep(name=tool, kind=StepKind.TOOL, tool_name=tool, params=_ARGS[tool]) for tool in tools]
-    return pipeline_store.save_pipeline(Pipeline(project_name="acme", name=name, active=active, steps=steps, edges=linear_edges(steps)))
-
-
-@pytest.fixture
-def copilot(stores, data):  # noqa: F811
-    git = GitService(stores.projects)
-    checks = DevChecksService(stores.pipelines, PipelineRunner(stores.pipelines, None, git, data), git, data)  # type: ignore[arg-type]
+def test_after_copilot_nothing_runs_by_itself(project, data, stores):  # noqa: F811
     service = _service(stores, data)
-    service.use_dev_checks(checks)
-    return service, checks
-
-
-def _branch(root, repository="api"):
-    return _git(root / repository, "branch", "--show-current")
-
-
-def test_the_delegation_prepares_the_repositories_first(project, data, copilot, pipeline_store, copilot_store):  # noqa: F811
-    service, _ = copilot
-    _automation(pipeline_store, PREPARE_AUTOMATION, "git_check_clean", "git_checkout_branches")
-    note = _task(data)
-    branch = _branch(project)
-
-    session = service.start("acme", note, "api", prepare=[PrepareTarget(repository="api", branch=branch),
-                                                         PrepareTarget(repository="web", branch="feature/login", base=_branch(project, "web"))])
-
-    first = service.messages(session.id)[0].content
-    assert first.startswith("🧰 Preparazione ok.") and "Pulito" in first and "- web: creato feature/login" in first
-    assert _branch(project, "web") == "feature/login"
-
-    (project / "api" / "README.md").write_text("changed", encoding="utf-8")
-    with pytest.raises(ConflictError, match="Preparazione non riuscita, Copilot non è partito.") as error:
-        service.start("acme", note, "api", prepare=[PrepareTarget(repository="api", branch=branch)])
-    assert "Modifiche non committate" in str(error.value)
-    assert len(copilot_store.list_sessions("acme")) == 1  # no session for the failed one
-
-
-def test_without_the_automation_the_delegation_says_so_and_without_targets_nothing_runs(project, data, copilot, pipeline_store):  # noqa: F811
-    service, checks = copilot
-    note = _task(data)
-
-    session = service.start("acme", note, "api", prepare=[PrepareTarget(repository="api", branch=_branch(project))])
-    assert service.messages(session.id)[0].content.startswith("🧰 Il progetto non ha l'automation «Prepara sviluppo»")
-    _automation(pipeline_store, PREPARE_AUTOMATION, "git_check_clean", active=False)
-    assert not checks.has("acme", PREPARE_AUTOMATION)
-    session = service.start("acme", note, "api")
-    assert not service.messages(session.id)[0].content.startswith("🧰")
-
-
-def test_a_development_to_verify_is_cleaned_and_tested(project, data, copilot, pipeline_store):  # noqa: F811
-    service, _ = copilot
-    _automation(pipeline_store, VERIFY_AUTOMATION, "clean_mbare_pilot", "run_tests")
     note = _task(data)
     session = service.start("acme", note, "api")
-    assert _task_dir(project, note).is_dir()
     service.approve(session.id)
-
     session = service.run_next()
 
-    assert session.status == CopilotSessionStatus.DONE and data.agent_task("acme", note).status == TaskStatus.TO_VERIFY
-    last = service.messages(session.id)[-1].content
-    assert last.startswith("🔍 Verifica ok.") and "cartella mbare-pilot/" in last and "non lo riconosco" in last
-    assert not _task_dir(project, note).exists()
-
-
-def test_failing_tests_are_reported_and_the_task_stays_to_verify(project, data, copilot, pipeline_store):  # noqa: F811
-    service, _ = copilot
-    _automation(pipeline_store, VERIFY_AUTOMATION, "run_tests")
-    failing = f"{sys.executable} -c \"print('FAILED test_x - boom'); raise SystemExit(1)\""
-    data.save_test_settings("acme", TestScope.ALL, {"api": failing})
-    note = _task(data, tests=TestScope.ALL)
-    service.approve(service.start("acme", note, "api").id)
-
-    session = service.run_next()
-
-    last = service.messages(session.id)[-1].content
-    assert last.startswith("🔍 Verifica fallita.") and "Test falliti" in last and "FAILED test_x - boom" in last
-    assert data.agent_task("acme", note).status == TaskStatus.TO_VERIFY  # the user decides
-
-    service.verify_again(session.id)  # «Riprova» of «Lavora attività»: a new verification event
-    assert sum(message.content.startswith("🔍 Verifica fallita.") for message in service.messages(session.id)) == 2
-    planning = service.start("acme", note, "api")
-    with pytest.raises(ConflictError, match="esecuzione finita"):
-        service.verify_again(planning.id)
-
-
-def test_a_verification_that_cannot_start_is_reported(project, data, copilot, pipeline_store):  # noqa: F811
-    service, _ = copilot
-    _automation(pipeline_store, VERIFY_AUTOMATION, "run_tests")
-    note = _task(data)
-    session = service.approve(service.start("acme", note, "api").id)
-    data.delete_note("acme", note)  # the task is gone: its scope cannot be read
-
-    session = service.run_next()
-
-    assert service.messages(session.id)[-1].content.startswith("🔍 Verifica fallita.")
+    assert session.status is CopilotSessionStatus.DONE and data.agent_task("acme", note).status is TaskStatus.TO_VERIFY
+    assert not any("Verifica" in message.content for message in service.messages(session.id) if message.role is CopilotMessageRole.EVENT)
+    assert (_task_dir(project, note) / "task.md").is_file()  # the post development task cleans it, not the app
 
 
 def test_the_task_scope_wins_over_the_project_default(project, data, pipeline_store):  # noqa: F811
@@ -137,7 +39,7 @@ def test_the_settings_api(stores, project):  # noqa: F811
     (project / "api" / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
     with TestClient(create_app(Container(stores=stores))) as client:
         settings = client.get("/projects/acme/dev-settings").json()
-        assert settings["test_scope"] == "all" and not settings["prepare_automation"] and not settings["verify_automation"]
+        assert settings["test_scope"] == "all" and "prepare_automation" not in settings and "verify_automation" not in settings
         assert [(repo["repository"], repo["kind"], repo["detected_command"], repo["command"]) for repo in settings["repositories"]] == [
             ("api", "python", "pytest", ""), ("web", "unknown", "", "")]
 

@@ -30,9 +30,6 @@ export function AutomationProposal({ project, yaml }: { project: string; yaml: s
               {!data.active && <Badge size="sm" variant="outline" color="gray">spenta</Badge>}
             </Group>
             {data.description && <Text size="sm" c="dimmed">{data.description}</Text>}
-            {data.system && (
-              <Alert color="yellow" p="xs">«{data.name}» la lancia l'app da sola (delega e verifica di Copilot): cambiala solo se sai cosa fai.</Alert>
-            )}
             <Stack gap={2}>
               <Text size="xs" fw={500}>Step</Text>
               {data.steps.map((step) => (

@@ -63,7 +63,9 @@ class AgentTaskBody(BaseModel):
     references: list[str] = []
     """The linked reference notes, by name."""
     tests: TestScope | None = None
-    """«Verifica sviluppo»: ``all`` or ``touched`` tests; null = the project's default."""
+    """``run_tests``: ``all`` or ``touched`` tests; null = the project's default."""
+    steps: list[str] = []
+    """The suggested steps of a pre/post development task (plan 22)."""
 
     def to_task(self) -> AgentTask:
         return AgentTask(**self.model_dump(exclude={"criteria"}), criteria=[ChecklistItem(**item.model_dump()) for item in self.criteria])

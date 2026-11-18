@@ -10,19 +10,18 @@ from fastapi.testclient import TestClient
 
 from core.app import create_app
 from core.container import Container
-from core.error import ConflictError, NotFoundError, ValidationError
+from core.error import NotFoundError, ValidationError
 from domain.client.command.client import CommandResult
 from domain.dev import tests
 from domain.pipeline import yaml_format
 from domain.pipeline.graph import linear_edges
 from models.domain.agent import AgentRunRecord, GenerationRecord, RunTelemetry, TokenSummary, ToolCallRecord
 from models.domain.chatbot import KIND_TOOLS, ChatbotKind, ChatMessage, Conversation, MessageRole
-from models.domain.dev import LearnedPreparation, TestKind
+from models.domain.dev import TestKind
 from models.domain.learn import LearnedStep, LearnRequest
 from models.domain.masking import MaskCategory
 from models.domain.pipeline import AutomationPurpose, Pipeline, PipelineRun, PipelineStep, RunStatus, StepKind
 from service.command_service import CommandService, normalize
-from service.dev_checks_service import DevChecksService
 from service.git_service import GitService
 from service.learn_service import EXPIRED, LearnService
 from service.pipeline_runner import PipelineRunner
@@ -323,34 +322,6 @@ def test_a_task_value_becomes_the_task_field_and_an_expired_or_empty_run_says_so
     chatbot_store.delete_conversation(conversation.id)
     with pytest.raises(NotFoundError):
         learn.draft(orphan.id)
-
-
-# --------------------------------------------------------------- delegation
-
-def test_the_delegation_runs_a_learned_preparation_with_the_fields_of_the_task(project, data, stores, pipeline_store, copilot_store,  # noqa: F811
-                                                                               commands):
-    git = GitService(stores.projects)
-    checks = DevChecksService(stores.pipelines, PipelineRunner(stores.pipelines, None, git, data, None, commands[0]), git, data)  # type: ignore[arg-type]
-    service = _service(stores, data)
-    service.use_dev_checks(checks)
-    base = _git(project / "api", "branch", "--show-current")
-    pipeline = _learned(pipeline_store, ("git_create_branch", {"repository": "api", "name": "{in:branch}", "start_point": "{in:base}"}))
-    note = _task(data)
-
-    session = service.start("acme", note, "api", learned=LearnedPreparation(automation_id=pipeline.id,
-                                                                            fields={"branch": "feature/login", "base": base, "extra": "x"}))
-    first = service.messages(session.id)[0].content
-    assert first.startswith("🧰 Preparazione ok.") and "✓ 1. git_create_branch" in first
-    assert _git(project / "api", "branch", "--show-current") == "feature/login"
-
-    with pytest.raises(ConflictError, match="Preparazione non riuscita, Copilot non è partito."):
-        service.start("acme", note, "api", learned=LearnedPreparation(automation_id=pipeline.id, fields={"branch": "feature/login", "base": base}))
-    assert len(copilot_store.list_sessions("acme")) == 1
-    with pytest.raises(NotFoundError):
-        checks.prepare_learned("acme", 9999, {})
-    pipeline_store.save_pipeline(pipeline.model_copy(update={"active": False}))
-    with pytest.raises(ValidationError, match="disattivata"):
-        checks.prepare_learned("acme", pipeline.id, {})
 
 
 # ---------------------------------------------------------------------- API

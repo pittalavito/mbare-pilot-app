@@ -84,15 +84,6 @@ export function usePausePlan(project: string, activity: string) {
 
 type StepBody = components["schemas"]["StepRequest"];
 
-export function useSkipStep(project: string, activity: string) {
-  const refresh = useRefresh(project, activity);
-  return useMutation({
-    mutationFn: (body: StepBody) =>
-      unwrap(api.POST("/projects/{project}/activities/{activity}/plan/skip", { params: { path: { project, activity } }, body })),
-    onSuccess: refresh,
-  });
-}
-
 export function useRetryStep(project: string, activity: string) {
   const refresh = useRefresh(project, activity);
   return useMutation({
@@ -102,9 +93,19 @@ export function useRetryStep(project: string, activity: string) {
   });
 }
 
+/** «✅ Fatto» on a pre/post development task (plan 22): done by Dev or by hand, the round goes on. */
+export function useMarkDone(project: string, activity: string) {
+  const refresh = useRefresh(project, activity);
+  return useMutation({
+    mutationFn: (task: string) =>
+      unwrap(api.POST("/projects/{project}/activities/{activity}/plan/done", { params: { path: { project, activity } }, body: { task } })),
+    onSuccess: refresh,
+  });
+}
+
 export type PlanOptions = components["schemas"]["PlanOptions"];
 
-/** Before delegating (``none``, ``dev``, ``automation:<id>``), the automation after the verification, the automatic ok. */
+/** The automatic ok to Copilot's plan. */
 export function useSetPlanOptions(project: string, activity: string) {
   const refresh = useRefresh(project, activity);
   return useMutation({
@@ -140,28 +141,5 @@ export function useReopenActivity(project: string, activity: string) {
   return useMutation({
     mutationFn: () => unwrap(api.POST("/projects/{project}/activities/{activity}/reopen", { params: { path: { project, activity } } })),
     onSuccess: refresh,
-  });
-}
-
-export type TaskFields = components["schemas"]["TaskFields"];
-type FieldStep = "prepare" | "after";
-
-/** «⚙️ Campi» of a task: what runs at the step and its fields, resolved for it (asked when the window opens). */
-export function useTaskFields(project: string, activity: string, task: string, step: FieldStep, enabled: boolean) {
-  return useQuery({
-    queryKey: [...pathKey(project, activity), "fields", task, step],
-    queryFn: () => unwrap(api.GET("/projects/{project}/activities/{activity}/plan/fields", { params: { path: { project, activity }, query: { task, step } } })),
-    enabled,
-  });
-}
-
-/** The task's own fields (empty = the activity's template again). */
-export function useSaveTaskFields(project: string, activity: string) {
-  const refresh = useRefresh(project, activity);
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: { task: string; step: FieldStep; fields: Record<string, string> }) =>
-      unwrap(api.PUT("/projects/{project}/activities/{activity}/plan/fields", { params: { path: { project, activity } }, body })),
-    onSuccess: () => { refresh(); queryClient.invalidateQueries({ queryKey: [...pathKey(project, activity), "fields"] }); },
   });
 }

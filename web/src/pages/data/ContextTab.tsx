@@ -11,8 +11,29 @@ import { ConfirmButton } from "../../components/ConfirmButton";
  * (architecture, conventions, decisions, runbooks, glossary). Saving one
  * indexes it; the Refiner and Copilot search the index (search_context),
  * together with the done activities that have «Imparato». */
+/** The project's development rules (plan 22): the Pianificatore reads them to propose the pre/post development tasks. */
+export const RULES_DOCUMENT = "sviluppo.md";
+export const RULES_TEMPLATE = `# Sviluppo
+
+Le regole che il Pianificatore segue per proporre i task pre e post sviluppo attorno a ogni sviluppo (li fa Dev o tu, mai Copilot).
+
+## Prima dello sviluppo
+- Branch: feature/<task> dal branch develop aggiornato.
+- Build delle librerie toccate prima dei servizi che le usano.
+
+## Dopo lo sviluppo
+- Togli la cartella mbare-pilot/ del task e i commenti todoMbarePilot.
+- Lancia i test del repository (solo quelli toccati se il progetto è grande).
+- Commit e push li faccio io.
+
+## Comandi
+- Build: mvn -B clean install
+- Test: mvn -B test
+`;
+
 export function ContextTab({ project }: { project: string }) {
   const documents = useContextDocuments(project);
+  const save = useSaveContext(project);
   const [selected, setSelected] = useState<string>();
   const [creating, setCreating] = useState(false);
   const names = documents.data?.map((item) => item.name) ?? [];
@@ -24,6 +45,12 @@ export function ContextTab({ project }: { project: string }) {
         <Grid.Col span={{ base: 12, md: 3 }}>
           <Stack gap="xs">
             <Button onClick={() => setCreating(true)}>➕ Nuovo documento</Button>
+            {documents.data && !names.includes(RULES_DOCUMENT) && (
+              <Button variant="light" loading={save.isPending} title="Le regole per i task pre e post sviluppo: il Pianificatore le legge"
+                onClick={() => save.mutate({ name: RULES_DOCUMENT, content: RULES_TEMPLATE }, { onSuccess: () => setSelected(RULES_DOCUMENT) })}>
+                📐 Regole di sviluppo (modello)
+              </Button>
+            )}
             {documents.isPending && <Loader size="sm" />}
             {documents.error && <Alert color="red">{documents.error.message}</Alert>}
             {documents.data && !names.length && <Text size="sm" c="dimmed">Nessun documento di contesto.</Text>}

@@ -17,7 +17,7 @@ const step = (name: string) => ({
 });
 const CHECK = {
   name: "Stato", description: "Lo stato dei repository", active: true, steps: [step("Stato")],
-  edges: [{ source: "input", target: "Stato", condition: "always", value: "" }], replaces: null, system: false,
+  edges: [{ source: "input", target: "Stato", condition: "always", value: "" }], replaces: null,
 };
 const ARCHITECT = {
   id: 5, project_name: "acme", name: "Architetto", kind: "automation", description: "", system_prompt: "x", prompt_version: 1,
@@ -64,12 +64,11 @@ describe("the Architect's proposal", () => {
     expect(await within(card).findByRole("link", { name: /Salvata: aprila/ })).toHaveAttribute("href", "/projects/acme/automation?id=11");
   });
 
-  it("warns on a system automation and on one that replaces another", async () => {
-    api({ ...CHECK, name: "Verifica sviluppo", replaces: 3, system: true });
+  it("says when it replaces an automation that is there", async () => {
+    api({ ...CHECK, replaces: 3 });
     renderChat();
     const card = await screen.findByTestId("automation-proposal");
     expect(await within(card).findByText("modifica quella che c'è")).toBeInTheDocument();
-    expect(within(card).getByText(/la lancia l'app da sola/)).toBeInTheDocument();
   });
 
   it("an invalid proposal shows the reason and its YAML, without «Salva»", async () => {

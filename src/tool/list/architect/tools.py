@@ -10,7 +10,6 @@ from datapizza.tools import Tool, tool
 from core.error import AppError
 from domain.pipeline import yaml_format
 from models.domain.agent import RunOrigin
-from models.domain.dev import PREPARE_AUTOMATION, VERIFY_AUTOMATION
 from models.domain.pipeline import EdgeConditionKind, StepKind
 from models.domain.tool import (
     AgentsResponse,
@@ -90,7 +89,7 @@ def build_validate_automation(context: ToolContext) -> Tool:
         except AppError as exc:
             return AutomationValidationResponse(valid=False, error=str(exc))
         return AutomationValidationResponse(
-            valid=True, replaces=current is not None, system=pipeline.name in (PREPARE_AUTOMATION, VERIFY_AUTOMATION),
+            valid=True, replaces=current is not None,
             steps=[f"{step.name}: {_step_kind(step)}" for step in pipeline.steps],
             edges=[f"{edge.source} → {edge.target}" + ("" if edge.condition is EdgeConditionKind.ALWAYS else f" ({edge.condition.value} {edge.value!r})")
                    for edge in pipeline.edges],

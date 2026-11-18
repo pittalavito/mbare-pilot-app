@@ -150,11 +150,10 @@ describe("Copilot", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Delega a Copilot/ }));
     const dialog = await screen.findByRole("dialog");
     expect(await within(dialog).findByDisplayValue("Nessun repository")).toBeInTheDocument();
-    expect(within(dialog).queryByText("Come preparare i repository")).not.toBeInTheDocument(); // nothing to prepare
     fireEvent.click(within(dialog).getByRole("button", { name: "Delega" }));
 
     await waitFor(() => expect(started).toHaveBeenCalled());
-    expect(await started.mock.results[0].value).toMatchObject({ repository: "", no_repository: true, prepare: [], learned: null });
+    expect(await started.mock.results[0].value).toMatchObject({ repository: "", no_repository: true });
   });
 
   it("the repository changes in the chat before the first execution (plan 21)", async () => {

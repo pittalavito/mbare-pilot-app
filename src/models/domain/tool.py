@@ -306,7 +306,6 @@ class AutomationValidationResponse(BaseModel):
     valid: bool
     error: str = Field(default="", description="What is wrong (fix it and validate again); empty when valid.")
     replaces: bool = Field(default=False, description="True: saving updates the project's automation with this name.")
-    system: bool = Field(default=False, description="True: «Prepara sviluppo» or «Verifica sviluppo», which the app runs by itself: warn the user.")
     steps: list[str] = Field(default_factory=list, description="The steps as they would be saved, in order.")
     edges: list[str] = Field(default_factory=list, description="The edges as they would be saved (the chain when none were written).")
 
