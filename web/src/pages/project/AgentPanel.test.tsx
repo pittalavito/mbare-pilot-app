@@ -199,7 +199,7 @@ describe("the panel", () => {
 
   it("a reference in an answer opens here; one that is gone says so", async () => {
     const NOTE = "code-reference-todo-mbare-pilot.md";
-    const reference = { name: NOTE, title: "TODO Mbare Pilot", kind: "code_reference", source: "todoMbarePilot", source_url: "", repository: "",
+    const reference = { name: NOTE, title: "TODO Mbare Pilot", kind: "code_reference", source: "search", source_url: "", repository: "",
       path: "", lines: "", content: "### api/login.py\n- riga 2: Rifattorizza", linked_from: [] };
     const answer = [message(1, "user", "raccogli i todo"), message(2, "assistant", `Fatto: [TODO Mbare Pilot](/projects/acme/project?note=${NOTE}).`)];
     const conversations = [{ id: 3, chatbot_id: 7, title: "Todo", context: CREATED.name, created_at: "", updated_at: "" }];

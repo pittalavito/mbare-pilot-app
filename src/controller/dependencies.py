@@ -10,7 +10,7 @@ from service.atlassian_service import AtlassianService
 from service.automation_cache_service import AutomationCacheService
 from service.backup_service import BackupService
 from service.chatbot_service import ChatbotService
-from service.code_todo_service import CodeTodoService
+from service.code_search_service import CodeSearchService
 from service.command_service import CommandService
 from service.copilot_service import CopilotService
 from service.definition_service import DefinitionService
@@ -94,8 +94,8 @@ def process_service(request: Request) -> ProcessService:
     return request.app.state.container.process_service
 
 
-def code_todo_service(request: Request) -> CodeTodoService:
-    return request.app.state.container.code_todo_service
+def code_search_service(request: Request) -> CodeSearchService:
+    return request.app.state.container.code_search_service
 
 
 def copilot_service(request: Request) -> CopilotService:

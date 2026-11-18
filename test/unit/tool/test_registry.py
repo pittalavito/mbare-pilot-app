@@ -23,7 +23,7 @@ def test_every_spec_builds_a_tool_with_its_name_and_a_description(context):
 def test_only_the_automation_copilot_and_notes_tools_are_for_chatbots_and_the_catalog_says_so(agent_config_service):
     assert {name for name, spec in TOOL_REGISTRY.items() if spec.chatbot_only} == {
         "list_automations", "run_automation", "automation_status", "list_agent_tasks", "delegate_task", "copilot_status",
-        "list_activities", "read_activity", "create_activity", "update_activity", "create_code_reference",
+        "list_activities", "read_activity", "create_activity", "update_activity", "search_code", "save_code_search",
         "list_references", "create_agent_task", "today",
         "read_agent_task", "update_agent_task", "finish_refinement",
         "list_tools", "list_agents", "read_automation", "validate_automation", "request_tool",

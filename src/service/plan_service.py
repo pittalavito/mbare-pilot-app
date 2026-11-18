@@ -71,9 +71,9 @@ _RULES_CHARS = 4000
 TYPE_WORDS = {TaskType.DEVELOPMENT: "sviluppo", TaskType.ANALYSIS: "analisi", TaskType.CONFLUENCE: "Confluence", TaskType.JIRA: "Jira",
               TaskType.PRE_DEV: "pre sviluppo", TaskType.POST_DEV: "post sviluppo"}
 _TYPES = ("pre_dev (prima di uno sviluppo: branch, aggiornamento, build), development (cambia il codice), post_dev (dopo uno sviluppo: "
-          "pulizia di mbare-pilot/ e dei todo, test, commit), analysis (analisi del codice), confluence (pagina Confluence), jira (issue Jira)")
+          "pulizia della cartella mbare-pilot/<task>/, test, commit), analysis (analisi del codice), confluence (pagina Confluence), jira (issue Jira)")
 _DEFAULT_RULES = ("Nessuna regola scritta: prima di ogni sviluppo un pre_dev (branch feature/<task> dal branch corrente, aggiornato, build), "
-                  "dopo ogni sviluppo un post_dev (togli mbare-pilot/ e i todo, lancia i test).")
+                  "dopo ogni sviluppo un post_dev (togli la cartella mbare-pilot/<task>/, lancia i test).")
 
 
 class PlanService:

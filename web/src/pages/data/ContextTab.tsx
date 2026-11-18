@@ -22,7 +22,7 @@ Le regole che il Pianificatore segue per proporre i task pre e post sviluppo att
 - Build delle librerie toccate prima dei servizi che le usano.
 
 ## Dopo lo sviluppo
-- Togli la cartella mbare-pilot/ del task e i commenti todoMbarePilot.
+- Togli la cartella mbare-pilot/ del task.
 - Lancia i test del repository (solo quelli toccati se il progetto è grande).
 - Commit e push li faccio io.
 

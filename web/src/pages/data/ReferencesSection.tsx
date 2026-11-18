@@ -4,14 +4,13 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import {
-  type CodeTodoScan, FILE_LINK_PREFIX, type Reference, type ReferenceBody, type ReferenceKind, fileUrl, useDeleteReference, useFiles, useNotes,
-  useReferences, useSaveReference, useScanCodeTodos,
+  FILE_LINK_PREFIX, type Reference, type ReferenceBody, type ReferenceKind, fileUrl, useDeleteReference, useFiles, useNotes,
+  useReferences, useSaveReference,
 } from "../../api/projectData";
 import { size } from "../../format";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { useAtlassianConfigured } from "../../api/projects";
 import { JiraImport, ConfluenceImport } from "./AtlassianImport";
-import { CodeTodoHelp, TODO_EXAMPLE } from "./CodeTodoHelp";
 
 /** The code and context references of an agent task or an activity. A
  * reference is a note of its own (``code-reference-<title>.md``...) linked by
@@ -47,7 +46,6 @@ export function ReferencesSection({ project, value, onChange }: { project: strin
       <Group justify="space-between">
         <Text size="sm" fw={500}>📎 Riferimenti</Text>
         <Group gap="xs">
-          <ScanCodeTodosButton project={project} onScanned={(note) => !value.includes(note) && onChange([...value, note])} />
           <Button size="xs" variant="light" onClick={() => setEditing("new")}>➕ Nuovo riferimento</Button>
         </Group>
       </Group>
@@ -99,38 +97,6 @@ export function ReferencesSection({ project, value, onChange }: { project: strin
         onDeleted={(name) => onChange(value.filter((item) => item !== name))}
       />
     </Stack>
-  );
-}
-
-/** What a scan found, said to the user. */
-export function scanMessage(scan: CodeTodoScan): string {
-  if (!scan.note) return `Nessun commento todoMbarePilot nel codice: scrivilo così, ${TODO_EXAMPLE}`;
-  const found = scan.comments
-    ? `${scan.comments} ${scan.comments === 1 ? "commento" : "commenti"} todoMbarePilot in ${scan.files} file`
-    : "Nessun commento todoMbarePilot valido";
-  const wrong = scan.malformed ? `; ${scan.malformed} da correggere (scritti male, elencati nella nota)` : "";
-  return `${found}${wrong}: nota ${scan.created ? "creata" : "aggiornata"}.`;
-}
-
-/** «🔍 Todo del codice»: gathers the code's todoMbarePilot comments into their
- * note, without an agent; ``onScanned`` gets the note (none when nothing was found). */
-export function ScanCodeTodosButton({ project, onScanned }: { project: string; onScanned: (note: string) => void }) {
-  const scan = useScanCodeTodos(project);
-  return (
-    <Group gap="xs" wrap="nowrap">
-      {scan.data && <Text size="xs" c={scan.data.malformed ? "orange" : "dimmed"}>{scanMessage(scan.data)}</Text>}
-      {scan.error && <Text size="xs" c="red">{scan.error.message}</Text>}
-      <Button
-        size="xs"
-        variant="default"
-        loading={scan.isPending}
-        title="Cerca i commenti todoMbarePilot{…} nel codice e li raccoglie nella nota «TODO Mbare Pilot»"
-        onClick={() => scan.mutate(undefined, { onSuccess: (result) => result.note && onScanned(result.note) })}
-      >
-        🔍 Todo del codice
-      </Button>
-      <CodeTodoHelp />
-    </Group>
   );
 }
 

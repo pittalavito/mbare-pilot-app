@@ -333,7 +333,7 @@ def test_the_chatbots_of_the_files_are_created_where_missing_and_never_changed(s
     bots = {bot.name: bot for bot in chatbots.list_chatbots("acme")}
     assert set(bots) == {"Architetto", "Dev", "Refiner", "segretario"}
     assert bots["Refiner"].kind.value == "refiner" and bots["Refiner"].tool_names == [
-        "create_code_reference", "read_agent_task", "update_agent_task", "finish_refinement", "search_context",
+        "search_code", "read_agent_task", "update_agent_task", "finish_refinement", "search_context",
     ]
     assert bots["Architetto"].tool_names == ARCHITECT_TOOLS and bots["Architetto"].model == "openrouter/google/gemini-2.5-pro"
     assert bots["segretario"] == mine

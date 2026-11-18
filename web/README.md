@@ -81,7 +81,7 @@ src/
     project/          pagina del progetto: intestazione, zone (una rotta per zona) e pannello dell'agente (AgentPanel); ProjectZone = zona «Progetto» (note, riferimenti, file, contesto, git, Atlassian, impostazioni; sezione in ?tab=); noteZone.ts = in che zona sta una nota
     work/             zona «Lavoro», dove si apre il progetto: «📌 Oggi», WIP, attività a step (ActivityPage: Descrivi, Pianifica, Lavora, Chiudi; un agent task nato da un'attività si apre dentro di lei, con «← attività»), «Tutti i task»; ?note= dice cosa è aperto
     data/             i pezzi di Lavoro e Progetto: note markdown (modifica/anteprima, Ctrl+S), WIP, attività e agent task (form dei template, con i riferimenti collegati: ReferencesSection), riferimenti, file; DataSettings sceglie cosa mostra la zona Progetto
-    git/              sezione Git di Progetto: commit con filtri e file modificati
+    git/              sezione Git di Progetto: commit con filtri e file modificati; «🔎 Cerca nel codice» (CodeSearch: testo o regex, filtri file e repository, risultati per file, «Salva come riferimento» con «Collega a un task»)
     atlassian/        sezione Atlassian di Progetto: Jira, Confluence, preferiti; «📎 Crea riferimento» copia issue e pagine nei riferimenti (CopyToReference)
     library/          pagina Libreria: agenti globali (la stessa sezione Agenti) e catalogo dei tool
     admin/            pagina Admin: servizi (con «🤖 Tool di Copilot»: i tool dell'app e quelli vietati nell'esecuzione), observability (agent run, tool call, Copilot), modelli, backup, tool, richieste di tool (ToolRequests: le richieste dell'Architetto per Claude Code, il token e il comando per collegarlo, «Scarta»; tab in ?tab=)

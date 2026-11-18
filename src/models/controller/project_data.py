@@ -5,6 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from models.domain.code_search import CodeQuery
 from models.domain.dev import TestScope
 from models.domain.note import (
     Activity,
@@ -161,15 +162,12 @@ class DataSettingsBody(BaseModel):
     """«📌 Oggi»: items due within this many days are «In scadenza»; omitted in a save = unchanged."""
 
 
-class CodeTodoScanResponse(BaseModel):
-    """What a scan of the todoMbarePilot comments wrote: counts only, the comments are in the note."""
-    note: str | None
-    """The code reference written; None = nothing found and no note to update."""
-    created: bool
-    files: int
-    comments: int
-    malformed: int = 0
-    """Comments written wrong: listed in the note, to fix."""
+class CodeSearchSaveBody(CodeQuery):
+    """A code search to save as a code reference."""
+    title: str = ""
+    """The reference's title; empty = the text searched."""
+    task: str = ""
+    """The agent task (or activity) to link it to; empty = none."""
 
 
 # ------------------------------------------------------------------ context

@@ -16,10 +16,10 @@ from tool.list.architect.tools import LIST_AGENTS, LIST_TOOLS, READ_AUTOMATION, 
 from tool.list.automation.automation_status import AUTOMATION_STATUS
 from tool.list.automation.list_automations import LIST_AUTOMATIONS
 from tool.list.automation.run_automation import RUN_AUTOMATION
+from tool.list.code.search import SAVE_CODE_SEARCH, SEARCH_CODE
 from tool.list.copilot.copilot_status import COPILOT_STATUS
 from tool.list.copilot.delegate_task import DELEGATE_TASK
 from tool.list.copilot.list_agent_tasks import LIST_AGENT_TASKS
-from tool.list.dev.clean_mbare_pilot import CLEAN_MBARE_PILOT
 from tool.list.dev.git_check_clean import GIT_CHECK_CLEAN
 from tool.list.dev.git_checkout_branches import GIT_CHECKOUT_BRANCHES
 from tool.list.dev.run_tests import RUN_TESTS
@@ -52,7 +52,6 @@ from tool.list.refiner.agent_tasks import (
     READ_AGENT_TASK,
     UPDATE_AGENT_TASK,
 )
-from tool.list.refiner.create_code_reference import CREATE_CODE_REFERENCE
 from tool.spec import ToolSpec, static
 
 TOOL_REGISTRY: dict[str, ToolSpec] = {
@@ -75,7 +74,8 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         LIST_REFERENCES,
         CREATE_AGENT_TASK,
         TODAY,
-        CREATE_CODE_REFERENCE,
+        SEARCH_CODE,
+        SAVE_CODE_SEARCH,
         READ_AGENT_TASK,
         UPDATE_AGENT_TASK,
         FINISH_REFINEMENT,
@@ -102,7 +102,6 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         COVERAGE_NEW_CODE,
         GIT_CHECK_CLEAN,
         GIT_CHECKOUT_BRANCHES,
-        CLEAN_MBARE_PILOT,
         RUN_TESTS,
         SAVE_NOTE,
     )

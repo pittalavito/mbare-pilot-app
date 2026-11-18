@@ -26,7 +26,9 @@ export const NOTE_PREFIXES = {
   agent_task: "agent-task-", activity: "attivita-", code_reference: "code-reference-", context_reference: "context-reference-",
 } as const;
 
-export type CodeTodoScan = components["schemas"]["CodeTodoScanResponse"];
+export type CodeQuery = components["schemas"]["CodeQuery"];
+export type CodeSearchResult = components["schemas"]["CodeSearchResult"];
+export type CodeSearchSaveBody = components["schemas"]["CodeSearchSaveBody"];
 
 export const dataKeys = {
   notes: (project: string) => ["projects", project, "notes"] as const,
@@ -201,6 +203,25 @@ export function useDraftActivity(project: string) {
   });
 }
 
+// -------------------------------------------------------------- code search
+
+/** The code's lines matching the text (or the regex): the user's free search (Progetto → Git). */
+export function useCodeSearch(project: string) {
+  return useMutation({
+    mutationFn: (body: CodeQuery) => unwrap(api.POST("/projects/{project}/code-search", { params: { path: { project } }, body })),
+  });
+}
+
+/** The search as a code reference (one per title, rewritten when saved again), linked to ``task`` if given. */
+export function useSaveCodeSearch(project: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CodeSearchSaveBody) =>
+      unwrap(api.POST("/projects/{project}/code-search/reference", { params: { path: { project } }, body })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: dataKeys.typed(project) }),
+  });
+}
+
 // --------------------------------------------------------------- references
 
 /** Every code and context reference, with the tasks and activities that link it. */
@@ -212,16 +233,6 @@ export function useReferences(project: string) {
 }
 
 /** Create (``kind`` given) or rewrite (``name`` given) a reference; linking it is the task's or activity's job. */
-/** Gather the code's todoMbarePilot{...} comments into the note
- * ``code-reference-todo-mbare-pilot.md``: counts back, ``note`` null when nothing was found. */
-export function useScanCodeTodos(project: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: () => unwrap(api.POST("/projects/{project}/code-todos", { params: { path: { project } } })),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: dataKeys.references(project) }),
-  });
-}
-
 export function useSaveReference(project: string) {
   const queryClient = useQueryClient();
   return useMutation({

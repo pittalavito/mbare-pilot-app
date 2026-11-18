@@ -31,7 +31,7 @@ class ChatbotKind(StrEnum):
     the agent of the panel for a task not delegated. Only tools of KIND_TOOLS, no cache. It works only on the
     task open next to the chat, while in refinement (the user's button moves it
     there from created): reads it with its type's checklist, writes its fields
-    and makes it todo with the user's ok; the code scan hands it counts only."""
+    and makes it todo with the user's ok; it searches the code (a few short lines, masked)."""
     OPERATOR = "operator"
     """The Operator (plan 11): does procedures on the project's repositories for
     one stack (the default is Java: Maven, Spring Boot), with safe git (no commit,
@@ -50,10 +50,11 @@ KIND_TOOLS: dict[ChatbotKind, list[str]] = {
         "list_activities", "read_activity", "create_activity", "update_activity",
         "list_agent_tasks", "list_references", "create_agent_task", "today",
     ],
-    ChatbotKind.REFINER: ["create_code_reference", "read_agent_task", "update_agent_task", "finish_refinement", "search_context"],
+    ChatbotKind.REFINER: ["search_code", "read_agent_task", "update_agent_task", "finish_refinement", "search_context"],
     ChatbotKind.OPERATOR: [
         "git_status", "git_fetch", "git_branches", "git_checkout", "git_create_branch", "git_pull_fast_forward",
-        "git_stash", "git_stash_list", "git_stash_apply", "run_command", "maven_parent_alignment", "clean_mbare_pilot", "run_tests",
+        "git_stash", "git_stash_list", "git_stash_apply", "run_command", "maven_parent_alignment", "run_tests",
+        "search_code", "save_code_search",
     ],
 }
 """The tools a chatbot of a kind may have (written in its YAML, ``tools:``); a kind not here lets them be chosen freely."""

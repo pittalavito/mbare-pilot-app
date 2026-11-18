@@ -223,15 +223,25 @@ class ActivityResponse(BaseModel):
     agent_tasks: list[ActivityTaskInfo] = Field(..., description="The agent tasks born from it (missing ones left out).")
 
 
-class CreateCodeReferenceResponse(BaseModel):
-    """What the scan of the todoMbarePilot comments did: counts and the note,
-    never the comments nor the code (the user reads them in the note)."""
-    note: str | None = Field(..., description="The code reference written; null = no comment found and no note to update.")
-    created: bool = Field(..., description="True = a new note, false = the existing one rewritten.")
-    files: int = Field(..., description="How many files have comments.")
-    comments: int = Field(..., description="How many comments were found.")
-    malformed: int = Field(0, description="Comments written wrong, not collected: listed in the note; tell the user to fix them.")
-    link: str | None = Field(None, description="Link to the note in the app: give it to the user as a markdown link.")
+class CodeLine(BaseModel):
+    path: str = Field(..., description="The file, relative to the project folder (<repository>/<file>).")
+    line: int
+    text: str = Field(..., description="The matched line, trimmed and cut: never the whole file.")
+
+
+class SearchCodeResponse(BaseModel):
+    """A few matched lines of the project's code, masked like everything the agent sees."""
+    matches: list[CodeLine] = Field(default_factory=list)
+    total: int = Field(..., description="Every match found; more than the lines shown = narrow the search (files, repository).")
+    files: int = Field(..., description="How many files have matches.")
+    truncated: bool = Field(..., description="True = only the first lines are shown.")
+
+
+class SaveCodeSearchResponse(BaseModel):
+    note: str = Field(..., description="The code reference written.")
+    created: bool = Field(..., description="True = a new reference, false = the one of the same title rewritten.")
+    total: int
+    link: str = Field(..., description="Link to the reference in the app: give it to the user as a markdown link.")
 
 
 class ReferenceInfo(BaseModel):
@@ -260,7 +270,7 @@ class LinkedReferenceInfo(BaseModel):
     name: str
     title: str
     kind: str = Field(..., description="code or context.")
-    source: str = Field(..., description="Where it was copied from (jira, confluence, todoMbarePilot...); '' = written by hand.")
+    source: str = Field(..., description="Where it was copied from (jira, confluence, search...); '' = written by hand.")
     content: str
 
 
