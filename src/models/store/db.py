@@ -384,6 +384,7 @@ class ActivityPlanTable(SQLModel, table=True):
     errors: dict | None = Field(default=None, sa_type=JSON)
     auto_approve: bool = False
     approved: list[str] | None = Field(default=None, sa_type=JSON)
+    operations: dict | None = Field(default=None, sa_type=JSON)
     created_at: datetime = _timestamp()
     updated_at: datetime = _timestamp()
 

@@ -93,6 +93,18 @@ class CommandService:
             grants.append(command)
         self._save(project, allowed_commands=list(dict.fromkeys(allowed)), command_requests=requests, command_grants=grants)
 
+    def pending(self, project_name: str, repository: str, commands: list[str]) -> list[str]:
+        """Of ``commands``, the ones neither allowed nor granted once: each becomes a request
+        the user answers («Sempre», «Solo stavolta», «No») before they are run (plan 25)."""
+        project = self._project(project_name)
+        missing = [command for command in dict.fromkeys(normalize(item) for item in commands)
+                   if command and command not in project.allowed_commands and command not in project.command_grants]
+        asked = {request.command for request in project.command_requests}
+        new = [CommandRequest(repository=repository.strip().strip("/\\"), command=command) for command in missing if command not in asked]
+        if new:
+            self._save(project, command_requests=[*project.command_requests, *new])
+        return missing
+
     # ----------------------------------------------------------------- run
     def run(self, project_name: str, repository: str, command: str) -> CommandOutcome:
         """Runs an allowed (or granted once) command in ``repository``; else

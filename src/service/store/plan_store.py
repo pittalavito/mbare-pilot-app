@@ -9,7 +9,7 @@ from models.store.db import ActivityPlanTable
 
 def _plan(row: ActivityPlanTable) -> ActivityPlan:
     data = row.model_dump()
-    data.update(errors=data["errors"] or {}, approved=data["approved"] or [])
+    data.update(errors=data["errors"] or {}, approved=data["approved"] or [], operations=data["operations"] or {})
     plan = ActivityPlan.model_validate(data)
     plan.created_at, plan.updated_at = as_utc(plan.created_at), as_utc(plan.updated_at)
     return plan
@@ -39,6 +39,18 @@ class PlanStore:
                 continue
             seen.add((row.project_name, row.activity))
             if row.tasks and not row.paused:
+                plans.append(_plan(row))
+        return plans
+
+    def with_operations(self) -> list[ActivityPlan]:
+        """The latest plan of every activity with a «🤖 Automatico» queued or running (plan 25), paused or not."""
+        seen: set[tuple[str, str]] = set()
+        plans = []
+        for row in self._plans.list_all():
+            if (row.project_name, row.activity) in seen:
+                continue
+            seen.add((row.project_name, row.activity))
+            if any(run.get("state") in ("queued", "running") for run in (row.operations or {}).values()):
                 plans.append(_plan(row))
         return plans
 

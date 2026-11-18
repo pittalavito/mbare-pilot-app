@@ -1,6 +1,6 @@
 """The tests' settings (blocco 09) and the Operator's commands (plan 11), under
 /projects/{project}: the tests' settings, the allowed commands, the project's
-Operator (Dev) and the commands waiting for the user's ok."""
+Operator (Dev), the commands waiting for the user's ok and one command run by hand («✋ A mano», plan 25)."""
 from fastapi import APIRouter, Depends, Response, status
 from pydantic import BaseModel
 
@@ -39,6 +39,18 @@ class CommandAnswer(BaseModel):
     """With ``allow``: «Sempre» (added to the list) instead of «Solo stavolta»."""
 
 
+class CommandRunRequest(BaseModel):
+    repository: str = ""
+    command: str
+
+
+class CommandRunResponse(BaseModel):
+    allowed: bool
+    """False: not run, a request waits for the user's answer."""
+    exit_code: int | None = None
+    output: str = ""
+
+
 def _response(project: str, service: DevChecksService, commands: CommandService, settings: DevSettings) -> DevSettingsResponse:
     return DevSettingsResponse(**settings.model_dump(), allowed_commands=commands.allowed(project),
                                suggested_commands=commands.suggested(project), operator_chatbot_id=service.operator_chatbot_id(project))
@@ -70,3 +82,11 @@ def command_requests(project: str, commands: CommandService = Depends(command_se
 def answer_command_request(project: str, answer: CommandAnswer, commands: CommandService = Depends(command_service)) -> Response:
     commands.answer(project, answer.command, allow=answer.allow, always=answer.always)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/commands/run")
+def run_command(project: str, request: CommandRunRequest, commands: CommandService = Depends(command_service)) -> CommandRunResponse:
+    """«✋ A mano» (plan 25): one command in a repository of the project, if allowed (or granted once);
+    else it becomes a request and nothing runs."""
+    outcome = commands.run(project, request.repository, request.command)
+    return CommandRunResponse(allowed=outcome.allowed, exit_code=outcome.exit_code, output=outcome.output)

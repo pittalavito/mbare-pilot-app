@@ -30,6 +30,7 @@ from service.learn_service import LearnService
 from service.masking_service import MaskingService
 from service.metrics_service import MetricsService
 from service.model_service import ModelService
+from service.operation_service import OperationService
 from service.pipeline_runner import PipelineRunner
 from service.pipeline_service import PipelineService
 from service.plan_service import PlanService
@@ -133,8 +134,10 @@ class Container:
                                       wip_runs=stores.wip)
         self.plan_service = PlanService(
             project_data=self.project_data_service, masking=self.masking_service, agents=self.structured_agents, plans=stores.plans,
-            git=self.git_service, rag=self.rag_service, copilot=self.copilot_service,
+            git=self.git_service, rag=self.rag_service, copilot=self.copilot_service, pipelines=self.pipeline_service,
         )
+        self.operation_service = OperationService(plans=stores.plans, project_data=self.project_data_service, commands=self.command_service,
+                                                  pipelines=self.pipeline_service)
         self.activity_close_service = ActivityCloseService(project_data=self.project_data_service, masking=self.masking_service,
                                                            agents=self.structured_agents, plan=self.plan_service, plans=stores.plans,
                                                            rag=self.rag_service)

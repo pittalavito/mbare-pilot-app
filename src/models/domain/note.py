@@ -98,7 +98,11 @@ class AgentTask(BaseModel):
     tests: TestScope | None = None
     """``run_tests``: every test or only the touched ones; None = the project's default."""
     steps: list[str] = []
-    """The suggested steps of a pre/post development task (``git checkout -b …``, ``mvn clean install``), for Dev or by hand."""
+    """The suggested steps of a pre/post development task, in words, for Dev or by hand."""
+    commands: list[str] = []
+    """A pre/post development task's shell commands, one each, run in its repository without an agent (plan 25)."""
+    automation: str = ""
+    """A pre/post development task's automation of the project (by name), run after the commands; ``""`` = none."""
 
 
 class TodoPriority(StrEnum):

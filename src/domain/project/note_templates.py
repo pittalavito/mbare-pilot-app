@@ -102,6 +102,9 @@ _SECTIONS = {"objective": "Obiettivo", "context": "Contesto", "criteria": "Crite
 _REFERENCES = "Riferimenti"
 _STEPS = "Passi suggeriti"
 """The suggested steps of a pre/post development task, as bullets (only when there are)."""
+_COMMANDS = "Comandi"
+"""A pre/post development task's commands, one bullet each in backticks (only when there are)."""
+_AUTOMATION = "Automation:"
 _DESCRIPTION, _TODO, _AGENT_TASKS = "Descrizione", "Todo", "Agent task"
 _SOURCE, _SOURCE_SEPARATOR = "Fonte:", " · "
 _CODE_FIELDS = {"repository": "Repository:", "path": "File:", "lines": "Righe:"}
@@ -117,6 +120,7 @@ _DETAILS = re.compile(r"^(.*?)\s+\((?:(alta|media|bassa)(?:,\s*)?)?(\d{4}-\d{2}-
 def render_agent_task(task: AgentTask) -> str:
     lines = [f"# {_line(task.title)}", "", f"{_STATUS} {STATUS_LABELS[task.status]}", f"{_TYPE} {TYPE_LABELS[task.type]}"]
     lines += [f"{_TESTS} {SCOPE_LABELS[task.tests]}"] if task.tests else []
+    lines += [f"{_AUTOMATION} {_line(task.automation)}"] if task.automation.strip() else []
     for field, heading in _SECTIONS.items():
         lines += ["", f"## {heading}"]
         if field == "criteria":
@@ -125,11 +129,13 @@ def render_agent_task(task: AgentTask) -> str:
             lines.append(text)
     if task.steps:
         lines += ["", f"## {_STEPS}", *(f"- {_line(step)}" for step in task.steps)]
+    if task.commands:
+        lines += ["", f"## {_COMMANDS}", *(f"- `{_line(command)}`" for command in task.commands)]
     return "\n".join(lines + _references(task.references)) + "\n"
 
 
 def parse_agent_task(text: str, fallback_title: str) -> AgentTask:
-    title, head, sections = _split(text, fallback_title, {*_SECTIONS.values(), _STEPS, _REFERENCES})
+    title, head, sections = _split(text, fallback_title, {*_SECTIONS.values(), _STEPS, _COMMANDS, _REFERENCES})
     status, kind = (_value(head, label).lower() for label in (_STATUS, _TYPE))
     by_heading = {heading.lower(): field for field, heading in _SECTIONS.items()}
     fields = {by_heading[heading]: body for heading, body in sections.items() if heading in by_heading}
@@ -144,6 +150,8 @@ def parse_agent_task(text: str, fallback_title: str) -> AgentTask:
         references=_bullets(sections.get(_REFERENCES.lower(), [])),
         tests=next((key for key, label in SCOPE_LABELS.items() if label == _value(head, _TESTS).lower()), None),
         steps=_bullets(sections.get(_STEPS.lower(), [])),
+        commands=[command.strip("`").strip() for command in _bullets(sections.get(_COMMANDS.lower(), [])) if command.strip("`").strip()],
+        automation=_value(head, _AUTOMATION),
     )
 
 

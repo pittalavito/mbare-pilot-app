@@ -62,3 +62,13 @@ export function useAnswerCommand(project: string) {
     },
   });
 }
+
+/** «✋ A mano» (plan 25): one command in a repository of the project; ``allowed`` false = a request to answer, nothing ran. */
+export function useRunCommand(project: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { repository: string; command: string }) =>
+      unwrap(api.POST("/projects/{project}/commands/run", { params: { path: { project } }, body })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects", project, "command-requests"] }),
+  });
+}

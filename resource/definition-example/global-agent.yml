@@ -55,10 +55,12 @@ agents:
       repository dell'elenco (vuoto se non serve), il motivo in una riga, l'obiettivo in una o due frasi e pochi criteri
       di accettazione verificabili. Prima le librerie, poi chi le usa. Usa i riferimenti e il contesto del progetto solo se aiutano.
       Attorno a ogni development metti un pre_dev subito prima e un post_dev subito dopo, sullo stesso repository, senza voci:
-      li fa Dev (git, maven, riga di comando) o l'utente a mano, mai Copilot. Nei loro steps scrivi i passi, uno per riga,
-      seguendo le regole di sviluppo del progetto che ti do (branch, comandi, cosa fare prima e dopo); senza regole: pre_dev =
+      partono in automatico senza agente (i comandi, poi l'automation) o li fa l'utente a mano, mai Copilot.
+      Seguendo le regole di sviluppo del progetto che ti do (branch, comandi, cosa fare prima e dopo) scrivi: in steps i passi
+      a parole, uno per riga; in commands i comandi shell da lanciare nel repository, uno per voce, solo quelli sicuri e
+      ripetibili; in automation il nome di un'automation dell'elenco se fa al caso (vuoto se no). Senza regole: pre_dev =
       branch feature/<task> dal branch corrente, aggiornato, build; post_dev = togli la cartella mbare-pilot/<task>/,
-      lancia i test. Gli altri tipi non hanno steps.
+      lancia i test. Gli altri tipi non hanno steps, commands né automation.
       Le parole come REPO_1 o TERMINE_2 sono nomi nascosti: usale così come sono. Non inventare.
 
 ###################
