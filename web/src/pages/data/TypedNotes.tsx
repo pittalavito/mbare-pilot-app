@@ -21,6 +21,7 @@ import { NewActivityModal } from "./NewActivityModal";
 import { ChecklistEditor } from "./ChecklistEditor";
 import { ReferencesSection } from "./ReferencesSection";
 import { PublishButton } from "./PublishModal";
+import { OperationFields } from "../work/Operation";
 
 /** The typed notes of the Dati tab: activities and agent tasks. On disk they
  * are notes (``attivita-<title>.md``, ``agent-task-<title>.md``) written with
@@ -96,7 +97,7 @@ function AgentTaskList({ project, onSelected, onRefine }: {
         return <Badge size="xs" variant="outline" color={kind.color}>{kind.label}</Badge>;
       }}
       create={(title, done) => save.mutate({
-        body: { title, status: "created", type: type === ALL ? "development" : type as AgentTaskBody["type"], objective: "", context: "", criteria: [], constraints: "", references: [], steps: [] },
+        body: { title, status: "created", type: type === ALL ? "development" : type as AgentTaskBody["type"], objective: "", context: "", criteria: [], constraints: "", references: [], steps: [], commands: [], automation: "" },
       }, done)}
       creating={save.isPending}
       onSelected={onSelected}
@@ -529,9 +530,12 @@ function AgentTaskEditor({ project, task, onRefine }: { project: string; task: A
         />
       </div>
       {isOperations(form.type) && (
-        <Textarea label="Passi suggeriti" description="Uno per riga (comandi git, maven o altri): Dev li riceve nella richiesta, o li segui tu."
-          autosize minRows={2} value={(form.steps ?? []).join("\n")}
-          onChange={(event) => set({ steps: event.currentTarget.value.split("\n") })} />
+        <>
+          <Textarea label="Passi suggeriti" description="Uno per riga, a parole: Dev li riceve nella richiesta, o li segui tu."
+            autosize minRows={2} value={(form.steps ?? []).join("\n")}
+            onChange={(event) => set({ steps: event.currentTarget.value.split("\n") })} />
+          <OperationFields project={project} commands={form.commands ?? []} automation={form.automation ?? ""} onChange={set} />
+        </>
       )}
       {form.type === "post_dev" && (
         <div>

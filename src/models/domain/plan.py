@@ -24,8 +24,12 @@ class PlannedTask(BaseModel):
     reason: str = Field("", description="Perché questo task, in una riga.")
     objective: str = Field("", description="Obiettivo: cosa deve ottenere, in una o due frasi.")
     criteria: list[str] = Field(default_factory=list, description="Criteri di accettazione, brevi e verificabili.")
-    steps: list[str] = Field(default_factory=list, description="Solo per pre_dev e post_dev: i passi da fare, uno per riga "
-                                                               "(comandi git, maven o altri); vuoto per gli altri tipi.")
+    steps: list[str] = Field(default_factory=list, description="Solo per pre_dev e post_dev: i passi da fare a parole, uno per riga; "
+                                                               "vuoto per gli altri tipi.")
+    commands: list[str] = Field(default_factory=list, description="Solo per pre_dev e post_dev: i comandi shell da lanciare nel repository, "
+                                                                  "uno per voce (es. mvn -B clean install); vuoto per gli altri tipi.")
+    automation: str = Field("", description="Solo per pre_dev e post_dev: il nome di un'automation del progetto da lanciare dopo i comandi, "
+                                            "una dell'elenco; vuoto se non serve.")
 
 
 class PlanAnswer(BaseModel):
@@ -40,6 +44,25 @@ class PlanProposal(PlannedTask):
     """The texts of its items (to show them)."""
     new: bool = False
     """No item: a task for something the todo list does not have (it becomes an item too)."""
+
+
+class OperationState(StrEnum):
+    """«🤖 Automatico» of a pre/post development task (plan 25)."""
+    QUEUED = "queued"
+    RUNNING = "running"
+    FAILED = "failed"
+    DONE = "done"
+
+
+class OperationRun(BaseModel):
+    """The commands, then the automation, of a pre/post development task, run by the worker without an agent."""
+    state: OperationState = OperationState.QUEUED
+    output: str = ""
+    """Each command (``$ command``) with the last lines of its output, then the automation's."""
+    error: str = ""
+    """Why it stopped (the command that failed, the automation's error)."""
+    pipeline_run_id: int | None = None
+    """The automation's run, once queued."""
 
 
 class PlanTask(BaseModel):
@@ -73,6 +96,8 @@ class ActivityPlan(BaseModel):
     """The round gives the ok to Copilot's plan by itself (developments only)."""
     approved: list[str] = []
     """The tasks whose plan the round approved by itself (once each)."""
+    operations: dict[str, OperationRun] = {}
+    """«🤖 Automatico» of the pre/post development tasks, by task (plan 25)."""
     created_at: datetime = Field(default_factory=_utc_now)
     updated_at: datetime = Field(default_factory=_utc_now)
 
@@ -90,6 +115,10 @@ class PlanChoice(BaseModel):
     criteria: list[str] = []
     steps: list[str] = []
     """The suggested steps of a pre/post development task."""
+    commands: list[str] = []
+    """The commands of a pre/post development task."""
+    automation: str = ""
+    """The automation of a pre/post development task."""
 
 
 class StepState(StrEnum):
@@ -113,7 +142,7 @@ class StepKey(StrEnum):
     FINAL = "final"
     """«Conferma finale» of the changes: the task becomes done."""
     OPERATION = "operation"
-    """A pre/post development task (plan 22): Dev or the user does it, then «Fatto»."""
+    """A pre/post development task (plan 22): «🤖 Automatico» (commands and automation, or Dev) or by hand, then «Fatto»."""
 
 
 STEP_LABELS: dict[StepKey, str] = {
@@ -122,7 +151,7 @@ STEP_LABELS: dict[StepKey, str] = {
     StepKey.EXECUTION: "Esecuzione",
     StepKey.ANSWER: "Risposta di Copilot",
     StepKey.FINAL: "Conferma finale",
-    StepKey.OPERATION: "Dev o a mano",
+    StepKey.OPERATION: "Automatico o a mano",
 }
 
 

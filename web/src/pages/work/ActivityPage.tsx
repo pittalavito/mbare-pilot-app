@@ -7,8 +7,8 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import { useRepositories } from "../../api/git";
 import {
-  type ActivityPath, type ActivityPlan, type PathStep, type PathTask, type PlanChoice, useActivityPath, useCloseActivity, useConfirmPlan,
-  useDismissPlan, useMarkDone, usePausePlan, useProposeLearned, useProposePlan, useReopenActivity, useRetryStep, useSetPlanOptions,
+  type ActivityPath, type ActivityPlan, type OperationRun, type PathStep, type PathTask, type PlanChoice, useActivityPath, useCloseActivity, useConfirmPlan,
+  useDismissPlan, usePausePlan, useProposeLearned, useProposePlan, useReopenActivity, useRetryStep, useSetPlanOptions,
 } from "../../api/plan";
 import { useStartWorker, useWorkerState } from "../../api/worker";
 import { type Activity, type ActivityBody, useAgentTasks, useDeleteNote, useSaveActivity, useSaveAgentTask } from "../../api/projectData";
@@ -18,8 +18,7 @@ import { DelegateModal } from "../copilot/DelegateModal";
 import { SendBackModal } from "../copilot/SendBackModal";
 import { ChecklistEditor } from "../data/ChecklistEditor";
 import { ReferencesSection } from "../data/ReferencesSection";
-import { useAgentPanel } from "../project/AgentPanel";
-import { devRequest } from "./devRequest";
+import { OperationButtons, OperationFields, OperationOutput } from "./Operation";
 
 /** An activity in steps (plan 18): 1. Descrivi → 2. Pianifica → 3. Lavora →
  * 4. Chiudi. The step is in ``?step=`` (the bar goes back to one done,
@@ -28,7 +27,8 @@ import { devRequest } from "./devRequest";
  * closed): it is never chosen by hand. A task's row in «Lavora» is picked with
  * ``?task=``: the agent panel shows its Copilot chat; «Apri» opens the task
  * (``?from=`` the activity: «← Torna all'attività»). Pre/post development
- * tasks (plan 22) never go to Copilot: «Fallo fare a Dev» or by hand, «Fatto». */
+ * tasks (plan 22) never go to Copilot: «🤖 Automatico» (commands and automation without an agent, else Dev) or «✋ A mano»
+ * (the dashboard under the row), plan 25. */
 
 export type StepKey = "describe" | "plan" | "work" | "close";
 const STEPS: { key: StepKey; label: string; hint: string }[] = [
@@ -180,12 +180,12 @@ function Describe({ project, activity, onNext }: { project: string; activity: Ac
 // ------------------------------------------------------------- 2. Pianifica
 
 type Draft = { key: string; id: number | null; title: string; type: PlanChoice["type"]; repository: string; items: number[]; itemTexts: string[];
-  isNew: boolean; reason: string; objective: string; criteria: string[]; steps: string[] };
+  isNew: boolean; reason: string; objective: string; criteria: string[]; steps: string[]; commands: string[]; automation: string };
 
 const fromPlan = (plan: ActivityPlan | null | undefined): Draft[] => (plan?.proposals ?? []).map((proposal) => ({
   key: `p${proposal.id}`, id: proposal.id, title: proposal.title, type: proposal.type, repository: proposal.repository ?? "", items: proposal.items ?? [],
   itemTexts: proposal.item_texts ?? [], isNew: !!proposal.new, reason: proposal.reason ?? "", objective: proposal.objective ?? "", criteria: proposal.criteria ?? [],
-  steps: proposal.steps ?? [],
+  steps: proposal.steps ?? [], commands: proposal.commands ?? [], automation: proposal.automation ?? "",
 }));
 
 function Plan({ project, activity, path, onBack, onNext }: { project: string; activity: Activity; path: ActivityPath; onBack: () => void; onNext: () => void }) {
@@ -206,7 +206,7 @@ function Plan({ project, activity, path, onBack, onNext }: { project: string; ac
   const free = activity.items.map((item, position) => ({ number: position + 1, item })).filter(({ item }) => !item.done && !item.agent_task);
   const addByHand = () => {
     const key = `m${Date.now()}`;
-    setDrafts((items) => [...items, { key, id: null, title: "", type: "development", repository: "", items: [], itemTexts: [], isNew: false, reason: "", objective: "", criteria: [], steps: [] }]);
+    setDrafts((items) => [...items, { key, id: null, title: "", type: "development", repository: "", items: [], itemTexts: [], isNew: false, reason: "", objective: "", criteria: [], steps: [], commands: [], automation: "" }]);
     setOpen((current) => ({ ...current, [key]: true }));
   };
   const ready = drafts.filter((item) => item.title.trim());
@@ -214,6 +214,8 @@ function Plan({ project, activity, path, onBack, onNext }: { project: string; ac
     id: item.id, items: item.id === null ? item.items : [], title: item.title.trim(), type: item.type, repository: item.repository,
     objective: item.objective, criteria: item.criteria.filter((text) => text.trim()),
     steps: isOperations(item.type) ? item.steps.filter((text) => text.trim()) : [],
+    commands: isOperations(item.type) ? item.commands.filter((text) => text.trim()) : [],
+    automation: isOperations(item.type) ? item.automation : "",
   })), { onSuccess: () => { setDrafts([]); notifications.show({ message: `${ready.length} task creati, da fare.` }); onNext(); } });
   const repoData = (repositories.data ?? []).map((repo) => ({ value: repo.path, label: repo.path || "(cartella del progetto)" }));
   return (
@@ -284,8 +286,12 @@ function Plan({ project, activity, path, onBack, onNext }: { project: string; ac
               <Textarea size="xs" label="Criteri di accettazione" description="Uno per riga" autosize minRows={1} value={draft.criteria.join("\n")}
                 onChange={(event) => set(draft.key, { criteria: event.currentTarget.value.split("\n") })} />
               {isOperations(draft.type) && (
-                <Textarea size="xs" label="Passi" description="Uno per riga: li fa Dev o tu" autosize minRows={1} value={draft.steps.join("\n")}
-                  onChange={(event) => set(draft.key, { steps: event.currentTarget.value.split("\n") })} />
+                <>
+                  <Textarea size="xs" label="Passi" description="Uno per riga, a parole: per Dev o per te" autosize minRows={1} value={draft.steps.join("\n")}
+                    onChange={(event) => set(draft.key, { steps: event.currentTarget.value.split("\n") })} />
+                  <OperationFields project={project} commands={draft.commands} automation={draft.automation}
+                    onChange={(patch) => set(draft.key, patch)} />
+                </>
               )}
             </Stack>
           )}
@@ -365,6 +371,7 @@ function Work({ project, activity, path, onBack, onNext }: { project: string; ac
       </Card>
       {path.tasks.map((task, position) => (
         <TaskRow key={task.task} project={project} activity={activity} task={task} number={position + 1} paused={!!plan.paused}
+          operation={plan.operations?.[task.task]}
           selected={selected === task.task} onPick={() => pick(task.task)} />
       ))}
       <Group justify="space-between" pt="sm" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
@@ -375,15 +382,13 @@ function Work({ project, activity, path, onBack, onNext }: { project: string; ac
   );
 }
 
-function TaskRow({ project, activity, task, number, paused, selected, onPick }: {
-  project: string; activity: string; task: PathTask; number: number; paused: boolean; selected: boolean; onPick: () => void;
+function TaskRow({ project, activity, task, number, paused, operation, selected, onPick }: {
+  project: string; activity: string; task: PathTask; number: number; paused: boolean; operation?: OperationRun; selected: boolean; onPick: () => void;
 }) {
   const [, setSearch] = useSearchParams();
   const retry = useRetryStep(project, activity);
-  const markDone = useMarkDone(project, activity);
   const tasks = useAgentTasks(project);
   const saveTask = useSaveAgentTask(project);
-  const { ask } = useAgentPanel();
   const [delegating, setDelegating] = useState(false);
   const [sendingBack, setSendingBack] = useState(false);
   const steps = task.steps ?? [];
@@ -420,15 +425,10 @@ function TaskRow({ project, activity, task, number, paused, selected, onPick }: 
           )}
           {!refining && current && (
             <>
-              {current.key === "operation" && current.state === "you" && (
-                <>
-                  <Button size="compact-xs" onClick={() => found && ask(devRequest(found, task.repository), "operator")}>🤖 Fallo fare a Dev</Button>
-                  <Button size="compact-xs" color="green" variant="light" onClick={() => markDone.mutate(task.task)} loading={markDone.isPending}>
-                    ✅ Fatto
-                  </Button>
-                  <Text size="xs" c="dimmed">o fai tu i passi, poi «Fatto».</Text>
-                </>
+              {current.key === "operation" && (current.state === "you" || current.state === "failed") && (
+                <OperationButtons project={project} activity={activity} task={task} found={found} />
               )}
+              {current.key === "operation" && current.state === "running" && <Text size="xs" c="dimmed">⏳ Automatico in corso…</Text>}
               {current.key === "delegate" && current.state === "todo" && (paused ? (
                 <Button size="compact-xs" onClick={() => setDelegating(true)}>🤖 Delega a mano</Button>
               ) : <Text size="xs" c="dimmed">⏳ Il giro lo delega a breve.</Text>)}
@@ -459,7 +459,8 @@ function TaskRow({ project, activity, task, number, paused, selected, onPick }: 
           )}
         </Group>
         {current?.state === "failed" && current.detail && <Text size="xs" c="red" style={{ whiteSpace: "pre-wrap" }}>{current.detail}</Text>}
-        {(retry.error || saveTask.error || markDone.error) && <Text size="xs" c="red">{(retry.error ?? saveTask.error ?? markDone.error)?.message}</Text>}
+        {operation?.output && current?.key === "operation" && <OperationOutput output={operation.output} />}
+        {(retry.error || saveTask.error) && <Text size="xs" c="red">{(retry.error ?? saveTask.error)?.message}</Text>}
       </Stack>
       {delegating && <DelegateModal project={project} task={task.task} repository={task.repository} opened onClose={() => setDelegating(false)} />}
       {sendingBack && <SendBackModal project={project} task={task.task} opened onClose={() => setSendingBack(false)} />}

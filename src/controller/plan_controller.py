@@ -5,10 +5,11 @@ tasks (no LLM), the round of the tasks and its settings, and the closing
 from fastapi import APIRouter, Depends, Response, status
 from pydantic import BaseModel
 
-from controller.dependencies import activity_close_service, plan_service
+from controller.dependencies import activity_close_service, operation_service, plan_service
 from models.domain.activity_close import ActivityClosed, LearnedDraft
 from models.domain.plan import ActivityPath, ActivityPlan, PlanChoice, PlanOptions, StepKey
 from service.activity_close_service import ActivityCloseService
+from service.operation_service import OperationService
 from service.plan_service import PlanService
 
 router = APIRouter(prefix="/projects/{project}", tags=["plan"])
@@ -30,6 +31,12 @@ class StepRequest(BaseModel):
 
 class TaskRequest(BaseModel):
     task: str
+
+
+class AutoResponse(BaseModel):
+    plan: ActivityPlan
+    pending_commands: list[str] = []
+    """Commands not allowed: nothing started, each is a request to answer (then «Automatico» again)."""
 
 
 class CloseRequest(BaseModel):
@@ -83,6 +90,14 @@ def retry_step(project: str, activity: str, request: StepRequest, service: PlanS
 def mark_done(project: str, activity: str, request: TaskRequest, service: PlanService = Depends(plan_service)) -> ActivityPlan:
     """«✅ Fatto» on a pre/post development task (plan 22): done by Dev or by hand, the round goes on."""
     return service.mark_done(project, activity, request.task)
+
+
+@router.post("/activities/{activity}/plan/auto")
+def start_auto(project: str, activity: str, request: TaskRequest, service: OperationService = Depends(operation_service)) -> AutoResponse:
+    """«🤖 Automatico» on a pre/post development task (plan 25): its commands, then its automation, run by the worker;
+    commands not allowed come back first, nothing started."""
+    plan, pending = service.start(project, activity, request.task)
+    return AutoResponse(plan=plan, pending_commands=pending)
 
 
 @router.post("/activities/{activity}/learned")

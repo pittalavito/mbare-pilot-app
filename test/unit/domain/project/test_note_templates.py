@@ -69,6 +69,13 @@ def test_a_pre_development_task_keeps_its_suggested_steps():
     assert parse_agent_task(text, "x") == task
 
 
+def test_a_pre_development_task_keeps_its_commands_and_automation():
+    task = AgentTask(title="Build", type=TaskType.POST_DEV, steps=["pulisci"], commands=["mvn -B clean install", "git pull"], automation="Prova git")
+    text = render_agent_task(task)
+    assert "Automation: Prova git" in text and "## Comandi\n- `mvn -B clean install`\n- `git pull`" in text
+    assert parse_agent_task(text, "x") == task
+
+
 def test_markdown_headings_inside_a_section_do_not_cut_it():
     context = "Dalla issue NAV-7.\n\n## Passi\n\n1. apri\n\n## Atteso\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n\n# Titolo grande\nfine"
     task = AgentTask(title="Da Jira", context=context, constraints="Nessuno", references=["context-reference-nav-7.md"])

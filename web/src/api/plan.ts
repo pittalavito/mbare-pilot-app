@@ -103,6 +103,23 @@ export function useMarkDone(project: string, activity: string) {
   });
 }
 
+/** «🤖 Automatico» on a pre/post development task (plan 25): its commands, then its automation, run by the worker;
+ * ``pending_commands`` = commands not allowed, nothing started (answer them, then again). */
+export function useStartAuto(project: string, activity: string) {
+  const refresh = useRefresh(project, activity);
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (task: string) =>
+      unwrap(api.POST("/projects/{project}/activities/{activity}/plan/auto", { params: { path: { project, activity } }, body: { task } })),
+    onSuccess: () => {
+      refresh();
+      queryClient.invalidateQueries({ queryKey: ["projects", project, "command-requests"] });
+    },
+  });
+}
+
+export type OperationRun = components["schemas"]["OperationRun"];
+
 export type PlanOptions = components["schemas"]["PlanOptions"];
 
 /** The automatic ok to Copilot's plan. */

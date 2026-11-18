@@ -67,6 +67,10 @@ class AgentTaskBody(BaseModel):
     """``run_tests``: ``all`` or ``touched`` tests; null = the project's default."""
     steps: list[str] = []
     """The suggested steps of a pre/post development task (plan 22)."""
+    commands: list[str] = []
+    """A pre/post development task's commands, one each (plan 25)."""
+    automation: str = ""
+    """A pre/post development task's automation of the project, by name; ``""`` = none."""
 
     def to_task(self) -> AgentTask:
         return AgentTask(**self.model_dump(exclude={"criteria"}), criteria=[ChecklistItem(**item.model_dump()) for item in self.criteria])

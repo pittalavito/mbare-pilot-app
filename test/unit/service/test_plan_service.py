@@ -267,6 +267,28 @@ def test_model_input_without_items_repositories_or_context():
     text = model_input(Activity(title="Vuota"), {}, [], [])
     assert "(nessuna)" in text and "Repository: (nessuno)" in text and "Contesto" not in text
     assert "(cartella del progetto)" in model_input(Activity(title="X"), {}, [""], [])
+    assert "Automation del progetto (per pre_dev e post_dev):\n(nessuna)" in text
+    with_automations = model_input(Activity(title="X"), {}, [], [], automations={"Prova git": "Stato  git", "Muta": ""})
+    assert "- Prova git: Stato git\n- Muta" in with_automations
+
+
+def test_the_pianificatore_proposes_commands_and_a_known_automation(service, activity, client, project_data_service):
+    service._pipelines = SimpleNamespace(runnable_pipelines=lambda project_name: [SimpleNamespace(name="Prova git", description="stato")])
+    client.answer = PlanAnswer(tasks=[
+        PlannedTask(title="Branch", type=TaskType.PRE_DEV, repository="api", commands=["git pull", " "], automation="Prova git"),
+        PlannedTask(title="Pulisci", type=TaskType.POST_DEV, repository="api", automation="Inventata"),
+        PlannedTask(title="Login", type=TaskType.DEVELOPMENT, repository="api", commands=["rm -rf /"], automation="Prova git"),
+    ])
+    plan = service.propose("acme", activity)
+
+    assert "- Prova git: stato" in client.calls[0]["input"]
+    pre, post, login = plan.proposals
+    assert (pre.commands, pre.automation) == (["git pull"], "Prova git")
+    assert post.automation == "" and (login.commands, login.automation) == ([], "")
+    created = service.confirm("acme", activity, [PlanChoice(id=1, title="Branch", type=TaskType.PRE_DEV, commands=pre.commands, automation=" Prova git "),
+                                                 PlanChoice(id=3, title="Login", type=TaskType.DEVELOPMENT, commands=["x"], automation="y")])
+    first, second = (project_data_service.agent_task("acme", item.task) for item in created.tasks)
+    assert (first.commands, first.automation) == (["git pull"], "Prova git") and (second.commands, second.automation) == ([], "")
 
 
 def test_the_round_starts_with_avvia_and_delegates_by_itself(service, activity, copilot, stores, project_data_service):

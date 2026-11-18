@@ -19,7 +19,7 @@
 3. **Path** (no LLM): for each task its steps, derived from the task's status
    and its latest Copilot session: delegation, Copilot's plan, execution, final
    confirmation (developments), or Copilot's answer (the types that do not
-   change the code), or «Dev o a mano» (pre/post development: never Copilot).
+   change the code), or «Automatico o a mano» (pre/post development: never Copilot; plan 25).
    The steps waiting for the user are the control points.
 4. **Round** (the worker, no LLM of its own): started with «▶️ Avvia», stopped
    with «⏸ Pausa». At the current task (a task moved back to refinement waits)
@@ -43,6 +43,7 @@ from models.domain.plan import (
     STEP_LABELS,
     ActivityPath,
     ActivityPlan,
+    OperationState,
     PathStep,
     PathTask,
     PlanAnswer,
@@ -57,6 +58,7 @@ from models.domain.plan import (
 from service.copilot_service import CopilotService
 from service.git_service import GitService
 from service.masking_service import MaskingService
+from service.pipeline_service import PipelineService
 from service.project_data_service import ProjectDataService
 from service.rag_service import RagService
 from service.store.plan_store import PlanStore
@@ -80,7 +82,7 @@ class PlanService:
 
     def __init__(self, project_data: ProjectDataService, masking: MaskingService, agents: StructuredAgentService,
                  plans: PlanStore, git: GitService, rag: RagService | None = None,
-                 copilot: CopilotService | None = None):
+                 copilot: CopilotService | None = None, pipelines: PipelineService | None = None):
         self._data = project_data
         self._masking = masking
         self._agents = agents
@@ -88,6 +90,7 @@ class PlanService:
         self._git = git
         self._rag = rag
         self._copilot = copilot
+        self._pipelines = pipelines
 
     def plan(self, project_name: str, activity_name: str) -> ActivityPlan:
         """The activity's plan, a new empty one (not saved) when it has none yet."""
@@ -107,19 +110,26 @@ class PlanService:
         agent = self._agents.agent(PLAN_AGENT, PLAN)
         entries = self._masking.entries(project_name)
         references = self._reference_titles(project_name, activity)
+        automations = self._automations(project_name)
         masked = masked_text(model_input(activity, open_items, repositories, self._context(project_name, activity), references,
-                                         self._rules(project_name)), entries)
+                                         self._rules(project_name), automations), entries)
         call = self._agents.call(agent, masked.text)
 
         clear = lambda text: unmask(text, entries, masked.temporary).strip()  # noqa: E731
         answer = call.answer if isinstance(call.answer, PlanAnswer) else None
-        proposals = to_proposals(answer, open_items, repositories, clear) if answer else []
+        proposals = to_proposals(answer, open_items, repositories, clear, list(automations)) if answer else []
         run_id = self._agents.save(call, project_name=project_name, origin=RunOrigin.PLAN, input=unmask(masked.text, entries, masked.temporary),
                                    output=json.dumps([proposal.model_dump(mode="json") for proposal in proposals], ensure_ascii=False))
         if call.error is not None:
             raise UpstreamError(f"Il Pianificatore non ha risposto: {call.error}")
         return self._plans.save(plan.model_copy(update={
             "run_id": run_id, "proposals": proposals, "cost_eur": round(plan.cost_eur + call.telemetry.total_tokens.cost_eur, 6)}))
+
+    def _automations(self, project_name: str) -> dict[str, str]:
+        """The project's automations that can be started, name → description (the Pianificatore picks one for a pre/post task)."""
+        if self._pipelines is None:
+            return {}
+        return {pipeline.name: pipeline.description for pipeline in self._pipelines.runnable_pipelines(project_name)}
 
     def _reference_titles(self, project_name: str, activity: Activity) -> list[str]:
         """The titles of the activity's references; one that is gone is left out."""
@@ -168,7 +178,7 @@ class PlanService:
             task = self._data.create_agent_task(project_name, AgentTask(
                 title=choice.title.strip(), status=TaskStatus.TODO, type=choice.type, objective=choice.objective.strip(), context=context,
                 criteria=[ChecklistItem(text=text.strip()) for text in choice.criteria if text.strip()], references=activity.references,
-                steps=[step.strip() for step in choice.steps if step.strip()] if choice.type.operations else []))
+                **_operation_fields(choice)))
             for number in items:
                 self._data.link_item(project_name, plan.activity, number, task)
             self._data.link_agent_task(project_name, plan.activity, task)
@@ -230,8 +240,11 @@ class PlanService:
 
     def _steps(self, plan: ActivityPlan, planned: PlanTask, task: AgentTask, session: CopilotSession | None) -> list[PathStep]:
         done = task.status is TaskStatus.DONE
-        if task.type.operations:  # Dev or the user, then «Fatto»
-            return _path_steps([(StepKey.OPERATION, StepState.DONE if done else StepState.YOU, "")])
+        if task.type.operations:  # «🤖 Automatico» or by hand, then «Fatto»
+            run = plan.operations.get(planned.task)
+            state = StepState.DONE if done else {OperationState.QUEUED: StepState.RUNNING, OperationState.RUNNING: StepState.RUNNING,
+                                                  OperationState.FAILED: StepState.FAILED}.get(run.state, StepState.YOU) if run else StepState.YOU
+            return _path_steps([(StepKey.OPERATION, state, run.error if run and state is StepState.FAILED else "")])
         steps: list[tuple[StepKey, StepState, str]] = []
         error = plan.errors.get(step_id(planned.task, StepKey.DELEGATE), "")
         if error:
@@ -379,8 +392,16 @@ def _path_steps(steps: list[tuple[StepKey, StepState, str]]) -> list[PathStep]:
     return [PathStep(key=key, label=STEP_LABELS[key], state=state, detail=detail) for key, state, detail in steps]
 
 
+def _operation_fields(choice: PlanChoice) -> dict:
+    """Steps, commands and automation: only a pre/post development task has them."""
+    if not choice.type.operations:
+        return {}
+    clean = lambda values: [value.strip() for value in values if value.strip()]  # noqa: E731
+    return {"steps": clean(choice.steps), "commands": clean(choice.commands), "automation": choice.automation.strip()}
+
+
 def model_input(activity: Activity, items: dict[int, str], repositories: list[str], context: list[str], references: list[str] | None = None,
-                rules: str = "") -> str:
+                rules: str = "", automations: dict[str, str] | None = None) -> str:
     """The text the Pianificatore gets, before masking."""
     lines = [f"Attività: {activity.title}"]
     if activity.description.strip():
@@ -392,15 +413,18 @@ def model_input(activity: Activity, items: dict[int, str], repositories: list[st
     lines.append("\nRepository: " + (", ".join(path or "(cartella del progetto)" for path in repositories) or "(nessuno)"))
     lines.append(f"Tipi di task: {_TYPES}")
     lines.append(f"\nRegole di sviluppo del progetto (prima e dopo ogni sviluppo):\n{rules}" if rules else f"\n{_DEFAULT_RULES}")
+    lines.append("\nAutomation del progetto (per pre_dev e post_dev):")
+    lines += [f"- {name}: {' '.join(description.split())}" if description.strip() else f"- {name}" for name, description in (automations or {}).items()] or [
+        "(nessuna)"]
     if context:
         lines.append("\nContesto del progetto:")
         lines += [f"- {piece}" for piece in context]
     return "\n".join(lines)
 
 
-def to_proposals(answer: PlanAnswer, items: dict[int, str], repositories: list[str], clear) -> list[PlanProposal]:
+def to_proposals(answer: PlanAnswer, items: dict[int, str], repositories: list[str], clear, automations: list[str] | None = None) -> list[PlanProposal]:
     """The answer in clear; items not in the list are dropped (a task left without any is «new»),
-    a repository not in the project is left empty, a task without a title is dropped."""
+    a repository or an automation not in the project is left empty, a task without a title is dropped."""
     proposals: list[PlanProposal] = []
     for raw in answer.tasks:
         title = clear(raw.title)
@@ -413,5 +437,7 @@ def to_proposals(answer: PlanAnswer, items: dict[int, str], repositories: list[s
             items=numbers, item_texts=[items[number] for number in numbers], new=not numbers, reason=clear(raw.reason),
             objective=clear(raw.objective), criteria=[clear(text) for text in raw.criteria if text.strip()],
             steps=[clear(text) for text in raw.steps if text.strip()] if raw.type.operations else [],
+            commands=[clear(text) for text in raw.commands if text.strip()] if raw.type.operations else [],
+            automation=automation if raw.type.operations and (automation := clear(raw.automation)) in (automations or []) else "",
         ))
     return proposals

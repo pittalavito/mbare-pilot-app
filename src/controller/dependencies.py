@@ -21,6 +21,7 @@ from service.learn_service import LearnService
 from service.masking_service import MaskingService
 from service.metrics_service import MetricsService
 from service.model_service import ModelService
+from service.operation_service import OperationService
 from service.pipeline_service import PipelineService
 from service.plan_service import PlanService
 from service.process_service import ProcessService
@@ -140,6 +141,10 @@ def today_service(request: Request) -> TodayService:
 
 def plan_service(request: Request) -> PlanService:
     return request.app.state.container.plan_service
+
+
+def operation_service(request: Request) -> OperationService:
+    return request.app.state.container.operation_service
 
 
 def activity_draft_service(request: Request) -> ActivityDraftService:

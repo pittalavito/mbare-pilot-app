@@ -2218,6 +2218,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/activities/{activity}/plan/auto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Auto
+         * @description «🤖 Automatico» on a pre/post development task (plan 25): its commands, then its automation, run by the worker;
+         *     commands not allowed come back first, nothing started.
+         */
+        post: operations["start_auto_projects__project__activities__activity__plan_auto_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project}/activities/{activity}/learned": {
         parameters: {
             query?: never;
@@ -2576,6 +2597,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/commands/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Command
+         * @description «✋ A mano» (plan 25): one command in a repository of the project, if allowed (or granted once);
+         *     else it becomes a request and nothing runs.
+         */
+        post: operations["run_command_projects__project__commands_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project}/agent-tasks/{note}/publish": {
         parameters: {
             query?: never;
@@ -2812,6 +2854,13 @@ export interface components {
              */
             approved: string[];
             /**
+             * Operations
+             * @default {}
+             */
+            operations: {
+                [key: string]: components["schemas"]["OperationRun"];
+            };
+            /**
              * Created At
              * Format: date-time
              */
@@ -2982,6 +3031,16 @@ export interface components {
              * @default []
              */
             steps: string[];
+            /**
+             * Commands
+             * @default []
+             */
+            commands: string[];
+            /**
+             * Automation
+             * @default
+             */
+            automation: string;
         };
         /** AgentTaskResponse */
         AgentTaskResponse: {
@@ -3022,6 +3081,16 @@ export interface components {
              * @default []
              */
             steps: string[];
+            /**
+             * Commands
+             * @default []
+             */
+            commands: string[];
+            /**
+             * Automation
+             * @default
+             */
+            automation: string;
             /** Name */
             name: string;
         };
@@ -3064,6 +3133,16 @@ export interface components {
              * @default []
              */
             steps: string[];
+            /**
+             * Commands
+             * @default []
+             */
+            commands: string[];
+            /**
+             * Automation
+             * @default
+             */
+            automation: string;
             /** Name */
             name: string;
             /**
@@ -3142,6 +3221,15 @@ export interface components {
             display_name: string;
             /** Email */
             email: string | null;
+        };
+        /** AutoResponse */
+        AutoResponse: {
+            plan: components["schemas"]["ActivityPlan"];
+            /**
+             * Pending Commands
+             * @default []
+             */
+            pending_commands: string[];
         };
         /**
          * AutomationCacheEntryRequest
@@ -3479,6 +3567,28 @@ export interface components {
             repository: string;
             /** Command */
             command: string;
+        };
+        /** CommandRunRequest */
+        CommandRunRequest: {
+            /**
+             * Repository
+             * @default
+             */
+            repository: string;
+            /** Command */
+            command: string;
+        };
+        /** CommandRunResponse */
+        CommandRunResponse: {
+            /** Allowed */
+            allowed: boolean;
+            /** Exit Code */
+            exit_code?: number | null;
+            /**
+             * Output
+             * @default
+             */
+            output: string;
         };
         /** CommitResponse */
         CommitResponse: {
@@ -4418,6 +4528,32 @@ export interface components {
              */
             description: string;
         };
+        /**
+         * OperationRun
+         * @description The commands, then the automation, of a pre/post development task, run by the worker without an agent.
+         */
+        OperationRun: {
+            /** @default queued */
+            state: components["schemas"]["OperationState"];
+            /**
+             * Output
+             * @default
+             */
+            output: string;
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+            /** Pipeline Run Id */
+            pipeline_run_id?: number | null;
+        };
+        /**
+         * OperationState
+         * @description «🤖 Automatico» of a pre/post development task (plan 25).
+         * @enum {string}
+         */
+        OperationState: "queued" | "running" | "failed" | "done";
         /** PathStep */
         PathStep: {
             key: components["schemas"]["StepKey"];
@@ -4548,6 +4684,16 @@ export interface components {
              * @default []
              */
             steps: string[];
+            /**
+             * Commands
+             * @default []
+             */
+            commands: string[];
+            /**
+             * Automation
+             * @default
+             */
+            automation: string;
         };
         /** PlanConfirmRequest */
         PlanConfirmRequest: {
@@ -4607,9 +4753,20 @@ export interface components {
             criteria?: string[];
             /**
              * Steps
-             * @description Solo per pre_dev e post_dev: i passi da fare, uno per riga (comandi git, maven o altri); vuoto per gli altri tipi.
+             * @description Solo per pre_dev e post_dev: i passi da fare a parole, uno per riga; vuoto per gli altri tipi.
              */
             steps?: string[];
+            /**
+             * Commands
+             * @description Solo per pre_dev e post_dev: i comandi shell da lanciare nel repository, uno per voce (es. mvn -B clean install); vuoto per gli altri tipi.
+             */
+            commands?: string[];
+            /**
+             * Automation
+             * @description Solo per pre_dev e post_dev: il nome di un'automation del progetto da lanciare dopo i comandi, una dell'elenco; vuoto se non serve.
+             * @default
+             */
+            automation: string;
             /** Id */
             id: number;
             /**
@@ -10301,6 +10458,42 @@ export interface operations {
             };
         };
     };
+    start_auto_projects__project__activities__activity__plan_auto_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                activity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutoResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     propose_learned_projects__project__activities__activity__learned_post: {
         parameters: {
             query?: never;
@@ -10997,6 +11190,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_command_projects__project__commands_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommandRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommandRunResponse"];
+                };
             };
             /** @description Validation Error */
             422: {
