@@ -75,13 +75,22 @@ python resource/scripts/eval-wip.py --model openrouter/google/gemini-3.1-flash-l
 python resource/scripts/eval-rag.py --embedder hashing --embedder openrouter/openai/text-embedding-3-small
 ```
 
+## Richieste di tool con Claude Code
+
+Quando a un'automation manca un tool, l'Architetto (dopo il tuo ok) scrive una **richiesta di tool**: la trovi in **Admin → Richieste di tool**. La lavora **Claude Code** sul PC dove gira l'app, nel clone di questo repository:
+
+1. In Admin → Richieste di tool premi «Genera il token» e copia il comando.
+2. Nella cartella del clone di mbare-pilot-app lancia il comando (`claude mcp add --transport http mbare-pilot-dev …`).
+3. Apri Claude Code lì e chiedi «lavora le richieste di tool»: legge le richieste dal server MCP dell'app, scrive il tool con i test, apre la PR e segna la richiesta fatta.
+4. Unita la PR e riavviata l'app, il tool è nel catalogo: riprendi l'automation con l'Architetto.
+
 ## Frontend
 
 React + Vite + Mantine in `web/` ([web/README.md](web/README.md)): parla **solo** con l'API, sotto `/api`.
 
 - **Progetti**: Chat, Automation, Dati, Git, Atlassian, Impostazioni (Atlassian, mascheramento, definizioni, agenti del progetto)
 - **Libreria**: agenti, ruoli, prompt versionati, tool globali
-- **Admin**: Servizi, Observability, Modelli, Backup
+- **Admin**: Servizi, Observability, Modelli, Backup, Tool, Richieste di tool
 
 Nell'intestazione: lo stato dell'API, il **worker** (avvia/ferma, lo gestisce l'API) e i log di API e worker.
 

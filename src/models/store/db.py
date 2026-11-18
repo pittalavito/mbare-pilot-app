@@ -382,7 +382,10 @@ class ActivityPlanTable(SQLModel, table=True):
     prepare: str = "dev"
     skipped: list[str] | None = Field(default=None, sa_type=JSON)
     errors: dict | None = Field(default=None, sa_type=JSON)
+    prepare_fields: dict | None = Field(default=None, sa_type=JSON)
     after_automation: int | None = None
+    after_fields: dict | None = Field(default=None, sa_type=JSON)
+    task_fields: dict | None = Field(default=None, sa_type=JSON)
     automation_runs: dict | None = Field(default=None, sa_type=JSON)
     auto_approve: bool = False
     approved: list[str] | None = Field(default=None, sa_type=JSON)
@@ -545,3 +548,30 @@ class ChatModelTable(SQLModel, table=True):
     input_per_1m: float = 0.0
     output_per_1m: float = 0.0
     active: bool = True
+
+
+class ToolRequestTable(SQLModel, table=True):
+    """Requests of tools for Claude Code (plan 20): of the whole app, not of a project (no FK: the project can go)."""
+    __tablename__ = "tool_request"
+
+    id: int | None = Field(default=None, primary_key=True)
+    title: str
+    objective: str = Field(default="", sa_type=Text)
+    criteria: list[str] = Field(default_factory=list, sa_type=JSON)
+    project_name: str = ""
+    automation: str = ""
+    activity: str = ""
+    status: str = "open"
+    pr_url: str = ""
+    reason: str = Field(default="", sa_type=Text)
+    created_at: datetime = _timestamp()
+    updated_at: datetime = _timestamp()
+
+
+class DevAccessTable(SQLModel, table=True):
+    """The token of Claude Code's MCP server (one row): only its hash is kept."""
+    __tablename__ = "dev_access"
+
+    id: int = Field(default=1, primary_key=True)
+    token_hash: str
+    created_at: datetime = _timestamp()

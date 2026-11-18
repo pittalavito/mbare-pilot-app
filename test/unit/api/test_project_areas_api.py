@@ -49,7 +49,7 @@ def _chatbot(client, name="Bot", **overrides) -> dict:
 def test_chatbot_crud_and_prompt_version(default_chatbots, client):
     bot = _chatbot(client)
     # the ones of global-chat-bots.yml too
-    assert [b["name"] for b in client.get("/projects/acme/chatbots").json()] == ["Architetto", "Bot", "Operatore Java", "Refiner", "Segretario"]
+    assert [b["name"] for b in client.get("/projects/acme/chatbots").json()] == ["Architetto", "Bot", "Dev", "Refiner", "Segretario"]
 
     body = {"name": "Bot 2", "system_prompt": "Nuovo prompt.", "model": MODEL, "max_steps": 6}
     updated = client.put(f"/chatbots/{bot['id']}", json=body).json()

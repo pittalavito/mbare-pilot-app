@@ -1,5 +1,5 @@
 import {
-  ActionIcon, Alert, Anchor, Badge, Button, Card, Group, Loader, MultiSelect, Select, Stack, Switch, Text, TextInput, Textarea, UnstyledButton,
+  ActionIcon, Alert, Anchor, Badge, Button, Card, Group, Loader, Modal, MultiSelect, Select, Stack, Switch, Text, TextInput, Textarea, UnstyledButton,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useEffect, useState } from "react";
@@ -9,8 +9,10 @@ import { usePipelines } from "../../api/automation";
 import { useRepositories } from "../../api/git";
 import {
   type ActivityPath, type ActivityPlan, type PathStep, type PathTask, type PlanChoice, useActivityPath, useCloseActivity, useConfirmPlan,
-  useDismissPlan, usePausePlan, useProposeLearned, useProposePlan, useReopenActivity, useRetryStep, useSetPlanOptions, useSkipStep,
+  useDismissPlan, usePausePlan, useProposeLearned, useProposePlan, useReopenActivity, useRetryStep, useSaveTaskFields, useSetPlanOptions, useSkipStep,
+  useTaskFields,
 } from "../../api/plan";
+import { useStartWorker, useWorkerState } from "../../api/worker";
 import { type Activity, type ActivityBody, useAgentTasks, useDeleteNote, useSaveActivity, useSaveAgentTask } from "../../api/projectData";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { eur } from "../../format";
@@ -322,10 +324,28 @@ function Work({ project, activity, path, onBack, onNext }: { project: string; ac
   const automations = (pipelines.data ?? []).filter((pipeline) => pipeline.active && pipeline.steps.length);
   const current = path.tasks.find((task) => task.current);
   const started = path.tasks.some((task) => task.status !== "todo" || task.session_id);
-  const settings = { prepare: plan.prepare ?? "dev", after_automation: plan.after_automation ?? null, auto_approve: !!plan.auto_approve };
+  const settings = {
+    prepare: plan.prepare ?? "dev", prepare_fields: plan.prepare_fields ?? {}, after_automation: plan.after_automation ?? null,
+    after_fields: plan.after_fields ?? {}, auto_approve: !!plan.auto_approve,
+  };
   const pick = (task: string) => setSearch({ note: activity, step: "work", task }, { replace: true });
+  const prepareAutomation = automations.find((pipeline) => `automation:${pipeline.id}` === settings.prepare);
+  const prepareNames = settings.prepare === "dev" ? ["branch", "base"] : prepareAutomation?.fields ?? [];
+  const afterNames = automations.find((pipeline) => pipeline.id === settings.after_automation)?.fields ?? [];
+  const worker = useWorkerState();
+  const startWorker = useStartWorker();
+  const workerStopped = worker.data?.status === "stopped";
   return (
     <Stack gap="sm">
+      {workerStopped && current && (
+        <Alert color="red" p="xs" title="Il worker è fermo: il giro non parte">
+          <Group gap="xs">
+            <Text size="sm">Preparazione, delega e automation del giro le fa il worker. La delega a mano funziona lo stesso.</Text>
+            <Button size="compact-sm" onClick={() => startWorker.mutate()} loading={startWorker.isPending}>Avvia il worker</Button>
+          </Group>
+          {startWorker.error && <Text size="xs" c="red" mt={4}>{startWorker.error.message}</Text>}
+        </Alert>
+      )}
       {current ? (
         <Alert color={plan.paused ? "orange" : "blue"} p="xs">
           {plan.paused
@@ -348,6 +368,10 @@ function Work({ project, activity, path, onBack, onNext }: { project: string; ac
             data={automations.map((pipeline) => ({ value: String(pipeline.id), label: pipeline.name }))}
             onChange={(value) => options.mutate({ ...settings, after_automation: value === null ? null : Number(value) })} />
         </Group>
+        <FieldsTemplate label="Campi prima di delegare" names={prepareNames} values={settings.prepare_fields}
+          onSave={(prepare_fields) => options.mutate({ ...settings, prepare_fields })} />
+        <FieldsTemplate label="Campi dopo la verifica" names={afterNames} values={settings.after_fields}
+          onSave={(after_fields) => options.mutate({ ...settings, after_fields })} />
         <Switch mt="sm" size="sm" label="Parti senza chiedermi l'ok al piano di Copilot" checked={settings.auto_approve}
           onChange={(event) => options.mutate({ ...settings, auto_approve: event.currentTarget.checked })} />
         <Text size="xs" c="dimmed" mt={6}>
@@ -360,7 +384,8 @@ function Work({ project, activity, path, onBack, onNext }: { project: string; ac
       </Card>
       {path.tasks.map((task, position) => (
         <TaskRow key={task.task} project={project} activity={activity} task={task} number={position + 1} paused={!!plan.paused}
-          selected={selected === task.task} onPick={() => pick(task.task)} />
+          selected={selected === task.task} onPick={() => pick(task.task)} fieldSteps={[...(prepareNames.length ? ["prepare" as const] : []),
+            ...(afterNames.length ? ["after" as const] : [])]} />
       ))}
       <Group justify="space-between" pt="sm" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
         <Button variant="default" onClick={onBack}>← Pianifica (aggiungi task)</Button>
@@ -370,9 +395,12 @@ function Work({ project, activity, path, onBack, onNext }: { project: string; ac
   );
 }
 
-function TaskRow({ project, activity, task, number, paused, selected, onPick }: {
+function TaskRow({ project, activity, task, number, paused, selected, onPick, fieldSteps }: {
   project: string; activity: string; task: PathTask; number: number; paused: boolean; selected: boolean; onPick: () => void;
+  /** The steps with fields (prepare, after): «⚙️ Campi» while the task has not started. */
+  fieldSteps: ("prepare" | "after")[];
 }) {
+  const [editingFields, setEditingFields] = useState(false);
   const [, setSearch] = useSearchParams();
   const skip = useSkipStep(project, activity);
   const retry = useRetryStep(project, activity);
@@ -406,6 +434,9 @@ function TaskRow({ project, activity, task, number, paused, selected, onPick }: 
         </Group>
         <Group gap={4}>{steps.map((step) => <StepBadge key={step.key} step={step} />)}</Group>
         <Group gap="xs" onClick={stop}>
+          {task.type === "development" && !task.session_id && task.status !== "done" && !!fieldSteps.length && (
+            <Button size="compact-xs" variant="subtle" onClick={() => setEditingFields(true)}>⚙️ Campi</Button>
+          )}
           {refining && (
             <>
               <Text size="xs" c="dimmed">In rifinitura: il giro aspetta che il task torni «da fare».</Text>
@@ -463,6 +494,9 @@ function TaskRow({ project, activity, task, number, paused, selected, onPick }: 
       </Stack>
       {delegating && <DelegateModal project={project} task={task.task} repository={task.repository} opened onClose={() => setDelegating(false)} />}
       {sendingBack && <SendBackModal project={project} task={task.task} opened onClose={() => setSendingBack(false)} />}
+      {editingFields && (
+        <TaskFieldsModal project={project} activity={activity} task={task} steps={fieldSteps} onClose={() => setEditingFields(false)} />
+      )}
     </Card>
   );
 }
@@ -473,6 +507,80 @@ function StepBadge({ step }: { step: PathStep }) {
     <Badge size="sm" variant={step.state === "you" ? "filled" : "light"} color={state.color} title={`${step.label}: ${state.label}${step.detail ? ` · ${step.detail}` : ""}`}>
       {state.icon} {step.label}
     </Badge>
+  );
+}
+
+const PLACEHOLDERS = "{task} = nome del task, {note} = la sua nota, {repository} = il suo repository, {base} = il branch corrente del repository";
+const DEFAULT_FIELDS: Record<string, string> = { branch: "feature/{task}", base: "{base}", repository: "{repository}", task: "{note}" };
+
+/** The fields of an automation as a template for every task of the activity: saved when a field is left. */
+function FieldsTemplate({ label, names, values, onSave }: {
+  label: string; names: string[]; values: Record<string, string>; onSave: (values: Record<string, string>) => void;
+}) {
+  const initial = () => Object.fromEntries(names.map((name) => [name, values[name] ?? DEFAULT_FIELDS[name] ?? ""]));
+  const [form, setForm] = useState<Record<string, string>>(initial);
+  const key = JSON.stringify([names, values]);
+  useEffect(() => setForm(initial()), [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!names.length) return null;
+  const save = () => { if (JSON.stringify(form) !== JSON.stringify(initial())) onSave({ ...values, ...form }); };
+  return (
+    <Stack gap={4} mt="sm">
+      <Text size="sm" fw={500}>{label}</Text>
+      <Group gap="xs" grow>
+        {names.map((name) => (
+          <TextInput key={name} size="xs" label={name} value={form[name] ?? ""} onBlur={save}
+            onChange={(event) => { const value = event.currentTarget.value; setForm((current) => ({ ...current, [name]: value })); }} />
+        ))}
+      </Group>
+      <Text size="xs" c="dimmed">Valgono per ogni task, ognuno con i suoi valori: {PLACEHOLDERS}. Per un'eccezione: «⚙️ Campi» sulla riga del task.</Text>
+    </Stack>
+  );
+}
+
+/** «⚙️ Campi» of one task: its fields, resolved, to correct for it alone (or back to the activity's ones). */
+function TaskFieldsModal({ project, activity, task, steps, onClose }: {
+  project: string; activity: string; task: PathTask; steps: ("prepare" | "after")[]; onClose: () => void;
+}) {
+  return (
+    <Modal opened onClose={onClose} title={`⚙️ Campi di «${task.title}»`} size="lg" onClick={(event) => event.stopPropagation()}>
+      <Stack gap="md">
+        <Text size="sm" c="dimmed">Già risolti per questo task (repository {task.repository || "nessuno"}). Cambiali solo se questo task è un'eccezione.</Text>
+        {steps.map((step) => <TaskFieldsStep key={step} project={project} activity={activity} task={task.task} step={step} />)}
+        <Group justify="flex-end"><Button variant="default" onClick={onClose}>Chiudi</Button></Group>
+      </Stack>
+    </Modal>
+  );
+}
+
+function TaskFieldsStep({ project, activity, task, step }: { project: string; activity: string; task: string; step: "prepare" | "after" }) {
+  const fields = useTaskFields(project, activity, task, step, true);
+  const save = useSaveTaskFields(project, activity);
+  const [form, setForm] = useState<Record<string, string>>();
+  useEffect(() => { if (fields.data) setForm(fields.data.fields ?? {}); }, [fields.data]);
+  if (fields.error) return <Alert color="red" p="xs">{fields.error.message}</Alert>;
+  if (!fields.data || !form) return <Loader size="xs" />;
+  const title = step === "prepare" ? "Prima di delegare" : "Dopo la verifica";
+  return (
+    <Card withBorder p="sm">
+      <Stack gap="xs">
+        <Group justify="space-between">
+          <Text size="sm" fw={600}>{title}: {fields.data.automation || "niente"}</Text>
+          {fields.data.own && <Badge size="xs" color="orange" variant="light">campi di questo task</Badge>}
+        </Group>
+        {Object.keys(form).map((name) => (
+          <TextInput key={name} size="xs" label={name} value={form[name]}
+            onChange={(event) => { const value = event.currentTarget.value; setForm((current) => ({ ...current, [name]: value })); }} />
+        ))}
+        {save.error && <Text size="xs" c="red">{save.error.message}</Text>}
+        <Group gap="xs">
+          <Button size="xs" onClick={() => save.mutate({ task, step, fields: form }, { onSuccess: () => notifications.show({ message: `${title}: campi salvati per il task.` }) })}
+            loading={save.isPending}>Salva per questo task</Button>
+          {fields.data.own && (
+            <Button size="xs" variant="subtle" onClick={() => save.mutate({ task, step, fields: {} })}>Torna ai campi dell'attività</Button>
+          )}
+        </Group>
+      </Stack>
+    </Card>
   );
 }
 

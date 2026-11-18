@@ -6,6 +6,7 @@ and for Observability (/observability/copilot/...)."""
 from fastapi import APIRouter, Depends, Response, status
 
 from controller.dependencies import copilot_service
+from controller.mcp_server import MCP_TOOLS
 from models.controller.copilot import (
     CopilotDeletedResponse,
     CopilotMessageRequest,
@@ -18,6 +19,7 @@ from models.controller.copilot import (
     CopilotSessionUsageResponse,
     CopilotStatusResponse,
     CopilotTurnResponse,
+    McpToolResponse,
 )
 from service.copilot_service import CopilotService
 
@@ -36,6 +38,8 @@ def copilot_status(project: str | None = None, service: CopilotService = Depends
         prompts=list(settings.prompts) if settings else [],
         type_prompts={kind.value: name for kind, name in settings.type_prompts.items()} if settings else {},
         models=[CopilotModelOptionResponse.from_option(model, usage) for model, usage in service.model_options(settings)] if settings else [],
+        denied_tools=list(settings.denied_tools) if settings else [],
+        mcp_tools=[McpToolResponse(name=name, description=description) for name, description in MCP_TOOLS.items()],
     )
 
 

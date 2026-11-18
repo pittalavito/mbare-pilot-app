@@ -311,11 +311,10 @@ class AutomationValidationResponse(BaseModel):
     edges: list[str] = Field(default_factory=list, description="The edges as they would be saved (the chain when none were written).")
 
 
-class ToolTaskResponse(BaseModel):
-    task: str
+class ToolRequestResponse(BaseModel):
+    request: int = Field(..., description="The request's number.")
     title: str
-    activity: str | None = None
-    link: str = Field(..., description="Link to the task in the app: give it to the user as a markdown link.")
+    link: str = Field(..., description="Link to the request in the app (Admin): give it to the user as a markdown link.")
 
 
 class CommandRunResponse(BaseModel):

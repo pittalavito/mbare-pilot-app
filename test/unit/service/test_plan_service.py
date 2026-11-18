@@ -416,7 +416,14 @@ def test_the_api_of_the_plan_and_of_the_round(project, stores, monkeypatch, proj
         task = confirmed["tasks"][0]["task"]
         assert len(confirmed["tasks"]) == 2 and confirmed["proposals"] == []
         path = client.get(f"/projects/acme/activities/{activity}/path").json()
-        assert path["tasks"][0]["steps"][0] == {"key": "prepare", "label": "Preparazione", "state": "todo", "detail": ""}
+        assert path["tasks"][0]["steps"][0] == {"key": "prepare", "label": "Preparazione", "state": "skipped", "detail": "nessun repository"}
+        fields = client.get(f"{base}/fields", params={"task": task, "step": "prepare"}).json()
+        assert fields == {"task": task, "step": "prepare", "automation": "Prepara sviluppo", "own": False,
+                          "fields": {"branch": f"feature/{task.removeprefix('agent-task-').removesuffix('.md')}", "base": ""}}
+        own = client.put(f"{base}/fields", json={"task": task, "step": "prepare", "fields": {"branch": "hotfix/x", "base": "main"}}).json()
+        assert own["task_fields"] == {f"{task}|prepare": {"branch": "hotfix/x", "base": "main"}}
+        assert client.get(f"{base}/fields", params={"task": task, "step": "prepare"}).json()["own"] is True
+        assert client.get(f"{base}/fields", params={"task": task, "step": "verify"}).status_code == 400
         assert client.post(f"{base}/pause", json={"paused": False}).json()["paused"] is False
         assert client.post(f"{base}/options", json={"prepare": "none", "auto_approve": True}).json()["auto_approve"] is True
         assert client.post(f"{base}/options", json={"prepare": "dev", "after_automation": 999}).status_code == 400
@@ -542,3 +549,75 @@ def test_once_every_task_is_done_the_summary_is_ready(service, activity, copilot
     assert f"✗ {analysis}: cancellato" in service.path("acme", activity).summary
     copilot.list = []
     assert "crediti AI" not in service.path("acme", activity).summary
+
+
+# ------------------------------------------------------------- plan 19: fields
+
+def test_the_fields_are_a_template_resolved_for_each_task(service, activity, copilot, stores, pipeline_store, checks, project_data_service,
+                                                          project):  # noqa: F811
+    from domain.pipeline.graph import linear_edges
+    from models.domain.pipeline import Pipeline, PipelineStep, StepKind
+    step = PipelineStep(name="1. git_fetch", kind=StepKind.TOOL, tool_name="git_fetch", params={"repository": "{in:repository}"})
+    prepare = pipeline_store.save_pipeline(Pipeline(project_name="acme", name="Prepara stack", steps=[step], edges=linear_edges([step]),
+                                                    fields=["repository", "branch", "ticket"]))
+    after = _automation(pipeline_store, "Log", "git_log", fields=["repository", "nota"])
+    plan = _created(service, activity, PlanChoice(id=2, title="Login", type=TaskType.DEVELOPMENT, repository="api", objective="OTP"),
+                    PlanChoice(title="Web", type=TaskType.DEVELOPMENT, repository="web", objective="Pagina"))
+    login, web = (item.task for item in plan.tasks)
+    service.set_options("acme", activity, PlanOptions(prepare=f"automation:{prepare.id}", prepare_fields={"branch": "feat/{task}", "ticket": "NAV-1"},
+                                                      after_automation=after.id, after_fields={"nota": "{note} su {repository}"}))
+
+    assert service.task_fields("acme", activity, web, StepKey.PREPARE).fields == {"repository": "web", "branch": "feat/web", "ticket": "NAV-1"}
+    assert service.task_fields("acme", activity, login, StepKey.AFTER).fields == {"repository": "api", "nota": f"{login} su api"}
+    service.set_task_fields("acme", activity, web, StepKey.PREPARE, {"repository": "web", "branch": "release/2.0"})
+    assert service.task_fields("acme", activity, web, StepKey.PREPARE).fields == {"repository": "web", "branch": "release/2.0", "ticket": "NAV-1"}
+    assert service.task_fields("acme", activity, web, StepKey.PREPARE).own
+
+    service.set_paused("acme", activity, False)
+    service.advance_all()
+    assert copilot.started[0]["learned"].fields == {"repository": "api", "branch": f"feat/{login.removeprefix('agent-task-').removesuffix('.md')}",
+                                                   "ticket": "NAV-1"}
+    task = project_data_service.agent_task("acme", login)
+    project_data_service.save_agent_task("acme", login, task.model_copy(update={"status": TaskStatus.DONE}))
+    copilot.list = []
+    service.advance_all()
+    assert copilot.started[1]["learned"].fields["branch"] == "release/2.0"  # the task's own fields
+
+    task = project_data_service.agent_task("acme", web)
+    project_data_service.save_agent_task("acme", web, task.model_copy(update={"status": TaskStatus.TO_VERIFY}))
+    copilot.list = [_session(4, web, CopilotSessionStatus.DONE)]
+    copilot.events[4] = [VERIFY_OK]
+    service.advance_all()  # the automation after, with the template resolved for this task
+    assert '"nota": "' + web + ' su web"' in pipeline_store.list_pipeline_runs(after.id)[0].input
+    service.set_task_fields("acme", activity, web, StepKey.PREPARE, {})
+    assert not service.task_fields("acme", activity, web, StepKey.PREPARE).own
+
+
+def test_prepara_sviluppo_takes_branch_and_base_from_the_template(service, activity, copilot, stores):
+    plan = _created(service, activity, PlanChoice(id=2, title="Login", type=TaskType.DEVELOPMENT, repository="api", objective="OTP"))
+    service.set_options("acme", activity, PlanOptions(prepare="dev", prepare_fields={"branch": "", "base": "develop"}))
+    assert service.task_fields("acme", activity, plan.tasks[0].task, StepKey.AFTER).fields == {}  # no automation after
+    service.set_paused("acme", activity, False)
+
+    service.advance_all()
+
+    target = copilot.started[0]["prepare"][0]
+    assert target.repository == "api" and target.base == "develop" and target.branch.startswith("feature/")  # an empty branch: the default
+
+
+def test_a_task_without_a_repository_is_not_prepared_unless_the_project_folder_is_one(service, activity, copilot, stores, git_service, monkeypatch):
+    from models.domain.git import GitRepository
+    plan = _created(service, activity, PlanChoice(id=2, title="Ovunque", type=TaskType.DEVELOPMENT, objective="x"))
+    service.set_paused("acme", activity, False)
+    step = next(item for item in service.path("acme", activity).tasks[0].steps if item.key is StepKey.PREPARE)
+    assert (step.state, step.detail) == (StepState.SKIPPED, "nessun repository")
+
+    service.advance_all()
+    assert copilot.started[0]["prepare"] == [] and copilot.started[0]["learned"] is None  # delegated without preparation
+
+    copilot.list = []
+    monkeypatch.setattr(git_service, "repositories", lambda project_name, max_depth=2: [GitRepository(path="", name="acme")])
+    assert _states(service.path("acme", activity).tasks[0])[StepKey.PREPARE] is StepState.TODO  # the project folder is a repository
+    monkeypatch.setattr(git_service, "repositories", lambda project_name, max_depth=2: (_ for _ in ()).throw(NotFoundError("cartella sparita")))
+    assert service._root_is_repository("acme") is False
+    assert plan.tasks[0].repository == ""

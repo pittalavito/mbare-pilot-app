@@ -30,6 +30,7 @@ from service.publish_service import PublishService
 from service.rag_service import RagService
 from service.run_service import RunService
 from service.today_service import TodayService
+from service.tool_request_service import ToolRequestService
 from service.wip_service import WipService
 
 
@@ -147,3 +148,7 @@ def activity_draft_service(request: Request) -> ActivityDraftService:
 
 def activity_close_service(request: Request) -> ActivityCloseService:
     return request.app.state.container.activity_close_service
+
+
+def tool_request_service(request: Request) -> ToolRequestService:
+    return request.app.state.container.tool_request_service

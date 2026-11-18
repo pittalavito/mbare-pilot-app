@@ -10,7 +10,7 @@ from models.domain.project import Project, ProjectSource
 from service.chatbot_service import ChatbotService
 from service.definition_service import DefinitionService
 
-ARCHITECT_TOOLS = ["list_tools", "list_agents", "list_automations", "read_automation", "validate_automation", "create_tool_task"]
+ARCHITECT_TOOLS = ["list_tools", "list_agents", "list_automations", "read_automation", "validate_automation", "request_tool"]
 
 MODEL = "openai/gpt-4o"
 PROJECT_DIR = "project/acme"
@@ -331,7 +331,7 @@ def test_the_chatbots_of_the_files_are_created_where_missing_and_never_changed(s
 
     assert definitions.seed_default_chatbots(["acme"]) == 3
     bots = {bot.name: bot for bot in chatbots.list_chatbots("acme")}
-    assert set(bots) == {"Architetto", "Operatore Java", "Refiner", "segretario"}
+    assert set(bots) == {"Architetto", "Dev", "Refiner", "segretario"}
     assert bots["Refiner"].kind.value == "refiner" and bots["Refiner"].tool_names == [
         "create_code_reference", "read_agent_task", "update_agent_task", "finish_refinement", "search_context",
     ]

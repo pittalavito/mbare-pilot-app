@@ -25,6 +25,7 @@ from service.store.project_file_store import ProjectFileStore
 from service.store.project_store import ProjectStore
 from service.store.rag_store import RagStore
 from service.store.run_store import RunStore
+from service.store.tool_request_store import ToolRequestStore
 from service.store.wip_store import WipStore
 from service.store.worker_store import WorkerStore
 
@@ -49,6 +50,7 @@ class Stores:
         self.plans = PlanStore(self.engine)
         self.rag = RagStore(self.engine)
         self.evaluations = EvaluationStore(self.engine)
+        self.tool_requests = ToolRequestStore(self.engine)
         self.atlassian = AtlassianStore(self.engine, SecretBox(config.secret_key))
         # Redis
         self.workers = WorkerStore(self.redis_client)

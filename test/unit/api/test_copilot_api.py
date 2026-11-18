@@ -66,9 +66,14 @@ def test_delegate_chat_approve_cancel_and_delete(client):
 
 
 def test_status_and_validation(client):
-    assert client.get("/copilot/status").json() == {  # the fake has no --version
+    status = client.get("/copilot/status").json()
+    tools = status.pop("mcp_tools")
+    assert status == {  # the fake has no --version
         "installed": False, "version": None, "definition_error": None, "prompts": [], "type_prompts": {}, "models": [], "default_model": "",
+        "denied_tools": ["shell(git commit)", "shell(git push)", "shell(git reset)"],
     }
+    assert [tool["name"] for tool in tools] == ["read_task", "list_references", "read_reference", "search_context", "ask_user", "finish"]
+    assert all(tool["description"] for tool in tools)
     assert client.get("/copilot/status", params={"project": "acme"}).json()["definition_error"] is None
     assert client.post("/projects/acme/copilot-sessions", json={"task_note": "agent-task-manca.md"}).status_code == 404
 

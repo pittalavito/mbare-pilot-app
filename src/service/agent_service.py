@@ -26,6 +26,7 @@ from service.project_data_service import ProjectDataService
 from service.rag_service import RagService
 from service.store.catalog_store import CatalogStore
 from service.store.run_store import RunStore
+from service.tool_request_service import ToolRequestService
 from tool.context import ToolContext
 from tool.registry import TOOL_REGISTRY, build_tools
 
@@ -46,6 +47,7 @@ class AgentService:
         code_todo_service: CodeTodoService,
         rag_service: RagService | None = None,
         command_service: CommandService | None = None,
+        tool_requests: ToolRequestService | None = None,
     ):
         """``pipeline_service`` lets the agents start automations (tool run_automation);
         ``masking_service`` hides the project's sensitive values from the LLM (a
@@ -69,6 +71,8 @@ class AgentService:
         self._code_todo_service = code_todo_service
         self._rag_service = rag_service
         self._command_service = command_service
+        self._tool_requests = tool_requests
+        """The Architetto's requests of tools (tool request_tool)."""
 
     def try_tool(self, name: str, project_name: str, arguments: dict) -> BaseModel:
         """One tool run by hand (Admin → Tool): on ``project_name``, with ``arguments``, no LLM, no masking and no run
@@ -78,7 +82,7 @@ class AgentService:
             raise NotFoundError(f"Tool non trovato: {name}")
         context = ToolContext(project_name=project_name, git=self._git_service, pipelines=self._pipeline_service, origin=RunOrigin.MANUAL,
                               project_data=self._project_data_service, copilot=self._copilot_service, code_todos=self._code_todo_service,
-                              rag=self._rag_service, commands=self._command_service)
+                              rag=self._rag_service, commands=self._command_service, tool_requests=self._tool_requests)
         try:
             result = spec.build(context)(**arguments)
         except TypeError as exc:
@@ -126,6 +130,7 @@ class AgentService:
             rag=self._rag_service,
             open_note=open_note,
             commands=self._command_service,
+            tool_requests=self._tool_requests,
         )
         tools = mask.wrap(build_tools(definition.tool_names, context))
         agent = AgentFactory.create_agent(definition, client, tools)

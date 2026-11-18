@@ -12,7 +12,7 @@ from datapizza.tools import Tool
 
 from core.error import ValidationError
 from tool.context import ToolContext
-from tool.list.architect.tools import CREATE_TOOL_TASK, LIST_AGENTS, LIST_TOOLS, READ_AUTOMATION, VALIDATE_AUTOMATION
+from tool.list.architect.tools import LIST_AGENTS, LIST_TOOLS, READ_AUTOMATION, REQUEST_TOOL, VALIDATE_AUTOMATION
 from tool.list.automation.automation_status import AUTOMATION_STATUS
 from tool.list.automation.list_automations import LIST_AUTOMATIONS
 from tool.list.automation.run_automation import RUN_AUTOMATION
@@ -66,7 +66,7 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         LIST_AGENTS,
         READ_AUTOMATION,
         VALIDATE_AUTOMATION,
-        CREATE_TOOL_TASK,
+        REQUEST_TOOL,
         LIST_ACTIVITIES,
         READ_ACTIVITY,
         CREATE_ACTIVITY,

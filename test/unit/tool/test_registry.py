@@ -26,7 +26,7 @@ def test_only_the_automation_copilot_and_notes_tools_are_for_chatbots_and_the_ca
         "list_activities", "read_activity", "create_activity", "update_activity", "create_code_reference",
         "list_references", "create_agent_task", "today",
         "read_agent_task", "update_agent_task", "finish_refinement",
-        "list_tools", "list_agents", "read_automation", "validate_automation", "create_tool_task",
+        "list_tools", "list_agents", "read_automation", "validate_automation", "request_tool",
     }
 
     agent_config_service.sync_tools()

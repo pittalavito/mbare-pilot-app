@@ -2128,7 +2128,8 @@ export interface paths {
         put?: never;
         /**
          * Plan Options
-         * @description Before delegating (``none``, ``dev``, ``automation:<id>``), the automation after the verification, the automatic ok.
+         * @description Before delegating (``none``, ``dev``, ``automation:<id>``) and the automation after the verification, each with its
+         *     fields as a template (``{task}``, ``{note}``, ``{repository}``, ``{base}``), and the automatic ok.
          */
         post: operations["plan_options_projects__project__activities__activity__plan_options_post"];
         delete?: never;
@@ -2171,6 +2172,30 @@ export interface paths {
          * @description Run a failed step again: preparation, delegation, automation (at the round's next turn) or the tests (now).
          */
         post: operations["retry_step_projects__project__activities__activity__plan_retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/activities/{activity}/plan/fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Task Fields
+         * @description «⚙️ Campi»: what runs at ``step`` (prepare, after) for the task and its fields, resolved for it.
+         */
+        get: operations["task_fields_projects__project__activities__activity__plan_fields_get"];
+        /**
+         * Save Task Fields
+         * @description The task's own fields for ``step`` (empty = the activity's template again).
+         */
+        put: operations["save_task_fields_projects__project__activities__activity__plan_fields_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2559,6 +2584,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/tool-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Tool Requests */
+        get: operations["list_tool_requests_admin_tool_requests_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/tool-requests/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * New Token
+         * @description A new token (the old one stops working) and the command for Claude Code.
+         */
+        post: operations["new_token_admin_tool_requests_token_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/tool-requests/{request_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss
+         * @description 400 without a reason, 404 for an unknown request.
+         */
+        post: operations["dismiss_admin_tool_requests__request_id__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2713,8 +2795,31 @@ export interface components {
             errors: {
                 [key: string]: string;
             };
+            /**
+             * Prepare Fields
+             * @default {}
+             */
+            prepare_fields: {
+                [key: string]: string;
+            };
             /** After Automation */
             after_automation?: number | null;
+            /**
+             * After Fields
+             * @default {}
+             */
+            after_fields: {
+                [key: string]: string;
+            };
+            /**
+             * Task Fields
+             * @default {}
+             */
+            task_fields: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
             /**
              * Automation Runs
              * @default {}
@@ -3586,6 +3691,16 @@ export interface components {
              * @default
              */
             default_model: string;
+            /**
+             * Denied Tools
+             * @default []
+             */
+            denied_tools: string[];
+            /**
+             * Mcp Tools
+             * @default []
+             */
+            mcp_tools: components["schemas"]["McpToolResponse"][];
         };
         /** CopilotTurnResponse */
         CopilotTurnResponse: {
@@ -3746,6 +3861,11 @@ export interface components {
             suggested_commands: string[];
             /** Operator Chatbot Id */
             operator_chatbot_id: number | null;
+        };
+        /** DismissRequest */
+        DismissRequest: {
+            /** Reason */
+            reason: string;
         };
         /** DueRequest */
         DueRequest: {
@@ -4145,6 +4265,13 @@ export interface components {
             alias: string;
             origin: components["schemas"]["MaskOrigin"];
         };
+        /** McpToolResponse */
+        McpToolResponse: {
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+        };
         /** MessageRequest */
         MessageRequest: {
             /** Text */
@@ -4361,7 +4488,8 @@ export interface components {
         };
         /**
          * PlanOptions
-         * @description How the round goes: the preparation before delegating, the automation after the verification, the automatic ok.
+         * @description How the round goes: the preparation before delegating, the automation after the verification (each with
+         *     its fields as a template), the automatic ok.
          */
         PlanOptions: {
             /**
@@ -4369,8 +4497,22 @@ export interface components {
              * @default dev
              */
             prepare: string;
+            /**
+             * Prepare Fields
+             * @default {}
+             */
+            prepare_fields: {
+                [key: string]: string;
+            };
             /** After Automation */
             after_automation?: number | null;
+            /**
+             * After Fields
+             * @default {}
+             */
+            after_fields: {
+                [key: string]: string;
+            };
             /**
              * Auto Approve
              * @default false
@@ -5059,6 +5201,46 @@ export interface components {
             only?: components["schemas"]["DefinitionKeyRequest"][] | null;
         };
         /**
+         * TaskFields
+         * @description The fields of one task's preparation or automation after the verification, resolved.
+         */
+        TaskFields: {
+            /** Task */
+            task: string;
+            /** Step */
+            step: string;
+            /**
+             * Automation
+             * @default
+             */
+            automation: string;
+            /**
+             * Fields
+             * @default {}
+             */
+            fields: {
+                [key: string]: string;
+            };
+            /**
+             * Own
+             * @default false
+             */
+            own: boolean;
+        };
+        /** TaskFieldsRequest */
+        TaskFieldsRequest: {
+            /** Task */
+            task: string;
+            step: components["schemas"]["StepKey"];
+            /**
+             * Fields
+             * @default {}
+             */
+            fields: {
+                [key: string]: string;
+            };
+        };
+        /**
          * TaskStatus
          * @description In this order: created (by hand) and refinement (being refined with an
          *     agent, or created by the secretary) come before todo, ready to delegate;
@@ -5182,6 +5364,15 @@ export interface components {
          * @enum {string}
          */
         TodoPriority: "high" | "medium" | "low";
+        /** TokenResponse */
+        TokenResponse: {
+            /** Token */
+            token: string;
+            /** Url */
+            url: string;
+            /** Command */
+            command: string;
+        };
         /** TokensResponse */
         TokensResponse: {
             /** Input Tokens */
@@ -5225,6 +5416,74 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** ToolRequest */
+        ToolRequest: {
+            /** Id */
+            id?: number | null;
+            /** Title */
+            title: string;
+            /**
+             * Objective
+             * @default
+             */
+            objective: string;
+            /**
+             * Criteria
+             * @default []
+             */
+            criteria: string[];
+            /**
+             * Project Name
+             * @default
+             */
+            project_name: string;
+            /**
+             * Automation
+             * @default
+             */
+            automation: string;
+            /**
+             * Activity
+             * @default
+             */
+            activity: string;
+            /** @default open */
+            status: components["schemas"]["ToolRequestStatus"];
+            /**
+             * Pr Url
+             * @default
+             */
+            pr_url: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at?: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at?: string;
+        };
+        /**
+         * ToolRequestStatus
+         * @enum {string}
+         */
+        ToolRequestStatus: "open" | "working" | "done" | "dismissed";
+        /** ToolRequestsResponse */
+        ToolRequestsResponse: {
+            /** Requests */
+            requests: components["schemas"]["ToolRequest"][];
+            /** Has Token */
+            has_token: boolean;
+            /** Url */
+            url: string;
         };
         /** ToolResponse */
         ToolResponse: {
@@ -9970,6 +10229,77 @@ export interface operations {
             };
         };
     };
+    task_fields_projects__project__activities__activity__plan_fields_get: {
+        parameters: {
+            query: {
+                task: string;
+                step: components["schemas"]["StepKey"];
+            };
+            header?: never;
+            path: {
+                project: string;
+                activity: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskFields"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_task_fields_projects__project__activities__activity__plan_fields_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                activity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskFieldsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     propose_learned_projects__project__activities__activity__learned_post: {
         parameters: {
             query?: never;
@@ -10733,6 +11063,81 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublishResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_tool_requests_admin_tool_requests_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToolRequestsResponse"];
+                };
+            };
+        };
+    };
+    new_token_admin_tool_requests_token_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenResponse"];
+                };
+            };
+        };
+    };
+    dismiss_admin_tool_requests__request_id__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DismissRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToolRequest"];
                 };
             };
             /** @description Validation Error */

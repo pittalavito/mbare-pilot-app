@@ -24,7 +24,7 @@ I tool che un agente può chiamare durante una run:
 | `list_agents` | **con contesto**, solo chatbot | gli agenti della Libreria e del progetto che uno step può usare, con la descrizione |
 | `read_automation` | **con contesto**, solo chatbot | un'automation del progetto in YAML, nel formato delle definizioni |
 | `validate_automation` | **con contesto**, solo chatbot | valida un'automation in YAML con le regole del salvataggio, senza salvare: errore, oppure step e collegamenti come sarebbero, se sostituisce quella con lo stesso nome e se è di sistema |
-| `create_tool_task` | **con contesto**, solo chatbot | dopo l'ok dell'utente: l'agent task «Sviluppo» (in rifinitura) per un tool che manca, collegato a un'attività se indicata |
+| `request_tool` | **con contesto**, solo chatbot | dopo l'ok dell'utente: la richiesta di un tool che manca (dell'app intera, non del progetto), che Claude Code lavora sul codice dell'app via il suo server MCP (piano 20) |
 | `run_automation` | **con contesto**, solo chatbot | lancia un'automation del progetto in background e riporta l'id dell'esecuzione |
 | `automation_status` | **con contesto**, solo chatbot | stato di un'esecuzione di un'automation del progetto e dei suoi step: solo gli stati, niente output né messaggi d'errore |
 | `list_activities` | **con contesto**, solo chatbot | le attività del progetto (nome, titolo, stato, voci fatte su totali, quanti agent task ne sono nati) e la data di oggi |

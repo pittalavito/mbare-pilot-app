@@ -24,7 +24,11 @@
    with «⏸ Pausa». At the current task (a task moved back to refinement waits)
    it prepares the repositories as the activity says (``none``, ``dev`` =
    «Prepara sviluppo», ``automation:<id>``) and delegates with Copilot's
-   defaults; it gives the ok to Copilot's plan only with ``auto_approve``; it
+   defaults; the fields of the preparation and of the automation after the
+   verification come from the activity's template (``{task}``, ``{note}``,
+   ``{repository}``, ``{base}``), resolved for each task, or from the task's own
+   fields (plan 19); a task without a repository is not prepared (unless the
+   project folder is a repository); it gives the ok to Copilot's plan only with ``auto_approve``; it
    runs the automation after the verification. Failed tests wait for the user
    (send back, retry, skip): nothing goes back to Copilot by itself.
 5. Once no task is left, the **summary** composed by the code (step «Chiudi»)."""
@@ -37,7 +41,7 @@ from domain.masking.preview import masked_text, unmask
 from domain.project.data_paths import note_file_name
 from models.domain.agent import RunOrigin
 from models.domain.copilot import CopilotMessageRole, CopilotSession, CopilotSessionStatus
-from models.domain.dev import VERIFY_FAILED, VERIFY_OK, LearnedPreparation, PrepareTarget
+from models.domain.dev import PREPARE_AUTOMATION, VERIFY_FAILED, VERIFY_OK, LearnedPreparation, PrepareTarget
 from models.domain.masking import MaskCategory
 from models.domain.note import Activity, ActivityStatus, AgentTask, ChecklistItem, TaskStatus, TaskType, TodoItem
 from models.domain.pipeline import RunStatus
@@ -56,6 +60,7 @@ from models.domain.plan import (
     PlanTask,
     StepKey,
     StepState,
+    TaskFields,
     step_id,
 )
 from service.copilot_service import CopilotService
@@ -71,6 +76,11 @@ from service.structured_agent_service import StructuredAgentService
 PREPARE_NONE = "none"
 PREPARE_DEV = "dev"
 AUTOMATION = "automation:"
+DEV_FIELDS = ["branch", "base"]
+"""The fields of «Prepara sviluppo»."""
+DEFAULT_FIELDS = {"branch": "feature/{task}", "base": "{base}", "repository": "{repository}", "task": "{note}"}
+"""A field's value when the template does not say; any other field starts empty."""
+NO_REPOSITORY = "nessun repository"
 PREPARE_FAILED = "Preparazione non riuscita"
 """How CopilotService.start says the preparation failed (the delegation did not start)."""
 CONTEXT_PIECES = 3
@@ -217,20 +227,30 @@ class PlanService:
     def _tasks(self, plan: ActivityPlan) -> list[PathTask]:
         tasks = dict(self._data.agent_tasks(plan.project_name))
         sessions = self._copilot.sessions(plan.project_name) if self._copilot else []
-        result = [self._path_task(plan, planned, tasks.get(planned.task), next((item for item in sessions if item.task_note == planned.task), None))
+        root = self._root_is_repository(plan.project_name)
+        result = [self._path_task(plan, planned, tasks.get(planned.task), next((item for item in sessions if item.task_note == planned.task), None), root)
                   for planned in plan.tasks]
         current = next((item for item in result if item.status not in (TaskStatus.DONE.value, "missing")), None)
         if current is not None:
             current.current = True
         return result
 
-    def _path_task(self, plan: ActivityPlan, planned: PlanTask, task: AgentTask | None, session: CopilotSession | None) -> PathTask:
+    def _root_is_repository(self, project_name: str) -> bool:
+        """The project folder is itself a git repository: a task without a repository is prepared there."""
+        try:
+            return any(repository.path == "" for repository in self._git.repositories(project_name))
+        except AppError:
+            return False
+
+    def _path_task(self, plan: ActivityPlan, planned: PlanTask, task: AgentTask | None, session: CopilotSession | None,
+                   root: bool = False) -> PathTask:
         if task is None:
             return PathTask(task=planned.task, title=planned.task, type=TaskType.DEVELOPMENT, status="missing", repository=planned.repository)
         return PathTask(task=planned.task, title=task.title, type=task.type, status=task.status.value, repository=planned.repository,
-                        session_id=session.id if session else None, steps=self._steps(plan, planned.task, task, session))
+                        session_id=session.id if session else None, steps=self._steps(plan, planned, task, session, root))
 
-    def _steps(self, plan: ActivityPlan, name: str, task: AgentTask, session: CopilotSession | None) -> list[PathStep]:
+    def _steps(self, plan: ActivityPlan, planned: PlanTask, task: AgentTask, session: CopilotSession | None, root: bool) -> list[PathStep]:
+        name = planned.task
         done = task.status is TaskStatus.DONE
         error = lambda key: plan.errors.get(step_id(name, key), "")  # noqa: E731
         skipped = lambda key: step_id(name, key) in plan.skipped  # noqa: E731
@@ -238,6 +258,8 @@ class PlanService:
         if not task.type.plan_only and (plan.prepare != PREPARE_NONE or error(StepKey.PREPARE)):
             if error(StepKey.PREPARE):
                 prepare = (StepState.FAILED, error(StepKey.PREPARE))
+            elif not planned.repository and not root:
+                prepare = (StepState.SKIPPED, NO_REPOSITORY)
             elif skipped(StepKey.PREPARE):
                 prepare = (StepState.SKIPPED, "")
             else:
@@ -402,26 +424,66 @@ class PlanService:
         assert self._copilot is not None
         targets: list[PrepareTarget] = []
         automation: LearnedPreparation | None = None
-        how = PREPARE_NONE if current.type.plan_only or step_id(current.task, StepKey.PREPARE) in plan.skipped else plan.prepare
+        prepare = next((step for step in current.steps if step.key is StepKey.PREPARE), None)
+        how = PREPARE_NONE if current.type.plan_only or prepare is None or prepare.state is StepState.SKIPPED else plan.prepare
         if how != PREPARE_NONE:
-            fields = self._task_fields(plan, current)
+            fields = self._fields_for(plan, current.task, current.repository, StepKey.PREPARE)
             if how == PREPARE_DEV:
-                targets = [PrepareTarget(repository=current.repository, branch=fields["branch"], base=fields["base"])]
+                branch = fields.get("branch") or self._resolve(DEFAULT_FIELDS["branch"], plan, current.task, current.repository)
+                targets = [PrepareTarget(repository=current.repository, branch=branch, base=fields.get("base", ""))]
             elif how.startswith(AUTOMATION) and how[len(AUTOMATION):].isdigit():
-                pipeline = self._pipelines.get_pipeline(int(how[len(AUTOMATION):])) if self._pipelines else None
-                automation = LearnedPreparation(automation_id=int(how[len(AUTOMATION):]),
-                                                fields={name: fields.get(name, "") for name in (pipeline.fields if pipeline else [])})
+                automation = LearnedPreparation(automation_id=int(how[len(AUTOMATION):]), fields=fields)
         try:
             self._copilot.start(plan.project_name, current.task, current.repository, prepare=targets, learned=automation)
         except AppError as exc:
             key = StepKey.PREPARE if str(exc).startswith(PREPARE_FAILED) else StepKey.DELEGATE
             self._plans.save(plan.model_copy(update={"errors": {**plan.errors, step_id(current.task, key): str(exc)}}))
 
-    def _task_fields(self, plan: ActivityPlan, current: PathTask) -> dict[str, str]:
-        """The values an automation's fields get from a task: branch = feature/<task>, base = the repository's current branch."""
-        return {"branch": f"feature/{current.task.removeprefix('agent-task-').removesuffix('.md')}",
-                "base": self._git.branches(plan.project_name, current.repository).current or "",
-                "task": current.task, "repository": current.repository}
+    # ---------------------------------------------------------------- fields
+    def _automation_of_step(self, plan: ActivityPlan, step: StepKey) -> tuple[str, list[str]]:
+        """What runs at ``step`` (prepare or after) and its fields; ``("", [])`` = nothing."""
+        if step is StepKey.PREPARE:
+            if plan.prepare == PREPARE_DEV:
+                return PREPARE_AUTOMATION, DEV_FIELDS
+            automation = plan.prepare[len(AUTOMATION):] if plan.prepare.startswith(AUTOMATION) else ""
+        else:
+            automation = str(plan.after_automation) if plan.after_automation is not None else ""
+        pipeline = self._pipelines.get_pipeline(int(automation)) if automation.isdigit() and self._pipelines else None
+        return (pipeline.name, list(pipeline.fields)) if pipeline else ("", [])
+
+    def _resolve(self, template: str, plan: ActivityPlan, task: str, repository: str) -> str:
+        values = {"task": task.removeprefix("agent-task-").removesuffix(".md"), "note": task, "repository": repository}
+        if "{base}" in template:
+            try:
+                values["base"] = self._git.branches(plan.project_name, repository).current or ""
+            except AppError:  # no repository there (a task without one): no base
+                values["base"] = ""
+        for key, value in values.items():
+            template = template.replace("{" + key + "}", value)
+        return template
+
+    def _fields_for(self, plan: ActivityPlan, task: str, repository: str, step: StepKey) -> dict[str, str]:
+        """The fields of ``step`` for ``task``: its own ones, else the activity's template resolved for it."""
+        _, names = self._automation_of_step(plan, step)
+        own = plan.task_fields.get(step_id(task, step), {})
+        template = plan.prepare_fields if step is StepKey.PREPARE else plan.after_fields
+        return {name: own[name] if name in own else self._resolve(template.get(name, DEFAULT_FIELDS.get(name, "")), plan, task, repository)
+                for name in names}
+
+    def task_fields(self, project_name: str, activity_name: str, task: str, step: StepKey) -> TaskFields:
+        """«⚙️ Campi» of a task: what runs at ``step`` and its fields, resolved for the task."""
+        plan = self._step_of(project_name, activity_name, task, step, {StepKey.PREPARE, StepKey.AFTER}, "dare i campi a")
+        planned = next(item for item in plan.tasks if item.task == task)
+        automation, _ = self._automation_of_step(plan, step)
+        return TaskFields(task=task, step=step.value, automation=automation, fields=self._fields_for(plan, task, planned.repository, step),
+                          own=step_id(task, step) in plan.task_fields)
+
+    def set_task_fields(self, project_name: str, activity_name: str, task: str, step: StepKey, fields: dict[str, str]) -> ActivityPlan:
+        """The task's own fields for ``step`` (empty = back to the activity's template)."""
+        plan = self._step_of(project_name, activity_name, task, step, {StepKey.PREPARE, StepKey.AFTER}, "dare i campi a")
+        key = step_id(task, step)
+        others = {item: values for item, values in plan.task_fields.items() if item != key}
+        return self._plans.save(plan.model_copy(update={"task_fields": {**others, key: dict(fields)} if fields else others}))
 
     def _run_after(self, plan: ActivityPlan, current: PathTask, automation: int) -> None:
         """The automation after the verification, now (no LLM): its fields from the task, else «<repository> <task>»."""
@@ -431,8 +493,7 @@ class PlanService:
                 raise ValidationError("Le automation del giro non sono disponibili in questo processo.")
             pipeline = self._pipelines.get_pipeline(automation)
             if pipeline is not None and pipeline.fields:
-                fields = self._task_fields(plan, current)
-                text = json.dumps({name: fields.get(name, "") for name in pipeline.fields})
+                text = json.dumps(self._fields_for(plan, current.task, current.repository, StepKey.AFTER))
             else:
                 text = f"{current.repository or '.'} {current.task}"
             check = self._checks.run_automation(plan.project_name, automation, text)
