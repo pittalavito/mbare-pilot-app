@@ -55,42 +55,53 @@ def _reported[**P, R](tool: Callable[P, R]) -> Callable[P, R]:
     return call
 
 
+MCP_TOOLS: dict[str, str] = {
+    "read_task": "The agent task you work on: title, type, objective, context, acceptance criteria, constraints, and the "
+        "checklist of what a task of its type should have.",
+    "list_references": "What the task links: references (code, context), notes and uploaded files, by name with a title. found=false: "
+        "it no longer exists.",
+    "read_reference": "The content of one of the task's references, notes or files, by the name list_references gives.",
+    "search_context": "Search the project's context (architecture, conventions, decisions, runbooks, lessons of done activities): the"
+        " best pieces with their document and section. Ask a specific question.",
+    "ask_user": "During the execution: ask the user something you cannot decide alone. The question appears in the app's chat "
+        "and this waits for the answer (minutes); without an answer in time, decide yourself and say so in finish. "
+        "While planning, ask in your answer instead.",
+    "finish": "Call it when you have finished the task: a short summary of what you changed (files and why) and whether the "
+        "acceptance criteria are met. The user then checks your work.",
+}
+"""The tools Copilot gets from the app, by name: their description, as the MCP server gives them (and the Admin page shows)."""
+
+
 def build_mcp_server(copilot: Callable[[], "CopilotService"], rag: Callable[[], "RagService"]) -> MCPServer:
     """The server and its tools; ``copilot`` and ``rag`` give the services at call time (the Container is built at startup)."""
     server = MCPServer("mbare-pilot", instructions=_INSTRUCTIONS)
 
-    @server.tool(description="The agent task you work on: title, type, objective, context, acceptance criteria, constraints, and the "
-                             "checklist of what a task of its type should have.")
+    @server.tool(description=MCP_TOOLS["read_task"])
     @_reported
     def read_task(ctx: Context) -> dict:
         return copilot().mcp_task(_token(ctx))
 
-    @server.tool(description="What the task links: references (code, context), notes and uploaded files, by name with a title. "
-                             "found=false: it no longer exists.")
+    @server.tool(description=MCP_TOOLS["list_references"])
     @_reported
     def list_references(ctx: Context) -> list[TaskLink]:
         return copilot().mcp_links(_token(ctx))
 
-    @server.tool(description="The content of one of the task's references, notes or files, by the name list_references gives.")
+    @server.tool(description=MCP_TOOLS["read_reference"])
     @_reported
     def read_reference(name: Annotated[str, Field(description="The name, as list_references gives it.")], ctx: Context) -> str:
         return copilot().mcp_link(_token(ctx), name)
 
-    @server.tool(description="Search the project's context (architecture, conventions, decisions, runbooks, lessons of done "
-                             "activities): the best pieces with their document and section. Ask a specific question.")
+    @server.tool(description=MCP_TOOLS["search_context"])
     @_reported
     def search_context(question: Annotated[str, Field(description="What you want to know, in a sentence.")], ctx: Context) -> list[RagHit]:
         return rag().search(copilot().mcp_session(_token(ctx)).project_name, question)
 
-    @server.tool(description="During the execution: ask the user something you cannot decide alone. The question appears in the "
-                             "app's chat and this waits for the answer (minutes); without an answer in time, decide yourself and "
-                             "say so in finish. While planning, ask in your answer instead.")
+    @server.tool(description=MCP_TOOLS["ask_user"])
     @_reported
     def ask_user(question: Annotated[str, Field(description="One clear question.")], ctx: Context) -> str:
         return copilot().ask_user(_token(ctx), question)
 
-    @server.tool(description="Call it when you have finished the task: a short summary of what you changed (files and why) and "
-                             "whether the acceptance criteria are met. The user then checks your work.")
+    @server.tool(description=MCP_TOOLS["finish"])
     @_reported
     def finish(summary: Annotated[str, Field(description="What you did, briefly.")], ctx: Context) -> str:
         return copilot().finish(_token(ctx), summary)

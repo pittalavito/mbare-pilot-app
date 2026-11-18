@@ -86,6 +86,15 @@ class CopilotStatusResponse(BaseModel):
     """Models to choose from besides the default, the cheapest first."""
     default_model: str = ""
     """COPILOT_MODEL; ``""`` = Copilot's own default."""
+    denied_tools: list[str] = []
+    """The tools Copilot may not use while executing (``denied_tools`` of the coding-agent definition)."""
+    mcp_tools: list["McpToolResponse"] = []
+    """The tools Copilot gets from the app (MCP server «mbare-pilot»), in planning and execution."""
+
+
+class McpToolResponse(BaseModel):
+    name: str
+    description: str
 
 
 class CopilotUsageResponse(BaseModel):

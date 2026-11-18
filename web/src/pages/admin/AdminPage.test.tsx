@@ -98,3 +98,24 @@ describe("LibraryPage", () => {
     expect(screen.getByText("💬")).toBeInTheDocument();
   });
 });
+
+describe("the tools of Copilot", () => {
+  it("lists the app's tools and the ones denied while executing", async () => {
+    mockApi({
+      "GET /admin/config": { settings: {}, redis_dashboard_port: 8083, postgres_dashboard_port: 8084 },
+      "GET /copilot/status": {
+        installed: true, version: "1.0.0", definition_error: null, prompts: [], type_prompts: {}, models: [], default_model: "",
+        denied_tools: ["shell(git push)", "shell(git commit)"],
+        mcp_tools: [{ name: "read_task", description: "The agent task you work on." }, { name: "finish", description: "Call it when you have finished." }],
+      },
+    });
+    renderPage(<AdminPage />, { route: "/admin?tab=services" });
+
+    fireEvent.click(await screen.findByRole("button", { name: /Tool di Copilot/ }));
+
+    expect(await screen.findByText("read_task")).toBeInTheDocument();
+    expect(screen.getByText("The agent task you work on.")).toBeInTheDocument();
+    expect(screen.getByText("shell(git push)")).toBeInTheDocument();
+    expect(screen.getByText("shell(git commit)")).toBeInTheDocument();
+  });
+});

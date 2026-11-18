@@ -3634,6 +3634,16 @@ export interface components {
              * @default
              */
             default_model: string;
+            /**
+             * Denied Tools
+             * @default []
+             */
+            denied_tools: string[];
+            /**
+             * Mcp Tools
+             * @default []
+             */
+            mcp_tools: components["schemas"]["McpToolResponse"][];
         };
         /** CopilotTurnResponse */
         CopilotTurnResponse: {
@@ -4192,6 +4202,13 @@ export interface components {
             /** Alias */
             alias: string;
             origin: components["schemas"]["MaskOrigin"];
+        };
+        /** McpToolResponse */
+        McpToolResponse: {
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
         };
         /** MessageRequest */
         MessageRequest: {
