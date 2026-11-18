@@ -15,6 +15,6 @@ Lo script copia in `<MBARE_PILOT_HOME>/definition/` i file che mancano e non sov
 | `coding-agent/analisi.md` | il prompt dei task di tipo analisi (`type_prompts`): Copilot legge e risponde, senza cambiare il codice |
 | `global-agent.yml` | gli agenti della Libreria: l'esempio `hello` e quelli che l'app chiama da sola con risposta strutturata (`wip`, `pianificatore`, `bozza-attivita`) |
 | `global-chat-bots.yml` | i chatbot di ogni progetto (salvo stesso nome nel progetto): qui quello delle automation |
-| `global-automation.yml` | «Stato del mattino»: stato git di tutti i repository, riassunto in una nota |
+| `global-automation.yml` | «Prova git»: stato git di tutti i repository salvato in una nota, poi stop (le altre si rifanno poco alla volta) |
 
 Le definizioni dei singoli progetti (`project/<slug>/`) non stanno qui: sono tue e dei tuoi progetti. Formato e regole: [definitions.md](../doc/definitions.md). Un test (`test/unit/test_definition_examples.py`) verifica che questi file restino validi.
