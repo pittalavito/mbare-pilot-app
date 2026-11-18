@@ -115,3 +115,16 @@ def test_an_analysis_is_saved_as_a_note_and_a_task_to_verify_is_sent_back(client
     sent = client.post(f"/copilot-sessions/{sid}/send-back", json={"text": "Aggiungi un test"}).json()
 
     assert sent["status"] == "queued"
+
+
+def test_an_analysis_without_a_repository_and_the_repository_changed(client):
+    task = client.post("/projects/acme/agent-tasks", json={"title": "Leggi", "type": "analysis"}).json()["name"]
+    session = client.post("/projects/acme/copilot-sessions", json={"task_note": task, "no_repository": True}).json()
+    assert session["no_repository"] and session["repository"] == ""
+
+    changed = client.post(f"/copilot-sessions/{session['id']}/repository", json={"repository": ""})
+    assert changed.status_code == 200 and not changed.json()["no_repository"]  # now in the project folder (a repository)
+    assert client.post(f"/copilot-sessions/{session['id']}/repository", json={"repository": ""}).status_code == 400
+
+    development = client.post("/projects/acme/agent-tasks", json={"title": "Codice"}).json()["name"]
+    assert client.post("/projects/acme/copilot-sessions", json={"task_note": development, "no_repository": True}).status_code == 400

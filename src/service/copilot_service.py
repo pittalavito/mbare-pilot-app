@@ -35,7 +35,13 @@ execution of the same session), back to todo otherwise.
 
 Only a development task is executed. The other types (analysis, Confluence,
 Jira: ``TaskType.plan_only``) stay in planning: Copilot reads and answers, and
-the user saves its last answer as a note linked to the task, which becomes done."""
+the user saves its last answer as a note linked to the task, which becomes done.
+They can also be delegated **without a repository** (plan 21): Copilot works
+in ``copilot/<task>/`` of the project's data (no git), a folder removed when
+the answer is saved as a note or the session is deleted.
+
+While a session has never been executed, its repository can be changed
+(``change_repository``): the chat stays, task.md moves to the new folder."""
 import secrets
 import time
 from collections.abc import Callable
@@ -225,7 +231,8 @@ class CopilotService:
     # -------------------------------------------------------------- planning
     @observed(LogPrefix.COPILOT_SERVICE)
     def start(self, project_name: str, task_note: str, repository: str = "", prompt: str = "", model: str = "",
-              prepare: list[PrepareTarget] | None = None, learned: LearnedPreparation | None = None) -> CopilotSession:
+              prepare: list[PrepareTarget] | None = None, learned: LearnedPreparation | None = None,
+              no_repository: bool = False) -> CopilotSession:
         """A new session on an agent task: the first planning turn runs now,
         so the session comes back with Copilot's questions (or the error).
         ``prompt``: one of the definition's prompts (``""`` = the one of the
@@ -234,13 +241,17 @@ class CopilotService:
         refined yet (created, refinement) can be delegated: the chat says so.
         ``prepare``: the repositories to get ready first, each on its branch
         («Prepara sviluppo»), or ``learned``: an automation learned from the
-        Operator with its fields (plan 11); if that fails, ConflictError and no session."""
+        Operator with its fields (plan 11); if that fails, ConflictError and no session.
+        ``no_repository``: only a task without code, Copilot works in its data folder (plan 21)."""
         if not self._client.available:
             raise UpstreamError(NOT_FOUND)
         settings = self.coding_agent(project_name)
         model = coding_agent.check_model(settings, model)
         task = self._data.agent_task(project_name, task_note)  # exists and is an agent task
-        folder = self._git.repository_folder(project_name, repository)
+        if no_repository:
+            _require_plan_only(task)
+            repository, prepare, learned = "", None, None
+        folder = self._data.copilot_folder(project_name, task_note) if no_repository else self._git.repository_folder(project_name, repository)
         prompt = coding_agent.task_prompt(settings, task.type, prompt)
         first_turn = coding_agent.plan_prompt(settings, task_folder.relative_folder(task_note), prompt, task.type)
         self._require_mcp()
@@ -250,6 +261,7 @@ class CopilotService:
             project_name=project_name,
             task_note=task_note,
             repository=repository.strip().strip("/\\"),
+            no_repository=no_repository,
             copilot_session_id=str(uuid4()),
             prompt=prompt,
             model=model,
@@ -311,7 +323,7 @@ class CopilotService:
             raise ConflictError("Copilot sta eseguendo il task: aspetta che finisca o annulla.")
         if not text.strip():
             raise ValidationError("Il messaggio è vuoto.")
-        folder = self._git.repository_folder(session.project_name, session.repository)
+        folder = self._folder(session)
         self._require_mcp()
         return self._plan_turn(session, folder, text.strip())
 
@@ -326,6 +338,32 @@ class CopilotService:
                                  mcp=self._access(session))
         self._record_usage(session, turn, CopilotPhase.PLAN, started)
         return self._record(session, turn)
+
+    @observed(LogPrefix.COPILOT_SERVICE)
+    def change_repository(self, session_id: int, repository: str = "", no_repository: bool = False) -> CopilotSession:
+        """The repository picked by mistake, changed while the session has never
+        been executed (plan 21): task.md moves to the new folder (out of the old
+        one), the chat stays. ``no_repository`` only for a task without code."""
+        session = self.session(session_id)
+        if session.status != CopilotSessionStatus.PLANNING or session.head_before is not None:
+            raise ConflictError("Il repository si cambia solo prima della prima esecuzione: "
+                                "le modifiche di Copilot sono già nel repository di prima.")
+        task = self._data.agent_task(session.project_name, session.task_note)
+        repository = "" if no_repository else repository.strip().strip("/\\")
+        if no_repository:
+            _require_plan_only(task)
+        if (repository, no_repository) == (session.repository, session.no_repository):
+            raise ValidationError("È già il repository della sessione.")
+        folder = (self._data.copilot_folder(session.project_name, session.task_note) if no_repository
+                  else self._git.repository_folder(session.project_name, repository))
+        task_folder.write(folder, session.task_note, task_folder.minimal_task(session.task_note, task.title, TYPE_LABELS[task.type]))
+        self._remove_task_folder(session)
+        before = _where(session.repository, session.no_repository)
+        session = self._update(session, repository=repository, no_repository=no_repository)
+        self._message(session, CopilotMessageRole.EVENT,
+                      f"🔀 Repository cambiato: {before} → {_where(repository, no_repository)}. "
+                      "Dal prossimo messaggio Copilot lavora lì; la chat resta.")
+        return session
 
     @observed(LogPrefix.COPILOT_SERVICE)
     def approve(self, session_id: int) -> CopilotSession:
@@ -386,6 +424,8 @@ class CopilotService:
         self._data.save_agent_task(session.project_name, session.task_note,
                                    task.model_copy(update={"references": references, "status": TaskStatus.DONE}))
         self._message(session, CopilotMessageRole.EVENT, f"💾 Salvata come nota {note}, collegata al task: il task è «fatto».")
+        if session.no_repository:
+            self._data.delete_copilot_folder(session.project_name, session.task_note)
         return note, self.session(session.id)
 
     @observed(LogPrefix.COPILOT_SERVICE)
@@ -408,6 +448,8 @@ class CopilotService:
         if session.status in (CopilotSessionStatus.QUEUED, CopilotSessionStatus.RUNNING):
             raise ConflictError("La sessione è in coda o in esecuzione: annullala prima.")
         self._copilot.delete_session(session.id)
+        if session.no_repository:
+            self._data.delete_copilot_folder(session.project_name, session.task_note)
 
     @observed(LogPrefix.COPILOT_SERVICE)
     def delete_task_sessions(self, project_name: str, task_note: str) -> int:
@@ -420,6 +462,8 @@ class CopilotService:
             raise ConflictError("Una sessione di questo task è in coda o in esecuzione: annullala prima.")
         for session in sessions:
             self._copilot.delete_session(session.id)
+            if session.no_repository:
+                self._data.delete_copilot_folder(session.project_name, session.task_note)
         return len(sessions)
 
     # ------------------------------------------------------------------- mcp
@@ -625,6 +669,22 @@ class CopilotService:
         except (AppError, OSError):
             log_exception(LogPrefix.COPILOT_SERVICE, "Cartella del task %s non aggiornata", session.task_note)
 
+    def _folder(self, session: CopilotSession) -> Path:
+        """Where Copilot works: the repository, or the data folder of a session without one."""
+        if session.no_repository:
+            return self._data.copilot_folder(session.project_name, session.task_note)
+        return self._git.repository_folder(session.project_name, session.repository)
+
+    def _remove_task_folder(self, session: CopilotSession) -> None:
+        """The task's folder out of where the session worked so far. Best effort."""
+        try:
+            if session.no_repository:
+                self._data.delete_copilot_folder(session.project_name, session.task_note)
+            else:
+                task_folder.remove(self._git.repository_folder(session.project_name, session.repository), session.task_note)
+        except (AppError, OSError):
+            log_exception(LogPrefix.COPILOT_SERVICE, "Cartella del task %s non tolta", session.task_note)
+
     def _access(self, session: CopilotSession) -> McpAccess | None:
         """The MCP server and the session's token for a turn; None without a server (or a token)."""
         return McpAccess(self._mcp_url, session.mcp_token) if self._mcp_url and session.mcp_token else None
@@ -682,6 +742,18 @@ class CopilotService:
         """Writes only ``changes``: the API and the worker write the same
         session at the same time (e.g. a cancel while the execution starts)."""
         return self._copilot.update_session(session.id, **changes, updated_at=_now())
+
+
+def _require_plan_only(task: AgentTask) -> None:
+    """ValidationError for a development: it needs a repository."""
+    if not task.type.plan_only:
+        raise ValidationError("Senza repository si delegano solo i task senza codice (analisi, Confluence, Jira): "
+                              "un task di sviluppo cambia il codice di un repository.")
+
+
+def _where(repository: str, no_repository: bool) -> str:
+    """How the chat names where Copilot works."""
+    return "nessun repository" if no_repository else repository or "cartella del progetto"
 
 
 def mcp_url(api_url: str) -> str:

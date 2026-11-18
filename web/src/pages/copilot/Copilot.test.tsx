@@ -15,7 +15,7 @@ afterEach(() => vi.unstubAllGlobals());
 const TASK = { name: "agent-task-fix-porto.md", title: "Fix porto", status: "todo", type: "development", objective: "", context: "", criteria: [],
   constraints: "", references: [], tests: null };
 const session = (patch: Partial<CopilotSession> = {}): CopilotSession => ({
-  id: 4, project_name: "acme", task_note: TASK.name, repository: "api", prompt: "", model: "", status: "planning", cancel_requested: false,
+  id: 4, project_name: "acme", task_note: TASK.name, repository: "api", no_repository: false, prompt: "", model: "", status: "planning", cancel_requested: false,
   head_before: null, head_after: null, head_moved: false, changed_files: [], premium_requests: 1, error: null,
   created_at: "2026-11-13T10:00:00Z", updated_at: "2026-11-13T10:00:00Z", started_at: null, finished_at: null, ...patch,
 });
@@ -134,5 +134,51 @@ describe("Copilot", () => {
     fireEvent.click(await screen.findByRole("option", { name: /Sessione 5/ }));
     expect(await screen.findByText("calc.py")).toBeInTheDocument();
     expect(screen.getByText(/L'HEAD è cambiato/)).toBeInTheDocument();
+  });
+
+  it("a task without code starts from «Nessun repository» and goes without one (plan 21)", async () => {
+    const started = vi.fn(async (request: Request) => ({ ...session({ id: 9, no_repository: true, repository: "" }), ...(await request.json()) }));
+    api({
+      "GET /projects/acme/agent-tasks": [{ ...TASK, type: "confluence" }],
+      "GET /projects/acme/git/repositories": [{ path: "api", name: "api" }],
+      "POST /projects/acme/copilot-sessions": started,
+      "GET /copilot-sessions/9/messages": MESSAGES,
+      "GET /copilot-sessions/9/turns": TURNS,
+    });
+    renderAt(`/projects/acme/work?note=${TASK.name}`);
+
+    fireEvent.click(await screen.findByRole("button", { name: /Delega a Copilot/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByDisplayValue("Nessun repository")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Come preparare i repository")).not.toBeInTheDocument(); // nothing to prepare
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delega" }));
+
+    await waitFor(() => expect(started).toHaveBeenCalled());
+    expect(await started.mock.results[0].value).toMatchObject({ repository: "", no_repository: true, prepare: [], learned: null });
+  });
+
+  it("the repository changes in the chat before the first execution (plan 21)", async () => {
+    const changed = vi.fn(async (request: Request) => ({ ...session({ repository: "web" }), ...(await request.json()) }));
+    api({
+      "GET /projects/acme/copilot-sessions": [session()],
+      "GET /projects/acme/git/repositories": [{ path: "api", name: "api" }, { path: "web", name: "web" }],
+      "POST /copilot-sessions/4/repository": changed,
+    });
+    renderAt(`/projects/acme/work?note=${TASK.name}`);
+
+    fireEvent.click(await screen.findByRole("button", { name: /Cambia repository/ }));
+    fireEvent.click(await screen.findByPlaceholderText("Scegli"));
+    expect(screen.queryByRole("option", { name: "Nessun repository" })).not.toBeInTheDocument(); // a development needs one
+    fireEvent.click(await screen.findByRole("option", { name: "web" }));
+
+    await waitFor(() => expect(changed).toHaveBeenCalled());
+    expect(await changed.mock.results[0].value).toMatchObject({ repository: "web", no_repository: false });
+  });
+
+  it("an executed session cannot change its repository", async () => {
+    api({ "GET /projects/acme/copilot-sessions": [session({ status: "planning", head_before: "abc" })] });
+    renderAt(`/projects/acme/work?note=${TASK.name}`);
+    expect(await screen.findByText("Domanda")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Cambia repository/ })).not.toBeInTheDocument();
   });
 });

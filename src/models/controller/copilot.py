@@ -20,6 +20,16 @@ class CopilotSessionRequest(BaseModel):
     """«Prepara sviluppo» first: the repositories to get ready, each on its branch (empty = none); 409 when it fails."""
     learned: LearnedPreparation | None = None
     """Or an automation learned from the Operator, with its fields (plan 11); 409 when it fails."""
+    no_repository: bool = False
+    """No repository (only a task without code): Copilot works in the project's data (plan 21); ``repository`` is ignored."""
+
+
+class CopilotRepositoryRequest(BaseModel):
+    """The repository of a session never executed (plan 21)."""
+    repository: str = ""
+    """Folder of the repository inside the project (``""`` = the project folder)."""
+    no_repository: bool = False
+    """No repository: only a task without code."""
 
 
 class CopilotMessageRequest(BaseModel):
@@ -37,6 +47,8 @@ class CopilotSessionResponse(BaseModel):
     project_name: str
     task_note: str
     repository: str
+    no_repository: bool
+    """Copilot works in the project's data, not in a repository (plan 21)."""
     prompt: str
     """The planning prompt chosen; ``""`` = the default."""
     model: str

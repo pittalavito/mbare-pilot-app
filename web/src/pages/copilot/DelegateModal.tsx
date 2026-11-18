@@ -2,7 +2,7 @@ import { Alert, Button, Card, Group, Loader, Modal, Select, Stack, Text, TextInp
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { type CopilotModelOption, useCopilotStatus, useStartCopilot } from "../../api/copilot";
+import { type CopilotModelOption, NO_REPOSITORY, repoLabel, useCopilotStatus, useStartCopilot } from "../../api/copilot";
 import { credits } from "../../format";
 import { useRepositories } from "../../api/git";
 import { type Pipeline, usePipelines } from "../../api/automation";
@@ -11,7 +11,8 @@ import { useAgentPanel } from "../project/AgentPanel";
 import { useAgentTasks } from "../../api/projectData";
 import { type PrepareRow, PrepareSection, toTargets } from "./PrepareSection";
 
-const repoLabel = (path: string) => path || "(cartella del progetto)";
+/** Analysis, Confluence, Jira: no code to change, they can go without a repository (plan 21). */
+const withoutCode = (type?: string) => (type ?? "development") !== "development";
 /** The Select's value for "the default" (the API's ``""``). */
 const DEFAULT = "__default__";
 const fromSelect = (value: string | null) => (value === null || value === DEFAULT ? "" : value);
@@ -59,7 +60,9 @@ function fieldValue(field: string, task: string, repository: string, current: st
  * planning chat opens with Copilot's first answer (it reads the task and the
  * code: tens of seconds). ``task`` fixed when opened from the task's form.
  * Prompt and model come from the coding-agent definition (data folder). First
- * the choice of how to prepare the repositories: the last one used with success. */
+ * the choice of how to prepare the repositories: the last one used with success.
+ * A task without code starts from «Nessun repository» (Copilot works in the
+ * project's data, nothing to prepare), unless the plan proposes one. */
 export function DelegateModal({ project, task, repository: proposed, opened, onClose }: {
   project: string; task?: string; repository?: string; opened: boolean; onClose: () => void;
 }) {
@@ -88,13 +91,15 @@ export function DelegateModal({ project, task, repository: proposed, opened, onC
   ];
   const ready = !dev.isPending && !pipelines.isPending; // an error leaves only «Non preparare» and the Operator
   const chosenLearned = learned.find((pipeline) => learnedKey(pipeline) === how);
-  const branches = useBranches(project, repository);
+  const none = repository === NO_REPOSITORY;
+  const branches = useBranches(project, none ? null : repository);
   const current = branches.data?.current ?? "";
 
   useEffect(() => {
     if (!opened) return;
     start.reset();
     setChosenTask(task ?? null);
+    setRepository(null);
     setPrompt(DEFAULT);
     setModel(DEFAULT);
     setHow(null);
@@ -110,21 +115,24 @@ export function DelegateModal({ project, task, repository: proposed, opened, onC
     setValues(Object.fromEntries(chosenLearned.fields.map((field) => [field, fieldValue(field, chosenTask ?? "", repository ?? "", current)])));
   }, [chosenLearned?.id, chosenTask, repository, current]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { // the task's repository is the first one to prepare (a new row: its branch is read again)
-    if (repository === null) return;
+    if (repository === null || repository === NO_REPOSITORY) return;
     setRows((current) => [
       { key: Math.max(0, ...current.map((row) => row.key)) + 1, repository, branch: "", base: "" },
       ...current.slice(1).filter((row) => row.repository !== repository),
     ]);
   }, [repository]);
-  useEffect(() => { // the one proposed (the activity's plan), else the only one
-    if (repository !== null || !repositories.data) return;
-    const known = proposed !== undefined && repositories.data.some((repo) => repo.path === proposed) ? proposed : undefined;
-    if (known !== undefined && proposed) setRepository(known);
-    else if (repositories.data.length === 1) setRepository(repositories.data[0].path);
-  }, [repositories.data, repository]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const models = status.data?.models ?? [];
   const chosen = tasks.data?.find((item) => item.name === chosenTask);
+  const noCode = withoutCode(chosen?.type);
+  useEffect(() => { // the one proposed (the activity's plan), else «Nessun repository» for a task without code, else the only one
+    if (none && chosen && !noCode) return setRepository(null); // a development needs a repository
+    if (repository !== null || !repositories.data || (chosenTask !== null && !chosen)) return;
+    const known = proposed !== undefined && repositories.data.some((repo) => repo.path === proposed) ? proposed : undefined;
+    if (known !== undefined && proposed) setRepository(known);
+    else if (noCode) setRepository(NO_REPOSITORY);
+    else if (repositories.data.length === 1) setRepository(repositories.data[0].path);
+  }, [repositories.data, repository, chosen?.type, chosenTask]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const typePrompt = chosen ? status.data?.type_prompts?.[chosen.type ?? "development"] : undefined;
   const defaultLabel = typePrompt ? `Predefinito del tipo (${typePrompt})` : "Predefinito (plan_prompt)";
   const chosenModel = models.find((option) => option.name === model);
@@ -141,12 +149,13 @@ export function DelegateModal({ project, task, repository: proposed, opened, onC
 
   const delegate = () => {
     if (chosenTask === null || repository === null || how === null) return;
-    if (how === OPERATOR) return askOperator();
+    if (how === OPERATOR && !none) return askOperator();
     start.mutate(
       {
-        task_note: chosenTask, repository, prompt: fromSelect(prompt), model: fromSelect(model),
-        prepare: how === DEV ? toTargets(rows) : [],
-        learned: chosenLearned ? { automation_id: chosenLearned.id, fields: values } : null,
+        task_note: chosenTask, repository: none ? "" : repository, prompt: fromSelect(prompt), model: fromSelect(model),
+        prepare: how === DEV && !none ? toTargets(rows) : [],
+        learned: chosenLearned && !none ? { automation_id: chosenLearned.id, fields: values } : null,
+        no_repository: none,
       },
       {
         onSuccess: (session) => {
@@ -179,13 +188,17 @@ export function DelegateModal({ project, task, repository: proposed, opened, onC
           label="Repository"
           placeholder={repositories.isPending ? "Cerco i repository…" : "Scegli il repository"}
           searchable
-          data={(repositories.data ?? []).map((repo) => ({ value: repo.path, label: repoLabel(repo.path) }))}
+          description={noCode ? "Senza repository Copilot lavora nei dati del progetto: per leggere Confluence, Jira o le note" : undefined}
+          data={[
+            ...(noCode ? [{ value: NO_REPOSITORY, label: "Nessun repository" }] : []),
+            ...(repositories.data ?? []).map((repo) => ({ value: repo.path, label: repoLabel(repo.path) })),
+          ]}
           value={repository}
           onChange={setRepository}
           error={repositories.error?.message}
         />
-        {repositories.data && !repositories.data.length && <Alert color="orange">Nessun repository git nella cartella del progetto.</Alert>}
-        {repository !== null && (
+        {repositories.data && !repositories.data.length && !noCode && <Alert color="orange">Nessun repository git nella cartella del progetto.</Alert>}
+        {repository !== null && !none && (
           <Select
             label="Come preparare i repository"
             description="Le automation imparate dall'Operatore girano senza LLM"
@@ -195,10 +208,10 @@ export function DelegateModal({ project, task, repository: proposed, opened, onC
             allowDeselect={false}
           />
         )}
-        {how === DEV && repository !== null && repositories.data && (
+        {how === DEV && repository !== null && !none && repositories.data && (
           <PrepareSection project={project} repositories={repositories.data} rows={rows} onChange={setRows} />
         )}
-        {chosenLearned && (
+        {chosenLearned && !none && (
           <Group grow align="flex-start">
             {chosenLearned.fields.map((field) => (
               <TextInput key={field} label={field} value={values[field] ?? ""}
@@ -206,7 +219,7 @@ export function DelegateModal({ project, task, repository: proposed, opened, onC
             ))}
           </Group>
         )}
-        {how === OPERATOR && (
+        {how === OPERATOR && !none && (
           <Text size="sm" c="dimmed">
             Si apre l'Operatore nel pannello con la richiesta pronta: se fa giusto, salvalo come automation e la prossima volta la scegli qui.
             Poi delega con «Non preparare».
@@ -252,14 +265,14 @@ export function DelegateModal({ project, task, repository: proposed, opened, onC
           <Group gap="xs">
             <Loader size="xs" type="dots" />
             <Text size="sm" c="dimmed">
-              {how === DEV || chosenLearned ? "Preparo i repository, poi " : ""}Copilot legge il task e il codice: può volerci qualche decina di secondi…
+              {!none && (how === DEV || chosenLearned) ? "Preparo i repository, poi " : ""}Copilot legge il task{none ? "" : " e il codice"}: può volerci qualche decina di secondi…
             </Text>
           </Group>
         )}
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose} disabled={start.isPending}>Annulla</Button>
           <Button onClick={delegate} loading={start.isPending} disabled={chosenTask === null || repository === null || how === null}>
-            {how === OPERATOR ? "Chiedi all'Operatore" : "Delega"}
+            {how === OPERATOR && !none ? "Chiedi all'Operatore" : "Delega"}
           </Button>
         </Group>
       </Stack>

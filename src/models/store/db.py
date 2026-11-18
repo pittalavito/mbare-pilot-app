@@ -322,6 +322,8 @@ class CopilotSessionTable(SQLModel, table=True):
     project_name: str = _project_fk(nullable=False)
     task_note: str
     repository: str = ""
+    no_repository: bool = False
+    """A task without code delegated without a repository: Copilot works in copilot/<task>/ of the project's data."""
     copilot_session_id: str = Field(unique=True)
     prompt: str = ""
     """The planning prompt chosen (a coding-agent/<name>.md); ``""`` = the default."""

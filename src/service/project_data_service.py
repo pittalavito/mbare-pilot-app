@@ -7,6 +7,7 @@ written by hand: what read_context gives the chatbot, and the RAG will index)
 and ``copilot/<session>/`` (an agent task and its references, for Copilot)."""
 from collections.abc import Callable
 from datetime import datetime, timezone
+from pathlib import Path
 
 from pydantic import BaseModel
 
@@ -14,6 +15,7 @@ from core.error import ConflictError, NotFoundError, ValidationError
 from core.observability import LogPrefix, log_info
 from domain.project.data_paths import (
     CONTEXT_DIR,
+    COPILOT_DIR,
     FILES_DIR,
     NOTE_SUFFIX,
     NOTES_DIR,
@@ -401,6 +403,16 @@ class ProjectDataService:
 
     def delete_context(self, project_name: str, name: str) -> bool:
         return self._files.delete(self._id(project_name, CONTEXT_DIR, note_file_name(name)))
+
+    # --------------------------------------------------------------- copilot
+    def copilot_folder(self, project_name: str, task_note: str) -> Path:
+        """Copilot's working folder for a task delegated without a repository
+        (``copilot/<task>/`` in the project's data, plan 21), created when missing."""
+        return self._files.folder(self._id(project_name, COPILOT_DIR, note_file_name(task_note).removesuffix(NOTE_SUFFIX)))
+
+    def delete_copilot_folder(self, project_name: str, task_note: str) -> bool:
+        """That folder, with everything Copilot left in it; True if there was one."""
+        return self._files.delete_folder(self._id(project_name, COPILOT_DIR, note_file_name(task_note).removesuffix(NOTE_SUFFIX)))
 
     # --------------------------------------------------------------- helpers
     def _project(self, project_name: str) -> str:

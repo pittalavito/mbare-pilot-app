@@ -420,7 +420,8 @@ class PlanService:
         return 0
 
     def _delegate(self, plan: ActivityPlan, current: PathTask) -> None:
-        """Preparation (as the activity says) and delegation with Copilot's default prompt and model; a failure is the step's error."""
+        """Preparation (as the activity says) and delegation with Copilot's default prompt and model; a failure is the step's error.
+        A task without code and without a repository goes without one (Copilot in the project's data, plan 21)."""
         assert self._copilot is not None
         targets: list[PrepareTarget] = []
         automation: LearnedPreparation | None = None
@@ -434,7 +435,8 @@ class PlanService:
             elif how.startswith(AUTOMATION) and how[len(AUTOMATION):].isdigit():
                 automation = LearnedPreparation(automation_id=int(how[len(AUTOMATION):]), fields=fields)
         try:
-            self._copilot.start(plan.project_name, current.task, current.repository, prepare=targets, learned=automation)
+            self._copilot.start(plan.project_name, current.task, current.repository, prepare=targets, learned=automation,
+                                no_repository=current.type.plan_only and not current.repository)  # a task without code, no repo: data folder
         except AppError as exc:
             key = StepKey.PREPARE if str(exc).startswith(PREPARE_FAILED) else StepKey.DELEGATE
             self._plans.save(plan.model_copy(update={"errors": {**plan.errors, step_id(current.task, key): str(exc)}}))
@@ -484,6 +486,16 @@ class PlanService:
         key = step_id(task, step)
         others = {item: values for item, values in plan.task_fields.items() if item != key}
         return self._plans.save(plan.model_copy(update={"task_fields": {**others, key: dict(fields)} if fields else others}))
+
+    def set_task_repository(self, project_name: str, task: str, repository: str) -> None:
+        """The task's repository in the plans that hold it (the delegation's repository
+        changed, plan 21): Prepara sviluppo, Verifica and ``{repository}`` follow."""
+        name = note_file_name(task)
+        for plan in self._plans.latest_per_activity(project_name):
+            if any(note_file_name(planned.task) == name and planned.repository != repository for planned in plan.tasks):
+                tasks = [planned.model_copy(update={"repository": repository}) if note_file_name(planned.task) == name else planned
+                         for planned in plan.tasks]
+                self._plans.save(plan.model_copy(update={"tasks": tasks}))
 
     def _run_after(self, plan: ActivityPlan, current: PathTask, automation: int) -> None:
         """The automation after the verification, now (no LLM): its fields from the task, else «<repository> <task>»."""
