@@ -63,11 +63,20 @@ class TaskType(StrEnum):
     """Write a Confluence page: Copilot writes the draft; it becomes a note."""
     JIRA = "jira"
     """Refine a Jira issue (was «refinement»): Copilot writes the draft; it becomes a note."""
+    PRE_DEV = "pre_dev"
+    """Before a development (plan 22): branch, update, build. Done by Dev or by hand, never by Copilot."""
+    POST_DEV = "post_dev"
+    """After a development (plan 22): cleaning, tests, commit. Done by Dev or by hand, never by Copilot."""
 
     @property
     def plan_only(self) -> bool:
         """Copilot never changes the code: no execution, its answer is saved as a note."""
-        return self != TaskType.DEVELOPMENT
+        return self in (TaskType.ANALYSIS, TaskType.CONFLUENCE, TaskType.JIRA)
+
+    @property
+    def operations(self) -> bool:
+        """Pre or post development: not for Copilot, Dev or the user does it and says «Fatto»."""
+        return self in (TaskType.PRE_DEV, TaskType.POST_DEV)
 
 
 class ChecklistItem(BaseModel):
@@ -87,7 +96,9 @@ class AgentTask(BaseModel):
     references: list[str] = []
     """The linked reference notes, by name (``code-reference-<title>.md``...)."""
     tests: TestScope | None = None
-    """«Verifica sviluppo»: every test or only the touched ones; None = the project's default."""
+    """``run_tests``: every test or only the touched ones; None = the project's default."""
+    steps: list[str] = []
+    """The suggested steps of a pre/post development task (``git checkout -b …``, ``mvn clean install``), for Dev or by hand."""
 
 
 class TodoPriority(StrEnum):

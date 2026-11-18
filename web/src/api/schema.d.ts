@@ -2149,30 +2149,9 @@ export interface paths {
         put?: never;
         /**
          * Plan Options
-         * @description Before delegating (``none``, ``dev``, ``automation:<id>``) and the automation after the verification, each with its
-         *     fields as a template (``{task}``, ``{note}``, ``{repository}``, ``{base}``), and the automatic ok.
+         * @description The automatic ok to Copilot's plan.
          */
         post: operations["plan_options_projects__project__activities__activity__plan_options_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/projects/{project}/activities/{activity}/plan/skip": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Skip Step
-         * @description Skip a task's preparation, verification or automation after it.
-         */
-        post: operations["skip_step_projects__project__activities__activity__plan_skip_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2190,7 +2169,7 @@ export interface paths {
         put?: never;
         /**
          * Retry Step
-         * @description Run a failed step again: preparation, delegation, automation (at the round's next turn) or the tests (now).
+         * @description Run a failed delegation again (at the round's next turn).
          */
         post: operations["retry_step_projects__project__activities__activity__plan_retry_post"];
         delete?: never;
@@ -2199,24 +2178,20 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/projects/{project}/activities/{activity}/plan/fields": {
+    "/projects/{project}/activities/{activity}/plan/done": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
+        get?: never;
+        put?: never;
         /**
-         * Task Fields
-         * @description «⚙️ Campi»: what runs at ``step`` (prepare, after) for the task and its fields, resolved for it.
+         * Mark Done
+         * @description «✅ Fatto» on a pre/post development task (plan 22): done by Dev or by hand, the round goes on.
          */
-        get: operations["task_fields_projects__project__activities__activity__plan_fields_get"];
-        /**
-         * Save Task Fields
-         * @description The task's own fields for ``step`` (empty = the activity's template again).
-         */
-        put: operations["save_task_fields_projects__project__activities__activity__plan_fields_put"];
-        post?: never;
+        post: operations["mark_done_projects__project__activities__activity__plan_done_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2532,7 +2507,7 @@ export interface paths {
         };
         /**
          * Dev Settings
-         * @description Each repository's tests (tool, detected command, the one written), the default scope, the two automations, the commands.
+         * @description Each repository's tests (tool, detected command, the one written), the default scope, the commands.
          */
         get: operations["dev_settings_projects__project__dev_settings_get"];
         /** Save Dev Settings */
@@ -2800,53 +2775,11 @@ export interface components {
              */
             paused: boolean;
             /**
-             * Prepare
-             * @default dev
-             */
-            prepare: string;
-            /**
-             * Skipped
-             * @default []
-             */
-            skipped: string[];
-            /**
              * Errors
              * @default {}
              */
             errors: {
                 [key: string]: string;
-            };
-            /**
-             * Prepare Fields
-             * @default {}
-             */
-            prepare_fields: {
-                [key: string]: string;
-            };
-            /** After Automation */
-            after_automation?: number | null;
-            /**
-             * After Fields
-             * @default {}
-             */
-            after_fields: {
-                [key: string]: string;
-            };
-            /**
-             * Task Fields
-             * @default {}
-             */
-            task_fields: {
-                [key: string]: {
-                    [key: string]: string;
-                };
-            };
-            /**
-             * Automation Runs
-             * @default {}
-             */
-            automation_runs: {
-                [key: string]: number;
             };
             /**
              * Auto Approve
@@ -3024,6 +2957,11 @@ export interface components {
              */
             references: string[];
             tests?: components["schemas"]["TestScope"] | null;
+            /**
+             * Steps
+             * @default []
+             */
+            steps: string[];
         };
         /** AgentTaskResponse */
         AgentTaskResponse: {
@@ -3059,6 +2997,11 @@ export interface components {
              */
             references: string[];
             tests?: components["schemas"]["TestScope"] | null;
+            /**
+             * Steps
+             * @default []
+             */
+            steps: string[];
             /** Name */
             name: string;
         };
@@ -3096,6 +3039,11 @@ export interface components {
              */
             references: string[];
             tests?: components["schemas"]["TestScope"] | null;
+            /**
+             * Steps
+             * @default []
+             */
+            steps: string[];
             /** Name */
             name: string;
             /**
@@ -3233,8 +3181,6 @@ export interface components {
             edges: components["schemas"]["EdgeBody"][];
             /** Replaces */
             replaces: number | null;
-            /** System */
-            system: boolean;
         };
         /** AutomationYamlRequest */
         AutomationYamlRequest: {
@@ -3638,12 +3584,6 @@ export interface components {
              */
             model: string;
             /**
-             * Prepare
-             * @default []
-             */
-            prepare: components["schemas"]["PrepareTarget"][];
-            learned?: components["schemas"]["LearnedPreparation"] | null;
-            /**
              * No Repository
              * @default false
              */
@@ -3895,10 +3835,6 @@ export interface components {
              * @default []
              */
             repositories: components["schemas"]["RepositoryTests"][];
-            /** Prepare Automation */
-            prepare_automation: boolean;
-            /** Verify Automation */
-            verify_automation: boolean;
             /** Allowed Commands */
             allowed_commands: string[];
             /** Suggested Commands */
@@ -4216,21 +4152,6 @@ export interface components {
             cost_eur: number;
         };
         /**
-         * LearnedPreparation
-         * @description An automation learned from the Operator, run at the delegation instead of «Prepara sviluppo» (plan 11).
-         */
-        LearnedPreparation: {
-            /** Automation Id */
-            automation_id: number;
-            /**
-             * Fields
-             * @default {}
-             */
-            fields: {
-                [key: string]: string;
-            };
-        };
-        /**
          * LearnedStep
          * @description A successful tool call of the run, with the real values (not the aliases).
          */
@@ -4524,6 +4445,11 @@ export interface components {
              * @default []
              */
             criteria: string[];
+            /**
+             * Steps
+             * @default []
+             */
+            steps: string[];
         };
         /** PlanConfirmRequest */
         PlanConfirmRequest: {
@@ -4532,31 +4458,9 @@ export interface components {
         };
         /**
          * PlanOptions
-         * @description How the round goes: the preparation before delegating, the automation after the verification (each with
-         *     its fields as a template), the automatic ok.
+         * @description How the round goes: the automatic ok to Copilot's plan.
          */
         PlanOptions: {
-            /**
-             * Prepare
-             * @default dev
-             */
-            prepare: string;
-            /**
-             * Prepare Fields
-             * @default {}
-             */
-            prepare_fields: {
-                [key: string]: string;
-            };
-            /** After Automation */
-            after_automation?: number | null;
-            /**
-             * After Fields
-             * @default {}
-             */
-            after_fields: {
-                [key: string]: string;
-            };
             /**
              * Auto Approve
              * @default false
@@ -4573,7 +4477,7 @@ export interface components {
              * @description Titolo breve del task, all'imperativo.
              */
             title: string;
-            /** @description development (cambia il codice), analysis, confluence oppure jira. */
+            /** @description pre_dev (prima di uno sviluppo), development (cambia il codice), post_dev (dopo uno sviluppo), analysis, confluence oppure jira. */
             type: components["schemas"]["TaskType"];
             /**
              * Repository
@@ -4603,6 +4507,11 @@ export interface components {
              * @description Criteri di accettazione, brevi e verificabili.
              */
             criteria?: string[];
+            /**
+             * Steps
+             * @description Solo per pre_dev e post_dev: i passi da fare, uno per riga (comandi git, maven o altri); vuoto per gli altri tipi.
+             */
+            steps?: string[];
             /** Id */
             id: number;
             /**
@@ -4628,24 +4537,6 @@ export interface components {
              * @default
              */
             repository: string;
-        };
-        /**
-         * PrepareTarget
-         * @description A repository to get ready, on ``branch``: an existing one, or a new one from ``base``.
-         */
-        PrepareTarget: {
-            /**
-             * Repository
-             * @default
-             */
-            repository: string;
-            /** Branch */
-            branch: string;
-            /**
-             * Base
-             * @default
-             */
-            base: string;
         };
         /**
          * ProcessName
@@ -5184,7 +5075,7 @@ export interface components {
          * StepKey
          * @enum {string}
          */
-        StepKey: "prepare" | "delegate" | "copilot_plan" | "execution" | "verify" | "after" | "answer" | "final";
+        StepKey: "delegate" | "copilot_plan" | "execution" | "answer" | "final" | "operation";
         /** StepRequest */
         StepRequest: {
             /** Task */
@@ -5244,45 +5135,10 @@ export interface components {
             /** Only */
             only?: components["schemas"]["DefinitionKeyRequest"][] | null;
         };
-        /**
-         * TaskFields
-         * @description The fields of one task's preparation or automation after the verification, resolved.
-         */
-        TaskFields: {
+        /** TaskRequest */
+        TaskRequest: {
             /** Task */
             task: string;
-            /** Step */
-            step: string;
-            /**
-             * Automation
-             * @default
-             */
-            automation: string;
-            /**
-             * Fields
-             * @default {}
-             */
-            fields: {
-                [key: string]: string;
-            };
-            /**
-             * Own
-             * @default false
-             */
-            own: boolean;
-        };
-        /** TaskFieldsRequest */
-        TaskFieldsRequest: {
-            /** Task */
-            task: string;
-            step: components["schemas"]["StepKey"];
-            /**
-             * Fields
-             * @default {}
-             */
-            fields: {
-                [key: string]: string;
-            };
         };
         /**
          * TaskStatus
@@ -5300,7 +5156,7 @@ export interface components {
          *     (type_prompts) and how Copilot works on it (``plan_only``).
          * @enum {string}
          */
-        TaskType: "development" | "analysis" | "confluence" | "jira";
+        TaskType: "development" | "analysis" | "confluence" | "jira" | "pre_dev" | "post_dev";
         /**
          * TestKind
          * @enum {string}
@@ -5308,7 +5164,7 @@ export interface components {
         TestKind: "maven" | "python" | "node" | "unknown";
         /**
          * TestScope
-         * @description Which tests the «Verifica sviluppo» runs.
+         * @description Which tests ``run_tests`` runs.
          * @enum {string}
          */
         TestScope: "all" | "touched";
@@ -10236,42 +10092,6 @@ export interface operations {
             };
         };
     };
-    skip_step_projects__project__activities__activity__plan_skip_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project: string;
-                activity: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["StepRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ActivityPlan"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     retry_step_projects__project__activities__activity__plan_retry_post: {
         parameters: {
             query?: never;
@@ -10308,42 +10128,7 @@ export interface operations {
             };
         };
     };
-    task_fields_projects__project__activities__activity__plan_fields_get: {
-        parameters: {
-            query: {
-                task: string;
-                step: components["schemas"]["StepKey"];
-            };
-            header?: never;
-            path: {
-                project: string;
-                activity: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TaskFields"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    save_task_fields_projects__project__activities__activity__plan_fields_put: {
+    mark_done_projects__project__activities__activity__plan_done_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -10355,7 +10140,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TaskFieldsRequest"];
+                "application/json": components["schemas"]["TaskRequest"];
             };
         };
         responses: {

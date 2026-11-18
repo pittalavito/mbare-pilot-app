@@ -53,7 +53,7 @@ KIND_TOOLS: dict[ChatbotKind, list[str]] = {
     ChatbotKind.REFINER: ["create_code_reference", "read_agent_task", "update_agent_task", "finish_refinement", "search_context"],
     ChatbotKind.OPERATOR: [
         "git_status", "git_fetch", "git_branches", "git_checkout", "git_create_branch", "git_pull_fast_forward",
-        "git_stash", "git_stash_list", "git_stash_apply", "run_command", "maven_parent_alignment",
+        "git_stash", "git_stash_list", "git_stash_apply", "run_command", "maven_parent_alignment", "clean_mbare_pilot", "run_tests",
     ],
 }
 """The tools a chatbot of a kind may have (written in its YAML, ``tools:``); a kind not here lets them be chosen freely."""

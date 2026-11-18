@@ -58,58 +58,6 @@ function api(extra: Record<string, unknown> = {}) {
 
 const renderTask = () => renderPage(<Routes>{projectRoutes()}</Routes>, { route: `/projects/acme/work?note=${TASK.name}` });
 
-async function delegateWindow() {
-  renderTask();
-  fireEvent.click(await screen.findByRole("button", { name: /Delega a Copilot/ }));
-  return screen.findByRole("dialog");
-}
-
-describe("the delegation's preparation", () => {
-  it("runs a learned automation with its fields filled from the task", async () => {
-    const started = vi.fn(async (request: Request) => ({ ...(await request.json()), id: 9 }));
-    api({ "POST /projects/acme/copilot-sessions": started });
-    const dialog = await delegateWindow();
-
-    fireEvent.click(await within(dialog).findByDisplayValue("🧰 Prepara sviluppo"));
-    fireEvent.click(await screen.findByRole("option", { name: /Prepara feature \(imparata\)/ }));
-    expect(await within(dialog).findByDisplayValue("feature/login")).toBeInTheDocument();
-    await waitFor(() => expect(within(dialog).getByLabelText("base")).toHaveValue("develop"));
-    fireEvent.change(within(dialog).getByLabelText("altro"), { target: { value: "x" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Delega" }));
-
-    await waitFor(() => expect(started).toHaveBeenCalled());
-    expect(await started.mock.results[0].value).toMatchObject({
-      prepare: [], learned: { automation_id: 21, fields: { branch: "feature/login", base: "develop", task: TASK.name, repository: "api", altro: "x" } },
-    });
-    expect(window.localStorage.getItem("mbare-pilot.prepare.acme")).toBe("learned:21"); // the default next time
-  });
-
-  it("when the learned automation fails it offers the Operator, with the error", async () => {
-    window.localStorage.setItem("mbare-pilot.prepare.acme", "learned:21");
-    api({ "POST /projects/acme/copilot-sessions": () => new Response(JSON.stringify({ detail: "Preparazione non riuscita: il branch c'è già" }), { status: 409 }) });
-    const dialog = await delegateWindow();
-    expect(await within(dialog).findByDisplayValue("🛠 Prepara feature (imparata)")).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Delega" }));
-
-    fireEvent.click(await within(dialog).findByRole("button", { name: /Fallo fare all'Operatore/ }));
-    await waitFor(() => expect(screen.getByRole("textbox", { name: "Agente" })).toHaveValue("Dev"));
-    const box = screen.getByPlaceholderText(/Scrivi a Dev/) as HTMLTextAreaElement;
-    expect(box.value).toContain("feature/login");
-    expect(box.value).toContain("il branch c'è già");
-  });
-
-  it("«Fallo fare all'Operatore» opens the panel's Operator with the request ready", async () => {
-    api();
-    const dialog = await delegateWindow();
-    fireEvent.click(await within(dialog).findByDisplayValue("🧰 Prepara sviluppo"));
-    fireEvent.click(await screen.findByRole("option", { name: /Fallo fare all'Operatore/ }));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Chiedi all'Operatore" }));
-
-    await waitFor(() => expect(screen.getByRole("textbox", { name: "Agente" })).toHaveValue("Dev"));
-    expect((screen.getByPlaceholderText(/Scrivi a Dev/) as HTMLTextAreaElement).value)
-      .toBe("Prepara api per il task agent-task-login.md: branch feature/login (crealo da develop se non c'è), aggiornato, poi il clean install.");
-  });
-});
 
 describe("the Operator in the panel", () => {
   const pickOperator = async () => {

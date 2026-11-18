@@ -381,14 +381,7 @@ class ActivityPlanTable(SQLModel, table=True):
     tasks: list[dict] = Field(default_factory=list, sa_type=JSON)
     cost_eur: float = 0.0
     paused: bool = True
-    prepare: str = "dev"
-    skipped: list[str] | None = Field(default=None, sa_type=JSON)
     errors: dict | None = Field(default=None, sa_type=JSON)
-    prepare_fields: dict | None = Field(default=None, sa_type=JSON)
-    after_automation: int | None = None
-    after_fields: dict | None = Field(default=None, sa_type=JSON)
-    task_fields: dict | None = Field(default=None, sa_type=JSON)
-    automation_runs: dict | None = Field(default=None, sa_type=JSON)
     auto_approve: bool = False
     approved: list[str] | None = Field(default=None, sa_type=JSON)
     created_at: datetime = _timestamp()

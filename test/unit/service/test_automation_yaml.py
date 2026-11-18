@@ -100,11 +100,9 @@ def test_the_api(stores, project_store, tmp_path):
     project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(tmp_path)))
     with TestClient(create_app(Container(stores=stores))) as client:
         check = client.post("/projects/acme/pipelines/yaml/check", json={"yaml": PROPOSAL}).json()
-        assert (check["name"], check["replaces"], check["system"], len(check["edges"])) == ("Stato e nota", None, False, 2)
+        assert (check["name"], check["replaces"], len(check["edges"])) == ("Stato e nota", None, 2)
         assert client.post("/projects/acme/pipelines/yaml/check", json={"yaml": "name: X\nsteps: []"}).status_code == 400
 
         saved = client.post("/projects/acme/pipelines/yaml", json={"yaml": PROPOSAL}).json()
         assert client.post("/projects/acme/pipelines/yaml/check", json={"yaml": PROPOSAL}).json()["replaces"] == saved["id"]
         assert "name: Stato e nota" in client.get(f"/pipelines/{saved['id']}/yaml").json()["yaml"]
-        system = client.post("/projects/acme/pipelines/yaml/check", json={"yaml": PROPOSAL.replace("Stato e nota", "Verifica sviluppo")}).json()
-        assert system["system"] is True

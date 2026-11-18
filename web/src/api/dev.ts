@@ -3,12 +3,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "./client";
 import type { components } from "./schema";
 
-/** The checks around a development delegated to Copilot (blocco 09): the
- * tests' settings, whether the project has «Prepara sviluppo» and «Verifica
- * sviluppo», and the branches to pick when preparing a repository. */
+/** The tests' settings (blocco 09, read by ``run_tests``), the project's
+ * Operator and the branches of a repository. */
 
 export type DevSettings = components["schemas"]["DevSettingsResponse"];
-export type PrepareTarget = components["schemas"]["PrepareTarget"];
 export type TestScope = DevSettings["test_scope"];
 
 export const SCOPE_LABELS: Record<TestScope, string> = { all: "Tutti i test", touched: "Solo i test toccati" };

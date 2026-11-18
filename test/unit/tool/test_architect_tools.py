@@ -33,7 +33,7 @@ def test_tools_and_agents(run, agent_config_service):
 
 def test_validate_reads_and_never_saves(run, pipeline_service):
     valid = _call(VALIDATE_AUTOMATION, run, yaml=PROPOSAL)
-    assert valid == {"valid": True, "error": "", "replaces": False, "system": False, "steps": ["Stato: tool git_status"],
+    assert valid == {"valid": True, "error": "", "replaces": False, "steps": ["Stato: tool git_status"],
                      "edges": ["input → Stato"]}
     assert pipeline_service.list_pipelines("acme") == []
 
@@ -42,7 +42,6 @@ def test_validate_reads_and_never_saves(run, pipeline_service):
 
     pipeline_service.save_yaml("acme", PROPOSAL)
     assert _call(VALIDATE_AUTOMATION, run, yaml=PROPOSAL)["replaces"] is True
-    assert _call(VALIDATE_AUTOMATION, run, yaml=PROPOSAL.replace("name: Stato\n", "name: Verifica sviluppo\n", 1))["system"] is True
     conditional = (PROPOSAL + "  - {name: Nota, tool: save_note, args: {content: '{input}'}}\nedges:\n"
                    "  - {from: input, to: Stato}\n  - {from: Stato, to: Nota, if: contains, value: M}\n")
     assert _call(VALIDATE_AUTOMATION, run, yaml=conditional.replace("name: Stato\n", "name: Altra\n", 1))["edges"][1] == "Stato → Nota (contains 'M')"

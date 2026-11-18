@@ -1,13 +1,11 @@
-"""The checks around a development delegated to Copilot (blocco 09) and the
-Operator's commands (plan 11), under /projects/{project}: the tests' settings,
-whether the project has the two automations («Prepara sviluppo», «Verifica
-sviluppo»), the allowed commands, the Operator of the preparation and the
-commands waiting for the user's ok."""
+"""The tests' settings (blocco 09) and the Operator's commands (plan 11), under
+/projects/{project}: the tests' settings, the allowed commands, the project's
+Operator (Dev) and the commands waiting for the user's ok."""
 from fastapi import APIRouter, Depends, Response, status
 from pydantic import BaseModel
 
 from controller.dependencies import command_service, dev_checks_service
-from models.domain.dev import PREPARE_AUTOMATION, VERIFY_AUTOMATION, DevSettings, TestScope
+from models.domain.dev import DevSettings, TestScope
 from models.domain.project import CommandRequest
 from service.command_service import CommandService
 from service.dev_checks_service import DevChecksService
@@ -16,16 +14,12 @@ router = APIRouter(prefix="/projects/{project}", tags=["dev"])
 
 
 class DevSettingsResponse(DevSettings):
-    prepare_automation: bool
-    """The project has «Prepara sviluppo» (switched on): the delegation offers to prepare the repositories."""
-    verify_automation: bool
-    """The project has «Verifica sviluppo» (switched on): it runs when a development goes «to verify»."""
     allowed_commands: list[str]
     """The commands the Operator may run."""
     suggested_commands: list[str]
     """The detected install and test commands not allowed yet: offered with a click."""
     operator_chatbot_id: int | None
-    """The Operator of the preparation; None = the project's first one."""
+    """The project's Operator (Dev, for the pre/post development tasks); None = the project's first one."""
 
 
 class DevSettingsRequest(BaseModel):
@@ -46,15 +40,14 @@ class CommandAnswer(BaseModel):
 
 
 def _response(project: str, service: DevChecksService, commands: CommandService, settings: DevSettings) -> DevSettingsResponse:
-    return DevSettingsResponse(**settings.model_dump(), prepare_automation=service.has(project, PREPARE_AUTOMATION),
-                               verify_automation=service.has(project, VERIFY_AUTOMATION), allowed_commands=commands.allowed(project),
+    return DevSettingsResponse(**settings.model_dump(), allowed_commands=commands.allowed(project),
                                suggested_commands=commands.suggested(project), operator_chatbot_id=service.operator_chatbot_id(project))
 
 
 @router.get("/dev-settings")
 def dev_settings(project: str, service: DevChecksService = Depends(dev_checks_service),
                  commands: CommandService = Depends(command_service)) -> DevSettingsResponse:
-    """Each repository's tests (tool, detected command, the one written), the default scope, the two automations, the commands."""
+    """Each repository's tests (tool, detected command, the one written), the default scope, the commands."""
     return _response(project, service, commands, service.settings(project))
 
 

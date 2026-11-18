@@ -1,5 +1,5 @@
-"""The checks around a development task delegated to Copilot (blocco 09):
-«Prepara sviluppo» before Copilot, «Verifica sviluppo» after it."""
+"""Development around Copilot (blocco 09, plan 22): the tests' settings and
+the repositories to get ready (the dev tools' inputs)."""
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
@@ -14,21 +14,10 @@ class TestKind(StrEnum):
 
 
 class TestScope(StrEnum):
-    """Which tests the «Verifica sviluppo» runs."""
+    """Which tests ``run_tests`` runs."""
     __test__ = False
     ALL = "all"
     TOUCHED = "touched"
-
-
-PREPARE_AUTOMATION = "Prepara sviluppo"
-"""The project's automation run at the delegation, before Copilot (none = no preparation)."""
-VERIFY_AUTOMATION = "Verifica sviluppo"
-"""The project's automation run when a development goes «to verify» (none = no verification)."""
-
-
-VERIFY_OK = "🔍 Verifica ok."
-VERIFY_FAILED = "🔍 Verifica fallita."
-"""How the chat event of a failed verification starts: the UI offers it as the message to send back to Copilot."""
 
 
 class PrepareTarget(BaseModel):
@@ -38,24 +27,6 @@ class PrepareTarget(BaseModel):
     branch: str = Field(min_length=1)
     base: str = ""
     """Where a new branch starts from (a branch); ``""`` = the branch must exist."""
-
-
-class LearnedPreparation(BaseModel):
-    """An automation learned from the Operator, run at the delegation instead of «Prepara sviluppo» (plan 11)."""
-    automation_id: int
-    fields: dict[str, str] = {}
-    """Its fields' values (the delegation fills them from the task; the user corrects them)."""
-
-
-class DevCheck(BaseModel):
-    """How a preparation or a verification went."""
-    ok: bool
-    skipped: bool = False
-    """The project has no such automation: nothing was run."""
-    text: str
-    """What to show: each step's output, or the error."""
-    run_id: int | None = None
-    """The automation's run (Admin → Observability)."""
 
 
 class RepositoryTests(BaseModel):

@@ -1,16 +1,14 @@
 import {
-  ActionIcon, Alert, Anchor, Badge, Button, Card, Group, Loader, Modal, MultiSelect, Select, Stack, Switch, Text, TextInput, Textarea, UnstyledButton,
+  ActionIcon, Alert, Anchor, Badge, Button, Card, Group, Loader, MultiSelect, Select, Stack, Switch, Text, TextInput, Textarea, UnstyledButton,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
-import { usePipelines } from "../../api/automation";
 import { useRepositories } from "../../api/git";
 import {
   type ActivityPath, type ActivityPlan, type PathStep, type PathTask, type PlanChoice, useActivityPath, useCloseActivity, useConfirmPlan,
-  useDismissPlan, usePausePlan, useProposeLearned, useProposePlan, useReopenActivity, useRetryStep, useSaveTaskFields, useSetPlanOptions, useSkipStep,
-  useTaskFields,
+  useDismissPlan, useMarkDone, usePausePlan, useProposeLearned, useProposePlan, useReopenActivity, useRetryStep, useSetPlanOptions,
 } from "../../api/plan";
 import { useStartWorker, useWorkerState } from "../../api/worker";
 import { type Activity, type ActivityBody, useAgentTasks, useDeleteNote, useSaveActivity, useSaveAgentTask } from "../../api/projectData";
@@ -21,26 +19,34 @@ import { SendBackModal } from "../copilot/SendBackModal";
 import { ChecklistEditor } from "../data/ChecklistEditor";
 import { ReferencesSection } from "../data/ReferencesSection";
 import { useAgentPanel } from "../project/AgentPanel";
+import { devRequest } from "./devRequest";
 
 /** An activity in steps (plan 18): 1. Descrivi → 2. Pianifica → 3. Lavora →
  * 4. Chiudi. The step is in ``?step=`` (the bar goes back to one done,
  * «Avanti» goes on); without it, it comes from where the activity is. The
  * status follows the steps (to do, in progress once tasks exist, done when
  * closed): it is never chosen by hand. A task's row in «Lavora» is picked with
- * ``?task=``: the agent panel shows its Copilot chat. */
+ * ``?task=``: the agent panel shows its Copilot chat; «Apri» opens the task
+ * (``?from=`` the activity: «← Torna all'attività»). Pre/post development
+ * tasks (plan 22) never go to Copilot: «Fallo fare a Dev» or by hand, «Fatto». */
 
 export type StepKey = "describe" | "plan" | "work" | "close";
 const STEPS: { key: StepKey; label: string; hint: string }[] = [
   { key: "describe", label: "Descrivi", hint: "descrizione, voci, riferimenti" },
   { key: "plan", label: "Pianifica", hint: "i task, in ordine" },
-  { key: "work", label: "Lavora", hint: "il giro con Copilot" },
+  { key: "work", label: "Lavora", hint: "il giro con Copilot e Dev" },
   { key: "close", label: "Chiudi", hint: "riepilogo e cosa ho imparato" },
 ];
 const STATUS = { todo: ["Da fare", "gray"], in_progress: ["In corso", "blue"], done: ["Fatta", "green"] } as const;
 const TYPES = [
   { value: "development", label: "Sviluppo" }, { value: "analysis", label: "Analisi" },
   { value: "confluence", label: "Confluence" }, { value: "jira", label: "Jira" },
+  { value: "pre_dev", label: "Pre sviluppo" }, { value: "post_dev", label: "Post sviluppo" },
 ];
+const isOperations = (type: string) => type === "pre_dev" || type === "post_dev";
+/** The task's form, coming back to this activity (``?from=``). */
+const taskLink = (project: string, task: string, activity: string) =>
+  `/projects/${encodeURIComponent(project)}/work?note=${encodeURIComponent(task)}&from=${encodeURIComponent(activity)}`;
 const typeLabel = (type: string) => TYPES.find((item) => item.value === type)?.label ?? type;
 const STATE: Record<string, { icon: string; color: string; label: string }> = {
   todo: { icon: "○", color: "gray", label: "da fare" },
@@ -174,11 +180,12 @@ function Describe({ project, activity, onNext }: { project: string; activity: Ac
 // ------------------------------------------------------------- 2. Pianifica
 
 type Draft = { key: string; id: number | null; title: string; type: PlanChoice["type"]; repository: string; items: number[]; itemTexts: string[];
-  isNew: boolean; reason: string; objective: string; criteria: string[] };
+  isNew: boolean; reason: string; objective: string; criteria: string[]; steps: string[] };
 
 const fromPlan = (plan: ActivityPlan | null | undefined): Draft[] => (plan?.proposals ?? []).map((proposal) => ({
   key: `p${proposal.id}`, id: proposal.id, title: proposal.title, type: proposal.type, repository: proposal.repository ?? "", items: proposal.items ?? [],
   itemTexts: proposal.item_texts ?? [], isNew: !!proposal.new, reason: proposal.reason ?? "", objective: proposal.objective ?? "", criteria: proposal.criteria ?? [],
+  steps: proposal.steps ?? [],
 }));
 
 function Plan({ project, activity, path, onBack, onNext }: { project: string; activity: Activity; path: ActivityPath; onBack: () => void; onNext: () => void }) {
@@ -199,13 +206,14 @@ function Plan({ project, activity, path, onBack, onNext }: { project: string; ac
   const free = activity.items.map((item, position) => ({ number: position + 1, item })).filter(({ item }) => !item.done && !item.agent_task);
   const addByHand = () => {
     const key = `m${Date.now()}`;
-    setDrafts((items) => [...items, { key, id: null, title: "", type: "development", repository: "", items: [], itemTexts: [], isNew: false, reason: "", objective: "", criteria: [] }]);
+    setDrafts((items) => [...items, { key, id: null, title: "", type: "development", repository: "", items: [], itemTexts: [], isNew: false, reason: "", objective: "", criteria: [], steps: [] }]);
     setOpen((current) => ({ ...current, [key]: true }));
   };
   const ready = drafts.filter((item) => item.title.trim());
   const create = () => confirm.mutate(ready.map((item) => ({
     id: item.id, items: item.id === null ? item.items : [], title: item.title.trim(), type: item.type, repository: item.repository,
     objective: item.objective, criteria: item.criteria.filter((text) => text.trim()),
+    steps: isOperations(item.type) ? item.steps.filter((text) => text.trim()) : [],
   })), { onSuccess: () => { setDrafts([]); notifications.show({ message: `${ready.length} task creati, da fare.` }); onNext(); } });
   const repoData = (repositories.data ?? []).map((repo) => ({ value: repo.path, label: repo.path || "(cartella del progetto)" }));
   return (
@@ -230,7 +238,7 @@ function Plan({ project, activity, path, onBack, onNext }: { project: string; ac
         </Button>
         <Button variant="default" onClick={addByHand}>➕ Task</Button>
         <Text size="xs" c="dimmed">
-          {path.tasks.length ? "Il Pianificatore guarda solo le voci ancora senza task." : "Una chiamata al Pianificatore: legge descrizione, voci aperte, titoli dei riferimenti, repository e un po' di contesto."}
+          {path.tasks.length ? "Il Pianificatore guarda solo le voci ancora senza task." : "Una chiamata al Pianificatore: legge descrizione, voci aperte, titoli dei riferimenti, repository, le regole di sviluppo (context/sviluppo.md) e un po' di contesto; attorno a ogni sviluppo propone un pre e un post sviluppo."}
           {path.plan?.cost_eur ? ` Finora: ${eur(path.plan.cost_eur)}.` : ""}
         </Text>
       </Group>
@@ -275,6 +283,10 @@ function Plan({ project, activity, path, onBack, onNext }: { project: string; ac
                 onChange={(event) => set(draft.key, { objective: event.currentTarget.value })} />
               <Textarea size="xs" label="Criteri di accettazione" description="Uno per riga" autosize minRows={1} value={draft.criteria.join("\n")}
                 onChange={(event) => set(draft.key, { criteria: event.currentTarget.value.split("\n") })} />
+              {isOperations(draft.type) && (
+                <Textarea size="xs" label="Passi" description="Uno per riga: li fa Dev o tu" autosize minRows={1} value={draft.steps.join("\n")}
+                  onChange={(event) => set(draft.key, { steps: event.currentTarget.value.split("\n") })} />
+              )}
             </Stack>
           )}
         </Card>
@@ -310,28 +322,15 @@ function TaskStatusBadge({ status }: { status: string }) {
 
 // ---------------------------------------------------------------- 3. Lavora
 
-const ASK_ARCHITECT = "Mi serve un'automation da lanciare per i task di sviluppo dell'attività";
-
 function Work({ project, activity, path, onBack, onNext }: { project: string; activity: string; path: ActivityPath; onBack: () => void; onNext: () => void }) {
   const plan = path.plan!;
   const pause = usePausePlan(project, activity);
   const options = useSetPlanOptions(project, activity);
-  const pipelines = usePipelines(project);
-  const navigate = useNavigate();
-  const { ask } = useAgentPanel();
   const [search, setSearch] = useSearchParams();
   const selected = search.get("task");
-  const automations = (pipelines.data ?? []).filter((pipeline) => pipeline.active && pipeline.steps.length);
   const current = path.tasks.find((task) => task.current);
   const started = path.tasks.some((task) => task.status !== "todo" || task.session_id);
-  const settings = {
-    prepare: plan.prepare ?? "dev", prepare_fields: plan.prepare_fields ?? {}, after_automation: plan.after_automation ?? null,
-    after_fields: plan.after_fields ?? {}, auto_approve: !!plan.auto_approve,
-  };
   const pick = (task: string) => setSearch({ note: activity, step: "work", task }, { replace: true });
-  const prepareAutomation = automations.find((pipeline) => `automation:${pipeline.id}` === settings.prepare);
-  const prepareNames = settings.prepare === "dev" ? ["branch", "base"] : prepareAutomation?.fields ?? [];
-  const afterNames = automations.find((pipeline) => pipeline.id === settings.after_automation)?.fields ?? [];
   const worker = useWorkerState();
   const startWorker = useStartWorker();
   const workerStopped = worker.data?.status === "stopped";
@@ -340,7 +339,7 @@ function Work({ project, activity, path, onBack, onNext }: { project: string; ac
       {workerStopped && current && (
         <Alert color="red" p="xs" title="Il worker è fermo: il giro non parte">
           <Group gap="xs">
-            <Text size="sm">Preparazione, delega e automation del giro le fa il worker. La delega a mano funziona lo stesso.</Text>
+            <Text size="sm">La delega e l'ok del giro li fa il worker. La delega a mano funziona lo stesso.</Text>
             <Button size="compact-sm" onClick={() => startWorker.mutate()} loading={startWorker.isPending}>Avvia il worker</Button>
           </Group>
           {startWorker.error && <Text size="xs" c="red" mt={4}>{startWorker.error.message}</Text>}
@@ -349,43 +348,24 @@ function Work({ project, activity, path, onBack, onNext }: { project: string; ac
       {current ? (
         <Alert color={plan.paused ? "orange" : "blue"} p="xs">
           {plan.paused
-            ? `${started ? "In pausa." : "Pronto."} Premi «${started ? "▶️ Riprendi" : "▶️ Avvia"}»: il giro prepara, delega e segue Copilot da solo, e si ferma dove servi tu.`
-            : "Il giro è partito: prepara, delega e segue Copilot da solo; si ferma dove servi tu."}
+            ? `${started ? "In pausa." : "Pronto."} Premi «${started ? "▶️ Riprendi" : "▶️ Avvia"}»: il giro delega a Copilot e lo segue da solo, e si ferma dove servi tu (i task pre e post sviluppo li fa Dev o tu).`
+            : "Il giro è partito: delega a Copilot e lo segue da solo; si ferma dove servi tu (i task pre e post sviluppo li fa Dev o tu)."}
         </Alert>
       ) : <Alert color="green" p="xs">Tutti i task sono fatti: passa a Chiudi.</Alert>}
       <Card withBorder p="sm" bg="var(--mantine-color-default-hover)">
-        <Group align="flex-end" gap="sm" wrap="wrap">
+        <Group align="center" gap="sm" wrap="wrap">
           <Button color={plan.paused ? "blue" : "gray"} variant={plan.paused ? "filled" : "light"} disabled={!current}
             onClick={() => pause.mutate(!plan.paused)} loading={pause.isPending}>
             {plan.paused ? (started ? "▶️ Riprendi" : "▶️ Avvia") : "⏸ Pausa"}
           </Button>
-          <Select label="Prima di delegare a Copilot" w={260} allowDeselect={false} value={settings.prepare}
-            data={[{ value: "none", label: "Niente" }, { value: "dev", label: "Prepara sviluppo (branch dal task)" },
-              ...automations.map((pipeline) => ({ value: `automation:${pipeline.id}`, label: `Automation: ${pipeline.name}` }))]}
-            onChange={(value) => value && options.mutate({ ...settings, prepare: value })} />
-          <Select label="Dopo la verifica" w={240} placeholder="Nessuna" clearable
-            value={settings.after_automation === null ? null : String(settings.after_automation)}
-            data={automations.map((pipeline) => ({ value: String(pipeline.id), label: pipeline.name }))}
-            onChange={(value) => options.mutate({ ...settings, after_automation: value === null ? null : Number(value) })} />
+          <Switch size="sm" label="Parti senza chiedermi l'ok al piano di Copilot" checked={!!plan.auto_approve}
+            onChange={(event) => options.mutate({ auto_approve: event.currentTarget.checked })} />
         </Group>
-        <FieldsTemplate label="Campi prima di delegare" names={prepareNames} values={settings.prepare_fields}
-          onSave={(prepare_fields) => options.mutate({ ...settings, prepare_fields })} />
-        <FieldsTemplate label="Campi dopo la verifica" names={afterNames} values={settings.after_fields}
-          onSave={(after_fields) => options.mutate({ ...settings, after_fields })} />
-        <Switch mt="sm" size="sm" label="Parti senza chiedermi l'ok al piano di Copilot" checked={settings.auto_approve}
-          onChange={(event) => options.mutate({ ...settings, auto_approve: event.currentTarget.checked })} />
-        <Text size="xs" c="dimmed" mt={6}>
-          Valgono per i task di sviluppo dell'attività. «Dopo la verifica» parte a verifica fatta o saltata, prima della tua conferma.{" "}
-          <Anchor size="xs" component="button" type="button" onClick={() => { ask(`${ASK_ARCHITECT} ${activity}: `); navigate(`/projects/${encodeURIComponent(project)}/automation`); }}>
-            ➕ Chiedi all'Architetto un'automation
-          </Anchor>
-        </Text>
         {(pause.error || options.error) && <Text size="xs" c="red" mt={4}>{(pause.error ?? options.error)?.message}</Text>}
       </Card>
       {path.tasks.map((task, position) => (
         <TaskRow key={task.task} project={project} activity={activity} task={task} number={position + 1} paused={!!plan.paused}
-          selected={selected === task.task} onPick={() => pick(task.task)} fieldSteps={[...(prepareNames.length ? ["prepare" as const] : []),
-            ...(afterNames.length ? ["after" as const] : [])]} />
+          selected={selected === task.task} onPick={() => pick(task.task)} />
       ))}
       <Group justify="space-between" pt="sm" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
         <Button variant="default" onClick={onBack}>← Pianifica (aggiungi task)</Button>
@@ -395,15 +375,12 @@ function Work({ project, activity, path, onBack, onNext }: { project: string; ac
   );
 }
 
-function TaskRow({ project, activity, task, number, paused, selected, onPick, fieldSteps }: {
+function TaskRow({ project, activity, task, number, paused, selected, onPick }: {
   project: string; activity: string; task: PathTask; number: number; paused: boolean; selected: boolean; onPick: () => void;
-  /** The steps with fields (prepare, after): «⚙️ Campi» while the task has not started. */
-  fieldSteps: ("prepare" | "after")[];
 }) {
-  const [editingFields, setEditingFields] = useState(false);
   const [, setSearch] = useSearchParams();
-  const skip = useSkipStep(project, activity);
   const retry = useRetryStep(project, activity);
+  const markDone = useMarkDone(project, activity);
   const tasks = useAgentTasks(project);
   const saveTask = useSaveAgentTask(project);
   const { ask } = useAgentPanel();
@@ -411,10 +388,10 @@ function TaskRow({ project, activity, task, number, paused, selected, onPick, fi
   const [sendingBack, setSendingBack] = useState(false);
   const steps = task.steps ?? [];
   const current = task.current ? steps.find((step) => step.state !== "done" && step.state !== "skipped") : undefined;
-  const open = () => setSearch({ note: task.task }, { replace: true });
+  const open = () => setSearch({ note: task.task, from: activity }, { replace: true });
   const stop = (event: { stopPropagation: () => void }) => event.stopPropagation();
+  const found = tasks.data?.find((item) => item.name === task.task);
   const finish = () => {
-    const found = tasks.data?.find((item) => item.name === task.task);
     if (!found) return;
     const { name, ...rest } = found;
     saveTask.mutate({ name, body: { ...rest, status: "done" } }, { onSuccess: () => notifications.show({ message: `${task.title}: fatto.` }) });
@@ -428,15 +405,13 @@ function TaskRow({ project, activity, task, number, paused, selected, onPick, fi
         <Group gap={6} wrap="nowrap">
           <Text size="xs" c="dimmed">{number}.</Text>
           <Text size="sm" fw={600} style={{ flex: 1, minWidth: 0 }} truncate>{task.title}</Text>
+          <Anchor size="xs" component={Link} to={taskLink(project, task.task, activity)} onClick={stop}>Apri</Anchor>
           <Badge size="xs" variant="light">{typeLabel(task.type)}</Badge>
           {task.repository && <Badge size="xs" variant="outline">{task.repository}</Badge>}
           <TaskStatusBadge status={current?.state === "you" ? "you" : task.status} />
         </Group>
         <Group gap={4}>{steps.map((step) => <StepBadge key={step.key} step={step} />)}</Group>
         <Group gap="xs" onClick={stop}>
-          {task.type === "development" && !task.session_id && task.status !== "done" && !!fieldSteps.length && (
-            <Button size="compact-xs" variant="subtle" onClick={() => setEditingFields(true)}>⚙️ Campi</Button>
-          )}
           {refining && (
             <>
               <Text size="xs" c="dimmed">In rifinitura: il giro aspetta che il task torni «da fare».</Text>
@@ -445,10 +420,18 @@ function TaskRow({ project, activity, task, number, paused, selected, onPick, fi
           )}
           {!refining && current && (
             <>
-              {(current.key === "prepare" || current.key === "delegate") && current.state === "todo" && (paused ? (
+              {current.key === "operation" && current.state === "you" && (
+                <>
+                  <Button size="compact-xs" onClick={() => found && ask(devRequest(found, task.repository), "operator")}>🤖 Fallo fare a Dev</Button>
+                  <Button size="compact-xs" color="green" variant="light" onClick={() => markDone.mutate(task.task)} loading={markDone.isPending}>
+                    ✅ Fatto
+                  </Button>
+                  <Text size="xs" c="dimmed">o fai tu i passi, poi «Fatto».</Text>
+                </>
+              )}
+              {current.key === "delegate" && current.state === "todo" && (paused ? (
                 <Button size="compact-xs" onClick={() => setDelegating(true)}>🤖 Delega a mano</Button>
-              ) : <Text size="xs" c="dimmed">⏳ Il giro lo prepara e lo delega a breve.</Text>)}
-              {current.key === "after" && current.state === "todo" && <Text size="xs" c="dimmed">⏳ Il giro lancia l'automation dopo la verifica.</Text>}
+              ) : <Text size="xs" c="dimmed">⏳ Il giro lo delega a breve.</Text>)}
               {(current.key === "copilot_plan" || current.key === "answer") && current.state === "you" && (
                 <Button size="compact-xs" onClick={onPick}>💬 {current.key === "answer" ? "Leggi la risposta" : "Rispondi a Copilot"}</Button>
               )}
@@ -461,27 +444,13 @@ function TaskRow({ project, activity, task, number, paused, selected, onPick, fi
                   <Button size="compact-xs" variant="default" onClick={() => setSendingBack(true)}>↩ Rimanda a Copilot</Button>
                 </>
               )}
-              {current.key === "verify" && current.state === "failed" && (
-                <Button size="compact-xs" onClick={() => setSendingBack(true)}>↩ Rimanda a Copilot</Button>
-              )}
-              {["prepare", "delegate", "verify", "after"].includes(current.key) && current.state === "failed" && (
-                <Button size="compact-xs" variant="light" onClick={() => retry.mutate({ task: task.task, step: current.key })} loading={retry.isPending}>
-                  🔁 {current.key === "verify" ? "Riprova i test" : "Riprova"}
-                </Button>
-              )}
-              {current.key === "prepare" && current.state === "failed" && (
-                <Button size="compact-xs" variant="light" onClick={() => ask(
-                  `Prepara ${task.repository || "la cartella del progetto"} per il task ${task.task}, poi il clean install.\nLa preparazione si è fermata così:\n${current.detail}`,
-                  "operator",
-                )}>🤖 Fallo fare all'Operatore</Button>
-              )}
-              {["prepare", "verify", "after"].includes(current.key) && current.state === "failed" && (
-                <Button size="compact-xs" variant="subtle" onClick={() => skip.mutate({ task: task.task, step: current.key })} loading={skip.isPending}>
-                  ⏭ Salta
-                </Button>
-              )}
               {current.key === "delegate" && current.state === "failed" && (
-                <Button size="compact-xs" variant="default" onClick={() => setDelegating(true)}>🤖 Delega a mano</Button>
+                <>
+                  <Button size="compact-xs" variant="light" onClick={() => retry.mutate({ task: task.task, step: current.key })} loading={retry.isPending}>
+                    🔁 Riprova
+                  </Button>
+                  <Button size="compact-xs" variant="default" onClick={() => setDelegating(true)}>🤖 Delega a mano</Button>
+                </>
               )}
               {current.state === "failed" && (current.key === "execution" || current.key === "answer") && (
                 <Button size="compact-xs" color="red" variant="light" onClick={open}>Apri il task</Button>
@@ -490,13 +459,10 @@ function TaskRow({ project, activity, task, number, paused, selected, onPick, fi
           )}
         </Group>
         {current?.state === "failed" && current.detail && <Text size="xs" c="red" style={{ whiteSpace: "pre-wrap" }}>{current.detail}</Text>}
-        {(skip.error || retry.error || saveTask.error) && <Text size="xs" c="red">{(skip.error ?? retry.error ?? saveTask.error)?.message}</Text>}
+        {(retry.error || saveTask.error || markDone.error) && <Text size="xs" c="red">{(retry.error ?? saveTask.error ?? markDone.error)?.message}</Text>}
       </Stack>
       {delegating && <DelegateModal project={project} task={task.task} repository={task.repository} opened onClose={() => setDelegating(false)} />}
       {sendingBack && <SendBackModal project={project} task={task.task} opened onClose={() => setSendingBack(false)} />}
-      {editingFields && (
-        <TaskFieldsModal project={project} activity={activity} task={task} steps={fieldSteps} onClose={() => setEditingFields(false)} />
-      )}
     </Card>
   );
 }
@@ -507,80 +473,6 @@ function StepBadge({ step }: { step: PathStep }) {
     <Badge size="sm" variant={step.state === "you" ? "filled" : "light"} color={state.color} title={`${step.label}: ${state.label}${step.detail ? ` · ${step.detail}` : ""}`}>
       {state.icon} {step.label}
     </Badge>
-  );
-}
-
-const PLACEHOLDERS = "{task} = nome del task, {note} = la sua nota, {repository} = il suo repository, {base} = il branch corrente del repository";
-const DEFAULT_FIELDS: Record<string, string> = { branch: "feature/{task}", base: "{base}", repository: "{repository}", task: "{note}" };
-
-/** The fields of an automation as a template for every task of the activity: saved when a field is left. */
-function FieldsTemplate({ label, names, values, onSave }: {
-  label: string; names: string[]; values: Record<string, string>; onSave: (values: Record<string, string>) => void;
-}) {
-  const initial = () => Object.fromEntries(names.map((name) => [name, values[name] ?? DEFAULT_FIELDS[name] ?? ""]));
-  const [form, setForm] = useState<Record<string, string>>(initial);
-  const key = JSON.stringify([names, values]);
-  useEffect(() => setForm(initial()), [key]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (!names.length) return null;
-  const save = () => { if (JSON.stringify(form) !== JSON.stringify(initial())) onSave({ ...values, ...form }); };
-  return (
-    <Stack gap={4} mt="sm">
-      <Text size="sm" fw={500}>{label}</Text>
-      <Group gap="xs" grow>
-        {names.map((name) => (
-          <TextInput key={name} size="xs" label={name} value={form[name] ?? ""} onBlur={save}
-            onChange={(event) => { const value = event.currentTarget.value; setForm((current) => ({ ...current, [name]: value })); }} />
-        ))}
-      </Group>
-      <Text size="xs" c="dimmed">Valgono per ogni task, ognuno con i suoi valori: {PLACEHOLDERS}. Per un'eccezione: «⚙️ Campi» sulla riga del task.</Text>
-    </Stack>
-  );
-}
-
-/** «⚙️ Campi» of one task: its fields, resolved, to correct for it alone (or back to the activity's ones). */
-function TaskFieldsModal({ project, activity, task, steps, onClose }: {
-  project: string; activity: string; task: PathTask; steps: ("prepare" | "after")[]; onClose: () => void;
-}) {
-  return (
-    <Modal opened onClose={onClose} title={`⚙️ Campi di «${task.title}»`} size="lg" onClick={(event) => event.stopPropagation()}>
-      <Stack gap="md">
-        <Text size="sm" c="dimmed">Già risolti per questo task (repository {task.repository || "nessuno"}). Cambiali solo se questo task è un'eccezione.</Text>
-        {steps.map((step) => <TaskFieldsStep key={step} project={project} activity={activity} task={task.task} step={step} />)}
-        <Group justify="flex-end"><Button variant="default" onClick={onClose}>Chiudi</Button></Group>
-      </Stack>
-    </Modal>
-  );
-}
-
-function TaskFieldsStep({ project, activity, task, step }: { project: string; activity: string; task: string; step: "prepare" | "after" }) {
-  const fields = useTaskFields(project, activity, task, step, true);
-  const save = useSaveTaskFields(project, activity);
-  const [form, setForm] = useState<Record<string, string>>();
-  useEffect(() => { if (fields.data) setForm(fields.data.fields ?? {}); }, [fields.data]);
-  if (fields.error) return <Alert color="red" p="xs">{fields.error.message}</Alert>;
-  if (!fields.data || !form) return <Loader size="xs" />;
-  const title = step === "prepare" ? "Prima di delegare" : "Dopo la verifica";
-  return (
-    <Card withBorder p="sm">
-      <Stack gap="xs">
-        <Group justify="space-between">
-          <Text size="sm" fw={600}>{title}: {fields.data.automation || "niente"}</Text>
-          {fields.data.own && <Badge size="xs" color="orange" variant="light">campi di questo task</Badge>}
-        </Group>
-        {Object.keys(form).map((name) => (
-          <TextInput key={name} size="xs" label={name} value={form[name]}
-            onChange={(event) => { const value = event.currentTarget.value; setForm((current) => ({ ...current, [name]: value })); }} />
-        ))}
-        {save.error && <Text size="xs" c="red">{save.error.message}</Text>}
-        <Group gap="xs">
-          <Button size="xs" onClick={() => save.mutate({ task, step, fields: form }, { onSuccess: () => notifications.show({ message: `${title}: campi salvati per il task.` }) })}
-            loading={save.isPending}>Salva per questo task</Button>
-          {fields.data.own && (
-            <Button size="xs" variant="subtle" onClick={() => save.mutate({ task, step, fields: {} })}>Torna ai campi dell'attività</Button>
-          )}
-        </Group>
-      </Stack>
-    </Card>
   );
 }
 

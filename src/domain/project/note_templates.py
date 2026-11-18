@@ -88,7 +88,8 @@ STATUS_LABELS = {
     TaskStatus.CREATED: "creato", TaskStatus.REFINEMENT: "in rifinitura",
     TaskStatus.TODO: "da fare", TaskStatus.IN_PROGRESS: "in corso", TaskStatus.TO_VERIFY: "da verificare", TaskStatus.DONE: "fatto",
 }
-TYPE_LABELS = {TaskType.DEVELOPMENT: "sviluppo", TaskType.ANALYSIS: "analisi", TaskType.CONFLUENCE: "doc confluence", TaskType.JIRA: "task jira"}
+TYPE_LABELS = {TaskType.DEVELOPMENT: "sviluppo", TaskType.ANALYSIS: "analisi", TaskType.CONFLUENCE: "doc confluence", TaskType.JIRA: "task jira",
+               TaskType.PRE_DEV: "pre sviluppo", TaskType.POST_DEV: "post sviluppo"}
 NOTE_PREFIXES_BY_TYPE = {TaskType.ANALYSIS: "analisi-", TaskType.CONFLUENCE: "bozza-", TaskType.JIRA: "bozza-"}
 """The generic note where Copilot's answer to a plan-only task is saved (``analisi-<task>.md``, ``bozza-<task>.md``)."""
 PRIORITY_LABELS = {TodoPriority.HIGH: "alta", TodoPriority.MEDIUM: "media", TodoPriority.LOW: "bassa"}
@@ -99,6 +100,8 @@ _TYPE = "Tipo:"
 _TESTS = "Test:"
 _SECTIONS = {"objective": "Obiettivo", "context": "Contesto", "criteria": "Criteri di accettazione", "constraints": "Vincoli"}
 _REFERENCES = "Riferimenti"
+_STEPS = "Passi suggeriti"
+"""The suggested steps of a pre/post development task, as bullets (only when there are)."""
 _DESCRIPTION, _TODO, _AGENT_TASKS = "Descrizione", "Todo", "Agent task"
 _SOURCE, _SOURCE_SEPARATOR = "Fonte:", " · "
 _CODE_FIELDS = {"repository": "Repository:", "path": "File:", "lines": "Righe:"}
@@ -120,11 +123,13 @@ def render_agent_task(task: AgentTask) -> str:
             lines += [_check(item) for item in task.criteria]
         elif text := getattr(task, field).strip():
             lines.append(text)
+    if task.steps:
+        lines += ["", f"## {_STEPS}", *(f"- {_line(step)}" for step in task.steps)]
     return "\n".join(lines + _references(task.references)) + "\n"
 
 
 def parse_agent_task(text: str, fallback_title: str) -> AgentTask:
-    title, head, sections = _split(text, fallback_title, {*_SECTIONS.values(), _REFERENCES})
+    title, head, sections = _split(text, fallback_title, {*_SECTIONS.values(), _STEPS, _REFERENCES})
     status, kind = (_value(head, label).lower() for label in (_STATUS, _TYPE))
     by_heading = {heading.lower(): field for field, heading in _SECTIONS.items()}
     fields = {by_heading[heading]: body for heading, body in sections.items() if heading in by_heading}
@@ -138,6 +143,7 @@ def parse_agent_task(text: str, fallback_title: str) -> AgentTask:
         constraints=_text(fields.get("constraints", [])),
         references=_bullets(sections.get(_REFERENCES.lower(), [])),
         tests=next((key for key, label in SCOPE_LABELS.items() if label == _value(head, _TESTS).lower()), None),
+        steps=_bullets(sections.get(_STEPS.lower(), [])),
     )
 
 
