@@ -1,11 +1,13 @@
-import { Alert, Avatar, Badge, Box, Button, Card, Group, List, Loader, Paper, ScrollArea, Stack, Text, Textarea } from "@mantine/core";
+import { Alert, Avatar, Badge, Box, Button, Card, Group, List, Loader, Paper, ScrollArea, Select, Stack, Text, Textarea } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useEffect, useRef, useState } from "react";
 
 import {
-  type CopilotMessage, type CopilotSession, isExecuting, pendingQuestion, useAnswerCopilot, useApproveCopilot, useCancelCopilot,
-  useCopilotMessages, useCopilotSessionUsage, useDeleteCopilotSession, useSaveCopilotNote, useSendCopilotMessage,
+  type CopilotMessage, type CopilotSession, NO_REPOSITORY, isExecuting, pendingQuestion, repoLabel, useAnswerCopilot, useApproveCopilot,
+  useCancelCopilot, useChangeCopilotRepository, useCopilotMessages, useCopilotSessionUsage, useDeleteCopilotSession, useSaveCopilotNote,
+  useSendCopilotMessage,
 } from "../../api/copilot";
+import { useRepositories } from "../../api/git";
 import { useWorkerState } from "../../api/worker";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Markdown } from "../../components/Markdown";
@@ -17,7 +19,6 @@ import { count, credits } from "../../format";
 
 /** ``agent-task-fix-porto.md`` → ``fix porto``: the task's name without prefix and suffix. */
 const taskLabel = (note: string) => note.replace(/^agent-task-/i, "").replace(/\.md$/i, "").replace(/-/g, " ");
-const repoLabel = (path: string) => path || "(cartella del progetto)";
 
 export const STATUS: Record<string, { label: string; color: string }> = {
   planning: { label: "Preparazione", color: "blue" },
@@ -74,7 +75,7 @@ export function SessionView({ project, session, onDeleted, planOnly }: {
             <Badge variant="light" color={STATUS[session.status]?.color}>{STATUS[session.status]?.label}</Badge>
           </Group>
           <Text size="xs" c="dimmed">
-            <code>{repoLabel(session.repository)}</code> · prompt: {session.prompt || "predefinito"} · modello:{" "}
+            <code>{repoLabel(session.repository, session.no_repository)}</code> · prompt: {session.prompt || "predefinito"} · modello:{" "}
             {session.model || "predefinito"}
           </Text>
           {usage.data && (
@@ -116,6 +117,9 @@ export function SessionView({ project, session, onDeleted, planOnly }: {
           )}
         </Group>
       </Group>
+      {session.status === "planning" && session.head_before === null && (
+        <RepositoryChange project={project} session={session} planOnly={planOnly} busy={send.isPending} />
+      )}
       {(approve.error || cancel.error || saveNote.error) && <Alert color="red">{(approve.error ?? cancel.error ?? saveNote.error)!.message}</Alert>}
       {session.head_moved && (
         <Alert color="red" title="L'HEAD è cambiato durante l'esecuzione">
@@ -222,6 +226,43 @@ function MessageItem({ message }: { message: CopilotMessage }) {
     <Group align="flex-start" wrap="nowrap" gap="sm" maw="90%">
       <Avatar size="sm" radius="xl" color="dark">🤖</Avatar>
       <Markdown>{message.content}</Markdown>
+    </Group>
+  );
+}
+
+/** The repository picked by mistake, changed before the first execution (plan 21): the chat stays,
+ * task.md moves; «Nessun repository» only for a task without code. */
+function RepositoryChange({ project, session, planOnly, busy }: {
+  project: string; session: CopilotSession; planOnly: boolean; busy: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const repositories = useRepositories(project, open);
+  const change = useChangeCopilotRepository(project);
+  const current = session.no_repository ? NO_REPOSITORY : session.repository;
+  if (!open) {
+    return (
+      <Group>
+        <Button size="compact-xs" variant="subtle" onClick={() => setOpen(true)} disabled={busy}>🔀 Cambia repository</Button>
+      </Group>
+    );
+  }
+  const options = [
+    ...(planOnly ? [{ value: NO_REPOSITORY, label: "Nessun repository" }] : []),
+    ...(repositories.data ?? []).map((repo) => ({ value: repo.path, label: repoLabel(repo.path) })),
+  ].filter((option) => option.value !== current);
+  return (
+    <Group align="flex-end" gap="xs">
+      <Select
+        size="xs"
+        label="Nuovo repository"
+        description="Prima della prima esecuzione: la chat resta, il task si sposta"
+        placeholder={repositories.isPending ? "Cerco i repository…" : "Scegli"}
+        data={options}
+        disabled={change.isPending || busy}
+        onChange={(value) => value !== null && change.mutate({ id: session.id, value }, { onSuccess: () => setOpen(false) })}
+        error={change.error?.message ?? repositories.error?.message}
+      />
+      <Button size="xs" variant="default" onClick={() => setOpen(false)} disabled={change.isPending}>Annulla</Button>
     </Group>
   );
 }

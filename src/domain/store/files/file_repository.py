@@ -1,6 +1,7 @@
 """Generic files under the file store root, addressed by ``file_id`` (a path
 relative to the root, e.g. ``uploads/report.pdf``). Callers pass ids, never
 absolute paths."""
+import shutil
 from pathlib import Path
 
 from core.error import NotFoundError
@@ -43,6 +44,21 @@ class LocalFileRepository(FileStore):
         if not path.is_file():
             return False
         path.unlink()
+        return True
+
+    def folder(self, folder_id: str) -> Path:
+        """The absolute folder ``folder_id`` (created when missing): for a tool that
+        needs a working folder of its own (Copilot without a repository)."""
+        path = self._safe_path(folder_id)
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def delete_folder(self, folder_id: str) -> bool:
+        """The folder with everything in it; True if there was one."""
+        path = self._safe_path(folder_id)
+        if not path.is_dir() or path.is_symlink():
+            return False
+        shutil.rmtree(path)
         return True
 
     def _to_stored(self, path: Path) -> StoredFile:

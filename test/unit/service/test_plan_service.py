@@ -63,8 +63,8 @@ class FakeCopilot:
     def session(self, session_id):
         return next(item for item in self.list if item.id == session_id)
 
-    def start(self, project_name, task_note, repository="", prompt="", model="", prepare=None, learned=None):
-        self.started.append({"task": task_note, "repository": repository, "prepare": prepare, "learned": learned})
+    def start(self, project_name, task_note, repository="", prompt="", model="", prepare=None, learned=None, no_repository=False):
+        self.started.append({"task": task_note, "repository": repository, "prepare": prepare, "learned": learned, "no_repository": no_repository})
         if self.fail_start:
             raise self.fail_start
         self.list.insert(0, _session(len(self.list) + 10, task_note, CopilotSessionStatus.PLANNING))
@@ -621,3 +621,21 @@ def test_a_task_without_a_repository_is_not_prepared_unless_the_project_folder_i
     monkeypatch.setattr(git_service, "repositories", lambda project_name, max_depth=2: (_ for _ in ()).throw(NotFoundError("cartella sparita")))
     assert service._root_is_repository("acme") is False
     assert plan.tasks[0].repository == ""
+
+
+def test_a_task_without_code_and_repository_is_delegated_without_one(service, activity, copilot, stores):
+    _created(service, activity, PlanChoice(title="Analizza", type=TaskType.ANALYSIS, objective="Capire"))
+    service.set_paused("acme", activity, False)
+    service.advance_all()
+    assert copilot.started[0]["repository"] == "" and copilot.started[0]["no_repository"]
+
+
+def test_the_delegations_repository_follows_into_the_plan(service, activity, stores):
+    plan = _created(service, activity)
+    login, analysis = (item.task for item in plan.tasks)
+
+    service.set_task_repository("acme", login, "web")
+    service.set_task_repository("acme", "agent-task-altro.md", "web")  # not in a plan: nothing
+
+    tasks = _plan(stores, activity).tasks
+    assert [(item.task, item.repository) for item in tasks] == [(login, "web"), (analysis, "")]

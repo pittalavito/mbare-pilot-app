@@ -9,10 +9,11 @@ export type GitStatus = components["schemas"]["StatusResponse"];
 export type Change = components["schemas"]["ChangeResponse"];
 export type LogFilters = { limit: number; author: string; message: string; commit: string };
 
-export function useRepositories(project: string) {
+export function useRepositories(project: string, enabled = true) {
   return useQuery({
     queryKey: ["projects", project, "git", "repositories"],
     queryFn: () => unwrap(api.GET("/projects/{project}/git/repositories", { params: { path: { project } } })),
+    enabled, // false until needed (e.g. «Cambia repository» in the chat)
   });
 }
 

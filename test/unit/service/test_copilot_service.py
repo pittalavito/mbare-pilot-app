@@ -721,3 +721,77 @@ def test_a_task_folder_that_cannot_be_written_stops_the_start_but_not_the_chat(d
     session = service.send(session.id, "vai avanti")  # the folder is best effort after the start
 
     assert session.status == CopilotSessionStatus.PLANNING and len(_turns(tmp_path, session)) == 2
+
+
+# ------------------------------------------------------ repository (plan 21)
+
+def test_a_task_without_code_is_delegated_without_a_repository_in_the_projects_data(data, project, tmp_path, stores):
+    service = _service(stores, data)
+    note = _task(data, "Leggi la pagina", type=TaskType.CONFLUENCE)
+
+    session = service.start("acme", note, "api", no_repository=True)  # the repository is ignored
+    service.send(session.id, "Approfondisci")
+
+    folder = data.copilot_folder("acme", note)
+    assert session.no_repository and session.repository == ""
+    assert (folder / "mbare-pilot" / note.removesuffix(".md") / "task.md").is_file()
+    assert not _task_dir(project, note).exists()
+
+    service.save_as_note(session.id)  # the answer is a note: the working folder goes away
+    assert not folder.exists()
+
+
+def test_a_development_needs_a_repository(data, project, stores):
+    service = _service(stores, data)
+    with pytest.raises(ValidationError, match="solo i task senza codice"):
+        service.start("acme", _task(data), no_repository=True)
+
+
+def test_deleting_a_session_without_a_repository_removes_its_folder(data, project, stores):
+    service = _service(stores, data)
+    first = _task(data, "Uno", type=TaskType.ANALYSIS)
+    second = _task(data, "Due", type=TaskType.JIRA)
+    service.delete(service.start("acme", first, no_repository=True).id)
+    service.start("acme", second, no_repository=True)
+    service.delete_task_sessions("acme", second)
+
+    assert not data.copilot_folder("acme", first).joinpath("mbare-pilot").exists()
+    assert not data.copilot_folder("acme", second).joinpath("mbare-pilot").exists()
+
+
+def test_the_repository_changes_before_the_first_execution_and_the_chat_stays(data, project, stores):
+    service = _service(stores, data)
+    note = _task(data)
+    session = service.start("acme", note, "api")
+
+    session = service.change_repository(session.id, "web")
+
+    assert session.repository == "web" and not session.no_repository
+    assert (_task_dir(project, note, "web") / "task.md").is_file()
+    assert not (project / "api" / "mbare-pilot").exists()  # moved out of the old one
+    assert "🔀 Repository cambiato: api → web" in service.messages(session.id)[-1].content
+    assert service.send(session.id, "Vai").status == CopilotSessionStatus.PLANNING  # the chat goes on there
+    with pytest.raises(ValidationError, match="È già"):
+        service.change_repository(session.id, "web")
+    with pytest.raises(ValidationError, match="solo i task senza codice"):
+        service.change_repository(session.id, no_repository=True)
+
+    service.approve(session.id)
+    service.run_next()
+    with pytest.raises(ConflictError, match="prima della prima esecuzione"):
+        service.change_repository(session.id, "api")
+
+
+def test_a_task_without_code_moves_to_and_from_no_repository(data, project, stores):
+    service = _service(stores, data)
+    note = _task(data, "Capire", type=TaskType.ANALYSIS)
+    session = service.start("acme", note, "api")
+
+    session = service.change_repository(session.id, no_repository=True)
+    assert session.no_repository and not _task_dir(project, note).exists()
+    assert (data.copilot_folder("acme", note) / "mbare-pilot").is_dir()
+    assert "api → nessun repository" in service.messages(session.id)[-1].content
+
+    session = service.change_repository(session.id, "web")
+    assert not session.no_repository and session.repository == "web"
+    assert not (data.copilot_folder("acme", note) / "mbare-pilot").exists()

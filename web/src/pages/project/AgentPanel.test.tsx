@@ -36,7 +36,7 @@ const message = (id: number, role: string, content: string, conversation = 3): M
   id, conversation_id: conversation, role, content, run_id: null, created_at: "2026-11-13T10:00:00Z",
 });
 const session = (patch: Partial<CopilotSession> = {}): CopilotSession => ({
-  id: 4, project_name: "acme", task_note: DELEGATED.name, repository: "api", prompt: "", model: "", status: "planning", cancel_requested: false,
+  id: 4, project_name: "acme", task_note: DELEGATED.name, repository: "api", no_repository: false, prompt: "", model: "", status: "planning", cancel_requested: false,
   head_before: null, head_after: null, head_moved: false, changed_files: [], premium_requests: 1, error: null,
   created_at: "2026-11-13T10:00:00Z", updated_at: "2026-11-13T10:00:00Z", started_at: null, finished_at: null, ...patch,
 });

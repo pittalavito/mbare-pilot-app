@@ -1800,6 +1800,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/copilot-sessions/{session_id}/repository": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change Repository
+         * @description The repository picked by mistake, before the first execution (409 after): task.md moves,
+         *     the chat stays; the task's repository in its activity's plan follows.
+         */
+        post: operations["change_repository_copilot_sessions__session_id__repository_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/copilot-sessions/{session_id}/approve": {
         parameters: {
             query?: never;
@@ -3575,6 +3596,22 @@ export interface components {
             /** Output */
             output: number;
         };
+        /**
+         * CopilotRepositoryRequest
+         * @description The repository of a session never executed (plan 21).
+         */
+        CopilotRepositoryRequest: {
+            /**
+             * Repository
+             * @default
+             */
+            repository: string;
+            /**
+             * No Repository
+             * @default false
+             */
+            no_repository: boolean;
+        };
         /** CopilotSavedNoteResponse */
         CopilotSavedNoteResponse: {
             /** Note */
@@ -3606,6 +3643,11 @@ export interface components {
              */
             prepare: components["schemas"]["PrepareTarget"][];
             learned?: components["schemas"]["LearnedPreparation"] | null;
+            /**
+             * No Repository
+             * @default false
+             */
+            no_repository: boolean;
         };
         /** CopilotSessionResponse */
         CopilotSessionResponse: {
@@ -3617,6 +3659,8 @@ export interface components {
             task_note: string;
             /** Repository */
             repository: string;
+            /** No Repository */
+            no_repository: boolean;
             /** Prompt */
             prompt: string;
             /** Model */
@@ -9575,6 +9619,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CopilotModelUsageResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_repository_copilot_sessions__session_id__repository_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CopilotRepositoryRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CopilotSessionResponse"];
                 };
             };
             /** @description Validation Error */

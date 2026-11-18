@@ -15,6 +15,11 @@ export type CopilotUsage = components["schemas"]["CopilotUsageResponse"];
 export type CopilotTurn = components["schemas"]["CopilotTurnResponse"];
 export type CopilotModelOption = components["schemas"]["CopilotModelOptionResponse"];
 
+/** The repository Selects' value for «Nessun repository» (plan 21: only a task without code). */
+export const NO_REPOSITORY = "__none__";
+/** How a session's repository is shown: the project folder, or no repository at all. */
+export const repoLabel = (path: string, none = false) => (none ? "nessun repository" : path || "(cartella del progetto)");
+
 /** Queued or running: the worker has it, the page follows it. */
 export const isExecuting = (session: CopilotSession) => session.status === "queued" || session.status === "running";
 
@@ -109,6 +114,23 @@ export function useSendCopilotMessage(project: string) {
     mutationFn: ({ id, text }: { id: number; text: string }) =>
       unwrap(api.POST("/copilot-sessions/{session_id}/messages", { params: { path: { session_id: id } }, body: { text } })),
     onSettled: (_, __, { id }) => refresh(id),
+  });
+}
+
+/** The repository picked by mistake, before the first execution: the chat stays, the activity's plan follows. */
+export function useChangeCopilotRepository(project: string) {
+  const refresh = useRefresh(project);
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, value }: { id: number; value: string }) =>
+      unwrap(api.POST("/copilot-sessions/{session_id}/repository", {
+        params: { path: { session_id: id } },
+        body: value === NO_REPOSITORY ? { repository: "", no_repository: true } : { repository: value, no_repository: false },
+      })),
+    onSettled: (_, __, { id }) => {
+      refresh(id);
+      queryClient.invalidateQueries({ queryKey: ["projects", project, "activities"] }); // the plans' paths
+    },
   });
 }
 

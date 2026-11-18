@@ -1,11 +1,12 @@
 """Agent tasks delegated to GitHub Copilot CLI: sessions per project, the
 planning chat (each message waits for Copilot's answer), the ok that queues
 the execution for the worker, sending a task to verify back to Copilot,
-saving the answer of a plan-only task as a note, cancellation; what the turns used, per session
+saving the answer of a plan-only task as a note, the repository changed before
+the first execution (plan 21), cancellation; what the turns used, per session
 and for Observability (/observability/copilot/...)."""
 from fastapi import APIRouter, Depends, Response, status
 
-from controller.dependencies import copilot_service
+from controller.dependencies import copilot_service, plan_service
 from controller.mcp_server import MCP_TOOLS
 from models.controller.copilot import (
     CopilotDeletedResponse,
@@ -13,6 +14,7 @@ from models.controller.copilot import (
     CopilotMessageResponse,
     CopilotModelOptionResponse,
     CopilotModelUsageResponse,
+    CopilotRepositoryRequest,
     CopilotSavedNoteResponse,
     CopilotSessionRequest,
     CopilotSessionResponse,
@@ -22,6 +24,7 @@ from models.controller.copilot import (
     McpToolResponse,
 )
 from service.copilot_service import CopilotService
+from service.plan_service import PlanService
 
 router = APIRouter(tags=["copilot"])
 
@@ -53,7 +56,8 @@ def list_sessions(project: str, service: CopilotService = Depends(copilot_servic
 def start_session(project: str, request: CopilotSessionRequest, service: CopilotService = Depends(copilot_service)) -> CopilotSessionResponse:
     """Delegate an agent task: the first planning turn runs now (Copilot reads the code and asks)."""
     return CopilotSessionResponse.from_session(
-        service.start(project, request.task_note, request.repository, request.prompt, request.model, request.prepare, request.learned))
+        service.start(project, request.task_note, request.repository, request.prompt, request.model, request.prepare, request.learned,
+                      request.no_repository))
 
 
 @router.delete("/projects/{project}/copilot-sessions")
@@ -95,6 +99,16 @@ def usage_by_model(days: int | None = None, project: str | None = None, service:
 def send_message(session_id: int, request: CopilotMessageRequest, service: CopilotService = Depends(copilot_service)) -> CopilotSessionResponse:
     """A message of the planning chat; returns when Copilot has answered."""
     return CopilotSessionResponse.from_session(service.send(session_id, request.text))
+
+
+@router.post("/copilot-sessions/{session_id}/repository")
+def change_repository(session_id: int, request: CopilotRepositoryRequest, service: CopilotService = Depends(copilot_service),
+                      plans: PlanService = Depends(plan_service)) -> CopilotSessionResponse:
+    """The repository picked by mistake, before the first execution (409 after): task.md moves,
+    the chat stays; the task's repository in its activity's plan follows."""
+    session = service.change_repository(session_id, request.repository, request.no_repository)
+    plans.set_task_repository(session.project_name, session.task_note, session.repository)
+    return CopilotSessionResponse.from_session(session)
 
 
 @router.post("/copilot-sessions/{session_id}/approve")

@@ -25,3 +25,9 @@ class ProjectFileStore:
 
     def delete(self, file_id: str) -> bool:
         return self._files.delete(file_id)
+
+    def folder(self, folder_id: str) -> Path:
+        return self._files.folder(folder_id)
+
+    def delete_folder(self, folder_id: str) -> bool:
+        return self._files.delete_folder(folder_id)

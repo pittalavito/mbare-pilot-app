@@ -28,6 +28,8 @@ from models.domain.note import NoteType
 NOTES_DIR = "notes"
 FILES_DIR = "files"
 CONTEXT_DIR = "context"
+COPILOT_DIR = "copilot"
+"""Copilot's working folders for the tasks delegated without a repository (plan 21)."""
 """Markdown files about the project, written by hand (tool read_context)."""
 REPO_TASKS_DIR = "mbare-pilot"
 """In the repository Copilot works on: ``mbare-pilot/<task note>/`` holds the
