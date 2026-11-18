@@ -1,43 +1,22 @@
 # Automation di ogni progetto (salvo che il progetto ne abbia una con lo stesso nome).
 # Campi: resource/doc/definitions.md
+# Si rifanno da capo poco alla volta (piano 24): per ora solo la prova.
 
 automations:
 
-###########################
-#### Stato del mattino ####
-###########################
-  - name: Stato del mattino
-    description: Stato git di tutti i repository del progetto, riassunto in una nota (prima quelli che chiedono attenzione).
+###################
+#### Prova git ####
+###################
+  - name: Prova git
+    description: >-
+      Prova: stato git di tutti i repository del progetto salvato in una nota, poi stop. Nessun input.
     steps:
-      - name: Stato git
+      - name: Stato
         tool: git_status
         args: {repository: '*'}
-      - name: Riassunto
-        model: openrouter/google/gemini-3.1-flash-lite-preview
-        system_prompt: |
-          Ricevi lo stato git dei repository di un progetto. Scrivi un riassunto breve in italiano, in markdown:
-          1. «Da guardare»: i repository con commit da pullare, commit da pushare, file modificati, un branch diverso
-             da main/master o lo stato non letto. Per ognuno una riga: nome, cosa c'è e cosa conviene fare.
-          2. «A posto»: gli altri, tutti in una riga.
-          Se è tutto a posto, dillo in una frase. Usa solo quello che c'è nel testo: non inventare niente.
       - name: Nota
         tool: save_note
-        args: {content: '{input}', title: 'stato-del-mattino-{date}'}
-
-#################################
-#### Coverage prima del push ####
-#################################
-  - name: Coverage prima del push
-    description: >-
-      Coverage JaCoCo delle righe nei commit non ancora pushati (solo src/main/java), soglia 80%. Lancia
-      mvn jacoco:report (non i test) solo nei repository allineati al POM parent. Nota solo se qualcuno è sotto soglia.
-    steps:
-      - name: Coverage
-        tool: coverage_new_code
-        args: {parent_artifact_id: '', property: '*.libraries.version', repository: '*', threshold: 80}
-      - name: Nota
-        tool: save_note
-        args: {content: '{input}', title: 'coverage-nuovo-codice-{date}'}
+        args: {content: '{input}', title: 'prova-git-{date}'}
     edges:
-      - {from: input, to: Coverage}
-      - {from: Coverage, to: Nota, if: contains, value: "sotto soglia"}
+      - {from: input, to: Stato}
+      - {from: Stato, to: Nota}
