@@ -5,10 +5,9 @@ import pytest
 
 from fakes import as_dict
 from models.domain.agent import RunOrigin
-from models.domain.note import Activity
 from models.domain.project import Project, ProjectSource
 from tool.context import ToolContext
-from tool.list.architect.tools import CREATE_TOOL_TASK, LIST_AGENTS, LIST_TOOLS, READ_AUTOMATION, VALIDATE_AUTOMATION
+from tool.list.architect.tools import LIST_AGENTS, LIST_TOOLS, READ_AUTOMATION, REQUEST_TOOL, VALIDATE_AUTOMATION
 
 PROPOSAL = "name: Stato\nsteps:\n  - {name: Stato, tool: git_status, args: {repository: '*'}}\n"
 
@@ -53,21 +52,8 @@ def test_validate_reads_and_never_saves(run, pipeline_service):
     assert "non trovata" in _call(READ_AUTOMATION, run, name="manca")["error"]
 
 
-def test_a_task_for_a_missing_tool(run, project_data_service):
-    activity = project_data_service.create_activity("acme", Activity(title="Rilascio"))
-
-    created = _call(CREATE_TOOL_TASK, run, title="Tool git_tag", objective="Crea un tag.", criteria=["Test", " "], activity=activity)
-
-    task = project_data_service.agent_task("acme", created["task"])
-    assert (task.status.value, task.type.value, [item.text for item in task.criteria]) == ("refinement", "development", ["Test"])
-    assert project_data_service.activity("acme", activity).agent_tasks == [created["task"]]
-    assert created["link"].endswith(created["task"])
-    assert "not found" in _call(CREATE_TOOL_TASK, run, title="Altra", objective="", criteria=[], activity="attivita-manca").get("error", "").lower()
-    assert _call(CREATE_TOOL_TASK, run, title=" ", objective="", criteria=[])["error"] == "Serve un titolo."
-
-
 def test_only_in_a_chatbot(run):
     outside = ToolContext(project_name="acme", git=None, origin=RunOrigin.MANUAL, pipelines=run.pipelines)  # type: ignore[arg-type]
     for spec, arguments in ((LIST_TOOLS, {}), (LIST_AGENTS, {}), (READ_AUTOMATION, {"name": "x"}), (VALIDATE_AUTOMATION, {"yaml": PROPOSAL}),
-                            (CREATE_TOOL_TASK, {"title": "t", "objective": "", "criteria": []})):
+                            (REQUEST_TOOL, {"title": "t", "objective": "", "criteria": []})):
         assert "solo nel chatbot" in _call(spec, outside, **arguments)["error"]

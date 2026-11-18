@@ -42,6 +42,7 @@ from service.run_service import RunService
 from service.store.stores import Stores
 from service.structured_agent_service import StructuredAgentService
 from service.today_service import TodayService
+from service.tool_request_service import ToolRequestService
 from service.wip_service import WipService
 
 
@@ -91,6 +92,7 @@ class Container:
             project_data_service=self.project_data_service,
         )
         self.code_todo_service = CodeTodoService(git_service=self.git_service, project_data_service=self.project_data_service)
+        self.tool_request_service = ToolRequestService(requests=stores.tool_requests, pipelines=stores.pipelines)
         self.agent_service = AgentService(
             chat_service=self.chat_service,
             agent_config_service=self.agent_config_service,
@@ -104,6 +106,7 @@ class Container:
             code_todo_service=self.code_todo_service,
             rag_service=self.rag_service,
             command_service=self.command_service,
+            tool_requests=self.tool_request_service,
         )
         self.automation_cache_service = AutomationCacheService(
             chatbots=stores.chatbots,

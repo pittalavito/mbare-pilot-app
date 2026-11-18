@@ -84,7 +84,7 @@ src/
     git/              sezione Git di Progetto: commit con filtri e file modificati
     atlassian/        sezione Atlassian di Progetto: Jira, Confluence, preferiti; «📎 Crea riferimento» copia issue e pagine nei riferimenti (CopyToReference)
     library/          pagina Libreria: agenti globali (la stessa sezione Agenti) e catalogo dei tool
-    admin/            pagina Admin: servizi (con «🤖 Tool di Copilot»: i tool dell'app e quelli vietati nell'esecuzione), observability (agent run, tool call, Copilot), modelli, backup (tab in ?tab=)
+    admin/            pagina Admin: servizi (con «🤖 Tool di Copilot»: i tool dell'app e quelli vietati nell'esecuzione), observability (agent run, tool call, Copilot), modelli, backup, tool, richieste di tool (ToolRequests: le richieste dell'Architetto per Claude Code, il token e il comando per collegarlo, «Scarta»; tab in ?tab=)
     settings/         sezione Impostazioni di Progetto: generale, Atlassian, mascheramento, definizioni, agenti, rimozione
     copilot/          Copilot: SessionView (la chat di una sessione: domande, «Ok, parti», esecuzione dal vivo, file cambiati, nel pannello del task delegato), modale «Delega a Copilot» (dal form del task), DevSettingsModal (Progetto → Impostazioni)
     chat/             ConversationView (la conversazione con un chatbot: messaggi in markdown, proposte dell'Architetto, «Metti in cache» se il chatbot ha la cache), ChatbotDetails (dove si cambia solo il modello), AutomationProposal

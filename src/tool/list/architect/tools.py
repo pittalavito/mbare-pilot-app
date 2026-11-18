@@ -9,17 +9,16 @@ from datapizza.tools import Tool, tool
 
 from core.error import AppError
 from domain.pipeline import yaml_format
-from domain.project.links import note_link
+from models.domain.agent import RunOrigin
 from models.domain.dev import PREPARE_AUTOMATION, VERIFY_AUTOMATION
-from models.domain.note import AgentTask, ChecklistItem, TaskStatus, TaskType
 from models.domain.pipeline import EdgeConditionKind, StepKind
 from models.domain.tool import (
     AgentsResponse,
     AutomationValidationResponse,
     AutomationYamlResponse,
     ToolErrorResponse,
+    ToolRequestResponse,
     ToolsResponse,
-    ToolTaskResponse,
 )
 from tool.context import ToolContext
 from tool.list.automation.run_automation import chatbot_run
@@ -100,39 +99,30 @@ def build_validate_automation(context: ToolContext) -> Tool:
     return validate_automation
 
 
-def build_create_tool_task(context: ToolContext) -> Tool:
+def build_request_tool(context: ToolContext) -> Tool:
 
-    @tool(name="create_tool_task", description=(
-        "Only after the user said yes to your proposal: create the agent task «Sviluppo» to write a tool the automation needs "
-        "and that does not exist. It is created in refinement; with an activity (name) it is linked to it."
+    @tool(name="request_tool", description=(
+        "Only after the user said yes to your proposal: ask for a tool the automation needs and that does not exist. "
+        "The request goes to the developers of the app (Claude Code, on the app's own code), not to the project: "
+        "it is of the whole app. Give the automation's name if there is one."
     ))
-    def create_tool_task(
+    def request_tool(
         title: Annotated[str, "Short, e.g. «Tool git_tag: crea un tag»."],
         objective: Annotated[str, "What the tool must do: args, output text, when it fails."],
         criteria: Annotated[list[str], "Acceptance criteria, one per string."],
-        activity: Annotated[str, "The activity to link it to (name); '' = none."] = "",
-    ) -> ToolTaskResponse | ToolErrorResponse:
-        if not chatbot_run(context) or context.project_data is None:
+        automation: Annotated[str, "The automation that needs it (name); '' = none."] = "",
+        activity: Annotated[str, "The activity it comes from (name); '' = none."] = "",
+    ) -> ToolRequestResponse | ToolErrorResponse:
+        if context.origin is not RunOrigin.CHAT or context.project_name is None or context.tool_requests is None:
             return ToolErrorResponse(error=_ONLY_IN_CHAT)
-        project, data = context.require_project(), context.project_data
-        if not title.strip():
-            return ToolErrorResponse(error="Serve un titolo.")
+        project = context.require_project()
         try:
-            parent = activity.strip() or None
-            if parent is not None:
-                data.activity(project, parent)  # exists, before creating the task
-            name = data.create_agent_task(project, AgentTask(
-                title=title.strip(), status=TaskStatus.REFINEMENT, type=TaskType.DEVELOPMENT, objective=objective.strip(),
-                context="Tool per gli agenti e le automation (src/tool/list/), proposto dall'Architetto.",
-                criteria=[ChecklistItem(text=text.strip()) for text in criteria if text.strip()],
-            ))
-            if parent is not None:
-                data.link_agent_task(project, parent, name)
+            request = context.tool_requests.create(project, title, objective, criteria, automation, activity)
         except AppError as exc:
             return ToolErrorResponse(error=str(exc))
-        return ToolTaskResponse(task=name, title=title.strip(), activity=parent, link=note_link(project, name))
+        return ToolRequestResponse(request=request.id or 0, title=request.title, link=f"/admin?tab=tool-requests&request={request.id}")
 
-    return create_tool_task
+    return request_tool
 
 
 def _step_kind(step) -> str:
@@ -151,5 +141,5 @@ READ_AUTOMATION = ToolSpec(name="read_automation", description="Un'automation de
                            build=build_read_automation, chatbot_only=True)
 VALIDATE_AUTOMATION = ToolSpec(name="validate_automation", description="Valida un'automation in YAML con le regole del salvataggio, senza salvare.",
                                build=build_validate_automation, chatbot_only=True)
-CREATE_TOOL_TASK = ToolSpec(name="create_tool_task", description="Dopo il tuo ok: l'agent task per un tool che manca.",
-                            build=build_create_tool_task, chatbot_only=True)
+REQUEST_TOOL = ToolSpec(name="request_tool", description="Dopo il tuo ok: la richiesta di un tool che manca, per Claude Code sul codice dell'app.",
+                        build=build_request_tool, chatbot_only=True)

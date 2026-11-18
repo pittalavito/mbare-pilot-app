@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError as PydanticValidationError
 
 from config import Config
+from controller.dev_mcp_server import build_dev_mcp_server
 from controller.mcp_server import build_mcp_server, mcp_app
 from controller.router import router as api_router
 from core.container import Container
@@ -27,13 +28,14 @@ def create_app(container: Container | None = None) -> FastAPI:
     from the Config (Postgres, Redis, ...)."""
 
     mcp = build_mcp_server(lambda: app.state.container.copilot_service, lambda: app.state.container.rag_service)
+    dev_mcp = build_dev_mcp_server(lambda: app.state.container.tool_request_service)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         if container is None:
             configure_logging(Config.get().app_log_level)
         app.state.container = container or Container()
-        async with mcp.session_manager.run():  # the MCP server (mounted at /mcp) needs its task group
+        async with mcp.session_manager.run(), dev_mcp.session_manager.run():  # the MCP servers (/mcp, /mcp-dev) need their task groups
             yield
 
     app = FastAPI(title="Mbare Pilot API", lifespan=lifespan)
@@ -54,4 +56,5 @@ def create_app(container: Container | None = None) -> FastAPI:
 
     app.include_router(api_router)
     app.mount("/mcp", mcp_app(mcp))  # Copilot's tools while it works on a task (controller/mcp_server.py)
+    app.mount("/mcp-dev", mcp_app(dev_mcp))  # Claude Code's tools: the requests of tools (controller/dev_mcp_server.py)
     return app

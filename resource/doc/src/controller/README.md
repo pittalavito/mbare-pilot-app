@@ -26,6 +26,8 @@ src/controller/
   publish_controller.py       /projects/{progetto}/agent-tasks/{nota}/publish: anteprima e pubblicazione della bozza
   dev_controller.py           /projects/{progetto}/dev-settings: test e automation delle verifiche dello sviluppo
   mcp_server.py               /mcp: il server MCP per Copilot (non è un router: un'app MCP montata da core/app.py)
+  dev_mcp_server.py           /mcp-dev: il server MCP per Claude Code, le richieste di tool (piano 20)
+  tool_request_controller.py  /admin/tool-requests: le richieste di tool, il token di Claude Code, scarta
   definition_controller.py    /projects/{progetto}/definitions (anteprima), .../sync
   process_controller.py       /admin/worker, /admin/logs/{processo}
   admin_controller.py         /admin/config, /observability
@@ -36,6 +38,8 @@ Tutti i path qui sotto stanno sotto `/api` (`core/server.py` monta l'API lì e s
 ## Server MCP per Copilot
 
 `mcp_server.py` costruisce il server MCP dell'app (SDK `mcp`, `MCPServer`) e `core/app.py` lo monta su **`/mcp`** (quindi `<API_URL>/api/mcp/`): trasporto *streamable HTTP*, senza stato tra le chiamate, risposte JSON. Lo usa **GitHub Copilot** mentre lavora su un agent task: l'app glielo passa a ogni turno con il token della sessione (vedi [service](../service/README.md#copilot)).
+
+`dev_mcp_server.py` (piano 20) è un secondo server MCP, montato su **`/mcp-dev`** (`<API_URL>/api/mcp-dev/`), per **Claude Code** sul PC dell'utente, che lavora sul clone di mbare-pilot-app: `list_tool_requests`, `read_tool_request` (con lo YAML dell'automation che chiede il tool), `update_tool_request` (in lavorazione, fatta con la PR, scartata con il motivo, di nuovo aperta). Ogni chiamata vuole il token generato in Admin (`Authorization: Bearer …`); sbagliato o mancante, la chiamata è rifiutata.
 
 | Tool | Cosa fa |
 |---|---|
@@ -76,6 +80,7 @@ Tutti i path qui sotto stanno sotto `/api` (`core/server.py` monta l'API lì e s
 | Elabora WIP | `GET /projects/{p}/wip` (la nota e le parole del testo nuovo), `GET /projects/{p}/wip/runs` (le elaborazioni con l'esito), `POST /projects/{p}/wip/preview` (il testo che riceve il modello, mascherato, con gli alias), `POST /projects/{p}/wip/process` (una chiamata: le proposte in chiaro; 502 se il modello non risponde), `POST /projects/{p}/wip/apply` (le proposte scelte e il segno nella nota; 409 se la WIP è cambiata o le proposte sono già applicate o annullate), `POST /projects/{p}/wip/dismiss` (proposte chiuse senza applicarne nessuna: tutte scartate, niente segno) |
 | Processi | `GET /admin/worker`, `POST /admin/worker/start`, `POST /admin/worker/stop` (409 se ne gira uno avviato altrove), `GET /admin/logs/{api\|worker}?lines=` |
 | Definizioni da file | `GET /projects/{p}/definitions` (anteprima), `POST /projects/{p}/definitions/sync` (tutto, o `only` gli elementi scelti; vedi [definitions](../../definitions.md)) |
+| Richieste di tool | `GET /admin/tool-requests` (le richieste, se c'è un token, l'indirizzo del server MCP), `POST /admin/tool-requests/token` (un token nuovo, mostrato una volta, e il comando `claude mcp add …`), `POST /admin/tool-requests/{id}/dismiss` (`{reason}`: 400 senza motivo, 404 se non c'è) |
 | Copilot | `GET /copilot/status[?project=]` (CLI, coding agent, prompt e modelli da scegliere con prezzo e costo medio per turno, `denied_tools` dell'esecuzione e `mcp_tools`: i tool che Copilot riceve dall'app, da `MCP_TOOLS` di `mcp_server.py`), `GET /copilot-sessions/{id}/turns` (uso per turno e totale), `GET /observability/copilot/turns[?limit=&project=]`, `GET /observability/copilot/models[?days=&project=]`, `GET/POST/DELETE /projects/{p}/copilot-sessions` (POST con `prepare`: i repository da preparare prima, `[{repository, branch, base}]`, 409 se «Prepara sviluppo» fallisce; o `learned: {automation_id, fields}`, un'automation imparata dall'Operatore, 409 se fallisce; DELETE `?task_note=`: le sessioni di un task), `GET/DELETE /copilot-sessions/{id}`, `GET/POST /copilot-sessions/{id}/messages`, `POST /copilot-sessions/{id}/approve`, `POST /copilot-sessions/{id}/answer` (la risposta alla domanda che Copilot fa durante l'esecuzione, tool MCP `ask_user`; 409 senza domanda in attesa), `POST /copilot-sessions/{id}/send-back` (un task «da verificare» rimandato a Copilot con un messaggio), `POST /copilot-sessions/{id}/save-note` (la risposta di un task che lavora solo in piano diventa una nota collegata), `POST /copilot-sessions/{id}/cancel` |
 | Admin | `GET /admin/config`, `GET /observability/runs`, `GET /observability/runs/{run_id}/trace`, `GET /observability/tool-calls`, `GET/POST /admin/backups`, `GET /admin/backups/{nome}` |
 

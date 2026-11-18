@@ -10,7 +10,7 @@ from models.domain.project import Project, ProjectSource
 from service.chatbot_service import ChatbotService
 from service.definition_service import DefinitionService
 
-ARCHITECT_TOOLS = ["list_tools", "list_agents", "list_automations", "read_automation", "validate_automation", "create_tool_task"]
+ARCHITECT_TOOLS = ["list_tools", "list_agents", "list_automations", "read_automation", "validate_automation", "request_tool"]
 
 MODEL = "openai/gpt-4o"
 PROJECT_DIR = "project/acme"

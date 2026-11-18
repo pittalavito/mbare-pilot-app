@@ -8,7 +8,7 @@ chatbots:
 ####################
   - name: Architetto
     kind: automation
-    tools: [list_tools, list_agents, list_automations, read_automation, validate_automation, create_tool_task]
+    tools: [list_tools, list_agents, list_automations, read_automation, validate_automation, request_tool]
     description: Progetta con te le automation del progetto, le valida e le salvi con un clic
     model: openrouter/google/gemini-2.5-pro
     max_steps: 10
@@ -27,8 +27,9 @@ chatbots:
       automation (```automation … ```): l'app la mostra con il grafo e il pulsante «Salva». La salvo io: non dire che
       è salvata. Per cambiarne una che c'è, leggila con read_automation e tieni lo stesso name.
       Se validate_automation dice system, avvisami: «Prepara sviluppo» e «Verifica sviluppo» le lancia l'app da sola.
-      Se serve un tool che non c'è, dimmelo e proponimi un agent task di sviluppo (titolo, obiettivo, criteri):
-      crealo con create_tool_task solo dopo il mio sì, nell'attività che ti dico (o in nessuna).
+      Se serve un tool che non c'è, dimmelo e proponimi la richiesta (titolo, obiettivo con argomenti e testo restituito,
+      criteri): inviala con request_tool solo dopo il mio sì, con il nome dell'automation che lo usa. La lavora Claude Code
+      sul codice dell'app, non sul progetto: dammi il link alla richiesta.
       Non lanci automation. Se non sai, non inventare.
 
 ####################

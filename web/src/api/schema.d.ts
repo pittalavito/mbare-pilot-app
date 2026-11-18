@@ -2584,6 +2584,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/tool-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Tool Requests */
+        get: operations["list_tool_requests_admin_tool_requests_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/tool-requests/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * New Token
+         * @description A new token (the old one stops working) and the command for Claude Code.
+         */
+        post: operations["new_token_admin_tool_requests_token_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/tool-requests/{request_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss
+         * @description 400 without a reason, 404 for an unknown request.
+         */
+        post: operations["dismiss_admin_tool_requests__request_id__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3804,6 +3861,11 @@ export interface components {
             suggested_commands: string[];
             /** Operator Chatbot Id */
             operator_chatbot_id: number | null;
+        };
+        /** DismissRequest */
+        DismissRequest: {
+            /** Reason */
+            reason: string;
         };
         /** DueRequest */
         DueRequest: {
@@ -5302,6 +5364,15 @@ export interface components {
          * @enum {string}
          */
         TodoPriority: "high" | "medium" | "low";
+        /** TokenResponse */
+        TokenResponse: {
+            /** Token */
+            token: string;
+            /** Url */
+            url: string;
+            /** Command */
+            command: string;
+        };
         /** TokensResponse */
         TokensResponse: {
             /** Input Tokens */
@@ -5345,6 +5416,74 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** ToolRequest */
+        ToolRequest: {
+            /** Id */
+            id?: number | null;
+            /** Title */
+            title: string;
+            /**
+             * Objective
+             * @default
+             */
+            objective: string;
+            /**
+             * Criteria
+             * @default []
+             */
+            criteria: string[];
+            /**
+             * Project Name
+             * @default
+             */
+            project_name: string;
+            /**
+             * Automation
+             * @default
+             */
+            automation: string;
+            /**
+             * Activity
+             * @default
+             */
+            activity: string;
+            /** @default open */
+            status: components["schemas"]["ToolRequestStatus"];
+            /**
+             * Pr Url
+             * @default
+             */
+            pr_url: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at?: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at?: string;
+        };
+        /**
+         * ToolRequestStatus
+         * @enum {string}
+         */
+        ToolRequestStatus: "open" | "working" | "done" | "dismissed";
+        /** ToolRequestsResponse */
+        ToolRequestsResponse: {
+            /** Requests */
+            requests: components["schemas"]["ToolRequest"][];
+            /** Has Token */
+            has_token: boolean;
+            /** Url */
+            url: string;
         };
         /** ToolResponse */
         ToolResponse: {
@@ -10924,6 +11063,81 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublishResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_tool_requests_admin_tool_requests_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToolRequestsResponse"];
+                };
+            };
+        };
+    };
+    new_token_admin_tool_requests_token_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenResponse"];
+                };
+            };
+        };
+    };
+    dismiss_admin_tool_requests__request_id__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DismissRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToolRequest"];
                 };
             };
             /** @description Validation Error */

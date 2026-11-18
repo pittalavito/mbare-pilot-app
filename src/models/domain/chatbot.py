@@ -44,7 +44,7 @@ class ChatbotKind(StrEnum):
 
 KIND_TOOLS: dict[ChatbotKind, list[str]] = {
     ChatbotKind.AUTOMATION: [
-        "list_tools", "list_agents", "list_automations", "read_automation", "validate_automation", "create_tool_task",
+        "list_tools", "list_agents", "list_automations", "read_automation", "validate_automation", "request_tool",
     ],
     ChatbotKind.SECRETARY: [
         "list_activities", "read_activity", "create_activity", "update_activity",
