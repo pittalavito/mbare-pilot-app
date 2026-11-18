@@ -1,5 +1,5 @@
 """Blocco 09: the tools of «Prepara sviluppo» (git_check_clean,
-git_checkout_branches) and «Verifica sviluppo» (clean_mbare_pilot, run_tests)
+git_checkout_branches) and «Verifica sviluppo» (run_tests)
 on real repositories (needs ``git``): a bare "origin" and the project "Shop"
 with the clones ``api`` and ``lib``."""
 import shutil
@@ -11,7 +11,6 @@ from core.error import NotFoundError, ValidationError
 from domain.client.command.client import CommandClient, CommandResult
 from domain.dev import tests
 from domain.dev.inputs import parse_prepare, parse_verify, render_prepare, render_verify
-from domain.project import code_todos
 from fakes import ToolFailed, call_tool
 from models.domain.dev import PrepareTarget, TestKind, TestScope
 from models.domain.project import Project, ProjectSource
@@ -68,7 +67,7 @@ def _context(git_service, project_data_service, pipeline_input, commands=None):
     return ToolContext(project_name="Shop", git=git_service, project_data=project_data_service, command_client=commands or FakeCommands()), pipeline_input
 
 
-_ARGUMENT = {"git_check_clean": "targets", "git_checkout_branches": "targets", "clean_mbare_pilot": "target", "run_tests": "target"}
+_ARGUMENT = {"git_check_clean": "targets", "git_checkout_branches": "targets", "run_tests": "target"}
 
 
 def _call(name, context, params=None):
@@ -136,28 +135,6 @@ def test_checkout_branches_stops_at_the_first_problem(shop, git_service, project
 
 
 # ---------------------------------------------------------- verification
-
-def test_clean_removes_the_task_folder_and_the_comment_lines(shop, git_service, project_data_service):
-    api = shop / "shop" / "api"
-    (api / "mbare-pilot" / "agent-task-login").mkdir(parents=True)
-    (api / "mbare-pilot" / "agent-task-login" / "task.md").write_text("# Login", encoding="utf-8")
-    (api / "main.py").write_bytes(b"x = 1\r\n    # todoMbarePilot{rifare}\r\ny = 2  # todoMbarePilot{anche qui}\r\n")
-    (api / "logo.bin").write_bytes(b"\xff\xfe\x00")
-
-    text = _call("clean_mbare_pilot", _context(git_service, project_data_service, "api agent-task-login.md")).text
-
-    assert "- cartella mbare-pilot/agent-task-login: tolta" in text
-    assert "tolti 1" in text and "main.py:3" in text
-    assert not (api / "mbare-pilot").exists()
-    assert (api / "main.py").read_bytes() == b"x = 1\r\ny = 2  # todoMbarePilot{anche qui}\r\n"  # CRLF kept
-    again = _call("clean_mbare_pilot", _context(git_service, project_data_service, "api agent-task-login.md"), {"remove_todos": False}).text
-    assert again == "Pulizia:\n- cartella mbare-pilot/agent-task-login: non c'era"
-
-
-def test_strip_keeps_other_lines():
-    text = "<!-- todoMbarePilot{a} -->\n/* todoMbarePilot{b} */\n-- todoMbarePilot{c}\nkeep\n"
-    assert code_todos.strip(text) == ("keep\n", 3, [])
-
 
 def test_run_tests_all_touched_and_failed(shop, git_service, project_data_service):
     api = shop / "shop" / "api"

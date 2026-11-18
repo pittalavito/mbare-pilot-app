@@ -19,7 +19,7 @@ from service.automation_cache_service import AutomationCacheService
 from service.backup_service import BackupService
 from service.chat_service import ChatService
 from service.chatbot_service import ChatbotService
-from service.code_todo_service import CodeTodoService
+from service.code_search_service import CodeSearchService
 from service.command_service import CommandService
 from service.copilot_service import CopilotService
 from service.definition_service import DefinitionService
@@ -91,7 +91,7 @@ class Container:
             git_service=self.git_service,
             project_data_service=self.project_data_service,
         )
-        self.code_todo_service = CodeTodoService(git_service=self.git_service, project_data_service=self.project_data_service)
+        self.code_search_service = CodeSearchService(git_service=self.git_service, project_data_service=self.project_data_service)
         self.tool_request_service = ToolRequestService(requests=stores.tool_requests, pipelines=stores.pipelines)
         self.agent_service = AgentService(
             chat_service=self.chat_service,
@@ -103,7 +103,7 @@ class Container:
             masking_service=self.masking_service,
             project_data_service=self.project_data_service,
             copilot_service=self.copilot_service,
-            code_todo_service=self.code_todo_service,
+            code_search_service=self.code_search_service,
             rag_service=self.rag_service,
             command_service=self.command_service,
             tool_requests=self.tool_request_service,

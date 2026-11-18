@@ -6,10 +6,10 @@ Agent tasks and activities are notes too (deleted as notes: an agent task is
 then unlinked from its activities), read and written as their template's
 fields under /agent-tasks and /activities. Code and context
 references, linked to them by name, under /references (deleting one unlinks it);
-/code-todos gathers the code's todoMbarePilot comments into one of them."""
+/code-search searches the code freely and saves a search as one of them."""
 from fastapi import APIRouter, Depends, Request, Response, status
 
-from controller.dependencies import code_todo_service, project_data_service
+from controller.dependencies import code_search_service, project_data_service
 from core.error import NotFoundError
 from models.controller.project_data import (
     ActivityBody,
@@ -17,7 +17,7 @@ from models.controller.project_data import (
     AgentTaskBody,
     AgentTaskResponse,
     AgentTaskSavedResponse,
-    CodeTodoScanResponse,
+    CodeSearchSaveBody,
     DataFileResponse,
     DataSettingsBody,
     NoteRequest,
@@ -26,8 +26,9 @@ from models.controller.project_data import (
     ReferenceCreateBody,
     ReferenceResponse,
 )
+from models.domain.code_search import CodeQuery, CodeSearchResult, CodeSearchSaved
 from models.domain.note import NoteType
-from service.code_todo_service import CodeTodoService
+from service.code_search_service import CodeSearchService
 from service.project_data_service import ProjectDataService
 
 router = APIRouter(prefix="/projects/{project}", tags=["project data"])
@@ -122,11 +123,18 @@ def save_reference(project: str, note: str, request: ReferenceBody, service: Pro
     return ReferenceResponse.from_reference(note, kind, reference, service.linked_from(project).get(note, []))
 
 
-@router.post("/code-todos")
-def scan_code_todos(project: str, service: CodeTodoService = Depends(code_todo_service)) -> CodeTodoScanResponse:
-    """Gather the todoMbarePilot{...} comments of the code into the note
-    ``code-reference-todo-mbare-pilot.md`` (409 when a note with that name was written by hand)."""
-    return CodeTodoScanResponse(**service.save(project).model_dump())
+@router.post("/code-search")
+def search_code(project: str, request: CodeQuery, service: CodeSearchService = Depends(code_search_service)) -> CodeSearchResult:
+    """The code's lines matching the text (or the regex), in the files git knows (400 for a broken regex)."""
+    return service.search(project, request)
+
+
+@router.post("/code-search/reference")
+def save_code_search(project: str, request: CodeSearchSaveBody, service: CodeSearchService = Depends(code_search_service)) -> CodeSearchSaved:
+    """The search as a code reference (one per title, rewritten when saved again), linked to ``task`` if given;
+    409 when a reference with that name was not written by a search."""
+    query = CodeQuery(**request.model_dump(include={"query", "regex", "files", "repository"}))
+    return service.save(project, query, request.title, [request.task] if request.task else [])
 
 
 @router.delete("/references/{note}", status_code=status.HTTP_204_NO_CONTENT)

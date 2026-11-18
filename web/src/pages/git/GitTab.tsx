@@ -1,12 +1,13 @@
-import { Alert, Button, Group, Loader, Select, Stack, Table, Text, TextInput } from "@mantine/core";
+import { Alert, Button, Group, Loader, Select, Stack, Table, Tabs, Text, TextInput } from "@mantine/core";
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { type Change, type Commit, type GitStatus, type LogFilters, useGitLog, useGitStatus, useRepositories } from "../../api/git";
+import { CodeSearch } from "./CodeSearch";
 
-/** The Git tab of a project: pick a repository of the project folder, then
- * search its commits (optional filters) or list its changed files. Git runs
- * only on those two buttons; the last result stays on screen. */
+/** The Git tab of a project: «📜 Commit e modifiche» (pick a repository, then
+ * search its commits or list its changed files; git runs only on those two
+ * buttons) and «🔎 Cerca nel codice» (CodeSearch). */
 
 const LIMITS = ["25", "50", "100", "200"];
 const KIND_LABELS: Record<string, string> = {
@@ -26,6 +27,19 @@ type Result = { path: string; commits: Commit[] } | { path: string; status: GitS
 
 export function GitTab() {
   const { project = "" } = useParams();
+  return (
+    <Tabs defaultValue="history" keepMounted={false}>
+      <Tabs.List mb="md">
+        <Tabs.Tab value="history">📜 Commit e modifiche</Tabs.Tab>
+        <Tabs.Tab value="search">🔎 Cerca nel codice</Tabs.Tab>
+      </Tabs.List>
+      <Tabs.Panel value="history"><GitHistory project={project} /></Tabs.Panel>
+      <Tabs.Panel value="search"><CodeSearch project={project} /></Tabs.Panel>
+    </Tabs>
+  );
+}
+
+function GitHistory({ project }: { project: string }) {
   const repos = useRepositories(project);
   const log = useGitLog(project);
   const status = useGitStatus(project);

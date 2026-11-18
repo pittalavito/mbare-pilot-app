@@ -3,7 +3,7 @@ import { notifications } from "@mantine/notifications";
 import { useEffect, useState } from "react";
 
 import { type NoteType, type Reference, useDataSettings, useReferences, useSaveDataSettings } from "../../api/projectData";
-import { ReferenceModal, ReferenceSummary, ScanCodeTodosButton } from "./ReferencesSection";
+import { ReferenceModal, ReferenceSummary } from "./ReferencesSection";
 
 /** The Dati tab's own settings (which note types it shows, saved per project)
  * and the tab of the references, when they are shown. */
@@ -87,18 +87,12 @@ export function DataSettings({ project }: { project: string }) {
 export function References({ project, kinds }: { project: string; kinds: NoteType[] }) {
   const references = useReferences(project);
   const [editing, setEditing] = useState<Reference | "new">();
-  const [scanned, setScanned] = useState<string>(); // the scan's note: opened once the list has it
-  useEffect(() => {
-    const found = scanned && references.data?.find((reference) => reference.name === scanned);
-    if (found) { setEditing(found); setScanned(undefined); }
-  }, [scanned, references.data]);
   const shown = (references.data ?? []).filter((reference) => kinds.includes(reference.kind as NoteType));
   return (
     <Stack gap="xs" maw={900}>
       <Group justify="space-between">
         <Text size="sm" c="dimmed">I riferimenti si collegano dall'agent task o dall'attività. Qui li vedi tutti, anche quelli non collegati.</Text>
         <Group gap="xs">
-          <ScanCodeTodosButton project={project} onScanned={setScanned} />
           <Button size="xs" variant="light" onClick={() => setEditing("new")}>➕ Nuovo riferimento</Button>
         </Group>
       </Group>

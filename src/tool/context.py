@@ -11,7 +11,7 @@ from models.domain.agent import RunOrigin
 from service.git_service import GitService
 
 if TYPE_CHECKING:  # services imported only for the type
-    from service.code_todo_service import CodeTodoService
+    from service.code_search_service import CodeSearchService
     from service.command_service import CommandService
     from service.copilot_service import CopilotService
     from service.maven_service import MavenService
@@ -34,8 +34,8 @@ class ToolContext:
     """For the project's notes (agent tasks, activities, references); None = not possible."""
     copilot: "CopilotService | None" = None
     """For delegating agent tasks to Copilot (tools delegate_task, copilot_status); None = not possible."""
-    code_todos: "CodeTodoService | None" = None
-    """For the todoMbarePilot comments of the code (tool create_code_reference); None = not possible."""
+    code_search: "CodeSearchService | None" = None
+    """For the free search in the code (tools search_code, save_code_search); None = not possible."""
     rag: "RagService | None" = None
     """For searching the project's context index (tool search_context); None = not possible."""
     open_note: str | None = None
@@ -67,9 +67,9 @@ class ToolContext:
         """The project data's service; ValidationError when the run has none."""
         return _required(self.project_data, "dati del progetto")
 
-    def require_code_todos(self) -> "CodeTodoService":
-        """The code comments' service; ValidationError when the run has none."""
-        return _required(self.code_todos, "commenti del codice")
+    def require_code_search(self) -> "CodeSearchService":
+        """The code search's service; ValidationError when the run has none."""
+        return _required(self.code_search, "ricerca nel codice")
 
     def require_rag(self) -> "RagService":
         """The context index's service; ValidationError when the run has none."""

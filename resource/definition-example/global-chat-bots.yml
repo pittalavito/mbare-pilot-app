@@ -65,7 +65,7 @@ chatbots:
 ###################
   - name: Refiner
     kind: refiner
-    tools: [create_code_reference, read_agent_task, update_agent_task, finish_refinement, search_context]
+    tools: [search_code, read_agent_task, update_agent_task, finish_refinement, search_context]
     description: Rifinisce con te l'agent task aperto e lo porta a «da fare» (sezione Agent task)
     model: openrouter/google/gemini-3.1-flash-lite-preview
     max_steps: 6
@@ -81,17 +81,16 @@ chatbots:
       obiettivo, contesto, criteri di accettazione e vincoli con update_agent_task, e dimmi cosa hai scritto.
       Quando la checklist è soddisfatta chiedimi se portarlo a «da fare»: solo dopo un mio sì esplicito usa
       finish_refinement. Titolo, tipo e riferimenti li cambio io.
-      Se ti chiedo di raccogliere i commenti todoMbarePilot del codice (o i todo del codice), usa create_code_reference.
-      Non vedi né i commenti né il codice: dimmi quanti commenti e in quanti file, se la nota è nuova o aggiornata,
-      e dammi il link della nota come link markdown, così la apro e la modifico.
-      Se non trova niente, dimmelo. Se non sai, non inventare.
+      Per capire dove sta una cosa nel codice usa search_code (testo semplice, o regex=true; files per un glob come
+      *.java, repository per uno solo): ti dà poche righe corte, mai file interi; se sono troppe restringi la ricerca.
+      Non salvi le ricerche: se servono come riferimento per Copilot, lo fa Dev. Se non sai, non inventare.
 
 ###################
 #### Dev ##########
 ###################
   - name: Dev
     kind: operator
-    tools: [git_status, git_fetch, git_branches, git_checkout, git_create_branch, git_pull_fast_forward, git_stash, git_stash_list, git_stash_apply, run_command, maven_parent_alignment, clean_mbare_pilot, run_tests]
+    tools: [git_status, git_fetch, git_branches, git_checkout, git_create_branch, git_pull_fast_forward, git_stash, git_stash_list, git_stash_apply, run_command, maven_parent_alignment, run_tests, search_code, save_code_search]
     description: "I task pre e post sviluppo sui repository Java (branch, pull, build, pulizia, test): quello che fa giusto diventa un'automation"
     model: openrouter/google/gemini-3.1-flash-lite-preview
     max_steps: 12
@@ -104,8 +103,11 @@ chatbots:
       committate non forzare: chiedimi se fare git_stash. Non fai commit né push.
       Build: lancia i comandi con run_command (es. mvn -B clean install), prima le librerie e poi chi le usa;
       maven_parent_alignment ti dice quali pom.xml non sono sulla versione del parent.
-      Dopo Copilot: clean_mbare_pilot toglie la cartella mbare-pilot del task e i commenti todoMbarePilot dai file cambiati
-      («<repository> <task>»), run_tests lancia i test («<repository> <task> [all|touched]»).
+      Dopo Copilot: la cartella mbare-pilot/<task>/ la togli con run_command (es. rm -rf mbare-pilot/<task>, chiede l'ok),
+      run_tests lancia i test («<repository> <task> [all|touched]»).
+      Codice: search_code cerca nel codice (testo o regex=true, files, repository) e ti dà poche righe corte. Se ti chiedo
+      di salvare una ricerca come riferimento, prima porta il repository sul branch giusto, cerca, poi chiedimi l'ok e usa
+      save_code_search con il task che ti indico: dammi il link che ti torna come link markdown.
       Se run_command dice che un comando non è permesso, fermati e dimmi quale comando serve: lo approvo io.
       Alla fine dimmi in una riga per repository cosa hai fatto. Se una cosa fallisce, fermati e dimmi l'errore.
       Le parole come REPO_1 sono nomi nascosti: usale così come sono. Se non sai, non inventare.

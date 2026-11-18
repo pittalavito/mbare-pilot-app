@@ -15,7 +15,7 @@ from models.domain.chatbot import ChatMessage
 from models.domain.tool import ToolErrorResponse
 from service.agent_config_service import AgentConfigService
 from service.chat_service import ChatService
-from service.code_todo_service import CodeTodoService
+from service.code_search_service import CodeSearchService
 from service.command_service import CommandService
 from service.copilot_service import CopilotService
 from service.git_service import GitService
@@ -44,7 +44,7 @@ class AgentService:
         masking_service: MaskingService,
         project_data_service: ProjectDataService,
         copilot_service: CopilotService,
-        code_todo_service: CodeTodoService,
+        code_search_service: CodeSearchService,
         rag_service: RagService | None = None,
         command_service: CommandService | None = None,
         tool_requests: ToolRequestService | None = None,
@@ -54,7 +54,7 @@ class AgentService:
         project without a map is left as it is);
         ``project_data_service`` lets them read the project's context (tool read_context);
         ``copilot_service`` lets the chatbot delegate agent tasks to Copilot (tool delegate_task);
-        ``code_todo_service`` lets the refiner gather the code's comments (tool create_code_reference);
+        ``code_search_service`` lets the agents search the code (tools search_code, save_code_search);
         ``rag_service`` lets them search the project's context (tool search_context);
         ``command_service`` lets the Operator run the project's allowed commands (tool run_command).
         All are required: whether a tool may use one in a run is decided by the
@@ -68,7 +68,7 @@ class AgentService:
         self._masking_service = masking_service
         self._project_data_service = project_data_service
         self._copilot_service = copilot_service
-        self._code_todo_service = code_todo_service
+        self._code_search_service = code_search_service
         self._rag_service = rag_service
         self._command_service = command_service
         self._tool_requests = tool_requests
@@ -81,7 +81,7 @@ class AgentService:
         if spec is None:
             raise NotFoundError(f"Tool non trovato: {name}")
         context = ToolContext(project_name=project_name, git=self._git_service, pipelines=self._pipeline_service, origin=RunOrigin.MANUAL,
-                              project_data=self._project_data_service, copilot=self._copilot_service, code_todos=self._code_todo_service,
+                              project_data=self._project_data_service, copilot=self._copilot_service, code_search=self._code_search_service,
                               rag=self._rag_service, commands=self._command_service, tool_requests=self._tool_requests)
         try:
             result = spec.build(context)(**arguments)
@@ -126,7 +126,7 @@ class AgentService:
             origin=origin,
             project_data=self._project_data_service,
             copilot=self._copilot_service,
-            code_todos=self._code_todo_service,
+            code_search=self._code_search_service,
             rag=self._rag_service,
             open_note=open_note,
             commands=self._command_service,

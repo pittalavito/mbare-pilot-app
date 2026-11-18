@@ -712,7 +712,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/projects/{project}/code-todos": {
+    "/projects/{project}/code-search": {
         parameters: {
             query?: never;
             header?: never;
@@ -722,11 +722,31 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Scan Code Todos
-         * @description Gather the todoMbarePilot{...} comments of the code into the note
-         *     ``code-reference-todo-mbare-pilot.md`` (409 when a note with that name was written by hand).
+         * Search Code
+         * @description The code's lines matching the text (or the regex), in the files git knows (400 for a broken regex).
          */
-        post: operations["scan_code_todos_projects__project__code_todos_post"];
+        post: operations["search_code_projects__project__code_search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/code-search/reference": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save Code Search
+         * @description The search as a code reference (one per title, rewritten when saved again), linked to ``task`` if given;
+         *     409 when a reference with that name was not written by a search.
+         */
+        post: operations["save_code_search_projects__project__code_search_reference_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3338,24 +3358,102 @@ export interface components {
              */
             learned: string;
         };
+        /** CodeMatch */
+        CodeMatch: {
+            /** Path */
+            path: string;
+            /** Line */
+            line: number;
+            /** Text */
+            text: string;
+        };
         /**
-         * CodeTodoScanResponse
-         * @description What a scan of the todoMbarePilot comments wrote: counts only, the comments are in the note.
+         * CodeQuery
+         * @description What to look for: plain text by default, a regular expression with ``regex``.
          */
-        CodeTodoScanResponse: {
-            /** Note */
-            note: string | null;
-            /** Created */
-            created: boolean;
-            /** Files */
-            files: number;
-            /** Comments */
-            comments: number;
+        CodeQuery: {
+            /** Query */
+            query: string;
             /**
-             * Malformed
+             * Regex
+             * @default false
+             */
+            regex: boolean;
+            /**
+             * Files
+             * @default
+             */
+            files: string;
+            /**
+             * Repository
+             * @default
+             */
+            repository: string;
+        };
+        /** CodeSearchResult */
+        CodeSearchResult: {
+            /**
+             * Matches
+             * @default []
+             */
+            matches: components["schemas"]["CodeMatch"][];
+            /**
+             * Total
              * @default 0
              */
-            malformed: number;
+            total: number;
+            /**
+             * Files
+             * @default 0
+             */
+            files: number;
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+        };
+        /**
+         * CodeSearchSaveBody
+         * @description A code search to save as a code reference.
+         */
+        CodeSearchSaveBody: {
+            /** Query */
+            query: string;
+            /**
+             * Regex
+             * @default false
+             */
+            regex: boolean;
+            /**
+             * Files
+             * @default
+             */
+            files: string;
+            /**
+             * Repository
+             * @default
+             */
+            repository: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /**
+             * Task
+             * @default
+             */
+            task: string;
+        };
+        /** CodeSearchSaved */
+        CodeSearchSaved: {
+            /** Note */
+            note: string;
+            /** Created */
+            created: boolean;
+            /** Total */
+            total: number;
         };
         /** CommandAnswer */
         CommandAnswer: {
@@ -7357,7 +7455,7 @@ export interface operations {
             };
         };
     };
-    scan_code_todos_projects__project__code_todos_post: {
+    search_code_projects__project__code_search_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -7366,7 +7464,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodeQuery"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -7374,7 +7476,42 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CodeTodoScanResponse"];
+                    "application/json": components["schemas"]["CodeSearchResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_code_search_projects__project__code_search_reference_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodeSearchSaveBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeSearchSaved"];
                 };
             };
             /** @description Validation Error */
