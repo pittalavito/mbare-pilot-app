@@ -2358,6 +2358,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/context/repository-map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate Repository Map
+         * @description «🗺 Genera mappa dei repository» (plan 27): context/repository.md, only its generated part rewritten; indexed.
+         */
+        post: operations["generate_repository_map_projects__project__context_repository_map_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project}/context-general": {
         parameters: {
             query?: never;
@@ -4379,7 +4399,7 @@ export interface components {
              * Points
              * @default []
              */
-            points: string[];
+            points: components["schemas"]["LearnedPoint"][];
             /** Run Id */
             run_id: string;
             /**
@@ -4387,6 +4407,19 @@ export interface components {
              * @default 0
              */
             cost_eur: number;
+        };
+        /** LearnedPoint */
+        LearnedPoint: {
+            /**
+             * Theme
+             * @description Il tema in una o due parole (es. Build, Test, Dominio, Copilot, Convenzioni).
+             */
+            theme: string;
+            /**
+             * Text
+             * @description La cosa da ricordare, breve.
+             */
+            text: string;
         };
         /**
          * LearnedStep
@@ -10784,6 +10817,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_repository_map_projects__project__context_repository_map_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContextSavedResponse"];
+                };
             };
             /** @description Validation Error */
             422: {

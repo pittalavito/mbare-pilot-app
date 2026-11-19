@@ -173,9 +173,9 @@ def test_the_rag_evaluation_reports_hits_with_and_without_the_bonus(evaluations)
 
     assert [(result.embedder, result.bonus) for result in results] == [("hashing-512", 0.15), ("hashing-512", 0.0)]
     with_bonus, without = results
-    assert with_bonus.answerable == 16 and 0 <= with_bonus.hit_at_1 <= with_bonus.hit_at_5 <= 1
+    assert with_bonus.answerable == 28 and 0 <= with_bonus.hit_at_1 <= with_bonus.hit_at_5 <= 1
     assert with_bonus.best_score_unanswerable is not None and with_bonus.best_score_unanswerable < with_bonus.best_score_answerable
-    assert len(with_bonus.misses) == round(16 * (1 - with_bonus.hit_at_5))
+    assert len(with_bonus.misses) == round(28 * (1 - with_bonus.hit_at_5))
     report = evaluations.report(name)
     assert "| `hashing-512` | sì |" in report and "| `hashing-512` | no |" in report
     assert [item.name for item in evaluations.reports()] == [name] and evaluations.reports()[0].kind == EvaluationKind.RAG

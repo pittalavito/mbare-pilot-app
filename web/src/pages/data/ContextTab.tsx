@@ -3,7 +3,7 @@ import { notifications } from "@mantine/notifications";
 import { useState } from "react";
 
 import {
-  useContextDocument, useContextDocuments, useContextIndex, useGeneralContext, useDeleteContext, useReindexContext, useSaveContext, useSearchContext,
+  useContextDocument, useContextDocuments, useContextIndex, useGenerateRepositoryMap, useGeneralContext, useDeleteContext, useReindexContext, useSaveContext, useSearchContext,
 } from "../../api/context";
 import { ConfirmButton } from "../../components/ConfirmButton";
 
@@ -32,9 +32,45 @@ Le regole che il Pianificatore segue per proporre i task pre e post sviluppo att
 - Test: mvn -B test
 `;
 
+/** The other ready documents (plan 27): a button for each one the project lacks. */
+export const TEMPLATES: { name: string; label: string; title: string; content: string }[] = [
+  { name: "convenzioni.md", label: "📏 Convenzioni", title: "Branch, commit, package, stile e test: il Refiner e Copilot le seguono", content: `# Convenzioni
+
+## Branch e commit
+- Branch: feature/<ticket>-<breve-descrizione>, bugfix/<ticket>.
+- Commit: «<TICKET> cosa cambia», al presente.
+
+## Codice
+- Package per funzionalità (es. it.azienda.ordini.api, …service, …repository).
+- Nomi in inglese; niente Lombok (esempio: cambia con le vostre regole).
+
+## Test
+- Test di unità per ogni service; test di integrazione per i controller.
+- Coverage minima del codice nuovo: 80%.
+` },
+  { name: "glossario.md", label: "📖 Glossario", title: "I termini del dominio: meno domande e meno invenzioni", content: `# Glossario
+
+## Termini
+- **Termine**: cosa significa nel progetto, in una riga.
+- **Altro termine**: …
+
+## Sigle
+- **SIGLA**: per esteso e significato.
+` },
+  { name: "decisioni.md", label: "🧭 Decisioni", title: "Le scelte architetturali con il perché: evita proposte già scartate", content: `# Decisioni
+
+## Titolo della decisione
+- **Decisione**: cosa si è scelto.
+- **Perché**: il motivo.
+- **Scartato**: le alternative e perché no.
+- **Data**: gg/mm/aaaa.
+` },
+];
+
 export function ContextTab({ project }: { project: string }) {
   const documents = useContextDocuments(project);
   const save = useSaveContext(project);
+  const generateMap = useGenerateRepositoryMap(project);
   const [selected, setSelected] = useState<string>();
   const [creating, setCreating] = useState(false);
   const names = documents.data?.map((item) => item.name) ?? [];
@@ -55,6 +91,23 @@ export function ContextTab({ project }: { project: string }) {
                 📐 Regole di sviluppo (modello)
               </Button>
             )}
+            {documents.data && TEMPLATES.filter((item) => !names.includes(item.name)).map((item) => (
+              <Button key={item.name} variant="light" loading={save.isPending && save.variables?.name === item.name} title={item.title}
+                onClick={() => save.mutate({ name: item.name, content: item.content }, { onSuccess: () => setSelected(item.name) })}>
+                {item.label} (modello)
+              </Button>
+            ))}
+            <Button variant="light" loading={generateMap.isPending}
+              title="Scrive repository.md dai file e da git: build, dipendenze tra repository, ordine di build, branch. Rigenerarla riscrive solo la parte automatica"
+              onClick={() => generateMap.mutate(undefined, {
+                onSuccess: (result) => {
+                  setSelected(result.name);
+                  notifications.show({ color: result.index_error ? "orange" : "green", message: result.index_error ?? "Mappa dei repository aggiornata." });
+                },
+              })}>
+              🗺 Genera mappa dei repository
+            </Button>
+            {generateMap.error && <Alert color="red" p="xs">{generateMap.error.message}</Alert>}
             {documents.isPending && <Loader size="sm" />}
             {documents.error && <Alert color="red">{documents.error.message}</Alert>}
             {documents.data && !names.length && <Text size="sm" c="dimmed">Nessun documento di contesto.</Text>}

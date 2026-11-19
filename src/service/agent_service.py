@@ -93,6 +93,18 @@ class AgentService:
             return result
         return ToolErrorResponse(error="") if result is None else _Text(text=str(result))
 
+    def _with_catalog(self, definition: AgentDefinition, project_name: str | None, session) -> AgentDefinition:
+        """With ``search_context``: the titles of the context documents at the end of the prompt (plan 27), masked."""
+        if not project_name or self._rag_service is None or "search_context" not in definition.tool_names:
+            return definition
+        try:
+            extra = self._rag_service.catalog(project_name)
+        except AppError:
+            return definition
+        if not extra:
+            return definition
+        return definition.model_copy(update={"system_prompt": definition.system_prompt + (session.mask(extra) if session else extra)})
+
     def run(self, config_name: str, task_input: str, *, project_name: str | None = None, origin: RunOrigin = RunOrigin.MANUAL,
             history: list[ChatMessage] | None = None) -> AgentRunRecord:
         """Run the agent configured as ``config_name`` (see ``run_definition``)."""
@@ -133,6 +145,7 @@ class AgentService:
             tool_requests=self._tool_requests,
         )
         tools = mask.wrap(build_tools(definition.tool_names, context))
+        definition = self._with_catalog(definition, project_name, session)
         agent = AgentFactory.create_agent(definition, client, tools)
         prices = self._catalog.price_list()
 

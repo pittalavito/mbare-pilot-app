@@ -2,14 +2,19 @@
 from pydantic import BaseModel, Field
 
 
+class LearnedPoint(BaseModel):
+    theme: str = Field(description="Il tema in una o due parole (es. Build, Test, Dominio, Copilot, Convenzioni).")
+    text: str = Field(description="La cosa da ricordare, breve.")
+
+
 class LearnedAnswer(BaseModel):
     """The agent ``imparato``'s structured answer."""
-    points: list[str] = Field(default_factory=list, description="Poche cose da ricordare per i lavori futuri, una per punto, brevi.")
+    points: list[LearnedPoint] = Field(default_factory=list, description="Poche cose da ricordare per i lavori futuri, ognuna col suo tema.")
 
 
 class LearnedDraft(BaseModel):
     """The proposal in clear, for the user to correct before closing."""
-    points: list[str] = []
+    points: list[LearnedPoint] = []
     run_id: str
     cost_eur: float = 0.0
 

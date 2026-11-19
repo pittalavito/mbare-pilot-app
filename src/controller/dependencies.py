@@ -29,6 +29,7 @@ from service.project_data_service import ProjectDataService
 from service.project_service import ProjectService
 from service.publish_service import PublishService
 from service.rag_service import RagService
+from service.repository_map_service import RepositoryMapService
 from service.run_service import RunService
 from service.today_service import TodayService
 from service.tool_request_service import ToolRequestService
@@ -157,3 +158,7 @@ def activity_close_service(request: Request) -> ActivityCloseService:
 
 def tool_request_service(request: Request) -> ToolRequestService:
     return request.app.state.container.tool_request_service
+
+
+def repository_map_service(request: Request) -> RepositoryMapService:
+    return request.app.state.container.repository_map_service

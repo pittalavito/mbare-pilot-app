@@ -289,7 +289,7 @@ describe("4. Chiudi", () => {
   const DONE_PATH = { plan: PLAN, tasks: [TASK(AGENT_TASK.name, "Login con OTP", [], { status: "done" })], summary: "Task fatti: 1 di 1\nCosto: …" };
 
   it("proposes what was learned, warns about what is open, closes", async () => {
-    const proposed = vi.fn(() => ({ points: ["lib-auth prima dell'api"], run_id: "r", cost_eur: 0.0002 }));
+    const proposed = vi.fn(() => ({ points: [{ theme: "Build", text: "lib-auth prima dell'api" }], run_id: "r", cost_eur: 0.0002 }));
     const closed = vi.fn(async (request: Request) => ({ activity: ACTIVITY.name, context: "imparato.md", index_error: null, body: await request.json() }));
     api(DONE_PATH, {
       "POST /projects/acme/activities/attivita-login.md/learned": proposed,
@@ -300,13 +300,13 @@ describe("4. Chiudi", () => {
     expect(await screen.findByRole("tab", { name: /Chiudi/, selected: true })).toBeInTheDocument();
     expect(screen.getByTestId("close-summary")).toHaveTextContent("Task fatti: 1 di 1");
     fireEvent.click(screen.getByRole("button", { name: /Proponi cosa ho imparato/ }));
-    expect(await screen.findByDisplayValue("- lib-auth prima dell'api")).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("- Build: lib-auth prima dell'api")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "✅ Chiudi attività" }));
     expect(await screen.findByText(/Voci non fatte: Capire il flusso, Chiedere l'OTP/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Chiudi lo stesso" }));
 
     await waitFor(() => expect(closed).toHaveBeenCalled());
-    expect((await body(closed)).body).toEqual({ learned: "- lib-auth prima dell'api" });
+    expect((await body(closed)).body).toEqual({ learned: "- Build: lib-auth prima dell'api" });
   });
 
   it("a closed activity says where the learning is and can be reopened", async () => {

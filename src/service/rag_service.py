@@ -101,6 +101,23 @@ class RagService:
         return RagIndexState(documents=len(documents), pieces=self._rag.count_pieces(project_name), embedder=name, error=error,
                              general=sum(1 for document in documents if document.path.startswith(GENERAL_PREFIX)))
 
+    def catalog(self, project_name: str) -> str:
+        """The titles of the context documents (the project's, then the general ones), for the end of the system prompt
+        of the agents with ``search_context`` (plan 27): they know what there is to search. ``""`` when there is none."""
+        mine = []
+        for item in self._data.list_context(project_name):
+            try:
+                mine.append(title_of(self._data.read_context(project_name, item.name), item.name.removesuffix(".md")))
+            except NotFoundError:
+                continue
+        general = [title_of(text, name.removesuffix(".md")) for name, text in self.general_documents()]
+        if not mine and not general:
+            return ""
+        lines = ["", "", "Documenti di contesto che puoi cercare con search_context:"]
+        lines += [f"- Progetto: {'; '.join(mine)}"] if mine else []
+        lines += [f"- Generale (come funziona l'app): {'; '.join(general)}"] if general else []
+        return "\n".join(lines)
+
     # ---------------------------------------------------------------- general
     def general_documents(self) -> list[tuple[str, str]]:
         """The general context: ``(name, text)`` of each ``.md`` in the definitions' ``context/``, by name."""

@@ -1,0 +1,14 @@
+[
+  {"agent": "Refiner", "question": "Quando posso portare un task a da fare?", "path": "general/task-e-stati.md", "section": "La rifinitura"},
+  {"agent": "Refiner", "question": "Come deve essere scritto un buon task di sviluppo con criteri e vincoli?", "path": "general/esempi-di-task.md", "section": "Esempio di sviluppo"},
+  {"agent": "Segretario", "question": "Cosa succede alla voce dell'attività quando il task collegato è fatto?", "path": "general/task-e-stati.md", "section": "Task e voci delle attività"},
+  {"agent": "Segretario", "question": "Posso rinominare o cancellare un'attività?", "path": "general/cosa-non-fare.md", "section": "Mai"},
+  {"agent": "Pianificatore", "question": "Cosa metto prima e dopo un task di sviluppo?", "path": "general/attivita-e-giro.md", "section": "Il Pianificatore"},
+  {"agent": "Pianificatore", "question": "Che comandi scrivo in un task pre sviluppo?", "path": "general/esempi-di-task.md", "section": "Esempio di pre sviluppo"},
+  {"agent": "Dev", "question": "Il comando non è permesso, cosa faccio?", "path": "general/errori-comuni.md", "section": "Comando non permesso"},
+  {"agent": "Dev", "question": "Il repository ha modifiche non committate e devo cambiare branch", "path": "general/errori-comuni.md", "section": "Modifiche non committate"},
+  {"agent": "Dev", "question": "Come funziona l'automatico di un task post sviluppo?", "path": "general/pre-post-sviluppo.md", "section": "«🤖 Automatico»"},
+  {"agent": "Architetto", "question": "Quando conviene fare un'automation invece di un comando?", "path": "general/esempi-di-automation.md", "section": "Quando conviene un'automation"},
+  {"agent": "Architetto", "question": "Come si fa un ramo condizionale tra due step?", "path": "general/esempi-di-automation.md", "section": "Esempio: un ramo condizionale"},
+  {"agent": "Tutti", "question": "Il worker è fermo e il giro non parte", "path": "general/errori-comuni.md", "section": "Worker fermo"}
+]

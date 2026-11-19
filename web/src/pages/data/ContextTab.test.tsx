@@ -89,4 +89,32 @@ describe("the Contesto tab", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cerca" }));
     expect(await screen.findByText("generale")).toBeInTheDocument();
   });
+
+  it("creates the ready documents and generates the repository map", async () => {
+    const saved = vi.fn(async (request: Request) => ({ name: "glossario.md", index_error: null, body: await request.json() }));
+    const generated = vi.fn(() => ({ name: "repository.md", index_error: null }));
+    mockApi({
+      "GET /projects/acme/notes": [],
+      "GET /projects/acme/wip": { content: "", pending_words: 0 },
+      "GET /projects/acme/context": [{ name: "convenzioni.md", kind: "note", size: 1, modified_at: "2026-11-10T10:00:00Z" }],
+      "GET /projects/acme/context/convenzioni.md": { name: "convenzioni.md", content: "# Convenzioni\n" },
+      "GET /projects/acme/context/glossario.md": { name: "glossario.md", content: "# Glossario\n" },
+      "GET /projects/acme/context/repository.md": { name: "repository.md", content: "# Repository\n" },
+      "PUT /projects/acme/context/glossario.md": saved,
+      "POST /projects/acme/context/repository-map": generated,
+      "GET /projects/acme/context-general": [],
+      "GET /projects/acme/context-index": INDEX,
+    });
+    renderData();
+
+    fireEvent.click(await screen.findByRole("tab", { name: /Contesto/ }));
+    expect(await screen.findByRole("button", { name: /Decisioni \(modello\)/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Convenzioni \(modello\)/ })).not.toBeInTheDocument(); // already there
+    fireEvent.click(screen.getByRole("button", { name: /Glossario \(modello\)/ }));
+    await waitFor(() => expect(saved).toHaveBeenCalled());
+    expect((await saved.mock.results[0].value).body.content).toContain("# Glossario");
+
+    fireEvent.click(screen.getByRole("button", { name: /Genera mappa dei repository/ }));
+    await waitFor(() => expect(generated).toHaveBeenCalled());
+  });
 });

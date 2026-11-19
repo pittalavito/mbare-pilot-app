@@ -39,6 +39,7 @@ from service.project_data_service import ProjectDataService
 from service.project_service import ProjectService
 from service.publish_service import PublishService
 from service.rag_service import RagService
+from service.repository_map_service import RepositoryMapService
 from service.run_service import RunService
 from service.store.stores import Stores
 from service.structured_agent_service import StructuredAgentService
@@ -136,6 +137,7 @@ class Container:
             project_data=self.project_data_service, masking=self.masking_service, agents=self.structured_agents, plans=stores.plans,
             git=self.git_service, rag=self.rag_service, copilot=self.copilot_service, pipelines=self.pipeline_service,
         )
+        self.repository_map_service = RepositoryMapService(git=self.git_service, project_data=self.project_data_service, rag=self.rag_service)
         self.operation_service = OperationService(plans=stores.plans, project_data=self.project_data_service, commands=self.command_service,
                                                   pipelines=self.pipeline_service)
         self.activity_close_service = ActivityCloseService(project_data=self.project_data_service, masking=self.masking_service,
