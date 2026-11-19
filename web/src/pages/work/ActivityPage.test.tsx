@@ -318,4 +318,60 @@ describe("4. Chiudi", () => {
     fireEvent.click(screen.getByRole("button", { name: "↩ Riapri" }));
     await waitFor(() => expect(reopened).toHaveBeenCalled());
   });
+
+  it("«🗄 Archivia» deletes the references chosen and opens the archive (plan 33)", async () => {
+    const archived = vi.fn(async (request: Request) => ({ note: "archivio-login-sicuro.md", deleted: [], body: await request.json() }));
+    api(DONE_PATH, {
+      "POST /projects/acme/activities/attivita-login.md/archive": archived,
+      "GET /projects/acme/agent-tasks": [{ ...AGENT_TASK, status: "done", references: ["context-reference-pagina.md", "bozza-confluence-x.md"] }],
+    }, { ...ACTIVITY, status: "done", agent_tasks: [AGENT_TASK.name], references: ["context-reference-arch.md"] });
+    renderAt();
+
+    fireEvent.click(await screen.findByRole("button", { name: "🗄 Archivia" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).queryByLabelText("bozza-confluence-x.md")).not.toBeInTheDocument(); // drafts go anyway
+    fireEvent.click(within(dialog).getByLabelText("context-reference-pagina.md"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "🗄 Archivia" }));
+    await waitFor(() => expect(archived).toHaveBeenCalled());
+    expect((await body(archived)).body).toEqual({ delete_references: ["context-reference-pagina.md"] });
+  });
+});
+
+describe("plan 33: publish in the round and references in Pianifica", () => {
+  it("a Confluence task with its draft saved shows «📤 Pubblica», with the draft editable", async () => {
+    const page = { ...AGENT_TASK, name: "agent-task-pagina.md", title: "Pagina", type: "confluence", status: "to_verify", references: ["bozza-confluence-pagina.md"] };
+    const published = vi.fn(async (request: Request) => ({ kind: "confluence", mode: "create", url: "u", reference: "r.md", draft: "", ...(await request.json()) }));
+    api({ plan: PLAN, summary: "", tasks: [TASK(page.name, page.title, [step("answer", "Risposta di Copilot", "done"), step("publish", "Pubblica", "you")],
+                                                  { type: "confluence", status: "to_verify", current: true })] }, {
+      "GET /projects/acme/agent-tasks": [page],
+      "GET /projects/acme/agent-tasks/agent-task-pagina.md/publish": { kind: "confluence", mode: "create", draft: "bozza-confluence-pagina.md", title: "Pagina",
+        body: "Testo", unmasked: [], reference: null, target_title: "", target_body: "", target_url: "", space_key: "DOC", project_key: "" },
+      "GET /projects/acme/atlassian/confluence/places": [],
+      "POST /projects/acme/agent-tasks/agent-task-pagina.md/publish": published,
+    }, { ...ACTIVITY, status: "in_progress" });
+    renderAt("&step=work");
+
+    expect(screen.queryByRole("button", { name: "✅ Conferma" })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: /Pubblica su Confluence/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(await within(dialog).findByRole("tab", { name: /Modifica/ }));
+    fireEvent.change(within(dialog).getByLabelText("Testo da pubblicare"), { target: { value: "Testo corretto" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Pubblica" }));
+    await waitFor(() => expect(published).toHaveBeenCalled());
+    expect(await published.mock.results[0].value).toMatchObject({ body: "Testo corretto", title: "" });
+  });
+
+  it("a proposal can drop some of the activity's references", async () => {
+    const confirmed = vi.fn(async (request: Request) => ({ ...PLAN, body: await request.json() }));
+    api({ plan: { ...PLAN, proposals: [proposal(1, "Login con OTP", { items: [2] })] }, summary: "", tasks: [] }, {
+      "POST /projects/acme/activities/attivita-login.md/plan/confirm": confirmed,
+    }, { ...ACTIVITY, references: ["context-reference-a.md", "context-reference-b.md"] });
+    renderAt("&step=plan");
+
+    fireEvent.click((await screen.findAllByRole("button", { name: "▸ dettagli" }))[0]);
+    fireEvent.click(await screen.findByRole("button", { name: "Togli context-reference-b.md" }));
+    fireEvent.click(screen.getByRole("button", { name: /Crea 1 task/ }));
+    await waitFor(() => expect(confirmed).toHaveBeenCalled());
+    expect((await body(confirmed)).body.choices[0].references).toEqual(["context-reference-a.md"]);
+  });
 });

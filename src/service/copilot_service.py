@@ -352,8 +352,8 @@ class CopilotService:
     def save_as_note(self, session_id: int) -> tuple[str, CopilotSession]:
         """A plan-only task (analysis, Confluence, Jira): Copilot's last answer
         becomes a note (``analisi-<task>.md`` or ``bozza-<kind>-<task>.md``, rewritten
-        when it exists), linked to the task, which becomes done. Returns the
-        note's name and the session."""
+        when it exists), linked to the task: an analysis becomes done, a draft
+        «da verificare» until it is published (plan 33). Returns the note's name and the session."""
         session = self.session(session_id)
         if session.status in (CopilotSessionStatus.QUEUED, CopilotSessionStatus.RUNNING):
             raise ConflictError("Copilot sta eseguendo il task: aspetta che finisca o annulla.")
@@ -368,9 +368,11 @@ class CopilotService:
         heading = "Analisi" if task.type == TaskType.ANALYSIS else "Bozza"
         self._data.save_note(session.project_name, note, f"# {heading}: {task.title}\n\n{answer.strip()}\n")
         references = task.references if note in task.references else [*task.references, note]
+        status = TaskStatus.TO_VERIFY if task.type.publishes else TaskStatus.DONE  # plan 33: a draft waits for «Pubblica»
         self._data.save_agent_task(session.project_name, session.task_note,
-                                   task.model_copy(update={"references": references, "status": TaskStatus.DONE}))
-        self._message(session, CopilotMessageRole.EVENT, f"💾 Salvata come nota {note}, collegata al task: il task è «fatto».")
+                                   task.model_copy(update={"references": references, "status": status}))
+        self._message(session, CopilotMessageRole.EVENT, f"💾 Salvata come nota {note}, collegata al task: " + (
+            "ora «📤 Pubblica»." if task.type.publishes else "il task è «fatto»."))
         if session.no_repository:
             self._data.delete_copilot_folder(session.project_name, session.task_note)
         return note, self.session(session.id)
@@ -397,6 +399,13 @@ class CopilotService:
         self._copilot.delete_session(session.id)
         if session.no_repository:
             self._data.delete_copilot_folder(session.project_name, session.task_note)
+
+    def check_no_running(self, project_name: str, task_note: str) -> None:
+        """ConflictError when a session of the task is queued or running."""
+        name = note_file_name(task_note)
+        if any(session.status in (CopilotSessionStatus.QUEUED, CopilotSessionStatus.RUNNING)
+               for session in self._copilot.list_sessions(project_name) if note_file_name(session.task_note) == name):
+            raise ConflictError(f"Una sessione di Copilot di {name} è in coda o in esecuzione: annullala prima.")
 
     @observed(LogPrefix.COPILOT_SERVICE)
     def delete_task_sessions(self, project_name: str, task_note: str) -> int:

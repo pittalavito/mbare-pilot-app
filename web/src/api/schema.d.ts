@@ -2011,7 +2011,8 @@ export interface paths {
         put?: never;
         /**
          * Save Note
-         * @description A plan-only task (analysis, Confluence, Jira): Copilot's last answer becomes a note linked to the task, which becomes done.
+         * @description A plan-only task (analysis, Confluence, Jira): Copilot's last answer becomes a note linked to the task (an analysis is done,
+         *     a draft waits for «Pubblica») and to the next task of its activity (plan 33).
          */
         post: operations["save_note_copilot_sessions__session_id__save_note_post"];
         delete?: never;
@@ -2372,6 +2373,27 @@ export interface paths {
          * @description What was learned at the top of context/imparato.md, the activity done, its round stopped.
          */
         post: operations["close_activity_projects__project__activities__activity__close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/activities/{activity}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive Activity
+         * @description «🗄 Archivia» (plan 33): a summary note archivio-<attività>.md; the activity, its tasks, answers, drafts, plan and
+         *     Copilot sessions deleted, and the references chosen (409 when it is not closed or a Copilot session is running).
+         */
+        post: operations["archive_activity_projects__project__activities__activity__archive_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2772,7 +2794,8 @@ export interface paths {
         put?: never;
         /**
          * Publish
-         * @description Create or update the page / issue; the task goes «done» and the page / issue is a reference linked to it.
+         * @description Create or update the page / issue; the task goes «done», the page / issue is a reference linked to it and to the
+         *     next task of its activity in place of the draft, which is deleted (plan 33).
          */
         post: operations["publish_projects__project__agent_tasks__note__publish_post"];
         delete?: never;
@@ -2842,6 +2865,19 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * ActivityArchived
+         * @description «🗄 Archivia» (plan 33): the summary note written and what was deleted.
+         */
+        ActivityArchived: {
+            /** Note */
+            note: string;
+            /**
+             * Deleted
+             * @default []
+             */
+            deleted: string[];
+        };
         /** ActivityBody */
         ActivityBody: {
             /** Title */
@@ -3348,6 +3384,14 @@ export interface components {
              * @default
              */
             output: string;
+        };
+        /** ArchiveRequest */
+        ArchiveRequest: {
+            /**
+             * Delete References
+             * @default []
+             */
+            delete_references: string[];
         };
         /** AtlassianSettingsRequest */
         AtlassianSettingsRequest: {
@@ -4954,6 +4998,8 @@ export interface components {
              * @default
              */
             automation: string;
+            /** References */
+            references?: string[] | null;
         };
         /** PlanConfirmRequest */
         PlanConfirmRequest: {
@@ -5236,6 +5282,16 @@ export interface components {
              * @default
              */
             issue_type: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /**
+             * Body
+             * @default
+             */
+            body: string;
         };
         /** PublishResult */
         PublishResult: {
@@ -5245,6 +5301,11 @@ export interface components {
             url: string;
             /** Reference */
             reference: string;
+            /**
+             * Draft
+             * @default
+             */
+            draft: string;
         };
         /**
          * RagHit
@@ -5679,7 +5740,7 @@ export interface components {
          * StepKey
          * @enum {string}
          */
-        StepKey: "delegate" | "copilot_plan" | "execution" | "answer" | "final" | "operation";
+        StepKey: "delegate" | "copilot_plan" | "execution" | "answer" | "final" | "operation" | "publish";
         /** StepRequest */
         StepRequest: {
             /** Task */
@@ -11088,6 +11149,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActivityClosed"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_activity_projects__project__activities__activity__archive_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                activity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArchiveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityArchived"];
                 };
             };
             /** @description Validation Error */

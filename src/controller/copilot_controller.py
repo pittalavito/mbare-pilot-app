@@ -129,9 +129,12 @@ def send_back(session_id: int, request: CopilotMessageRequest, service: CopilotS
 
 
 @router.post("/copilot-sessions/{session_id}/save-note")
-def save_note(session_id: int, service: CopilotService = Depends(copilot_service)) -> CopilotSavedNoteResponse:
-    """A plan-only task (analysis, Confluence, Jira): Copilot's last answer becomes a note linked to the task, which becomes done."""
+def save_note(session_id: int, service: CopilotService = Depends(copilot_service),
+              plans: PlanService = Depends(plan_service)) -> CopilotSavedNoteResponse:
+    """A plan-only task (analysis, Confluence, Jira): Copilot's last answer becomes a note linked to the task (an analysis is done,
+    a draft waits for «Pubblica») and to the next task of its activity (plan 33)."""
     note, session = service.save_as_note(session_id)
+    plans.pass_on(session.project_name, session.task_note, note)
     return CopilotSavedNoteResponse(note=note, session=CopilotSessionResponse.from_session(session))
 
 

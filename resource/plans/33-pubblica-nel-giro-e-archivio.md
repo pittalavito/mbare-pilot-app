@@ -1,6 +1,6 @@
 # Pubblica nel giro, risultati come riferimenti, archivio
 
-Stato: **da realizzare**.
+Stato: **fatto**.
 
 ## Obiettivo
 
@@ -26,6 +26,11 @@ L'essenziale per lavorare pulito: pubblicare la bozza di Copilot dal giro senza 
   - si cancellano attività, task, bozze, piano e sessioni di Copilot;
   - per i **riferimenti** collegati si sceglie: cancellarli tutti, nessuno o solo alcuni (caselle).
 - In Lavoro una scheda **«🗄 Archivio»** con le note riassunto.
+
+## Deciso in realizzazione
+- Salvare la bozza porta il task Confluence/Jira a «da verificare»; diventa «fatto» solo pubblicando.
+- La bozza si passa subito al task dopo; pubblicando la sostituisce la pagina o issue.
+- In Pianifica i riferimenti si tolgono dalla proposta (la ✕ sui riferimenti dell'attività); nella scheda del task come già si faceva.
 
 ## Test e documentazione
 - pytest: passo «Pubblica» del giro; bozza cancellata dopo la pubblicazione; risultato collegato al task successivo; archivio (nota, cosa si cancella, riferimenti scelti).

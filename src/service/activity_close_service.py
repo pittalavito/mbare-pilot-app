@@ -11,18 +11,24 @@
   the document is then indexed for the agents with ``search_context``. Nothing learned = the
   document is not touched. The activity becomes «done» and its round stops.
 - **Reopen** (``reopen``): back to «in progress»; the section already written
-  stays (the document is a diary: corrected by hand from the Contesto section)."""
+  stays (the document is a diary: corrected by hand from the Contesto section).
+- **Archive** (``archive``, plan 33): a done activity becomes a summary note
+  ``archivio-<attività>.md`` (description, items, tasks with their outcome and
+  the pages and issues they made); the activity, its tasks, their answers and
+  drafts, its plan and the tasks' Copilot sessions are deleted, and the
+  references the user chose."""
 import json
 from datetime import date
 
-from core.error import NotFoundError, UpstreamError
+from core.error import ConflictError, NotFoundError, UpstreamError
 from core.observability import LogPrefix, observed
 from domain.agent.outputs import LEARNED, LEARNED_AGENT
 from domain.masking.preview import masked_text, unmask
-from domain.project.data_paths import note_file_name
-from models.domain.activity_close import ActivityClosed, LearnedAnswer, LearnedDraft, LearnedPoint
+from domain.project.data_paths import note_file_name, slug
+from models.domain.activity_close import ActivityArchived, ActivityClosed, LearnedAnswer, LearnedDraft, LearnedPoint
 from models.domain.agent import RunOrigin
-from models.domain.note import ActivityStatus
+from models.domain.note import ActivityStatus, TaskStatus
+from service.copilot_service import CopilotService, output_note_name
 from service.masking_service import MaskingService
 from service.plan_service import PlanService
 from service.project_data_service import ProjectDataService
@@ -40,13 +46,14 @@ _THEME_CHARS = 40
 class ActivityCloseService:
 
     def __init__(self, project_data: ProjectDataService, masking: MaskingService, agents: StructuredAgentService, plan: PlanService,
-                 plans: PlanStore, rag: RagService | None = None):
+                 plans: PlanStore, rag: RagService | None = None, copilot: CopilotService | None = None):
         self._data = project_data
         self._masking = masking
         self._agents = agents
         self._plan = plan
         self._plans = plans
         self._rag = rag
+        self._copilot = copilot
 
     @observed(LogPrefix.CLOSE_SERVICE)
     def propose_learned(self, project_name: str, activity_name: str) -> LearnedDraft:
@@ -102,6 +109,55 @@ class ActivityCloseService:
         name = note_file_name(activity_name)
         activity = self._data.activity(project_name, name)
         self._data.save_activity(project_name, name, activity.model_copy(update={"status": ActivityStatus.IN_PROGRESS}))
+
+    @observed(LogPrefix.CLOSE_SERVICE)
+    def archive(self, project_name: str, activity_name: str, delete_references: list[str], today: date | None = None) -> ActivityArchived:
+        """A done activity into ``archivio-<attività>.md`` (plan 33); the rest deleted, the references in ``delete_references`` too."""
+        name = note_file_name(activity_name)
+        activity = self._data.activity(project_name, name)
+        if activity.status is not ActivityStatus.DONE:
+            raise ConflictError("Si archivia un'attività chiusa: prima «✅ Chiudi attività».")
+        plan = self._plans.latest(project_name, name)
+        tasks = list(dict.fromkeys([*activity.agent_tasks, *(item.task for item in plan.tasks)] if plan else activity.agent_tasks))
+        found = dict(self._data.agent_tasks(project_name))
+        references = {ref_name: reference for ref_name, _, reference in self._data.references(project_name)}
+        lines = [f"# Archivio: {activity.title}", "", f"Archiviata il {(today or date.today()):%d/%m/%Y}."]
+        if activity.description.strip():
+            lines += ["", "## Descrizione", activity.description.strip()]
+        if activity.items:
+            lines += ["", "## Voci", *(f"- [{'x' if item.done else ' '}] {item.text}" for item in activity.items)]
+        if tasks:
+            lines += ["", "## Task"]
+            for task_name in tasks:
+                task = found.get(task_name)
+                if task is None:
+                    continue
+                made = [f"[{references[ref].title}]({references[ref].source_url})" for ref in task.references
+                        if ref in references and references[ref].source_url.startswith("http")]
+                lines.append(f"- {'✓' if task.status is TaskStatus.DONE else '…'} {task.title} ({task.type.value})"
+                             + (f" · {', '.join(made)}" if made else ""))
+        for task_name in tasks:  # nothing deleted if a Copilot session is still running
+            if self._copilot is not None and task_name in found:
+                self._copilot.check_no_running(project_name, task_name)
+        note = note_file_name(f"archivio-{slug(activity.title, 'attivita')}")
+        self._data.save_note(project_name, note, "\n".join(lines) + "\n")
+        deleted: list[str] = []
+        for task_name in tasks:
+            if task_name not in found:
+                continue
+            if self._copilot is not None:
+                self._copilot.delete_task_sessions(project_name, task_name)
+            answer = output_note_name(task_name, found[task_name].type) if found[task_name].type.plan_only else ""
+            for gone in ([answer] if answer and self._data.note_exists(project_name, answer) else []) + [task_name]:
+                if self._data.delete_note(project_name, gone):
+                    deleted.append(gone)
+        for reference in dict.fromkeys(delete_references):
+            if self._data.delete_reference(project_name, reference):
+                deleted.append(reference)
+        if self._data.delete_note(project_name, name):
+            deleted.append(name)
+        self._plans.delete_activity(project_name, name)
+        return ActivityArchived(note=note, deleted=deleted)
 
     def _learned_document(self, project_name: str) -> str:
         try:

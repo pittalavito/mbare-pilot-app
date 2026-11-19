@@ -54,6 +54,13 @@ class PlanStore:
                 plans.append(_plan(row))
         return plans
 
+    def delete_activity(self, project_name: str, activity: str) -> int:
+        """Every plan row of the activity (plan 33: archived); how many."""
+        rows = [row for row in self._plans.list_for_project(project_name) if row.activity == activity]
+        for row in rows:
+            self._plans.delete(row.id)
+        return len(rows)
+
     def latest_per_activity(self, project_name: str) -> list[ActivityPlan]:
         """The latest plan of each activity of the project."""
         seen: set[str] = set()

@@ -51,3 +51,5 @@ class PublishResult(BaseModel):
     url: str
     reference: str
     """The context reference linked to the task (created or refreshed)."""
+    draft: str = ""
+    """The draft published, deleted after (plan 33)."""

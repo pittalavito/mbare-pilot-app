@@ -212,6 +212,7 @@ def test_confluence_and_jira_answers_are_drafts(data, project, stores, kind, sav
 
     assert service.save_as_note(session.id)[0] == saved
     assert data.read_note("acme", saved).startswith("# Bozza: Pagina\n")
+    assert data.agent_task("acme", note).status == TaskStatus.TO_VERIFY  # plan 33: it waits for «Pubblica»
 
 
 def test_saving_as_a_note_needs_an_answer_and_a_plan_only_task(data, project, stores, copilot_store):

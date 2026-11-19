@@ -9,7 +9,7 @@ from models.domain.note import NoteType
 
 
 def note_zone(note: str) -> str:
-    work = note == WIP_NOTE or note.startswith((NOTE_PREFIXES[NoteType.ACTIVITY], NOTE_PREFIXES[NoteType.AGENT_TASK]))
+    work = note == WIP_NOTE or note.startswith((NOTE_PREFIXES[NoteType.ACTIVITY], NOTE_PREFIXES[NoteType.AGENT_TASK], "archivio-"))
     return "work" if work else "project"
 
 

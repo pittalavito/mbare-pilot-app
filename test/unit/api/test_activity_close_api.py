@@ -11,7 +11,7 @@ from core.app import create_app
 from core.container import Container
 from fakes import FakeStructuredClient as FakeClient
 from models.domain.activity_close import LearnedAnswer, LearnedPoint
-from models.domain.note import Activity, TodoItem
+from models.domain.note import Activity, NoteType, Reference, TodoItem
 from models.domain.project import Project, ProjectSource
 from service.activity_close_service import LEARNED_HEADER, parse_points, with_point
 
@@ -104,3 +104,29 @@ def test_the_date_of_the_section(container, activity):
     service.close("acme", activity, "uno", today=date(2026, 11, 17))
 
     assert "## Generale\n- uno (Login con OTP, 17/11/2026)" in container.project_data_service.read_context("acme", "imparato.md")
+
+
+def test_archiving_leaves_a_summary_and_deletes_what_was_chosen(client, container, activity):
+    """Plan 33: «🗄 Archivia» a closed activity."""
+    data = container.project_data_service
+    base = f"/projects/acme/activities/{activity}"
+    keep = data.create_reference("acme", NoteType.CONTEXT_REFERENCE, Reference(title="Resta", content="x"))
+    gone = data.create_reference("acme", NoteType.CONTEXT_REFERENCE, Reference(title="Pagina", content="y", source="confluence",
+                                                                            source_url="https://acme.atlassian.net/wiki/x"))
+    data.save_activity("acme", activity, data.activity("acme", activity).model_copy(update={"references": [keep, gone]}))
+    client.post(f"{base}/plan/confirm", json={"choices": [{"title": "Analizza", "type": "analysis"}]})
+    task = container.plan_service.plan("acme", activity).tasks[0].task
+    data.save_note("acme", "analisi-analizza.md", "# Analisi\\n")
+    data.save_agent_task("acme", task, data.agent_task("acme", task).model_copy(update={"status": "done"}))
+    assert client.post(f"{base}/archive", json={}).status_code == 409  # not closed yet
+    client.post(f"{base}/close", json={"learned": ""})
+
+    archived = client.post(f"{base}/archive", json={"delete_references": [gone]}).json()
+
+    assert archived["note"] == "archivio-login-con-otp.md"
+    summary = data.read_note("acme", archived["note"])
+    assert summary.startswith("# Archivio: Login con OTP") and "- [ ] a" in summary and "✓ Analizza (analysis)" in summary
+    assert "[Pagina](https://acme.atlassian.net/wiki/x)" in summary
+    assert set(archived["deleted"]) == {task, "analisi-analizza.md", gone, activity}
+    assert data.note_exists("acme", keep.removesuffix(".md")) or keep in [name for name, _, _ in data.references("acme")]
+    assert container.plan_service.plan("acme", activity).tasks == []

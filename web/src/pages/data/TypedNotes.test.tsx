@@ -74,7 +74,8 @@ describe("agent task status and type", () => {
     expect(await screen.findByText("Manca ancora l'obiettivo e i criteri di accettazione.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Delega a Copilot/ })).not.toBeInTheDocument(); // not ready
     fireEvent.change(screen.getByLabelText("Obiettivo", { exact: false }), { target: { value: "Capire il login" } });
-    fireEvent.click(within(screen.getByRole("radiogroup", { name: "Tipo del task" })).getByRole("radio", { name: "Task Jira" }));
+    fireEvent.click(screen.getByRole("textbox", { name: "Tipo del task" })); // plan 33: a menu
+    fireEvent.click(await screen.findByRole("option", { name: /Task Jira/ }));
     fireEvent.click(screen.getByRole("button", { name: /Segna da fare/ }));
 
     await waitFor(() => expect(saved).toHaveBeenCalled());

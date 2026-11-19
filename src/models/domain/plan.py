@@ -119,6 +119,8 @@ class PlanChoice(BaseModel):
     """The commands of a pre/post development task."""
     automation: str = ""
     """The automation of a pre/post development task."""
+    references: list[str] | None = None
+    """The references to link (plan 33: the ones not needed taken off); None = all the activity's."""
 
 
 class StepState(StrEnum):
@@ -143,6 +145,8 @@ class StepKey(StrEnum):
     """«Conferma finale» of the changes: the task becomes done."""
     OPERATION = "operation"
     """A pre/post development task (plan 22): «🤖 Automatico» (commands and automation, or Dev) or by hand, then «Fatto»."""
+    PUBLISH = "publish"
+    """A Confluence or Jira task (plan 33): the draft saved, «📤 Pubblica» (the draft editable); then it is done."""
 
 
 STEP_LABELS: dict[StepKey, str] = {
@@ -152,6 +156,7 @@ STEP_LABELS: dict[StepKey, str] = {
     StepKey.ANSWER: "Risposta di Copilot",
     StepKey.FINAL: "Conferma finale",
     StepKey.OPERATION: "Automatico o a mano",
+    StepKey.PUBLISH: "Pubblica",
 }
 
 

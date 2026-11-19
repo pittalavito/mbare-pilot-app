@@ -1,5 +1,5 @@
 import {
-  Alert, Anchor, Badge, Button, Checkbox, Grid, Group, Loader, Menu, Modal, NavLink, SegmentedControl, Stack, Stepper, Text,
+  Alert, Anchor, Badge, Button, Checkbox, Grid, Group, Loader, Menu, Modal, NavLink, SegmentedControl, Select, Stack, Stepper, Text,
   TextInput, Textarea, UnstyledButton,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
@@ -44,12 +44,12 @@ export const STATUS = [
  * planning and Copilot's answer is saved as a note (``planOnly``); pre/post
  * development never go to Copilot: Dev or by hand, then «Fatto» (plan 22). */
 export const TYPES = [
-  { value: "development", label: "Sviluppo", color: "teal" },
-  { value: "analysis", label: "Analisi", color: "orange" },
-  { value: "confluence", label: "Doc Confluence", color: "blue" },
-  { value: "jira", label: "Task Jira", color: "grape" },
-  { value: "pre_dev", label: "Pre sviluppo", color: "cyan" },
-  { value: "post_dev", label: "Post sviluppo", color: "indigo" },
+  { value: "development", label: "Sviluppo", color: "teal", hint: "Copilot cambia il codice" },
+  { value: "analysis", label: "Analisi", color: "orange", hint: "Copilot legge il codice e risponde con una nota" },
+  { value: "confluence", label: "Doc Confluence", color: "blue", hint: "Copilot scrive la bozza, poi la pubblichi" },
+  { value: "jira", label: "Task Jira", color: "grape", hint: "Copilot rifinisce la issue, poi la pubblichi" },
+  { value: "pre_dev", label: "Pre sviluppo", color: "cyan", hint: "Prima dello sviluppo: branch, build (automatico o a mano)" },
+  { value: "post_dev", label: "Post sviluppo", color: "indigo", hint: "Dopo lo sviluppo: pulizia, test, commit" },
 ] as const;
 
 /** Copilot only answers (analysis, Confluence, Jira): its answer becomes a note. */
@@ -520,15 +520,19 @@ function AgentTaskEditor({ project, task, onRefine }: { project: string; task: A
       <Group><PublishButton project={project} task={task} /></Group>
       <BornFrom project={project} task={task.name} />
       <TextInput label="Titolo" value={form.title} onChange={(event) => set({ title: event.currentTarget.value })} />
-      <div>
-        <Text size="sm" fw={500} mb={4}>Tipo</Text>
-        <SegmentedControl
-          aria-label="Tipo del task"
-          data={TYPES.map(({ value, label }) => ({ value, label }))}
-          value={form.type ?? "development"}
-          onChange={(value) => set({ type: value as AgentTaskBody["type"] })}
-        />
-      </div>
+      <Select
+        label="Tipo" aria-label="Tipo del task" allowDeselect={false}
+        data={TYPES.map(({ value, label }) => ({ value, label }))}
+        value={form.type ?? "development"}
+        onChange={(value) => value && set({ type: value as AgentTaskBody["type"] })}
+        description={TYPES.find((item) => item.value === (form.type ?? "development"))?.hint}
+        renderOption={({ option }) => (
+          <Stack gap={0}>
+            <Text size="sm">{option.label}</Text>
+            <Text size="xs" c="dimmed">{TYPES.find((item) => item.value === option.value)?.hint}</Text>
+          </Stack>
+        )}
+      />
       {isOperations(form.type) && (
         <>
           <Textarea label="Passi suggeriti" description="Uno per riga, a parole: Dev li riceve nella richiesta, o li segui tu."

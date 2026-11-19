@@ -56,6 +56,9 @@ class ProjectDataService:
     def read_note(self, project_name: str, note_name: str) -> str:
         return self._files.read(self._id(project_name, NOTES_DIR, note_file_name(note_name))).decode("utf-8")
 
+    def note_exists(self, project_name: str, note_name: str) -> bool:
+        return self._files.get(self._id(project_name, NOTES_DIR, note_file_name(note_name))) is not None
+
     def save_note(self, project_name: str, note_name: str, content: str) -> ProjectDataFile:
         """Create or overwrite the note."""
         stored = self._files.save(self._id(project_name, NOTES_DIR, note_file_name(note_name)), content.encode("utf-8"))
