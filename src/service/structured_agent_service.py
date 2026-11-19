@@ -18,7 +18,7 @@ from core.error import ValidationError
 from core.observability import LogPrefix, log_exception
 from domain.agent.outputs import STRUCTURED_OUTPUTS
 from domain.agent.tracing import Adapter as TracingAdapter
-from models.domain.agent import AgentDefinition, AgentRunRecord, RunOrigin, RunTelemetry
+from models.domain.agent import AgentDefinition, AgentRunRecord, ModelTranscript, RunOrigin, RunTelemetry
 from models.domain.chat import split_model_key
 from service.agent_config_service import AgentConfigService
 from service.chat_service import ChatService
@@ -35,6 +35,8 @@ class StructuredCall:
     error: str | None
     telemetry: RunTelemetry
     latency_ms: float
+    transcript: ModelTranscript | None = None
+    """What went to and came from the model, masked (plan 29)."""
 
 
 class StructuredAgentService:
@@ -76,8 +78,10 @@ class StructuredAgentService:
                 log_exception(LogPrefix.AGENT_SERVICE, "Agente %s fallito", agent.name)
                 error = str(exc) or type(exc).__name__
             telemetry = TracingAdapter.to_run_telemetry(current_trace.get_spans(), self._catalog.price_list())
+        masked_output = answer.model_dump_json(indent=2) if answer is not None else ""
         return StructuredCall(agent=agent, answer=answer, error=error, telemetry=telemetry,
-                              latency_ms=round((perf_counter() - start) * 1000, 1))
+                              latency_ms=round((perf_counter() - start) * 1000, 1),
+                              transcript=ModelTranscript(system_prompt=agent.system_prompt, input=text, output=masked_output))
 
     def save(self, call: StructuredCall, *, project_name: str, origin: RunOrigin, input: str, output: str) -> str:
         """The call as an agent run (``input`` and ``output`` in clear); its id."""
@@ -87,5 +91,6 @@ class StructuredAgentService:
             run_id=run_id, project_name=project_name, origin=origin, config_name=agent.name, role_name=agent.role_name,
             prompt_id=agent.prompt_id, prompt_version=agent.prompt_version, model=split_model_key(agent.model)[1],
             ok=call.error is None, error=call.error, latency_ms=call.latency_ms, input=input, output=output, telemetry=call.telemetry,
+            transcript=call.transcript,
         ))
         return run_id

@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Response, status
 from config import Config
 from controller.dependencies import backup_service, run_service
 from models.controller.admin import BackupResponse, BackupsResponse, ConfigResponse, RunSummaryResponse, ToolCallResponse
+from models.domain.transcript import RunTranscript
 from service.backup_service import BackupService
 from service.run_service import RunService
 
@@ -34,6 +35,12 @@ def list_runs(limit: int = 100, service: RunService = Depends(run_service)) -> l
 def run_trace(run_id: str, service: RunService = Depends(run_service)) -> dict[str, Any]:
     """Input, output, tool calls and LLM generations, as recorded."""
     return service.trace(run_id).model_dump(mode="json")
+
+
+@router.get("/observability/runs/{run_id}/transcript")
+def run_transcript(run_id: str, service: RunService = Depends(run_service)) -> RunTranscript:
+    """«🔍 Cosa ha visto il modello» (plan 29): system prompt, history, input, tools and answer, masked and in clear."""
+    return service.transcript(run_id)
 
 
 @router.get("/observability/tool-calls")

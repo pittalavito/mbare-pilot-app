@@ -13,6 +13,7 @@ import { useCopilotStatus } from "../../api/copilot";
 import { CopilotUsage } from "./CopilotUsage";
 import { Metrics } from "./Metrics";
 import { ToolTrial } from "./ToolTrial";
+import { TranscriptModal } from "../../components/TranscriptModal";
 import { ToolRequests } from "./ToolRequests";
 import { localTime, size } from "../../format";
 
@@ -266,10 +267,15 @@ function AgentRuns({ runs, error }: { runs?: RunSummary[]; error?: string }) {
 
 function RunDetail({ run }: { run: RunSummary }) {
   const trace = useTrace(run.run_id);
+  const [seen, setSeen] = useState(false);
   return (
     <Card withBorder style={{ minWidth: 0 }}>
       <Stack gap="xs">
-        <Text fw={600}>Run <code>{run.run_id}</code></Text>
+        <Group justify="space-between">
+          <Text fw={600}>Run <code>{run.run_id}</code></Text>
+          <Button size="compact-xs" variant="light" onClick={() => setSeen(true)}>🔍 Cosa ha visto il modello</Button>
+        </Group>
+        {seen && <TranscriptModal runId={run.run_id} opened onClose={() => setSeen(false)} />}
         <Text size="xs" c="dimmed">
           Costo agente {euro(run.agent_tokens.cost_eur)} · tool {euro(run.tool_tokens.cost_eur)} · totale {euro(run.total_tokens.cost_eur)}
         </Text>

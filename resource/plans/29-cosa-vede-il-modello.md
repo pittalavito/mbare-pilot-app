@@ -1,6 +1,6 @@
 # Cosa vede il modello
 
-Stato: **da realizzare**.
+Stato: **fatto**.
 
 ## Obiettivo
 
@@ -24,6 +24,10 @@ Una finestra che mostra, leggibile, tutto quello che è entrato e uscito dal mod
 
 ### Formato
 - Una sezione a fisarmonica per parte; il testo come markdown, i JSON dei tool indentati; «Copia» su ogni blocco.
+
+## Deciso in realizzazione
+- Anche gli agenti con risposta strutturata (Pianificatore, WIP, Imparato, Bozza attività) salvano la trascrizione: la si apre dalla loro run in Osservabilità.
+- Nella versione in chiaro input e risposta sono quelli della run (già in chiaro, anche gli alias temporanei del riconoscimento automatico); il resto si rimette in chiaro con la mappa del progetto.
 
 ## Test e documentazione
 

@@ -15,4 +15,6 @@ class Factory:
             output=record.output,
             tool_calls=record.telemetry.tool_calls,
             generations=record.telemetry.generations,
+            project_name=record.project_name,
+            transcript=record.transcript,
         )

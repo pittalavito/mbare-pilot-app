@@ -505,3 +505,22 @@ def test_without_an_index_the_pianificatore_has_no_tools(service, client, activi
     service._rag = None
     service.propose("acme", activity)
     assert client.calls[0]["tools"] == []
+
+
+def test_the_pianificatore_run_keeps_what_the_model_saw(service, activity, run_store, masking_service):
+    """Plan 29: a structured agent's run has its transcript too (masked input, the answer as JSON)."""
+    from service.run_service import RunService
+    plan = service.propose("acme", activity)
+    transcript = RunService(run_store, masking_service).transcript(plan.run_id)
+    assert transcript.masked.system_prompt.startswith("Sei il Pianificatore") and "REPO_" in transcript.masked.input
+    assert '"tasks"' in transcript.masked.output and "Repository:" in transcript.clear.input
+
+
+def test_the_transcript_api(stores, project_store, project, run_store):  # noqa: F811
+    from models.domain.agent import AgentRunRecord, ModelTranscript
+    run_store.save(AgentRunRecord(run_id="r9", project_name="acme", config_name="s", role_name="s", prompt_id=0, prompt_version=1,
+                                  model="gpt-4o", transcript=ModelTranscript(input="ciao")))
+    with TestClient(create_app(Container(stores=stores))) as http:
+        body = http.get("/observability/runs/r9/transcript").json()
+        assert body["masked"]["input"] == "ciao" and body["clear"]["input"] == "ciao"
+        assert http.get("/observability/runs/nessuna/transcript").status_code == 404

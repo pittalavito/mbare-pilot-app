@@ -61,7 +61,6 @@ class Container:
         stores = stores or Stores()
         self._stores = stores
         self.chat_service = ChatService()
-        self.run_service = RunService(stores.runs)
         self.model_service = ModelService(catalog=stores.catalog)
         self.agent_config_service = AgentConfigService(projects=stores.projects, agents=stores.agents, catalog=stores.catalog)
         self.project_data_service = ProjectDataService(files=stores.project_files, projects=stores.projects)
@@ -71,6 +70,7 @@ class Container:
         self.git_service = GitService(projects=stores.projects)
         self.command_service = CommandService(projects=stores.projects, git=self.git_service)
         self.masking_service = MaskingService(projects=stores.projects, masks=stores.masks)
+        self.run_service = RunService(stores.runs, masking=self.masking_service)
         self.rag_service = RagService(project_data=self.project_data_service, masking=self.masking_service, projects=stores.projects,
                                       rag=stores.rag, definitions=stores.definitions)
         self.pipeline_service = PipelineService(
