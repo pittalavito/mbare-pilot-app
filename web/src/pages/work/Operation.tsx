@@ -1,5 +1,5 @@
 import { Alert, Badge, Button, Card, Code, Group, Select, Stack, Text, TextInput, Textarea } from "@mantine/core";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { type Pipeline, isFinished, useEnqueueRun, usePipelines, useRuns } from "../../api/automation";
 import { useAnswerCommand, useRunCommand } from "../../api/dev";
@@ -52,7 +52,9 @@ export function OperationButtons({ project, activity, task, found }: { project: 
           title={hasWork(found) ? "Comandi e automation del task, senza agente" : "Il task non ha comandi né automation: lo fa Dev"}>
           🤖 Automatico
         </Button>
-        <Button size="compact-xs" variant={manual ? "filled" : "default"} onClick={() => setManual((value) => !value)}>✋ A mano</Button>
+        <Button size="compact-xs" variant={manual ? "filled" : "default"} onClick={() => setManual((value) => !value)}>
+          {manual ? "✋ Chiudi a mano" : "✋ A mano"}
+        </Button>
       </Group>
       {!!pending.length && (
         <PendingCommands project={project} commands={pending} onAnswered={(command) => setPending((items) => items.filter((item) => item !== command))} />
@@ -100,6 +102,8 @@ export function OperationOutput({ output }: { output: string }) {
 
 /** «✋ A mano»: the user's dashboard of the task. */
 function ManualDashboard({ project, activity, task, found }: { project: string; activity: string; task: PathTask; found?: AgentTask }) {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => { box.current?.scrollIntoView?.({ behavior: "smooth", block: "nearest" }); }, []); // it opens under the row, often below the fold
   const [commands, setCommands] = useState<string[]>(() => (found?.commands ?? []).filter((command) => command.trim()));
   const pipelines = usePipelines(project);
   const [automation, setAutomation] = useState<string | null>(found?.automation || null);
@@ -107,7 +111,7 @@ function ManualDashboard({ project, activity, task, found }: { project: string; 
   const { ask } = useAgentPanel();
   const chosen = pipelines.data?.find((pipeline) => pipeline.name === automation);
   return (
-    <Card withBorder p="xs" bg="var(--mantine-color-default-hover)">
+    <Card ref={box} withBorder p="xs" bg="var(--mantine-color-default-hover)" data-testid="manual-dashboard">
       <Stack gap="xs">
         <Text size="xs" fw={700} c="dimmed" tt="uppercase">Comandi{task.repository ? ` · ${task.repository}` : ""}</Text>
         {commands.map((command, index) => (
