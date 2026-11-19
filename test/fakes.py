@@ -80,20 +80,33 @@ class FakeAgent:
 
 class FakeStructuredClient:
     """A chat client that answers ``structured_response`` with ``answer`` (or
-    raises ``error``), emitting a generation span, and remembers what it got."""
+    raises ``error``), emitting a generation span, and remembers what it got.
+    ``tool_calls`` ((name, arguments) pairs) are asked first, one per call, when
+    the call has tools (an agent with tools, plan 26); ``tool_results`` gets what they gave."""
 
-    def __init__(self, answer: BaseModel | None = None, error: Exception | None = None):
+    def __init__(self, answer: BaseModel | None = None, error: Exception | None = None, tool_calls: list | None = None):
         self.answer = answer
         self.error = error
         self.calls: list[dict] = []
+        self.tool_calls = list(tool_calls or [])
+        self.tool_results: list[str] = []
 
-    def structured_response(self, *, input, output_cls, system_prompt=None, **kwargs):
-        self.calls.append({"input": input, "output_cls": output_cls, "system_prompt": system_prompt})
+    def structured_response(self, *, input, output_cls, system_prompt=None, tools=None, memory=None, **kwargs):
+        from datapizza.core.clients.models import ClientResponse
+        from datapizza.type import FunctionCallBlock, FunctionCallResultBlock, StructuredBlock
+        self.calls.append({"input": input, "output_cls": output_cls, "system_prompt": system_prompt, "tools": [tool.name for tool in tools or []]})
+        if memory is not None:
+            self.tool_results += [block.result for turn in memory for block in turn.blocks if isinstance(block, FunctionCallResultBlock)]
         with fake_generation("gpt-4o", 300, 50):
             pass
         if self.error:
             raise self.error
-        return SimpleNamespace(structured_data=[self.answer if self.answer is not None else output_cls(proposals=[])])
+        if tools and self.tool_calls:
+            name, arguments = self.tool_calls.pop(0)
+            tool = next(item for item in tools if item.name == name)
+            return ClientResponse(content=[FunctionCallBlock(id=f"call-{len(self.calls)}", arguments=arguments, name=name, tool=tool)])
+        answer = self.answer if self.answer is not None else output_cls(proposals=[])
+        return ClientResponse(content=[StructuredBlock(content=answer)])
 
 
 class ToolFailed(Exception):

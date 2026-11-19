@@ -44,17 +44,17 @@ class ChatbotKind(StrEnum):
 
 KIND_TOOLS: dict[ChatbotKind, list[str]] = {
     ChatbotKind.AUTOMATION: [
-        "list_tools", "list_agents", "list_automations", "read_automation", "validate_automation", "request_tool",
+        "list_tools", "list_agents", "list_automations", "read_automation", "validate_automation", "request_tool", "search_context",
     ],
     ChatbotKind.SECRETARY: [
         "list_activities", "read_activity", "create_activity", "update_activity",
-        "list_agent_tasks", "list_references", "create_agent_task", "today",
+        "list_agent_tasks", "list_references", "create_agent_task", "today", "search_context",
     ],
     ChatbotKind.REFINER: ["search_code", "read_agent_task", "update_agent_task", "finish_refinement", "search_context"],
     ChatbotKind.OPERATOR: [
         "git_status", "git_fetch", "git_branches", "git_checkout", "git_create_branch", "git_pull_fast_forward",
         "git_stash", "git_stash_list", "git_stash_apply", "run_command", "maven_parent_alignment", "run_tests",
-        "search_code", "save_code_search",
+        "search_code", "save_code_search", "search_context",
     ],
 }
 """The tools a chatbot of a kind may have (written in its YAML, ``tools:``); a kind not here lets them be chosen freely."""

@@ -11,6 +11,7 @@ mbare-pilot-data/
     global-coding-agent.yml   prompt e divieti di Copilot (obbligatorio per usarlo) un coding agent
     coding-agent/<nome>.md    prompt di preparazione da scegliere quando deleghi    testo con {task_folder}
     coding-agent/templates/   template delle bozze: confluence.md, jira.md          markdown (le sezioni)
+    context/<tema>.md         contesto generale per gli agenti: come funziona l'app markdown, un «##» per argomento
     project/
       <slug>/                 es. gestionali-navi
         chat-bots.yml         i chatbot del progetto                                chatbots: [...]
@@ -221,3 +222,8 @@ models:                            # facoltativo: i modelli tra cui scegliere qu
 | `controller/definition_controller.py` | `GET /projects/{p}/definitions` (anteprima), `POST /projects/{p}/definitions/sync` (tutto o `only`) |
 | `web/src/pages/settings/DefinitionsSection.tsx` | la sezione nelle Impostazioni del progetto: anteprima e scelta (frontend) |
 | `test/unit/service/test_definition_service.py` | agenti di progetto e globali, più chatbot per progetto trovati per nome, globali non ridefiniti e formato vecchio, automation con grafo, posizioni e globali sostituite, file ed elementi rotti, anteprima senza effetti e sincronizzazione dei soli elementi scelti (API: `test/unit/api/test_definitions_api.py`) |
+
+
+## Contesto generale (`context/`)
+
+Piano 26: i documenti `.md` di `definition/context/` spiegano agli agenti **come funziona l'app** (tipi e stati dei task, attività e giro, Copilot, task pre e post sviluppo, riferimenti e contesto, automation, tool e regole comuni), così i loro system prompt restano corti: ruolo, regole di sicurezza, formato e «cerca nel contesto prima di chiedere». Sono uguali per tutti i progetti e si indicizzano nel RAG di ognuno (col suo embedder, solo quando cambiano); `search_context` li trova insieme al contesto del progetto, che vince a parità. Copilot non li riceve. Si leggono in Progetto → Contesto, «Generale (da definizioni)», e si cambiano qui. Un titolo `##` per argomento: ogni sezione è un pezzo dell'indice.

@@ -71,7 +71,7 @@ class Container:
         self.command_service = CommandService(projects=stores.projects, git=self.git_service)
         self.masking_service = MaskingService(projects=stores.projects, masks=stores.masks)
         self.rag_service = RagService(project_data=self.project_data_service, masking=self.masking_service, projects=stores.projects,
-                                      rag=stores.rag)
+                                      rag=stores.rag, definitions=stores.definitions)
         self.pipeline_service = PipelineService(
             pipelines=stores.pipelines,
             projects=stores.projects,

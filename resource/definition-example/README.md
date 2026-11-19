@@ -16,5 +16,6 @@ Lo script copia in `<MBARE_PILOT_HOME>/definition/` i file che mancano e non sov
 | `global-agent.yml` | gli agenti della Libreria: l'esempio `hello` e quelli che l'app chiama da sola con risposta strutturata (`wip`, `pianificatore`, `bozza-attivita`) |
 | `global-chat-bots.yml` | i chatbot di ogni progetto (salvo stesso nome nel progetto): qui quello delle automation |
 | `global-automation.yml` | «Prova git»: stato git di tutti i repository salvato in una nota, poi stop (le altre si rifanno poco alla volta) |
+| `context/*.md` | Il contesto generale per gli agenti (piano 26): come funziona l'app, un file per tema; si cerca con `search_context` in ogni progetto |
 
 Le definizioni dei singoli progetti (`project/<slug>/`) non stanno qui: sono tue e dei tuoi progetti. Formato e regole: [definitions.md](../doc/definitions.md). Un test (`test/unit/test_definition_examples.py`) verifica che questi file restino validi.

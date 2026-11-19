@@ -25,6 +25,14 @@ export function useContextDocument(project: string, name: string) {
   });
 }
 
+/** The general context (definitions' context/, plan 26): how the app works, the same for every project; read only. */
+export function useGeneralContext(project: string) {
+  return useQuery({
+    queryKey: ["projects", project, "context-general"],
+    queryFn: () => unwrap(api.GET("/projects/{project}/context-general", { params: { path: { project } } })),
+  });
+}
+
 export function useContextIndex(project: string) {
   return useQuery({ queryKey: keys.index(project), queryFn: () => unwrap(api.GET("/projects/{project}/context-index", { params: { path: { project } } })) });
 }

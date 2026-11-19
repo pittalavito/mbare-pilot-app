@@ -94,7 +94,7 @@ def build_mcp_server(copilot: Callable[[], "CopilotService"], rag: Callable[[], 
     @server.tool(description=MCP_TOOLS["search_context"])
     @_reported
     def search_context(question: Annotated[str, Field(description="What you want to know, in a sentence.")], ctx: Context) -> list[RagHit]:
-        return rag().search(copilot().mcp_session(_token(ctx)).project_name, question)
+        return rag().search(copilot().mcp_session(_token(ctx)).project_name, question, general=False)  # how the app works: not for Copilot
 
     @server.tool(description=MCP_TOOLS["ask_user"])
     @_reported

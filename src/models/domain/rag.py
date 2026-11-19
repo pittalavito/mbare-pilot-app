@@ -15,6 +15,8 @@ def _utc_now() -> datetime:
 class RagSource(StrEnum):
     CONTEXT = "context"
     """A ``.md`` of the project's ``context/`` folder."""
+    GENERAL = "general"
+    """A ``.md`` of the definitions' ``context/`` folder: how the app works, the same for every project (plan 26)."""
 
 
 class RagPiece(BaseModel):
@@ -39,11 +41,12 @@ class RagDocument(BaseModel):
 
 class RagHit(BaseModel):
     """A search result: the piece and where it comes from (to cite it)."""
-    path: str = Field(description="Where it comes from: context/<name>.md or notes/attivita-<name>.md.")
+    path: str = Field(description="Where it comes from: context/<name>.md (the project) or general/<name>.md (how the app works).")
     title: str = Field(description="The document's title.")
     section: str = Field(description="The section of the document ('' = its beginning).")
     text: str
     score: float = Field(description="0..1+: cosine similarity plus a bonus for the question's words found in the piece.")
+    origin: str = Field("progetto", description="'progetto' (the project's context, it wins) or 'generale' (how the app works).")
 
 
 class RagIndexState(BaseModel):
@@ -53,3 +56,5 @@ class RagIndexState(BaseModel):
     embedder: str
     """The embedder the project's index uses (``""`` = none can be built: why in ``error``)."""
     error: str | None = None
+    general: int = 0
+    """Of ``documents``, the general ones (the definitions' context, plan 26)."""

@@ -39,7 +39,7 @@ class FakeRag:
     def __init__(self, error=None):
         self.error = error
 
-    def search(self, project_name, question, limit):
+    def search(self, project_name, question, limit=5):
         if self.error:
             raise self.error
         return [RagHit(path="context/arch.md", title="Architettura", section="Login", text="Il login   passa da auth.", score=0.9)][:limit]
@@ -481,3 +481,23 @@ def test_the_delegations_repository_follows_into_the_plan(service, activity, sto
 
     tasks = _plan(stores, activity).tasks
     assert [(item.task, item.repository) for item in tasks] == [(login, "web"), (analysis, "")]
+
+
+def test_the_pianificatore_searches_the_context_before_answering(service, client, activity):
+    """Plan 26: its YAML gives it search_context; what the search gives back is masked like its input."""
+    client.tool_calls = [("search_context", {"question": "come funziona il login su api"})]
+    plan = service.propose("acme", activity)
+
+    assert client.calls[0]["tools"] == ["search_context"] and len(client.calls) == 2
+    assert "Architettura" in client.tool_results[0] and "Il login" in client.tool_results[0]
+    assert [proposal.title for proposal in plan.proposals][:1] == ["Aggiorna la libreria"]
+
+    client.tool_calls = [("search_context", {"question": "x"})] * 10  # never answers within its steps
+    with pytest.raises(UpstreamError, match="non ha risposto"):
+        service.propose("acme", activity)
+
+
+def test_without_an_index_the_pianificatore_has_no_tools(service, client, activity):
+    service._rag = None
+    service.propose("acme", activity)
+    assert client.calls[0]["tools"] == []

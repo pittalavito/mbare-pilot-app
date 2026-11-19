@@ -68,4 +68,25 @@ describe("the Contesto tab", () => {
     await waitFor(() => expect(created).toHaveBeenCalled());
     expect((await created.mock.results[0].value).body.content).toBe("# glossario\n\n## \n");
   });
+
+  it("shows the general context read only and where each hit comes from", async () => {
+    mockApi({
+      "GET /projects/acme/notes": [],
+      "GET /projects/acme/wip": { content: "", pending_words: 0 },
+      "GET /projects/acme/context": [],
+      "GET /projects/acme/context-general": [{ name: "giro.md", title: "Il giro", content: "# Il giro\n\nSi avvia con Avvia." }],
+      "GET /projects/acme/context-index": { ...INDEX, documents: 2, general: 1 },
+      "POST /projects/acme/context-index/search": [{ ...HIT, path: "general/giro.md", title: "Il giro", section: "", origin: "generale" }],
+    });
+    renderData();
+
+    fireEvent.click(await screen.findByRole("tab", { name: /Contesto/ }));
+    expect(await screen.findByText(/di cui 1 generali/)).toBeInTheDocument();
+    fireEvent.click(await screen.findByText("Il giro"));
+    expect(await screen.findByLabelText("Documento generale")).toHaveValue("# Il giro\n\nSi avvia con Avvia.");
+    expect(screen.getByLabelText("Documento generale")).toHaveAttribute("readonly");
+    fireEvent.change(screen.getByLabelText("Prova una ricerca"), { target: { value: "giro" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cerca" }));
+    expect(await screen.findByText("generale")).toBeInTheDocument();
+  });
 });

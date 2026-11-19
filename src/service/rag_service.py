@@ -1,8 +1,13 @@
 """The projects' context index (RAG): what the Refiner and Copilot search
 (tool ``search_context``) instead of reading everything.
 
-**What is indexed**: the documents of the project's ``context/`` folder only
-(what an activity taught goes in ``context/imparato.md`` when it is closed).
+**What is indexed**: the documents of the project's ``context/`` folder
+(what an activity taught goes in ``context/imparato.md`` when it is closed)
+and, in every project's index with its embedder, the **general context**:
+the ``.md`` of the definitions' ``context/`` folder, how the app works
+(plan 26), as ``general/<name>.md``. The general documents are (re)indexed
+when a search or «Reindicizza» finds them changed (same ``content_hash`` =
+nothing to embed); a project's piece wins over a general one at equal score.
 
 **Indexing** (``index_context``, ``reindex``): the text is
 split by heading (domain/rag/chunking.py, at most ``MAX_WORDS`` per piece),
@@ -39,10 +44,15 @@ from domain.rag.chunking import split_markdown, title_of
 from models.domain.rag import RagDocument, RagHit, RagIndexState, RagPiece, RagSource
 from service.masking_service import MaskingService
 from service.project_data_service import ProjectDataService
+from service.store.definition_store import DefinitionStore
 from service.store.project_store import ProjectStore
 from service.store.rag_store import RagStore
 
 LIMIT = 5
+GENERAL_DIR = "context"
+"""The general context, in the definitions (``<data_home>/definition/context/*.md``)."""
+GENERAL_PREFIX = "general/"
+"""How the general documents are named in a project's index."""
 KEYWORD_BONUS = 0.15
 """Added to the cosine when every word of the question is in the piece (a share of it for some)."""
 _WORD = re.compile(r"[a-z0-9_]+")
@@ -54,8 +64,10 @@ _STOPWORDS = frozenset(
 
 class RagService:
 
-    def __init__(self, project_data: ProjectDataService, masking: MaskingService, projects: ProjectStore, rag: RagStore):
+    def __init__(self, project_data: ProjectDataService, masking: MaskingService, projects: ProjectStore, rag: RagStore,
+                 definitions: DefinitionStore | None = None):
         self._data = project_data
+        self._definitions = definitions
         self._masking = masking
         self._projects = projects
         self._rag = rag
@@ -85,8 +97,32 @@ class RagService:
             name, error = self.embedder(project_name).name, None
         except AppError as exc:
             name, error = "", str(exc)
-        return RagIndexState(documents=len(self._rag.list_documents(project_name)), pieces=self._rag.count_pieces(project_name),
-                             embedder=name, error=error)
+        documents = self._rag.list_documents(project_name)
+        return RagIndexState(documents=len(documents), pieces=self._rag.count_pieces(project_name), embedder=name, error=error,
+                             general=sum(1 for document in documents if document.path.startswith(GENERAL_PREFIX)))
+
+    # ---------------------------------------------------------------- general
+    def general_documents(self) -> list[tuple[str, str]]:
+        """The general context: ``(name, text)`` of each ``.md`` in the definitions' ``context/``, by name."""
+        if self._definitions is None:
+            return []
+        found = []
+        for path in sorted(self._definitions.list_definitions(GENERAL_DIR)):
+            if path.endswith(".md") and (text := self._definitions.read_definition(path)) is not None:
+                found.append((path.rsplit("/", 1)[-1], text))
+        return found
+
+    @observed(LogPrefix.RAG_SERVICE)
+    def index_general(self, project_name: str) -> int:
+        """The general documents in the project's index: the changed ones embedded, the gone ones removed. How many were embedded."""
+        documents = self.general_documents()
+        changed = sum(self._index(project_name, f"{GENERAL_PREFIX}{name}", RagSource.GENERAL, text, title_of(text, name.removesuffix(".md")))
+                      for name, text in documents)
+        wanted = {f"{GENERAL_PREFIX}{name}" for name, _ in documents}
+        for document in self._rag.list_documents(project_name):
+            if document.path.startswith(GENERAL_PREFIX) and document.path not in wanted:
+                self._rag.remove_document(project_name, document.path)
+        return changed
 
     # --------------------------------------------------------------- indexing
     @observed(LogPrefix.RAG_SERVICE)
@@ -112,8 +148,9 @@ class RagService:
         wanted = {f"{CONTEXT_DIR}/{item.name}" for item in self._data.list_context(project_name)}
         for item in self._data.list_context(project_name):
             self.index_context(project_name, item.name)
+        self.index_general(project_name)
         for document in self._rag.list_documents(project_name):
-            if document.path not in wanted:
+            if document.path not in wanted and not document.path.startswith(GENERAL_PREFIX):
                 self._rag.remove_document(project_name, document.path)
         return self.state(project_name)
 
@@ -148,18 +185,28 @@ class RagService:
         return text if embedder.local else masked_text(text, self._masking.entries(project_name)).text
 
     # ----------------------------------------------------------------- search
-    def search(self, project_name: str, question: str, limit: int = LIMIT) -> list[RagHit]:
-        """The ``limit`` best pieces for ``question``: cosine similarity plus the keyword bonus."""
+    def search(self, project_name: str, question: str, limit: int = LIMIT, general: bool = True) -> list[RagHit]:
+        """The ``limit`` best pieces for ``question``: cosine similarity plus the keyword bonus, the project's
+        first at equal score. ``general`` False = only the project's context (Copilot)."""
         if not question.strip():
             raise ValidationError("La domanda è vuota.")
         embedder = self.embedder(project_name)
+        if general:
+            try:
+                self.index_general(project_name)
+            except AppError:  # the project's pieces still answer
+                log_exception(LogPrefix.RAG_SERVICE, "Contesto generale non indicizzato in %s", project_name)
         query = embedder.embed(self._for_embedder(project_name, embedder, question))
         words = keywords(question)
         hits = []
         for piece, document in self._rag.pieces(project_name, embedder.name):
+            is_general = document.path.startswith(GENERAL_PREFIX)
+            if is_general and not general:
+                continue
             value = score(query, words, f"{document.title} {piece.section} {piece.text}", piece.embedding)
-            hits.append(RagHit(path=document.path, title=document.title, section=piece.section, text=piece.text, score=round(value, 4)))
-        return sorted(hits, key=lambda hit: hit.score, reverse=True)[:limit]
+            hits.append(RagHit(path=document.path, title=document.title, section=piece.section, text=piece.text, score=round(value, 4),
+                               origin="generale" if is_general else "progetto"))
+        return sorted(hits, key=lambda hit: (hit.score, hit.origin == "progetto"), reverse=True)[:limit]
 
 
 def _plain(text: str) -> str:
