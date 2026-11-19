@@ -4,6 +4,7 @@ of an automation from a run's trace and the learned preparation at the
 delegation, on real repositories."""
 import json
 import shutil
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -83,6 +84,20 @@ def test_only_allowed_commands_run_the_others_wait_for_the_users_answer(commands
         service.run("acme", "api", "   ")
     with pytest.raises(NotFoundError):
         service.allowed("nessuno")
+
+
+def test_commands_run_in_any_folder_of_the_project_even_without_git(commands, stores):
+    """Plan 25: e.g. ``git init`` in a folder that is not a repository yet; never outside the project."""
+    service, fake = commands
+    service.save_allowed("acme", ["git init"])
+    new = Path(stores.projects.get("acme").root_path) / "nuovo"
+    new.mkdir()
+    assert service.run("acme", "nuovo", "git init").ok and fake.calls[-1][0] == "nuovo"
+    assert service.run("acme", "", "git init").ok  # the project folder itself
+    with pytest.raises(ValidationError, match="dentro il progetto"):
+        service.run("acme", "..", "git init")
+    with pytest.raises(ValidationError, match="inesistente"):
+        service.run("acme", "manca", "git init")
 
 
 def test_saving_the_list_answers_the_requests_it_allows_and_the_output_is_its_tail(commands):

@@ -4,7 +4,8 @@ offered), and nothing else. A command outside the list is not run: it becomes
 a request the user answers in the agent panel, «Sempre» (added to the list)
 or «Solo stavolta» (a grant used up by the next run of that command).
 
-``run`` executes in a repository of the project, without a shell, and gives
+``run`` executes in a folder of the project (a repository or not: ``git init``
+works there too, plan 25), without a shell, and gives
 back only the exit code and the last lines of the output (few tokens)."""
 import os
 import shutil
@@ -113,7 +114,7 @@ class CommandService:
         if not command:
             raise ValidationError("Scrivi il comando da eseguire.")
         project = self._project(project_name)
-        folder = self._git.repository_folder(project_name, repository)  # inside the project, or ValidationError
+        folder = self._git.project_subfolder(project_name, repository)  # inside the project (a repository or not), or ValidationError
         if command not in project.allowed_commands:
             if command not in project.command_grants:
                 if all(request.command != command for request in project.command_requests):
