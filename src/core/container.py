@@ -40,6 +40,7 @@ from service.project_service import ProjectService
 from service.publish_service import PublishService
 from service.rag_service import RagService
 from service.repository_map_service import RepositoryMapService
+from service.roadmap_service import RoadmapService
 from service.run_service import RunService
 from service.store.stores import Stores
 from service.structured_agent_service import StructuredAgentService
@@ -61,7 +62,6 @@ class Container:
         stores = stores or Stores()
         self._stores = stores
         self.chat_service = ChatService()
-        self.run_service = RunService(stores.runs)
         self.model_service = ModelService(catalog=stores.catalog)
         self.agent_config_service = AgentConfigService(projects=stores.projects, agents=stores.agents, catalog=stores.catalog)
         self.project_data_service = ProjectDataService(files=stores.project_files, projects=stores.projects)
@@ -71,6 +71,7 @@ class Container:
         self.git_service = GitService(projects=stores.projects)
         self.command_service = CommandService(projects=stores.projects, git=self.git_service)
         self.masking_service = MaskingService(projects=stores.projects, masks=stores.masks)
+        self.run_service = RunService(stores.runs, masking=self.masking_service)
         self.rag_service = RagService(project_data=self.project_data_service, masking=self.masking_service, projects=stores.projects,
                                       rag=stores.rag, definitions=stores.definitions)
         self.pipeline_service = PipelineService(
@@ -138,6 +139,7 @@ class Container:
             git=self.git_service, rag=self.rag_service, copilot=self.copilot_service, pipelines=self.pipeline_service,
         )
         self.repository_map_service = RepositoryMapService(git=self.git_service, project_data=self.project_data_service, rag=self.rag_service)
+        self.roadmap_service = RoadmapService(stores.definitions)
         self.operation_service = OperationService(plans=stores.plans, project_data=self.project_data_service, commands=self.command_service,
                                                   pipelines=self.pipeline_service)
         self.activity_close_service = ActivityCloseService(project_data=self.project_data_service, masking=self.masking_service,

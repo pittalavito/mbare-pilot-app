@@ -23,6 +23,18 @@ export function useToolCalls() {
 }
 
 /** The verbatim trace of a run, kept in Redis (it may have expired). */
+export type RunTranscript = components["schemas"]["RunTranscript"];
+
+/** «🔍 Cosa ha visto il modello» (plan 29): the run's exchange with the model, masked and in clear. */
+export function useRunTranscript(runId: string | undefined) {
+  return useQuery({
+    queryKey: ["observability", "transcript", runId],
+    queryFn: () => unwrap(api.GET("/observability/runs/{run_id}/transcript", { params: { path: { run_id: runId! } } })),
+    enabled: !!runId,
+    retry: false,
+  });
+}
+
 export function useTrace(runId: string | undefined) {
   return useQuery({
     queryKey: ["observability", "trace", runId],

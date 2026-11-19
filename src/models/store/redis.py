@@ -3,7 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from models.domain.agent import GenerationRecord, ToolCallRecord
+from models.domain.agent import GenerationRecord, ModelTranscript, ToolCallRecord
 
 
 class AgentTraceRecord(BaseModel):
@@ -13,6 +13,9 @@ class AgentTraceRecord(BaseModel):
     output: str
     tool_calls: list[ToolCallRecord] = Field(default_factory=list)
     generations: list[GenerationRecord] = Field(default_factory=list)
+    project_name: str | None = None
+    transcript: ModelTranscript | None = None
+    """The masked exchange with the model (plan 29)."""
 
 
 class WorkerHeartbeatRecord(BaseModel):

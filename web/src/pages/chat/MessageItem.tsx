@@ -5,6 +5,7 @@ import { useParams } from "react-router-dom";
 import type { Pipeline } from "../../api/automation";
 import { CACHE_MARK, type AutomationCacheEntry, type Message, useAddToAutomationCache, useRemoveFromAutomationCache } from "../../api/chat";
 import { Markdown } from "../../components/Markdown";
+import { TranscriptModal } from "../../components/TranscriptModal";
 import { AutomationProposal } from "./AutomationProposal";
 import { LearnButton } from "./LearnModal";
 
@@ -50,8 +51,22 @@ export function MessageItem({ chatbotId, message, reply, entry, automations, lea
           {message.content}
         </Markdown>
       </Group>
-      {learnable && project && message.run_id && <LearnButton project={project} messageId={message.id} />}
+      <Group gap="xs">
+        {message.run_id && <SeenByModel runId={message.run_id} />}
+        {learnable && project && message.run_id && <LearnButton project={project} messageId={message.id} />}
+      </Group>
     </Stack>
+  );
+}
+
+/** «🔍 Cosa ha visto il modello» under an answer (plan 29). */
+function SeenByModel({ runId }: { runId: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button size="compact-xs" variant="subtle" color="gray" onClick={() => setOpen(true)}>🔍 Cosa ha visto il modello</Button>
+      {open && <TranscriptModal runId={runId} opened onClose={() => setOpen(false)} />}
+    </>
   );
 }
 

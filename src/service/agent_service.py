@@ -9,7 +9,7 @@ from core.observability import LogPrefix, log_exception, observed
 from domain.agent.base import Factory as AgentFactory
 from domain.agent.masking import AgentMask
 from domain.agent.tracing import Adapter as TracingAdapter
-from models.domain.agent import AgentDefinition, AgentRunRecord, RunOrigin
+from models.domain.agent import AgentDefinition, AgentRunRecord, ModelMessage, ModelTranscript, RunOrigin
 from models.domain.chat import split_model_key
 from models.domain.chatbot import ChatMessage
 from models.domain.tool import ToolErrorResponse
@@ -150,11 +150,13 @@ class AgentService:
         prices = self._catalog.price_list()
 
         output, error = "", None
+        masked_input, masked_history, masked_output = mask.input(task_input), mask.history(history), ""
         start = perf_counter()
         with ContextTracing().trace(f"agent.{definition.name}") as current_trace:
             try:
-                step = agent.run(mask.input(task_input), memory=AgentFactory.create_memory(mask.history(history)))
-                output = mask.answer(step.text) if step else ""
+                step = agent.run(masked_input, memory=AgentFactory.create_memory(masked_history))
+                masked_output = step.text if step else ""
+                output = mask.answer(masked_output) if step else ""
             except AppError as exc:
                 error = str(exc)
             except Exception as exc:
@@ -179,6 +181,8 @@ class AgentService:
             input=task_input,
             output=output,
             telemetry=telemetry,
+            transcript=ModelTranscript(system_prompt=definition.system_prompt, input=masked_input, output=masked_output,
+                                       history=[ModelMessage(role=message.role.value, content=message.content) for message in masked_history]),
         )
         self._runs.save(record)
         return record

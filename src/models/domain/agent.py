@@ -176,6 +176,21 @@ class RunTelemetry(BaseModel):
         return self.agent_tokens + self.tool_tokens
 
 
+class ModelMessage(BaseModel):
+    role: str
+    """``user`` or ``assistant``."""
+    content: str
+
+
+class ModelTranscript(BaseModel):
+    """What went to and came from the model, **masked** as it left (plan 29): the clear version is
+    rebuilt when read, with the project's map."""
+    system_prompt: str = ""
+    history: list[ModelMessage] = Field(default_factory=list)
+    input: str = ""
+    output: str = ""
+
+
 class AgentRunRecord(BaseModel):
     """A full agent run: facts (persisted in SQL) plus the verbatim trace
     (input, output, tool calls, generations — persisted in Redis)."""
@@ -194,6 +209,8 @@ class AgentRunRecord(BaseModel):
     input: str = ""
     output: str = ""
     telemetry: RunTelemetry = Field(default_factory=RunTelemetry)
+    transcript: ModelTranscript | None = None
+    """The masked exchange with the model (plan 29); None for the runs recorded before."""
 
 
 class AgentRunSummary(BaseModel):

@@ -1,6 +1,6 @@
 import { AppShell, Burger, Group, NavLink, Title } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconBooks, IconFolders, IconTool } from "@tabler/icons-react";
+import { IconBooks, IconFolders, IconRocket, IconTool } from "@tabler/icons-react";
 import { NavLink as RouterLink, Outlet, useLocation } from "react-router-dom";
 
 import { BackendStatus } from "./BackendStatus";
@@ -9,6 +9,7 @@ const SECTIONS = [
   { to: "/projects", label: "Progetti", icon: IconFolders },
   { to: "/library", label: "Libreria", icon: IconBooks },
   { to: "/admin", label: "Admin", icon: IconTool },
+  { to: "/mbare-pilot", label: "Mbare Pilot", icon: IconRocket },
 ];
 
 /** The frame of every page: header with the API's state, sections on the left. */

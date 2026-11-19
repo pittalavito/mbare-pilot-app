@@ -6,9 +6,12 @@ from typing import Any
 from fastapi import APIRouter, Depends, Response, status
 
 from config import Config
-from controller.dependencies import backup_service, run_service
+from controller.dependencies import backup_service, roadmap_service, run_service
 from models.controller.admin import BackupResponse, BackupsResponse, ConfigResponse, RunSummaryResponse, ToolCallResponse
+from models.domain.roadmap import Roadmap
+from models.domain.transcript import RunTranscript
 from service.backup_service import BackupService
+from service.roadmap_service import RoadmapService
 from service.run_service import RunService
 
 router = APIRouter(tags=["admin"])
@@ -34,6 +37,18 @@ def list_runs(limit: int = 100, service: RunService = Depends(run_service)) -> l
 def run_trace(run_id: str, service: RunService = Depends(run_service)) -> dict[str, Any]:
     """Input, output, tool calls and LLM generations, as recorded."""
     return service.trace(run_id).model_dump(mode="json")
+
+
+@router.get("/observability/runs/{run_id}/transcript")
+def run_transcript(run_id: str, service: RunService = Depends(run_service)) -> RunTranscript:
+    """«🔍 Cosa ha visto il modello» (plan 29): system prompt, history, input, tools and answer, masked and in clear."""
+    return service.transcript(run_id)
+
+
+@router.get("/roadmap")
+def roadmap(service: RoadmapService = Depends(roadmap_service)) -> Roadmap:
+    """«🚀 Mbare Pilot» (plan 30): the app's future activities, from roadmap.yml of the definitions."""
+    return service.roadmap()
 
 
 @router.get("/observability/tool-calls")

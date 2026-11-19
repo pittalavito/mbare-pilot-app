@@ -1475,6 +1475,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/observability/runs/{run_id}/transcript": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run Transcript
+         * @description «🔍 Cosa ha visto il modello» (plan 29): system prompt, history, input, tools and answer, masked and in clear.
+         */
+        get: operations["run_transcript_observability_runs__run_id__transcript_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/roadmap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Roadmap
+         * @description «🚀 Mbare Pilot» (plan 30): the app's future activities, from roadmap.yml of the definitions.
+         */
+        get: operations["roadmap_roadmap_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/observability/tool-calls": {
         parameters: {
             query?: never;
@@ -4589,6 +4629,13 @@ export interface components {
             /** Usable */
             usable: string[];
         };
+        /** ModelMessage */
+        ModelMessage: {
+            /** Role */
+            role: string;
+            /** Content */
+            content: string;
+        };
         /** NoteRequest */
         NoteRequest: {
             /** Content */
@@ -5263,6 +5310,53 @@ export interface components {
             /** Command */
             command: string;
         };
+        /** Roadmap */
+        Roadmap: {
+            /**
+             * Goal
+             * @default
+             */
+            goal: string;
+            /**
+             * Vision
+             * @default
+             */
+            vision: string;
+            /** Items */
+            items?: components["schemas"]["RoadmapItem"][];
+        };
+        /** RoadmapItem */
+        RoadmapItem: {
+            /** Title */
+            title: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Kind
+             * @default
+             */
+            kind: string;
+            /**
+             * Owner
+             * @default
+             */
+            owner: string;
+            /** @default todo */
+            status: components["schemas"]["RoadmapStatus"];
+            /**
+             * Feasibility
+             * @default
+             */
+            feasibility: string;
+        };
+        /**
+         * RoadmapStatus
+         * @enum {string}
+         */
+        RoadmapStatus: "todo" | "in_progress" | "done";
         /** RoleCreateRequest */
         RoleCreateRequest: {
             /** Name */
@@ -5362,6 +5456,17 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** RunTranscript */
+        RunTranscript: {
+            /** Run Id */
+            run_id: string;
+            /** Project Name */
+            project_name?: string | null;
+            masked: components["schemas"]["TranscriptView"];
+            clear: components["schemas"]["TranscriptView"];
+            /** Aliases */
+            aliases?: string[];
         };
         /** StatusResponse */
         StatusResponse: {
@@ -5801,6 +5906,45 @@ export interface components {
             };
             /** Error */
             error?: string | null;
+        };
+        /** TranscriptTool */
+        TranscriptTool: {
+            /** Name */
+            name: string;
+            /**
+             * Arguments
+             * @default
+             */
+            arguments: string;
+            /**
+             * Result
+             * @default
+             */
+            result: string;
+            /** Error */
+            error?: string | null;
+        };
+        /** TranscriptView */
+        TranscriptView: {
+            /**
+             * System Prompt
+             * @default
+             */
+            system_prompt: string;
+            /** History */
+            history?: components["schemas"]["ModelMessage"][];
+            /**
+             * Input
+             * @default
+             */
+            input: string;
+            /** Tool Calls */
+            tool_calls?: components["schemas"]["TranscriptTool"][];
+            /**
+             * Output
+             * @default
+             */
+            output: string;
         };
         /** UpdateProjectRequest */
         UpdateProjectRequest: {
@@ -9205,6 +9349,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_transcript_observability_runs__run_id__transcript_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunTranscript"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    roadmap_roadmap_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Roadmap"];
                 };
             };
         };

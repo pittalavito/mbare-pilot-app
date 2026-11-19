@@ -205,3 +205,47 @@ def test_runs_outside_a_project_are_not_masked(agent_service, masking, monkeypat
 def _definition(agent_service):
     from models.domain.agent import AgentDefinition
     return AgentDefinition.from_spec(agent_service._agent_config_service.resolve("bot"))
+
+
+def test_the_run_keeps_what_the_model_saw_masked_and_shows_it_in_clear(agent_service, masking, monkeypatch, run_store):
+    """Plan 29: «🔍 Cosa ha visto il modello»."""
+    from core.error import NotFoundError
+    from service.run_service import RunService
+    masking.add_term("acme", MaskCategory.PERSON, "Mario Rossi")
+    masking.register("acme", MaskCategory.REPOSITORY, "project-be")
+    seen = {}
+    monkeypatch.setattr(agent_service_module.AgentFactory, "create_agent",
+                        staticmethod(lambda definition, client, tools: _Recording(tools, seen)))
+    history = [ChatMessage(conversation_id=1, role=MessageRole.USER, content="ciao, sono Mario Rossi")]
+
+    record = agent_service.run_definition(_definition(agent_service), "Mario Rossi chiede: project-be?", project_name="acme", history=history)
+    transcript = RunService(run_store, masking).transcript(record.run_id)
+
+    assert transcript.masked.input == "PERSONA_1 chiede: REPO_1?" and transcript.clear.input == "Mario Rossi chiede: project-be?"
+    assert transcript.masked.history[0].content == "ciao, sono PERSONA_1" and transcript.clear.history[0].content == "ciao, sono Mario Rossi"
+    assert transcript.masked.output == "Ho controllato REPO_1 per PERSONA_1." and transcript.clear.output == "Ho controllato project-be per Mario Rossi."
+    assert transcript.masked.system_prompt and {"PERSONA_1", "REPO_1"} <= set(transcript.aliases)
+
+    trace = run_store.get_trace(record.run_id)
+    run_store._traces.save(trace.model_copy(update={"transcript": None}))  # a run recorded before plan 29
+    with pytest.raises(NotFoundError, match="trascrizione"):
+        RunService(run_store, masking).transcript(record.run_id)
+
+
+def test_the_transcript_shows_the_tools_and_indents_json(masking, run_store):
+    from models.domain.agent import AgentRunRecord, ModelTranscript, RunTelemetry, ToolCallRecord
+    from service.run_service import RunService
+    masking.add_term("acme", MaskCategory.PERSON, "Mario Rossi")
+    tool = ToolCallRecord(name="read_activity", arguments='{"name": "PERSONA_1"}', result='{"title": "Ferie di PERSONA_1"}',
+                          ok=False, error="PERSONA_1 non trovato")
+    run_store.save(AgentRunRecord(run_id="r1", project_name="acme", config_name="s", role_name="s", prompt_id=0, prompt_version=1,
+                                  model="gpt-4o", input="", output="", telemetry=RunTelemetry(tool_calls=[tool]),
+                                  transcript=ModelTranscript(system_prompt="Ciao PERSONA_1", input="x", output='{"a": 1}')))
+
+    transcript = RunService(run_store, masking).transcript("r1")
+
+    [masked], [clear] = transcript.masked.tool_calls, transcript.clear.tool_calls
+    assert masked.arguments == '{\n  "name": "PERSONA_1"\n}' and clear.arguments == '{\n  "name": "Mario Rossi"\n}'
+    assert clear.result.endswith('"Ferie di Mario Rossi"\n}') and clear.error == "Mario Rossi non trovato"
+    assert transcript.clear.system_prompt == "Ciao Mario Rossi" and transcript.masked.output == '{\n  "a": 1\n}'
+    assert transcript.clear.input == "x"  # the run's own clear input is empty: the masked one unmasked
