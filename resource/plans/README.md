@@ -11,9 +11,10 @@ Ogni piano descrive **cosa fare**, non com'è fatto oggi; le parti che esistono 
 | 00 | [Prova AITHO](00-prova-aitho.md) | traccia | — | requisiti, demo, AGENTS.md |
 | 27 | [Contesto più utile agli agenti](27-contesto-piu-utile.md) | fatto | app + definizioni | RAG |
 | 28 | [Un solo repository](28-un-solo-repo.md) | fatto | app | pulizia |
+| 29 | [Cosa vede il modello](29-cosa-vede-il-modello.md) | da realizzare | app | guardrail, osservabilità |
 | — | [Backlog](backlog.md) | idee | — | — |
 
-I piani 01-26 sono fatti e sono stati tolti: la storia è nelle PR e nei commit. Il prossimo piano è il 29.
+I piani 01-26 sono fatti e sono stati tolti: la storia è nelle PR e nei commit. Il prossimo piano è il 30.
 
 Stati: **da progettare** (mancano decisioni) → **da realizzare** → **in corso** → **fatto**.
 
