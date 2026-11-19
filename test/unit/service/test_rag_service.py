@@ -159,3 +159,47 @@ def test_the_search_cites_document_and_section_and_rewards_exact_words(rag, data
 
 def test_an_empty_index_finds_nothing(rag):
     assert rag.search("acme", "qualsiasi cosa") == []
+
+
+# ------------------------------------------------------------ general context (plan 26)
+
+@pytest.fixture
+def general(project_store, project_data_service, masking_service, rag_store, tmp_path) -> RagService:
+    from service.store.definition_store import DefinitionStore
+    project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
+    definitions = DefinitionStore(tmp_path / "definition")
+    definitions.save_definition("context/giro.md", "# Il giro\n\n## Avvia\nIl giro dei task si avvia con Avvia e lo esegue il worker.")
+    definitions.save_definition("context/note.txt", "non un documento")
+    return RagService(project_data_service, masking_service, project_store, rag_store, definitions)
+
+
+def test_the_general_context_is_searched_in_every_project_and_the_project_wins(general, data, rag_store, monkeypatch):
+    data.save_context("acme", "giro.md", "# Il giro\n\n## Avvia\nIl giro dei task si avvia con Avvia e lo esegue il worker.")
+    general.index_context("acme", "giro.md")
+
+    hits = general.search("acme", "come si avvia il giro dei task")
+    assert [(hit.path, hit.origin) for hit in hits[:2]] == [("context/giro.md", "progetto"), ("general/giro.md", "generale")]
+    assert hits[0].score == hits[1].score  # same text: the project first
+    assert general.state("acme").general == 1 and general.state("acme").documents == 2
+    assert [hit.origin for hit in general.search("acme", "giro", general=False)] == ["progetto"]  # Copilot
+
+    calls = []
+    monkeypatch.setattr(general, "_index", lambda *args: calls.append(args) or False)
+    assert general.index_general("acme") == 0 and len(calls) == 1  # only the .md, unchanged
+
+
+def test_a_general_document_gone_leaves_the_index_and_reindex_keeps_the_others(general, data, rag_store, tmp_path):
+    general.reindex("acme")
+    assert {document.path for document in rag_store.list_documents("acme")} == {"general/giro.md"}
+    (tmp_path / "definition" / "context" / "giro.md").unlink()
+    general.reindex("acme")
+    assert rag_store.list_documents("acme") == []
+    assert RagService(data, general._masking, general._projects, rag_store).general_documents() == []  # no definitions
+
+
+def test_a_broken_general_index_does_not_stop_the_search(general, data, monkeypatch):
+    from core.error import UpstreamError
+    data.save_context("acme", "arch.md", "# Architettura\n\nFastAPI e React.")
+    general.index_context("acme", "arch.md")
+    monkeypatch.setattr(general, "index_general", lambda project: (_ for _ in ()).throw(UpstreamError("embedder giù")))
+    assert [hit.path for hit in general.search("acme", "architettura")] == ["context/arch.md"]

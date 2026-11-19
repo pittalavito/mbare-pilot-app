@@ -99,7 +99,7 @@ def seed_structured_agents(service: AgentConfigService) -> None:
         service.save_role(AgentRole(name=spec.role), create=True)
         prompt = service.create_prompt_version(spec.role, spec.system_prompt)
         service.save_config(AgentConfig(name=spec.name, role_name=spec.role, prompt_id=prompt.id, model=spec.model,
-                                        max_steps=spec.max_steps, output=spec.output))
+                                        max_steps=spec.max_steps, tool_names=spec.tools, output=spec.output))
 
 
 @pytest.fixture

@@ -243,7 +243,10 @@ Un agente fa una procedura con i suoi tool; se ha fatto giusto, con un clic la s
 
 ## Contesto (RAG)
 
-**`RagService`**: l'indice del contesto di un progetto, quello che il Refiner e Copilot cercano (`search_context`) invece di leggere tutto.
+**`RagService`**: l'indice del contesto di un progetto, quello che gli agenti cercano (`search_context`) invece di leggere tutto.
+
+- **Contesto generale** (piano 26): i `.md` di `definition/context/` (come funziona l'app, uguale per tutti i progetti) entrano nell'indice di **ogni progetto**, col suo embedder, come `general/<nome>.md` (`RagSource.GENERAL`). `index_general` li indicizza quando cambiano (stesso `content_hash` = niente embedding) e toglie quelli spariti; lo chiamano `search` (prima di cercare; un errore non ferma la ricerca) e `reindex`. Ogni risultato ha `origin` («progetto» o «generale»); a parità di punteggio vince il progetto. `search(..., general=False)` cerca solo nel progetto: è quello che riceve **Copilot** (MCP). `state` conta anche i documenti generali (`general`).
+- **Chi cerca**: `search_context` ce l'hanno Refiner, Dev, Segretario e Architetto; il **Pianificatore** lo usa come agente strutturato con tool (`StructuredAgentService.call(..., tools)`: qualche passo di ricerca, poi la risposta nello schema; i risultati mascherati come il suo input).
 
 - **Cosa entra**: i documenti `.md` della cartella `context/` del progetto (sotto-scheda «📚 Contesto»: architettura, convenzioni, decisioni, runbook, glossario) e **basta**: niente attività (quello che un'attività ha insegnato va in `context/imparato.md` allo step Chiudi), niente codice, niente note generiche, niente WIP.
 - **Pezzi** (`domain/rag/chunking.py`): un pezzo per sezione `##`; una sezione oltre `MAX_WORDS` (300) si divide per paragrafi, un paragrafo troppo lungo per frasi e poi per parole. I pezzi sono `Chunk` di datapizza; nei metadati portano il titolo del documento e la sezione, che la ricerca restituisce per citarli.

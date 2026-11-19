@@ -201,3 +201,10 @@ def test_the_api(stores, project_store, project, tmp_path):  # noqa: F811
         asked = http.post("/projects/acme/commands/run", json={"repository": "api", "command": "rm -rf x"})
         assert asked.json() == {"allowed": False, "exit_code": None, "output": ""}
         assert http.post("/projects/acme/activities/attivita-x.md/plan/auto", json={"task": "agent-task-x.md"}).status_code == 404
+
+
+def test_the_general_context_api(stores, project_store, project, config):  # noqa: F811
+    (config.definitions_root / "context").mkdir(exist_ok=True)
+    (config.definitions_root / "context" / "giro.md").write_text("# Il giro\n\nSi avvia con Avvia.", encoding="utf-8")
+    with TestClient(create_app(Container(stores=stores))) as http:
+        assert http.get("/projects/acme/context-general").json() == [{"name": "giro.md", "title": "Il giro", "content": "# Il giro\n\nSi avvia con Avvia."}]

@@ -2358,6 +2358,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/context-general": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * General Context
+         * @description The general context (``definition/context/*.md``): edited in the definitions, read only here.
+         */
+        get: operations["general_context_projects__project__context_general_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project}/context-index": {
         parameters: {
             query?: never;
@@ -2409,7 +2429,7 @@ export interface paths {
         put?: never;
         /**
          * Search
-         * @description What search_context gives the Refiner and Copilot for this question.
+         * @description What search_context gives the agents for this question (Copilot: only the project's pieces).
          */
         post: operations["search_projects__project__context_index_search_post"];
         delete?: never;
@@ -4228,6 +4248,15 @@ export interface components {
             /** Roots */
             roots: string[];
         };
+        /** GeneralDocument */
+        GeneralDocument: {
+            /** Name */
+            name: string;
+            /** Title */
+            title: string;
+            /** Content */
+            content: string;
+        };
         /** GitBranchesResponse */
         GitBranchesResponse: {
             /** Current */
@@ -4973,7 +5002,7 @@ export interface components {
         RagHit: {
             /**
              * Path
-             * @description Where it comes from: context/<name>.md or notes/attivita-<name>.md.
+             * @description Where it comes from: context/<name>.md (the project) or general/<name>.md (how the app works).
              */
             path: string;
             /**
@@ -4993,6 +5022,12 @@ export interface components {
              * @description 0..1+: cosine similarity plus a bonus for the question's words found in the piece.
              */
             score: number;
+            /**
+             * Origin
+             * @description 'progetto' (the project's context, it wins) or 'generale' (how the app works).
+             * @default progetto
+             */
+            origin: string;
         };
         /**
          * RagIndexState
@@ -5007,6 +5042,11 @@ export interface components {
             embedder: string;
             /** Error */
             error?: string | null;
+            /**
+             * General
+             * @default 0
+             */
+            general: number;
         };
         /** ReferenceBody */
         ReferenceBody: {
@@ -10744,6 +10784,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    general_context_projects__project__context_general_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeneralDocument"][];
+                };
             };
             /** @description Validation Error */
             422: {

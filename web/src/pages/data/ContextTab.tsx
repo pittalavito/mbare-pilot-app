@@ -3,14 +3,15 @@ import { notifications } from "@mantine/notifications";
 import { useState } from "react";
 
 import {
-  useContextDocument, useContextDocuments, useContextIndex, useDeleteContext, useReindexContext, useSaveContext, useSearchContext,
+  useContextDocument, useContextDocuments, useContextIndex, useGeneralContext, useDeleteContext, useReindexContext, useSaveContext, useSearchContext,
 } from "../../api/context";
 import { ConfirmButton } from "../../components/ConfirmButton";
 
 /** «📚 Contesto»: the documents of the project's context/ folder
  * (architecture, conventions, decisions, runbooks, glossary). Saving one
- * indexes it; the Refiner and Copilot search the index (search_context),
- * together with the done activities that have «Imparato». */
+ * indexes it; the agents search the index (search_context) together with the
+ * general context of the definitions (how the app works, plan 26: shown read
+ * only under «Generale»; Copilot gets only the project's). */
 /** The project's development rules (plan 22): the Pianificatore reads them to propose the pre/post development tasks. */
 export const RULES_DOCUMENT = "sviluppo.md";
 export const RULES_TEMPLATE = `# Sviluppo
@@ -37,7 +38,10 @@ export function ContextTab({ project }: { project: string }) {
   const [selected, setSelected] = useState<string>();
   const [creating, setCreating] = useState(false);
   const names = documents.data?.map((item) => item.name) ?? [];
+  const general = useGeneralContext(project);
+  const [generalOpen, setGeneralOpen] = useState<string>();
   const current = selected && names.includes(selected) ? selected : names[0];
+  const shownGeneral = general.data?.find((item) => item.name === generalOpen);
   return (
     <Stack gap="md">
       <IndexBar project={project} />
@@ -54,11 +58,25 @@ export function ContextTab({ project }: { project: string }) {
             {documents.isPending && <Loader size="sm" />}
             {documents.error && <Alert color="red">{documents.error.message}</Alert>}
             {documents.data && !names.length && <Text size="sm" c="dimmed">Nessun documento di contesto.</Text>}
-            {names.map((name) => <NavLink key={name} label={name} active={name === current} onClick={() => setSelected(name)} />)}
+            {names.map((name) => <NavLink key={name} label={name} active={!shownGeneral && name === current}
+              onClick={() => { setSelected(name); setGeneralOpen(undefined); }} />)}
+            <Text size="xs" fw={700} c="dimmed" tt="uppercase" mt="sm" title="Come funziona l'app, uguale per tutti i progetti: si cambia nelle definizioni">
+              Generale (da definizioni)
+            </Text>
+            {general.data && !general.data.length && <Text size="xs" c="dimmed">Nessun documento in definition/context/.</Text>}
+            {general.data?.map((item) => (
+              <NavLink key={item.name} label={item.title} description={item.name} active={item.name === generalOpen}
+                onClick={() => setGeneralOpen(item.name)} />
+            ))}
           </Stack>
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 9 }}>
-          {current ? <ContextEditor key={current} project={project} name={current} /> : (
+          {shownGeneral ? (
+            <Stack gap="xs">
+              <Group gap="xs"><Badge variant="light" color="gray">sola lettura</Badge><Text size="xs" c="dimmed">definition/context/{shownGeneral.name}: si cambia nelle definizioni</Text></Group>
+              <Textarea aria-label="Documento generale" value={shownGeneral.content} readOnly autosize minRows={10} ff="monospace" />
+            </Stack>
+          ) : current ? <ContextEditor key={current} project={project} name={current} /> : (
             <Text c="dimmed">
               Scrivi qui quello che serve sapere sul progetto: architettura, convenzioni, decisioni, runbook, glossario. Un titolo «##» per
               argomento: il Refiner e Copilot cercano i pezzi giusti, con la fonte.
@@ -83,7 +101,7 @@ function IndexBar({ project }: { project: string }) {
         <Group gap="xs">
           {index.data && (
             <Text size="sm">
-              🔎 Indice: <b>{index.data.documents}</b> documenti, <b>{index.data.pieces}</b> pezzi
+              🔎 Indice: <b>{index.data.documents}</b> documenti{!!index.data.general && <> (di cui {index.data.general} generali)</>}, <b>{index.data.pieces}</b> pezzi
               {index.data.embedder && <> · embedder <code>{index.data.embedder}</code></>}
             </Text>
           )}
@@ -106,6 +124,7 @@ function IndexBar({ project }: { project: string }) {
           <Card key={`${hit.path}-${hit.section}-${hit.text.slice(0, 20)}`} withBorder p="xs">
             <Group gap="xs">
               <Badge size="xs" variant="light">{hit.score.toFixed(2)}</Badge>
+              <Badge size="xs" variant="outline" color={hit.origin === "generale" ? "gray" : "blue"}>{hit.origin}</Badge>
               <Text size="xs" fw={500}>{hit.title}{hit.section && <> › {hit.section}</>}</Text>
               <Text size="xs" c="dimmed">{hit.path}</Text>
             </Group>

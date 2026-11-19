@@ -22,7 +22,7 @@ def test_documents_are_indexed_when_saved_and_searched(client):
     assert [item["name"] for item in client.get("/projects/acme/context").json()] == ["architettura.md"]
     assert client.get("/projects/acme/context/architettura.md").json()["content"].startswith("# Architettura")
 
-    assert client.get("/projects/acme/context-index").json() == {"documents": 1, "pieces": 1, "embedder": "hashing-512", "error": None}
+    assert client.get("/projects/acme/context-index").json() == {"documents": 1, "pieces": 1, "embedder": "hashing-512", "error": None, "general": 0}
     [hit] = client.post("/projects/acme/context-index/search", json={"question": "Dove sono le migrazioni Flyway?"}).json()
     assert (hit["path"], hit["section"]) == ("context/architettura.md", "Database")
     assert client.post("/projects/acme/context-index/reindex").json()["documents"] == 1

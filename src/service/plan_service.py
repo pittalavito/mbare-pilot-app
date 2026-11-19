@@ -27,7 +27,11 @@
    with ``auto_approve``. A pre/post development task waits for «✅ Fatto»
    (``mark_done``). Nothing runs by itself before or after Copilot (plan 22).
 5. Once no task is left, the **summary** composed by the code (step «Chiudi»)."""
+import copy
 import json
+
+from datapizza.tools import Tool
+from pydantic import BaseModel
 
 from core.error import AppError, ConflictError, NotFoundError, UpstreamError, ValidationError
 from core.observability import LogPrefix, log_exception, observed
@@ -63,6 +67,8 @@ from service.project_data_service import ProjectDataService
 from service.rag_service import RagService
 from service.store.plan_store import PlanStore
 from service.structured_agent_service import StructuredAgentService
+from tool.context import ToolContext
+from tool.registry import TOOL_REGISTRY
 
 CONTEXT_PIECES = 3
 """How many pieces of the context index the Pianificatore reads."""
@@ -113,7 +119,7 @@ class PlanService:
         automations = self._automations(project_name)
         masked = masked_text(model_input(activity, open_items, repositories, self._context(project_name, activity), references,
                                          self._rules(project_name), automations), entries)
-        call = self._agents.call(agent, masked.text)
+        call = self._agents.call(agent, masked.text, self._tools(project_name, agent.tool_names, entries))
 
         clear = lambda text: unmask(text, entries, masked.temporary).strip()  # noqa: E731
         answer = call.answer if isinstance(call.answer, PlanAnswer) else None
@@ -124,6 +130,23 @@ class PlanService:
             raise UpstreamError(f"Il Pianificatore non ha risposto: {call.error}")
         return self._plans.save(plan.model_copy(update={
             "run_id": run_id, "proposals": proposals, "cost_eur": round(plan.cost_eur + call.telemetry.total_tokens.cost_eur, 6)}))
+
+    def _tools(self, project_name: str, names: list[str], entries) -> list[Tool]:
+        """The Pianificatore's tools (``search_context``, plan 26) when its YAML has them and the project has an index;
+        what they give back is masked like its input."""
+        if self._rag is None or "search_context" not in names:
+            return []
+        tool = TOOL_REGISTRY["search_context"].build(ToolContext(project_name=project_name, git=self._git, rag=self._rag))
+        original = tool.func
+
+        def masked(*args, **kwargs):
+            result = original(*args, **kwargs)
+            text = result.model_dump_json() if isinstance(result, BaseModel) else str(result)
+            return masked_text(text, entries).text
+
+        wrapped = copy.copy(tool)
+        wrapped.func = masked
+        return [wrapped]
 
     def _automations(self, project_name: str) -> dict[str, str]:
         """The project's automations that can be started, name → description (the Pianificatore picks one for a pre/post task)."""
