@@ -374,3 +374,8 @@ In `test/unit/service/`: `store/test_run_store`, `store/test_pipeline_store` (tr
 ## Cosa vede il modello (piano 29)
 
 Ogni run di un agente (chatbot e agenti con risposta strutturata) salva nel trace (Redis) la **trascrizione mascherata** (`ModelTranscript`): il system prompt come l'ha ricevuto il modello, la storia della conversazione e l'input mascherati, la risposta grezza (per gli strutturati il JSON); le chiamate ai tool sono già nel trace, con argomenti e risultati come li ha visti il modello. `RunService.transcript(run_id)` la restituisce in due versioni (`RunTranscript`): `masked` così com'è e `clear` con la mappa del progetto rimessa in chiaro (input e risposta sono quelli in chiaro della run; i JSON indentati), più gli alias da evidenziare. Una run registrata prima del piano 29 non ha la trascrizione (404).
+
+
+## Costi dell'embedding (piano 31)
+
+`RagService._embed` usa `Embedder.embed_with_usage`: l'embedder remoto (OpenRouter) restituisce anche i token contati dal provider, quello locale (`hashing`) 0. Le chiamate con token si registrano in `embedding_usage` (`EmbeddingUsageStore`: progetto, modello, scopo `index` o `search`, token, costo stimato da `EMBEDDING_EUR_PER_1M`; un modello sconosciuto costa 0). `MetricsService` le somma per modello e scopo (`Metrics.embedding`) con gli stessi filtri di periodo e progetto; la pagina Metriche le mostra in «Embedding del RAG (costo stimato)».

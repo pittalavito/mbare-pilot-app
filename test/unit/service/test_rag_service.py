@@ -228,3 +228,39 @@ def test_the_agents_with_search_context_get_the_catalog_masked(make_agent_servic
     assert service._with_catalog(definition, "acme", None).system_prompt.endswith("Il giro")
     assert service._with_catalog(definition.model_copy(update={"tool_names": []}), "acme", None) == definition.model_copy(update={"tool_names": []})
     assert service._with_catalog(definition, None, None) == definition
+
+
+# ------------------------------------------------------------ embedding usage (plan 31)
+
+class CountingEmbedder(RemoteEmbedder):
+    """A remote embedder that says how many tokens each call used."""
+
+    @property
+    def name(self) -> str:
+        return "openrouter/openai/text-embedding-3-small"
+
+    def embed_with_usage(self, text: str) -> tuple[list[float], int]:
+        return self.embed(text), len(text.split())
+
+
+def test_the_remote_embedder_calls_are_counted_for_the_metrics(project_store, project_data_service, masking_service, rag_store, stores, monkeypatch):
+    from service.metrics_service import MetricsService
+    project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
+    service = RagService(project_data_service, masking_service, project_store, rag_store, usage=stores.embedding_usage)
+    monkeypatch.setattr(service, "embedder", lambda project_name: CountingEmbedder())
+    project_data_service.save_context("acme", "arch.md", "# Architettura\n\n## Backend\nFastAPI e Postgres.")
+
+    service.index_context("acme", "arch.md")
+    service.search("acme", "dove sta il backend?")
+
+    usage = MetricsService(stores.runs, stores.copilot, stores.wip, stores.embedding_usage).metrics(project_name="acme").embedding
+    by_purpose = {item.purpose: item for item in usage}
+    assert set(by_purpose) == {"index", "search"} and by_purpose["search"].calls == 1 and by_purpose["search"].tokens == 4
+    assert by_purpose["index"].model == "openai/text-embedding-3-small" and by_purpose["index"].cost_eur > 0
+    assert MetricsService(stores.runs, stores.copilot, stores.wip, stores.embedding_usage).metrics(days=1, project_name="altro").embedding == []
+
+
+def test_the_local_embedder_costs_nothing(rag, data, stores):
+    data.save_context("acme", "arch.md", "# Architettura\n\nFastAPI.")
+    rag.index_context("acme", "arch.md")
+    assert HashingEmbedder().embed_with_usage("ciao")[1] == 0 and stores.embedding_usage.list() == []

@@ -73,7 +73,8 @@ class Container:
         self.masking_service = MaskingService(projects=stores.projects, masks=stores.masks)
         self.run_service = RunService(stores.runs, masking=self.masking_service)
         self.rag_service = RagService(project_data=self.project_data_service, masking=self.masking_service, projects=stores.projects,
-                                      rag=stores.rag, definitions=stores.definitions)
+                                      rag=stores.rag, definitions=stores.definitions,
+                                      usage=stores.embedding_usage)
         self.pipeline_service = PipelineService(
             pipelines=stores.pipelines,
             projects=stores.projects,
@@ -127,7 +128,7 @@ class Container:
             automation_cache=self.automation_cache_service,
         )
         self.today_service = TodayService(project_data=self.project_data_service, copilot=self.copilot_service, plans=stores.plans)
-        self.metrics_service = MetricsService(runs=stores.runs, copilot=stores.copilot, wip_runs=stores.wip)
+        self.metrics_service = MetricsService(runs=stores.runs, copilot=stores.copilot, wip_runs=stores.wip, embedding=stores.embedding_usage)
         self.structured_agents = StructuredAgentService(agents=self.agent_config_service, chat=self.chat_service, catalog=stores.catalog,
                                                         runs=stores.runs)
         self.evaluation_service = EvaluationService(catalog=stores.catalog, agents=self.structured_agents, evaluations=stores.evaluations,

@@ -45,10 +45,13 @@ from models.domain.rag import RagDocument, RagHit, RagIndexState, RagPiece, RagS
 from service.masking_service import MaskingService
 from service.project_data_service import ProjectDataService
 from service.store.definition_store import DefinitionStore
+from service.store.embedding_usage_store import EmbeddingUsageStore
 from service.store.project_store import ProjectStore
 from service.store.rag_store import RagStore
 
 LIMIT = 5
+EMBEDDING_EUR_PER_1M = {"openai/text-embedding-3-small": 0.02, "openai/text-embedding-3-large": 0.12}
+"""About what OpenRouter asks per million tokens (plan 31: an estimate, as the chat models' catalog; an unknown model costs 0)."""
 GENERAL_DIR = "context"
 """The general context, in the definitions (``<data_home>/definition/context/*.md``)."""
 GENERAL_PREFIX = "general/"
@@ -65,8 +68,9 @@ _STOPWORDS = frozenset(
 class RagService:
 
     def __init__(self, project_data: ProjectDataService, masking: MaskingService, projects: ProjectStore, rag: RagStore,
-                 definitions: DefinitionStore | None = None):
+                 definitions: DefinitionStore | None = None, usage: EmbeddingUsageStore | None = None):
         self._data = project_data
+        self._usage = usage
         self._definitions = definitions
         self._masking = masking
         self._projects = projects
@@ -194,12 +198,21 @@ class RagService:
         pieces = []
         for chunk in split_markdown(text, title):
             section = str(chunk.metadata["section"])
-            vector = embedder.embed(self._for_embedder(project_name, embedder, f"{title}\n{section}\n{chunk.text}"))
+            vector = self._embed(project_name, embedder, self._for_embedder(project_name, embedder, f"{title}\n{section}\n{chunk.text}"),
+                                 "index")
             pieces.append(RagPiece(position=int(chunk.metadata["position"]), section=section, text=chunk.text,
                                    embedding_model=embedder.name, embedding=vector))
         self._rag.save_document(RagDocument(project_name=project_name, path=path, source=source, title=title, content_hash=digest,
                                             indexed_at=datetime.now(timezone.utc)), pieces)
         return True
+
+    def _embed(self, project_name: str, embedder: Embedder, text: str, purpose: str) -> list[float]:
+        """The vector; a remote embedder's tokens and cost recorded for the Metriche page (plan 31)."""
+        vector, tokens = embedder.embed_with_usage(text)
+        if tokens and self._usage is not None:
+            model = embedder.name.removeprefix("openrouter/")
+            self._usage.add(project_name, model, purpose, tokens, round(tokens / 1_000_000 * EMBEDDING_EUR_PER_1M.get(model, 0.0), 8))
+        return vector
 
     def _for_embedder(self, project_name: str, embedder: Embedder, text: str) -> str:
         """``text`` as the embedder may see it: masked when it leaves the PC."""
@@ -217,7 +230,7 @@ class RagService:
                 self.index_general(project_name)
             except AppError:  # the project's pieces still answer
                 log_exception(LogPrefix.RAG_SERVICE, "Contesto generale non indicizzato in %s", project_name)
-        query = embedder.embed(self._for_embedder(project_name, embedder, question))
+        query = self._embed(project_name, embedder, self._for_embedder(project_name, embedder, question), "search")
         words = keywords(question)
         hits = []
         for piece, document in self._rag.pieces(project_name, embedder.name):

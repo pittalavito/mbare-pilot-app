@@ -17,6 +17,7 @@ from service.store.catalog_store import CatalogStore
 from service.store.chatbot_store import ChatbotStore
 from service.store.copilot_store import CopilotStore
 from service.store.definition_store import DefinitionStore
+from service.store.embedding_usage_store import EmbeddingUsageStore
 from service.store.evaluation_store import EvaluationStore
 from service.store.mask_store import MaskStore
 from service.store.pipeline_store import PipelineStore
@@ -49,6 +50,7 @@ class Stores:
         self.wip = WipStore(self.engine)
         self.plans = PlanStore(self.engine)
         self.rag = RagStore(self.engine)
+        self.embedding_usage = EmbeddingUsageStore(self.engine)
         self.evaluations = EvaluationStore(self.engine)
         self.tool_requests = ToolRequestStore(self.engine)
         self.atlassian = AtlassianStore(self.engine, SecretBox(config.secret_key))

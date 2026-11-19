@@ -44,6 +44,10 @@ class Embedder(ABC):
     def local(self) -> bool:
         """False when the text is sent outside the PC: callers must mask it first."""
 
+    def embed_with_usage(self, text: str) -> tuple[list[float], int]:
+        """The vector and the tokens the provider counted (0 for a local embedder): plan 31."""
+        return self.embed(text), 0
+
     @abstractmethod
     def embed(self, text: str) -> list[float]:
         """The text's vector, normalised (length 1; all zeros or empty for a text with no words)."""
@@ -88,13 +92,17 @@ class OpenRouterEmbedder(Embedder):
         return False
 
     def embed(self, text: str) -> list[float]:
+        return self.embed_with_usage(text)[0]
+
+    def embed_with_usage(self, text: str) -> tuple[list[float], int]:
         if not text.strip():
-            return []
+            return [], 0
         try:
             response = self._get_client().embeddings.create(model=self._model, input=[text])
         except openai.OpenAIError as exc:
             raise UpstreamError(f"Embedding non riuscito ({self._model} su OpenRouter): {exc}") from exc
-        return _normalised(list(response.data[0].embedding))
+        usage = getattr(response, "usage", None)
+        return _normalised(list(response.data[0].embedding)), int(getattr(usage, "prompt_tokens", 0) or 0)
 
     def _get_client(self) -> openai.OpenAI:
         if self._client is None:

@@ -1,7 +1,8 @@
 """The Metriche page (Admin → Observability): what the agents cost and how long
 they take, grouped by who (the run's config_name: a chatbot, a Library agent,
 ``wip/<secretary>``...), Copilot's usage apart (AI credits, not euros), and
-the acceptance of «Elabora WIP»'s proposals. Computed in Python over the
+the acceptance of «Elabora WIP»'s proposals, and the RAG's embedding calls
+(plan 31: tokens and an estimated cost by model, indexing and searches). Computed in Python over the
 period's rows (average and p95 alike on Postgres and SQLite)."""
 import math
 from collections import defaultdict
@@ -11,14 +12,16 @@ from models.domain.agent import AgentRunSummary
 from models.domain.metrics import AgentMetrics, Metrics, WipMetrics
 from models.domain.wip import WipRun
 from service.store.copilot_store import CopilotStore
+from service.store.embedding_usage_store import EmbeddingUsageStore
 from service.store.run_store import RunStore
 from service.store.wip_store import WipStore
 
 
 class MetricsService:
 
-    def __init__(self, runs: RunStore, copilot: CopilotStore, wip_runs: WipStore):
+    def __init__(self, runs: RunStore, copilot: CopilotStore, wip_runs: WipStore, embedding: EmbeddingUsageStore | None = None):
         self._runs = runs
+        self._embedding = embedding
         self._copilot = copilot
         self._wip = wip_runs
 
@@ -30,7 +33,8 @@ class MetricsService:
             grouped[run.config_name].append(run)
         agents = sorted((_agent(name, runs) for name, runs in grouped.items()), key=lambda item: (-item.cost_eur, -item.calls, item.name))
         return Metrics(days=days, project_name=project_name, agents=agents, copilot=self._copilot.usage_by_model(since, project_name),
-                       wip=_wip(self._wip.list_since(since, project_name)))
+                       wip=_wip(self._wip.list_since(since, project_name)),
+                       embedding=self._embedding.usage_since(since, project_name) if self._embedding else [])
 
 
 def percentile(values: list[float], share: float) -> float:

@@ -4201,6 +4201,31 @@ export interface components {
          */
         EmbeddingModelName: "openai/text-embedding-3-small" | "ollama/nomic-embed-text";
         /**
+         * EmbeddingUsage
+         * @description The context index's calls to a remote embedder (plan 31), by model and purpose (``index`` or ``search``).
+         */
+        EmbeddingUsage: {
+            /** Model */
+            model: string;
+            /** Purpose */
+            purpose: string;
+            /**
+             * Calls
+             * @default 0
+             */
+            calls: number;
+            /**
+             * Tokens
+             * @default 0
+             */
+            tokens: number;
+            /**
+             * Cost Eur
+             * @default 0
+             */
+            cost_eur: number;
+        };
+        /**
          * EvaluationKind
          * @enum {string}
          */
@@ -4617,6 +4642,11 @@ export interface components {
             /** Copilot */
             copilot: components["schemas"]["CopilotModelUsageResponse"][];
             wip: components["schemas"]["WipMetrics"];
+            /**
+             * Embedding
+             * @default []
+             */
+            embedding: components["schemas"]["EmbeddingUsage"][];
         };
         /**
          * ModelChoicesResponse

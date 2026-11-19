@@ -38,6 +38,15 @@ class WipMetrics(BaseModel):
     """Accepted as proposed over the proposals decided (applied or dismissed runs); None without any."""
 
 
+class EmbeddingUsage(BaseModel):
+    """The context index's calls to a remote embedder (plan 31), by model and purpose (``index`` or ``search``)."""
+    model: str
+    purpose: str
+    calls: int = 0
+    tokens: int = 0
+    cost_eur: float = 0.0
+
+
 class Metrics(BaseModel):
     days: int | None
     """The period: the last ``days`` days, None = ever."""
@@ -46,3 +55,5 @@ class Metrics(BaseModel):
     """The most expensive first."""
     copilot: list[CopilotModelUsage]
     wip: WipMetrics
+    embedding: list[EmbeddingUsage] = []
+    """The RAG's embedding calls (plan 31); the local ``hashing`` embedder is free and not counted."""
