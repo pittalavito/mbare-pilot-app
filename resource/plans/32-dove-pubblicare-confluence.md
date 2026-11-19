@@ -19,7 +19,14 @@ Mettere una pagina Confluence nuova nel posto giusto: oggi la «Pagina padre» e
 - La finestra riparte dall'**ultima posizione usata nel progetto**.
 - Un task Confluence può avere la sua **destinazione** («Dove pubblicare»: spazio e pagina/cartella padre), scritta nella scheda del task (anche dal Refiner): **vince** sull'ultima scelta.
 
+### Riconoscere le bozze
+- Le bozze prendono il tipo nel nome: **`bozza-confluence-<task>.md`** e **`bozza-jira-<task>.md`** (oggi entrambe `bozza-<task>.md`).
+- Nella lista delle note un badge **«📄 Bozza Confluence»** o **«🎫 Bozza Jira»**, con «Pubblica» sulla nota.
+- La destinazione («Dove pubblicare») resta sul task: la bozza sa dove andare.
+- Niente retrocompatibilità: le bozze col nome vecchio si rinominano a mano o si risalvano.
+
 ## Test e documentazione
 - pytest: figli di una pagina e di una cartella, ricerca di pagine e cartelle, padre da link, creazione sotto una cartella; destinazione del task e ultima scelta del progetto.
+- pytest anche: nomi delle bozze per tipo; vitest anche: badge delle bozze nella lista delle note.
 - vitest: albero, ricerca, link, destinazione precompilata.
 - Doc `service`, `controller`, `web/README.md`.
