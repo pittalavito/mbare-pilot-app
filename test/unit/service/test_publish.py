@@ -14,7 +14,8 @@ from domain.client.atlassian.confluence import ConfluenceClient
 from domain.client.atlassian.http import AtlassianHttp
 from domain.client.atlassian.jira import JiraClient
 from models.domain.masking import MaskCategory
-from models.domain.note import NoteType, Reference
+from models.domain.note import Activity, NoteType, Reference, TaskType
+from models.domain.plan import PlanChoice
 from models.domain.project import Project, ProjectSource
 from service.atlassian_service import AtlassianSite
 
@@ -136,6 +137,9 @@ def test_jira_new_issue_and_linked_issue(app):
     assert result["url"] == f"{BASE}/browse/NAV-8"
 
     reference = result["reference"]  # the new issue, copied and linked: publishing again updates it
+    draft = f"bozza-jira-{task.removeprefix('agent-task-')}"
+    assert result["draft"] == draft and not container.project_data_service.note_exists("acme", draft)  # plan 33: the draft is gone
+    container.project_data_service.save_note("acme", draft, DRAFT)  # a new draft
     fake.calls.clear()
     preview = client.get(f"/projects/acme/agent-tasks/{task}/publish").json()
     assert (preview["mode"], preview["reference"], preview["title"], preview["target_body"]) == ("update", reference, "Login lento", "Ci mette 10 s.")
@@ -211,7 +215,31 @@ def test_the_task_destination_is_offered_and_a_page_goes_under_a_folder(app):
     created = next(call for call in fake.calls if call[0] == "POST" and call[1] == "/wiki/api/v2/pages")
     assert created[2]["parentId"] == "3"
 
+    container.project_data_service.save_note("acme", f"bozza-confluence-{task.removeprefix('agent-task-')}", DRAFT)  # deleted when published
     container.project_data_service.save_agent_task("acme", task, body.model_copy(update={"publish_parent": "nessun link", "status": "in_progress"}))
     assert "non è un link" in client.get(f"/projects/acme/agent-tasks/{task}/publish").json()["parent_error"]
     container.project_data_service.save_agent_task("acme", task, body.model_copy(update={"publish_parent": "999"}))
     assert "non letto" in client.get(f"/projects/acme/agent-tasks/{task}/publish").json()["parent_error"]
+
+
+
+def test_the_window_edits_are_published_and_the_reference_goes_to_the_next_task(app):
+    """Plan 33: the draft as edited, then the published page in place of the draft on the next task of the plan."""
+    client, container, fake = app
+    activity = container.project_data_service.create_activity("acme", Activity(title="Doc"))
+    container.plan_service.confirm("acme", activity, [PlanChoice(title="Pagina", type=TaskType.CONFLUENCE), PlanChoice(title="Dopo", type=TaskType.JIRA)])
+    page_task, next_task = (item.task for item in container.plan_service.plan("acme", activity).tasks)
+    draft = f"bozza-confluence-{page_task.removeprefix('agent-task-')}"
+    container.project_data_service.save_note("acme", draft, DRAFT)
+    container.plan_service.pass_on("acme", page_task, draft)  # as saving Copilot's answer does
+    assert draft in container.project_data_service.agent_task("acme", next_task).references
+    steps = {step.key.value: step.state.value for step in container.plan_service.path("acme", activity).tasks[0].steps}
+    assert steps["answer"] == "done" and steps["publish"] == "you"
+
+    result = client.post(f"/projects/acme/agent-tasks/{page_task}/publish", json={"title": "Titolo mio", "body": "Testo **mio**"}).json()
+    created = next(body for method, path, body in fake.calls if method == "POST" and path == "/wiki/api/v2/pages")
+    assert created["title"] == "Titolo mio" and "<strong>mio</strong>" in created["body"]["value"]
+    following = container.project_data_service.agent_task("acme", next_task).references
+    assert result["reference"] in following and draft not in following
+    assert container.plan_service.path("acme", activity).tasks[0].steps[-1].state.value == "done"
+    assert container.plan_service.pass_on("acme", next_task, "x.md") == []  # the last task: nothing after it

@@ -1,5 +1,5 @@
 import {
-  ActionIcon, Alert, Anchor, Badge, Button, Card, Group, Loader, MultiSelect, Select, Stack, Switch, Text, TextInput, Textarea, UnstyledButton,
+  ActionIcon, Alert, Anchor, Badge, Button, Card, Checkbox, Group, Loader, Modal, MultiSelect, Select, Stack, Switch, Text, TextInput, Textarea, UnstyledButton,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useEffect, useState } from "react";
@@ -8,7 +8,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useRepositories } from "../../api/git";
 import {
   type ActivityPath, type ActivityPlan, type OperationRun, type PathStep, type PathTask, type PlanChoice, useActivityPath, useCloseActivity, useConfirmPlan,
-  useDismissPlan, usePausePlan, useProposeLearned, useProposePlan, useReopenActivity, useRetryStep, useSetPlanOptions,
+  useArchiveActivity, useDismissPlan, usePausePlan, useProposeLearned, useProposePlan, useReopenActivity, useRetryStep, useSetPlanOptions,
 } from "../../api/plan";
 import { useStartWorker, useWorkerState } from "../../api/worker";
 import { type Activity, type ActivityBody, useAgentTasks, useDeleteNote, useSaveActivity, useSaveAgentTask } from "../../api/projectData";
@@ -17,6 +17,7 @@ import { eur } from "../../format";
 import { DelegateModal } from "../copilot/DelegateModal";
 import { SendBackModal } from "../copilot/SendBackModal";
 import { ChecklistEditor } from "../data/ChecklistEditor";
+import { PublishButton } from "../data/PublishModal";
 import { ReferencesSection } from "../data/ReferencesSection";
 import { OperationButtons, OperationFields, OperationOutput } from "./Operation";
 
@@ -180,12 +181,14 @@ function Describe({ project, activity, onNext }: { project: string; activity: Ac
 // ------------------------------------------------------------- 2. Pianifica
 
 type Draft = { key: string; id: number | null; title: string; type: PlanChoice["type"]; repository: string; items: number[]; itemTexts: string[];
-  isNew: boolean; reason: string; objective: string; criteria: string[]; steps: string[]; commands: string[]; automation: string };
+  isNew: boolean; reason: string; objective: string; criteria: string[]; steps: string[]; commands: string[]; automation: string;
+  /** The activity's references to link (plan 33); null = all of them. */
+  references: string[] | null };
 
 const fromPlan = (plan: ActivityPlan | null | undefined): Draft[] => (plan?.proposals ?? []).map((proposal) => ({
   key: `p${proposal.id}`, id: proposal.id, title: proposal.title, type: proposal.type, repository: proposal.repository ?? "", items: proposal.items ?? [],
   itemTexts: proposal.item_texts ?? [], isNew: !!proposal.new, reason: proposal.reason ?? "", objective: proposal.objective ?? "", criteria: proposal.criteria ?? [],
-  steps: proposal.steps ?? [], commands: proposal.commands ?? [], automation: proposal.automation ?? "",
+  steps: proposal.steps ?? [], commands: proposal.commands ?? [], automation: proposal.automation ?? "", references: null,
 }));
 
 function Plan({ project, activity, path, onBack, onNext }: { project: string; activity: Activity; path: ActivityPath; onBack: () => void; onNext: () => void }) {
@@ -206,7 +209,7 @@ function Plan({ project, activity, path, onBack, onNext }: { project: string; ac
   const free = activity.items.map((item, position) => ({ number: position + 1, item })).filter(({ item }) => !item.done && !item.agent_task);
   const addByHand = () => {
     const key = `m${Date.now()}`;
-    setDrafts((items) => [...items, { key, id: null, title: "", type: "development", repository: "", items: [], itemTexts: [], isNew: false, reason: "", objective: "", criteria: [], steps: [], commands: [], automation: "" }]);
+    setDrafts((items) => [...items, { key, id: null, title: "", type: "development", repository: "", items: [], itemTexts: [], isNew: false, reason: "", objective: "", criteria: [], steps: [], commands: [], automation: "", references: null }]);
     setOpen((current) => ({ ...current, [key]: true }));
   };
   const ready = drafts.filter((item) => item.title.trim());
@@ -216,6 +219,7 @@ function Plan({ project, activity, path, onBack, onNext }: { project: string; ac
     steps: isOperations(item.type) ? item.steps.filter((text) => text.trim()) : [],
     commands: isOperations(item.type) ? item.commands.filter((text) => text.trim()) : [],
     automation: isOperations(item.type) ? item.automation : "",
+    references: item.references,
   })), { onSuccess: () => { setDrafts([]); notifications.show({ message: `${ready.length} task creati, da fare.` }); onNext(); } });
   const repoData = (repositories.data ?? []).map((repo) => ({ value: repo.path, label: repo.path || "(cartella del progetto)" }));
   return (
@@ -285,6 +289,22 @@ function Plan({ project, activity, path, onBack, onNext }: { project: string; ac
                 onChange={(event) => set(draft.key, { objective: event.currentTarget.value })} />
               <Textarea size="xs" label="Criteri di accettazione" description="Uno per riga" autosize minRows={1} value={draft.criteria.join("\n")}
                 onChange={(event) => set(draft.key, { criteria: event.currentTarget.value.split("\n") })} />
+              {!!activity.references.length && (
+                <div>
+                  <Text size="xs" fw={500}>Riferimenti che porta con sé</Text>
+                  <Group gap={4}>
+                    {(draft.references ?? activity.references).map((name) => (
+                      <Badge key={name} size="sm" variant="light" rightSection={
+                        <UnstyledButton aria-label={`Togli ${name}`} onClick={() => set(draft.key, {
+                          references: (draft.references ?? activity.references).filter((item) => item !== name),
+                        })}>✕</UnstyledButton>}>{name}</Badge>
+                    ))}
+                    {(draft.references ?? activity.references).length < activity.references.length && (
+                      <Button size="compact-xs" variant="subtle" onClick={() => set(draft.key, { references: null })}>Tutti</Button>
+                    )}
+                  </Group>
+                </div>
+              )}
               {isOperations(draft.type) && (
                 <>
                   <Textarea size="xs" label="Passi" description="Uno per riga, a parole: per Dev o per te" autosize minRows={1} value={draft.steps.join("\n")}
@@ -429,13 +449,14 @@ function TaskRow({ project, activity, task, number, paused, operation, selected,
                 <OperationButtons project={project} activity={activity} task={task} found={found} />
               )}
               {current.key === "operation" && current.state === "running" && <Text size="xs" c="dimmed">⏳ Automatico in corso…</Text>}
+              {current.key === "publish" && current.state === "you" && found && <PublishButton project={project} task={found} />}
               {current.key === "delegate" && current.state === "todo" && (paused ? (
                 <Button size="compact-xs" onClick={() => setDelegating(true)}>🤖 Delega a mano</Button>
               ) : <Text size="xs" c="dimmed">⏳ Il giro lo delega a breve.</Text>)}
               {(current.key === "copilot_plan" || current.key === "answer") && current.state === "you" && (
                 <Button size="compact-xs" onClick={onPick}>💬 {current.key === "answer" ? "Leggi la risposta" : "Rispondi a Copilot"}</Button>
               )}
-              {current.key === "answer" && current.state === "you" && (
+              {current.key === "answer" && current.state === "you" && task.type !== "confluence" && task.type !== "jira" && (
                 <Button size="compact-xs" color="green" variant="light" onClick={finish} loading={saveTask.isPending}>✅ Conferma</Button>
               )}
               {current.key === "final" && current.state === "you" && (
@@ -498,6 +519,7 @@ function Close({ project, activity, path, onBack }: { project: string; activity:
       <Stack gap="sm">
         <Alert color="green">Attività chiusa. Quello che hai imparato è in <code>context/imparato.md</code>: resta anche se cancelli l'attività.</Alert>
         <Text size="sm" c="dimmed">«↩ Riapri», in alto, la riporta a Pianifica (in corso). La sezione già scritta resta; alla nuova chiusura se ne aggiunge un'altra.</Text>
+        <ArchiveSection project={project} activity={activity} />
       </Stack>
     );
   }
@@ -544,5 +566,56 @@ function Close({ project, activity, path, onBack }: { project: string; activity:
           onClick={() => (openTasks.length || openItems.length ? setConfirming(true) : doClose())}>✅ Chiudi attività</Button>
       </Group>
     </Stack>
+  );
+}
+
+
+/** «🗄 Archivia» (plan 33): a summary note stays, the activity, its tasks, answers, drafts, plan and Copilot sessions go;
+ * the references are deleted only when chosen. */
+function ArchiveSection({ project, activity }: { project: string; activity: Activity }) {
+  const tasks = useAgentTasks(project);
+  const archive = useArchiveActivity(project, activity.name);
+  const [, setSearch] = useSearchParams();
+  const [opened, setOpened] = useState(false);
+  const mine = (tasks.data ?? []).filter((task) => activity.agent_tasks.includes(task.name));
+  const references = [...new Set([...activity.references, ...mine.flatMap((task) => task.references ?? [])])]
+    .filter((name) => !name.startsWith("bozza-") && !name.startsWith("analisi-"));
+  const [chosen, setChosen] = useState<string[]>([]);
+  return (
+    <>
+      <Group><Button variant="light" color="gray" onClick={() => setOpened(true)}>🗄 Archivia</Button></Group>
+      <Modal opened={opened} onClose={() => setOpened(false)} title={`🗄 Archivia «${activity.title}»`}>
+        <Stack gap="sm">
+          <Text size="sm">Resta una nota riassunto (voci, task fatti, pagine e issue). Si cancellano l'attività, i suoi task, risposte e bozze,
+            il piano e le sessioni di Copilot.</Text>
+          {!!references.length && (
+            <Stack gap={4}>
+              <Group justify="space-between">
+                <Text size="sm" fw={500}>Riferimenti da cancellare</Text>
+                <Group gap={4}>
+                  <Button size="compact-xs" variant="subtle" onClick={() => setChosen(references)}>Tutti</Button>
+                  <Button size="compact-xs" variant="subtle" onClick={() => setChosen([])}>Nessuno</Button>
+                </Group>
+              </Group>
+              {references.map((name) => (
+                <Checkbox key={name} label={name} checked={chosen.includes(name)}
+                  onChange={(event) => setChosen((items) => (event.currentTarget.checked ? [...items, name] : items.filter((item) => item !== name)))} />
+              ))}
+            </Stack>
+          )}
+          {archive.error && <Alert color="red">{archive.error.message}</Alert>}
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setOpened(false)}>Annulla</Button>
+            <Button color="red" loading={archive.isPending} onClick={() => archive.mutate(chosen, {
+              onSuccess: (done) => {
+                notifications.show({ message: `Archiviata in ${done.note}.` });
+                setOpened(false);
+                setSearch({ view: "archive", note: done.note }, { replace: true });
+              },
+            })}>🗄 Archivia</Button>
+          </Group>
+        </Stack>
+      </Modal>
+    </>
   );
 }

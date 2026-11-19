@@ -61,8 +61,13 @@ class PublishService:
         return preview.model_copy(update={"mode": PublishMode.UPDATE, "reference": reference, **current})
 
     def publish(self, project_name: str, task_note: str, *, space_key: str = "", parent_id: str = "", project_key: str = "",
-                issue_type: str = "") -> PublishResult:
+                issue_type: str = "", title: str = "", body: str = "") -> PublishResult:
+        """``title`` and ``body``: the draft as edited in the window (plan 33), aliases put back too. The draft is deleted after."""
         preview = self.preview(project_name, task_note)
+        if title.strip() or body.strip():
+            session = self._masking.session(project_name)
+            preview = preview.model_copy(update={"title": session.unmask(title.strip()) or preview.title,
+                                                 "body": session.unmask(body) if body.strip() else preview.body})
         site = self._atlassian.site(project_name)
         target = self._target(project_name, task_note, preview.kind)
         if preview.kind is PublishKind.CONFLUENCE:
@@ -82,7 +87,8 @@ class PublishService:
         task = self._data.agent_task(project_name, task_note)
         if task.status != TaskStatus.DONE:
             self._data.save_agent_task(project_name, task_note, task.model_copy(update={"status": TaskStatus.DONE}))
-        return PublishResult(kind=preview.kind, mode=preview.mode, url=url, reference=reference)
+        self._data.delete_note(project_name, preview.draft)  # plan 33: the reference takes its place
+        return PublishResult(kind=preview.kind, mode=preview.mode, url=url, reference=reference, draft=preview.draft)
 
     # --------------------------------------------------------------- helpers
     def _destination(self, project_name: str, task_note: str, kind: PublishKind, site) -> dict[str, str]:

@@ -1,4 +1,4 @@
-import { Alert, Anchor, Badge, Button, Code, Group, Loader, Modal, ScrollArea, Select, Stack, Tabs, Text, TextInput } from "@mantine/core";
+import { Alert, Anchor, Badge, Button, Code, Group, Loader, Modal, ScrollArea, Select, Stack, Tabs, Text, TextInput, Textarea } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useEffect, useState } from "react";
 
@@ -56,6 +56,8 @@ export function PublishModal({ project, task, opened, onClose }: { project: stri
   const [space, setSpace] = useState("");
   const [place, setPlace] = useState<ConfluenceNode | null>(null);
   const [jiraProject, setJiraProject] = useState("");
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
   const [issueType, setIssueType] = useState<string | null>(null);
   useEffect(() => { // each time it opens: the task's destination, else the last place used, else the project's space
     if (!data) return;
@@ -74,6 +76,8 @@ export function PublishModal({ project, task, opened, onClose }: { project: stri
       setPlace(null);
     }
     setJiraProject(data.project_key ?? "");
+    setTitle(data.title);
+    setBody(data.body);
     setIssueType(null);
     publish.reset();
   }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -81,7 +85,8 @@ export function PublishModal({ project, task, opened, onClose }: { project: stri
   const ready = !!data && (!creating || (data.kind === "confluence" ? !!space.trim() : !!jiraProject.trim() && !!issueType));
 
   const submit = () => publish.mutate(
-    { space_key: space.trim(), parent_id: place?.id ?? "", project_key: jiraProject.trim(), issue_type: issueType ?? "" },
+    { space_key: space.trim(), parent_id: place?.id ?? "", project_key: jiraProject.trim(), issue_type: issueType ?? "",
+      title: data && title !== data.title ? title : "", body: data && body !== data.body ? body : "" },
     {
       onSuccess: (result) => {
         if (result.kind === "confluence" && creating) rememberPlace(project, space.trim(), place);
@@ -136,16 +141,27 @@ export function PublishModal({ project, task, opened, onClose }: { project: stri
             <Tabs defaultValue="preview" keepMounted={false}>
               <Tabs.List>
                 <Tabs.Tab value="preview">Anteprima</Tabs.Tab>
+                <Tabs.Tab value="edit">✏️ Modifica</Tabs.Tab>
                 {!creating && <Tabs.Tab value="diff">Confronto con quella attuale</Tabs.Tab>}
               </Tabs.List>
               <Tabs.Panel value="preview" pt="xs">
-                <ScrollArea.Autosize mah={420}><Markdown>{data.body}</Markdown></ScrollArea.Autosize>
+                <ScrollArea.Autosize mah={420}><Markdown>{body}</Markdown></ScrollArea.Autosize>
+              </Tabs.Panel>
+              <Tabs.Panel value="edit" pt="xs">
+                <Stack gap="xs">
+                  {(data.kind === "confluence" || creating) && (
+                    <TextInput label="Titolo" value={title} onChange={(event) => setTitle(event.currentTarget.value)} />
+                  )}
+                  <Textarea label="Testo (markdown)" aria-label="Testo da pubblicare" autosize minRows={10} maxRows={20} value={body}
+                    onChange={(event) => setBody(event.currentTarget.value)} />
+                  <Text size="xs" c="dimmed">Le modifiche valgono per questa pubblicazione; dopo, la bozza si cancella e resta il riferimento.</Text>
+                </Stack>
               </Tabs.Panel>
               <Tabs.Panel value="diff" pt="xs">
-                <ScrollArea.Autosize mah={420}><LineDiff before={data.target_body ?? ""} after={data.body} /></ScrollArea.Autosize>
+                <ScrollArea.Autosize mah={420}><LineDiff before={data.target_body ?? ""} after={body} /></ScrollArea.Autosize>
               </Tabs.Panel>
             </Tabs>
-            <Text size="xs" c="dimmed">Dopo la pubblicazione il task va a «fatto» e la {data.kind === "confluence" ? "pagina" : "issue"} diventa un riferimento collegato al task.</Text>
+            <Text size="xs" c="dimmed">Dopo la pubblicazione il task va a «fatto», la {data.kind === "confluence" ? "pagina" : "issue"} diventa un riferimento collegato al task e al task dopo, e la bozza si cancella.</Text>
           </>
         )}
         {publish.error && <Alert color="red">{publish.error.message}</Alert>}

@@ -25,3 +25,10 @@ class ActivityClosed(BaseModel):
     """The context document written (``imparato.md``); None when nothing was learned."""
     index_error: str | None = None
     """Why the context index was not updated (the document is saved anyway)."""
+
+
+class ActivityArchived(BaseModel):
+    """«🗄 Archivia» (plan 33): the summary note written and what was deleted."""
+    note: str
+    deleted: list[str] = []
+    """The notes deleted: the activity, its tasks, their answers and drafts, the references chosen."""

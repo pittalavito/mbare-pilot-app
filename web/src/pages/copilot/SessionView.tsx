@@ -11,6 +11,8 @@ import { useRepositories } from "../../api/git";
 import { useWorkerState } from "../../api/worker";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Markdown } from "../../components/Markdown";
+import { useAgentTasks } from "../../api/projectData";
+import { PublishButton } from "../data/PublishModal";
 import { count, credits } from "../../format";
 
 /** The chat of a Copilot session (a delegated agent task): Copilot's questions,
@@ -99,6 +101,7 @@ export function SessionView({ project, session, onDeleted, planOnly }: {
               💾 Salva come nota
             </Button>
           )}
+          {planOnly && !executing && <SessionPublish project={project} task={session.task_note} />}
           {executing && (
             <Button color="red" variant="light" onClick={() => cancel.mutate(session.id)} loading={cancel.isPending} disabled={session.cancel_requested}>
               {session.cancel_requested ? "Annullamento in corso…" : "⏹️ Annulla"}
@@ -265,4 +268,13 @@ function RepositoryChange({ project, session, planOnly, busy }: {
       <Button size="xs" variant="default" onClick={() => setOpen(false)} disabled={change.isPending}>Annulla</Button>
     </Group>
   );
+}
+
+
+/** «📤 Pubblica» in the chat of a Confluence or Jira task once its draft is saved (plan 33). */
+function SessionPublish({ project, task }: { project: string; task: string }) {
+  const tasks = useAgentTasks(project);
+  const found = tasks.data?.find((item) => item.name === task);
+  if (!found || found.status === "done") return null;
+  return <PublishButton project={project} task={found} />;
 }

@@ -152,6 +152,19 @@ export function useCloseActivity(project: string, activity: string) {
   });
 }
 
+/** «🗄 Archivia» (plan 33): a summary note stays; the activity, its tasks and the references chosen go. */
+export function useArchiveActivity(project: string, activity: string) {
+  const refresh = useRefresh(project, activity);
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (deleteReferences: string[]) =>
+      unwrap(api.POST("/projects/{project}/activities/{activity}/archive", {
+        params: { path: { project, activity } }, body: { delete_references: deleteReferences },
+      })),
+    onSuccess: () => { refresh(); queryClient.invalidateQueries({ queryKey: ["projects", project] }); },
+  });
+}
+
 /** «↩ Riapri»: back to «in progress». */
 export function useReopenActivity(project: string, activity: string) {
   const refresh = useRefresh(project, activity);

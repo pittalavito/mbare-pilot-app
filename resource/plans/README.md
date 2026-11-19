@@ -15,9 +15,10 @@ Ogni piano descrive **cosa fare**, non com'è fatto oggi; le parti che esistono 
 | 30 | [Bacheca di Mbare Pilot](30-bacheca-mbare-pilot.md) | fatto | app | demo |
 | 31 | [Costi dell'embedding](31-costi-embedding.md) | fatto | app | osservabilità, costo |
 | 32 | [Dove pubblicare su Confluence](32-dove-pubblicare-confluence.md) | fatto | app | Atlassian |
+| 33 | [Pubblica nel giro, risultati come riferimenti, archivio](33-pubblica-nel-giro-e-archivio.md) | fatto | app | flusso |
 | — | [Backlog](backlog.md) | idee | — | — |
 
-I piani 01-26 sono fatti e sono stati tolti: la storia è nelle PR e nei commit. Il prossimo piano è il 33.
+I piani 01-26 sono fatti e sono stati tolti: la storia è nelle PR e nei commit. Il prossimo piano è il 34.
 
 Stati: **da progettare** (mancano decisioni) → **da realizzare** → **in corso** → **fatto**.
 

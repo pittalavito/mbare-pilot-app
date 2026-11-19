@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Response, status
 from pydantic import BaseModel
 
 from controller.dependencies import activity_close_service, operation_service, plan_service
-from models.domain.activity_close import ActivityClosed, LearnedDraft
+from models.domain.activity_close import ActivityArchived, ActivityClosed, LearnedDraft
 from models.domain.plan import ActivityPath, ActivityPlan, PlanChoice, PlanOptions, StepKey
 from service.activity_close_service import ActivityCloseService
 from service.operation_service import OperationService
@@ -37,6 +37,11 @@ class AutoResponse(BaseModel):
     plan: ActivityPlan
     pending_commands: list[str] = []
     """Commands not allowed: nothing started, each is a request to answer (then «Automatico» again)."""
+
+
+class ArchiveRequest(BaseModel):
+    delete_references: list[str] = []
+    """The references to delete with it (plan 33); the others stay."""
 
 
 class CloseRequest(BaseModel):
@@ -111,6 +116,14 @@ def close_activity(project: str, activity: str, request: CloseRequest,
                    service: ActivityCloseService = Depends(activity_close_service)) -> ActivityClosed:
     """What was learned at the top of context/imparato.md, the activity done, its round stopped."""
     return service.close(project, activity, request.learned)
+
+
+@router.post("/activities/{activity}/archive")
+def archive_activity(project: str, activity: str, request: ArchiveRequest,
+                     service: ActivityCloseService = Depends(activity_close_service)) -> ActivityArchived:
+    """«🗄 Archivia» (plan 33): a summary note archivio-<attività>.md; the activity, its tasks, answers, drafts, plan and
+    Copilot sessions deleted, and the references chosen (409 when it is not closed or a Copilot session is running)."""
+    return service.archive(project, activity, request.delete_references)
 
 
 @router.post("/activities/{activity}/reopen", status_code=status.HTTP_204_NO_CONTENT)

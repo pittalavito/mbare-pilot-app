@@ -59,7 +59,7 @@ from models.domain.plan import (
     StepState,
     step_id,
 )
-from service.copilot_service import CopilotService
+from service.copilot_service import CopilotService, output_note_name
 from service.git_service import GitService
 from service.masking_service import MaskingService
 from service.pipeline_service import PipelineService
@@ -203,7 +203,8 @@ class PlanService:
             context = f"Nasce dall'attività «{activity.title}»." + (f"\n\n{activity.description.strip()}" if activity.description.strip() else "")
             task = self._data.create_agent_task(project_name, AgentTask(
                 title=choice.title.strip(), status=TaskStatus.TODO, type=choice.type, objective=choice.objective.strip(), context=context,
-                criteria=[ChecklistItem(text=text.strip()) for text in choice.criteria if text.strip()], references=activity.references,
+                criteria=[ChecklistItem(text=text.strip()) for text in choice.criteria if text.strip()],
+                references=activity.references if choice.references is None else [name for name in choice.references if name in activity.references],
                 **_operation_fields(choice)))
             for number in items:
                 self._data.link_item(project_name, plan.activity, number, task)
@@ -279,9 +280,12 @@ class PlanService:
             steps.append((StepKey.DELEGATE, StepState.DONE if session or done else StepState.TODO, session.repository if session else ""))
         status = session.status if session else None
         if task.type.plan_only:
-            answer = StepState.DONE if done else StepState.YOU if status is CopilotSessionStatus.PLANNING else (
+            drafted = task.type.publishes and self._data.note_exists(plan.project_name, output_note_name(planned.task, task.type))
+            answer = StepState.DONE if done or drafted else StepState.YOU if status is CopilotSessionStatus.PLANNING else (
                 StepState.FAILED if status in (CopilotSessionStatus.FAILED, CopilotSessionStatus.CANCELLED) else StepState.TODO)
             steps.append((StepKey.ANSWER, answer, ""))
+            if task.type.publishes:  # plan 33: the draft, then «📤 Pubblica»
+                steps.append((StepKey.PUBLISH, StepState.DONE if done else StepState.YOU if drafted else StepState.TODO, ""))
             return _path_steps(steps)
         if status is None:
             plan_state = StepState.DONE if done else StepState.TODO
@@ -378,6 +382,27 @@ class PlanService:
                                 no_repository=current.type.plan_only and not current.repository)
         except AppError as exc:
             self._plans.save(plan.model_copy(update={"errors": {**plan.errors, step_id(current.task, StepKey.DELEGATE): str(exc)}}))
+
+    def pass_on(self, project_name: str, task: str, name: str, replacing: str = "") -> list[str]:
+        """What a task produced (``name``: its note, the page or issue published) linked to the **next** task of each plan
+        that holds it (plan 33), in place of ``replacing`` (the draft, once published) when given. The tasks changed."""
+        changed = []
+        for plan in self._plans.latest_per_activity(project_name):
+            order = [item.task for item in plan.tasks]
+            if task not in order or order.index(task) + 1 >= len(order):
+                continue
+            following = order[order.index(task) + 1]
+            try:
+                current = self._data.agent_task(project_name, following)
+            except AppError:
+                continue
+            references = [item for item in current.references if item != replacing]
+            if name not in references:
+                references.append(name)
+            if references != current.references:
+                self._data.save_agent_task(project_name, following, current.model_copy(update={"references": references}))
+                changed.append(following)
+        return changed
 
     def set_task_repository(self, project_name: str, task: str, repository: str) -> None:
         """The task's repository in the plans that hold it (the delegation's repository

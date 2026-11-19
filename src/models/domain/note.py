@@ -74,6 +74,11 @@ class TaskType(StrEnum):
         return self in (TaskType.ANALYSIS, TaskType.CONFLUENCE, TaskType.JIRA)
 
     @property
+    def publishes(self) -> bool:
+        """Confluence or Jira (plan 33): the draft saved, then «Pubblica»; done when published."""
+        return self in (TaskType.CONFLUENCE, TaskType.JIRA)
+
+    @property
     def operations(self) -> bool:
         """Pre or post development: not for Copilot, Dev or the user does it and says «Fatto»."""
         return self in (TaskType.PRE_DEV, TaskType.POST_DEV)
