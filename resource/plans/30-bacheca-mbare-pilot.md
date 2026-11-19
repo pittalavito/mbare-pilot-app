@@ -1,6 +1,6 @@
 # Bacheca di Mbare Pilot
 
-Stato: **da realizzare**.
+Stato: **fatto**.
 
 ## Obiettivo
 

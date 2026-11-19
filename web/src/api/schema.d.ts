@@ -1495,6 +1495,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/roadmap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Roadmap
+         * @description «🚀 Mbare Pilot» (plan 30): the app's future activities, from roadmap.yml of the definitions.
+         */
+        get: operations["roadmap_roadmap_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/observability/tool-calls": {
         parameters: {
             query?: never;
@@ -5290,6 +5310,53 @@ export interface components {
             /** Command */
             command: string;
         };
+        /** Roadmap */
+        Roadmap: {
+            /**
+             * Goal
+             * @default
+             */
+            goal: string;
+            /**
+             * Vision
+             * @default
+             */
+            vision: string;
+            /** Items */
+            items?: components["schemas"]["RoadmapItem"][];
+        };
+        /** RoadmapItem */
+        RoadmapItem: {
+            /** Title */
+            title: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Kind
+             * @default
+             */
+            kind: string;
+            /**
+             * Owner
+             * @default
+             */
+            owner: string;
+            /** @default todo */
+            status: components["schemas"]["RoadmapStatus"];
+            /**
+             * Feasibility
+             * @default
+             */
+            feasibility: string;
+        };
+        /**
+         * RoadmapStatus
+         * @enum {string}
+         */
+        RoadmapStatus: "todo" | "in_progress" | "done";
         /** RoleCreateRequest */
         RoleCreateRequest: {
             /** Name */
@@ -9313,6 +9380,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    roadmap_roadmap_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Roadmap"];
                 };
             };
         };
