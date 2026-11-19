@@ -11,8 +11,33 @@ export type PublishPreview = components["schemas"]["PublishPreview"];
 export type PublishResult = components["schemas"]["PublishResult"];
 export type PublishRequest = components["schemas"]["PublishRequest"];
 
-/** Is ``note`` a draft to publish (``bozza-<task>.md``, saved from Copilot's answer)? */
-export const isDraft = (note: string) => note.startsWith("bozza-");
+/** Is ``note`` a draft to publish (``bozza-confluence-<task>.md`` / ``bozza-jira-<task>.md``, saved from Copilot's answer)? */
+export const isDraft = (note: string) => note.startsWith("bozza-confluence-") || note.startsWith("bozza-jira-");
+
+/** The draft's kind, from its name (plan 32): a badge in the notes list. */
+export const draftKind = (note: string): "confluence" | "jira" | null =>
+  note.startsWith("bozza-confluence-") ? "confluence" : note.startsWith("bozza-jira-") ? "jira" : null;
+
+export type ConfluenceNode = components["schemas"]["ConfluenceNode"];
+
+/** Where a new page can go (plan 32): the space's top pages, or the pages and folders under ``parent``. */
+export function usePlaces(project: string, space: string, parent: ConfluenceNode | null, enabled: boolean) {
+  return useQuery({
+    queryKey: ["projects", project, "atlassian", "places", space, parent?.id ?? ""],
+    queryFn: () => unwrap(api.GET("/projects/{project}/atlassian/confluence/places", {
+      params: { path: { project }, query: { space, parent: parent?.id ?? "", kind: parent?.kind ?? "page" } },
+    })),
+    enabled: enabled && !!space.trim(),
+  });
+}
+
+/** Pages and folders by title, or the one a pasted link points to. */
+export function useSearchPlaces(project: string) {
+  return useMutation({
+    mutationFn: ({ q, space }: { q: string; space: string }) =>
+      unwrap(api.GET("/projects/{project}/atlassian/confluence/places/search", { params: { path: { project }, query: { q, space } } })),
+  });
+}
 
 export function usePublishPreview(project: string, task: string, enabled: boolean) {
   return useQuery({

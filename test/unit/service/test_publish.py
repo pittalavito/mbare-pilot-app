@@ -46,6 +46,14 @@ class FakeAtlassian:
             if request.method == "PUT":
                 return httpx.Response(200, json={**self.page, "title": body["title"], "version": body["version"]})
             return httpx.Response(200, json={**self.page, "id": path.rsplit("/", 1)[-1]})
+        if path == "/wiki/api/v2/spaces/9/pages":  # plan 32: the space's top pages
+            return httpx.Response(200, json={"results": [{"id": "1", "title": "Home"}]})
+        if path == "/wiki/api/v2/pages/1/direct-children":
+            return httpx.Response(200, json={"results": [{"id": "3", "title": "Rilasci", "type": "folder"}]})
+        if path == "/wiki/api/v2/folders/3":
+            return httpx.Response(200, json={"id": "3", "title": "Rilasci", "_links": {"webui": "/spaces/DOC/folder/3"}})
+        if path == "/wiki/rest/api/search":
+            return httpx.Response(200, json={"results": [{"content": {"id": "3", "type": "folder", "title": "Rilasci"}, "url": "/x"}]})
         if path == "/rest/api/3/issue" and request.method == "POST":
             return httpx.Response(201, json={"key": "NAV-8"})
         if path.startswith("/rest/api/3/issue/NAV-"):
@@ -75,7 +83,7 @@ def _task(client, container, kind, title="Guida al login", references=()):
     task = client.post("/projects/acme/agent-tasks", json={"title": title, "type": kind, "status": "in_progress",
                                                           "references": list(references)}).json()["name"]
     alias = container.masking_service.add_term("acme", MaskCategory.REPOSITORY, "login-api").alias
-    draft = f"bozza-{task.removeprefix('agent-task-')}"
+    draft = f"bozza-{kind}-{task.removeprefix('agent-task-')}"
     container.project_data_service.save_note("acme", draft, DRAFT.replace("REPO_X", alias))
     return task, alias
 
@@ -144,7 +152,7 @@ def test_what_cannot_be_published(app):
     response = client.get(f"/projects/acme/agent-tasks/{no_draft}/publish")
     assert response.status_code == 404 and "salva prima" in response.json()["detail"]
     empty = client.post("/projects/acme/agent-tasks", json={"title": "Vuota", "type": "jira"}).json()["name"]
-    container.project_data_service.save_note("acme", "bozza-vuota", "# Bozza: Vuota\n")
+    container.project_data_service.save_note("acme", "bozza-jira-vuota", "# Bozza: Vuota\n")
     assert client.get(f"/projects/acme/agent-tasks/{empty}/publish").status_code == 400
 
     task, _ = _task(client, container, "jira", title="Storia")
@@ -174,3 +182,36 @@ def test_markdown_to_storage_and_adf():
     assert to_adf("```\n```")["content"] == [{"type": "codeBlock", "content": []}]
     assert split_title("# Titolo\n\ncorpo", "x") == ("Titolo", "corpo")
     assert split_title("## Non è un titolo\ncorpo", "x") == ("x", "## Non è un titolo\ncorpo")
+
+
+# ------------------------------------------------------------- where (plan 32)
+
+def test_places_tree_search_and_link(app):
+    client, _, _ = app
+    assert [p["title"] for p in client.get("/projects/acme/atlassian/confluence/places").json()] == ["Home"]
+    assert client.get("/projects/acme/atlassian/confluence/places", params={"parent": "1"}).json()[0]["kind"] == "folder"
+    assert client.get("/projects/acme/atlassian/confluence/places", params={"parent": "x"}).status_code == 400
+    assert client.get("/projects/acme/atlassian/confluence/places/search", params={"q": "ril"}).json()[0]["id"] == "3"
+    by_link = client.get("/projects/acme/atlassian/confluence/places/search", params={"q": f"{BASE}/wiki/spaces/DOC/folder/3"}).json()
+    assert by_link == [{"id": "3", "title": "Rilasci", "kind": "folder", "url": f"{BASE}/wiki/spaces/DOC/folder/3"}]
+    assert client.get("/projects/acme/atlassian/confluence/places/search", params={"q": " "}).status_code == 400
+
+
+def test_the_task_destination_is_offered_and_a_page_goes_under_a_folder(app):
+    client, container, fake = app
+    task, _ = _task(client, container, "confluence", title="Rilascio")
+    body = container.project_data_service.agent_task("acme", task).model_copy(update={"publish_space": "DOC",
+                                                                                         "publish_parent": f"{BASE}/wiki/spaces/DOC/folder/3"})
+    container.project_data_service.save_agent_task("acme", task, body)
+    assert "Pubblica sotto: " in container.project_data_service.read_note("acme", task)
+
+    preview = client.get(f"/projects/acme/agent-tasks/{task}/publish").json()
+    assert (preview["space_key"], preview["parent_id"], preview["parent_title"], preview["parent_kind"]) == ("DOC", "3", "Rilasci", "folder")
+    client.post(f"/projects/acme/agent-tasks/{task}/publish", json={"space_key": "DOC", "parent_id": "3"})
+    created = next(call for call in fake.calls if call[0] == "POST" and call[1] == "/wiki/api/v2/pages")
+    assert created[2]["parentId"] == "3"
+
+    container.project_data_service.save_agent_task("acme", task, body.model_copy(update={"publish_parent": "nessun link", "status": "in_progress"}))
+    assert "non è un link" in client.get(f"/projects/acme/agent-tasks/{task}/publish").json()["parent_error"]
+    container.project_data_service.save_agent_task("acme", task, body.model_copy(update={"publish_parent": "999"}))
+    assert "non letto" in client.get(f"/projects/acme/agent-tasks/{task}/publish").json()["parent_error"]

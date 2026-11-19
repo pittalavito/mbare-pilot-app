@@ -19,6 +19,7 @@ from models.controller.atlassian import (
     ReferenceImportRequest,
     ReferenceImportResponse,
 )
+from models.domain.atlassian import ConfluenceNode
 from service.atlassian_service import AtlassianService
 
 router = APIRouter(prefix="/projects/{project}/atlassian", tags=["atlassian"])
@@ -117,6 +118,20 @@ def search_pages(project: str, q: str, space: str | None = None, limit: int = 25
     """Full-text search, in ``space`` or in every space."""
     hits = service.site(project).search_pages(q, space, limit)
     return [ConfluenceSearchHitResponse.from_hit(hit) for hit in hits]
+
+
+@router.get("/confluence/places")
+def confluence_places(project: str, space: str | None = None, parent: str = "", kind: str = "page",
+                      service: AtlassianService = Depends(atlassian_service)) -> list[ConfluenceNode]:
+    """Where a new page can go (plan 32): the space's top pages, or the pages and folders under ``parent``."""
+    return service.site(project).places(space, parent, kind)
+
+
+@router.get("/confluence/places/search")
+def search_confluence_places(project: str, q: str, space: str | None = None,
+                             service: AtlassianService = Depends(atlassian_service)) -> list[ConfluenceNode]:
+    """Pages and folders by title; a pasted link (page or folder) gives that one."""
+    return service.site(project).search_places(q, space)
 
 
 # ---------------------------------------------------------------- favorites

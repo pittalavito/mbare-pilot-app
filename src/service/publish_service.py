@@ -1,12 +1,13 @@
 """«Pubblica su Confluence/Jira» (blocco 10): the draft of a Confluence or
-Jira task (``bozza-<task>.md``, saved from Copilot's answer) published with
+Jira task (``bozza-confluence-<task>.md`` / ``bozza-jira-<task>.md``, saved from Copilot's answer) published with
 the project's Atlassian site, only when the user confirms.
 
 - **Target**: the page or issue the task links as a context reference copied
   from Atlassian (``source`` confluence / jira, with its link) is **updated**:
   a page gets the draft's title and body, an issue only its description.
-  Otherwise a **new** page (space and parent page) or issue (Jira project and
-  issue type) is created; the defaults are the project's.
+  Otherwise a **new** page (space and parent page or folder) or issue (Jira project and
+  issue type) is created; the defaults are the project's, the task's destination
+  («Spazio Confluence», «Pubblica sotto», plan 32) wins.
 - **Format**: the draft's Markdown becomes storage format or ADF
   (domain/atlassian/publish_format.py); a ``# title`` on its first line is
   the title (``Bozza: `` dropped).
@@ -18,7 +19,7 @@ the project's Atlassian site, only when the user confirms.
 
 The preview (``preview``) shows all this, with the target's current text
 for the comparison, and changes nothing."""
-from core.error import NotFoundError, ValidationError
+from core.error import AppError, NotFoundError, ValidationError
 from domain.atlassian.publish_format import split_title, to_adf, to_storage
 from models.domain.note import NoteType, TaskStatus, TaskType
 from models.domain.publish import PublishKind, PublishMode, PublishPreview, PublishResult
@@ -47,7 +48,8 @@ class PublishService:
         target = self._target(project_name, task_note, kind)
         site = self._atlassian.site(project_name)
         if target is None:
-            return preview.model_copy(update={"space_key": site.confluence_space_key or "", "project_key": site.jira_project_key or ""})
+            return preview.model_copy(update={"space_key": site.confluence_space_key or "", "project_key": site.jira_project_key or "",
+                                              **self._destination(project_name, task_note, kind, site)})
         reference, identifier = target
         if kind is PublishKind.CONFLUENCE:
             page = site.get_page(identifier)
@@ -83,6 +85,22 @@ class PublishService:
         return PublishResult(kind=preview.kind, mode=preview.mode, url=url, reference=reference)
 
     # --------------------------------------------------------------- helpers
+    def _destination(self, project_name: str, task_note: str, kind: PublishKind, site) -> dict[str, str]:
+        """The task's own space and parent for a new page (plan 32), resolved; nothing for an issue or a task without them."""
+        if kind is not PublishKind.CONFLUENCE:
+            return {}
+        task = self._data.agent_task(project_name, task_note)
+        found: dict[str, str] = {"space_key": task.publish_space.strip()} if task.publish_space.strip() else {}
+        if task.publish_parent.strip():
+            try:
+                place = site.place_from_link(task.publish_parent)
+            except AppError as exc:
+                return {**found, "parent_error": f"«Pubblica sotto» del task non letto: {exc}"}
+            if place is None:
+                return {**found, "parent_error": f"«Pubblica sotto» del task non è un link o un id: {task.publish_parent}"}
+            found.update(parent_id=place.id, parent_title=place.title, parent_kind=place.kind)
+        return found
+
     def _draft(self, project_name: str, task_note: str) -> tuple[PublishKind, str, str, str]:
         task = self._data.agent_task(project_name, task_note)
         kind = _KINDS.get(task.type)

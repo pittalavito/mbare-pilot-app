@@ -76,6 +76,13 @@ def test_a_pre_development_task_keeps_its_commands_and_automation():
     assert parse_agent_task(text, "x") == task
 
 
+def test_a_confluence_task_keeps_where_to_publish():
+    task = AgentTask(title="Pagina", type=TaskType.CONFLUENCE, publish_space="DOC", publish_parent="https://x.atlassian.net/wiki/spaces/DOC/folder/3")
+    text = render_agent_task(task)
+    assert "Spazio Confluence: DOC\nPubblica sotto: https://x.atlassian.net/wiki/spaces/DOC/folder/3" in text
+    assert parse_agent_task(text, "x") == task
+
+
 def test_markdown_headings_inside_a_section_do_not_cut_it():
     context = "Dalla issue NAV-7.\n\n## Passi\n\n1. apri\n\n## Atteso\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n\n# Titolo grande\nfine"
     task = AgentTask(title="Da Jira", context=context, constraints="Nessuno", references=["context-reference-nav-7.md"])

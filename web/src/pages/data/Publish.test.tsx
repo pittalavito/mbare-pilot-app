@@ -10,7 +10,7 @@ import { diffLines } from "./PublishModal";
 
 afterEach(() => vi.unstubAllGlobals());
 
-const task = (type: string, references: string[] = ["bozza-guida.md"]) => ({
+const task = (type: string, references: string[] = [`bozza-${type}-guida.md`]) => ({
   name: "agent-task-guida.md", title: "Guida", status: "in_progress", type, objective: "", context: "", criteria: [], constraints: "",
   references, tests: null,
 });
@@ -19,15 +19,17 @@ function api(type: string, preview: Record<string, unknown>, references?: string
   const published = vi.fn(async (request: Request) => ({ kind: type, mode: preview.mode, url: "https://acme.atlassian.net/x", reference: "r.md",
                                                           ...(await request.json()) }));
   mockApi({
-    "GET /projects/acme/notes": [{ name: "bozza-guida.md", size: 10, modified_at: "2026-11-11T10:00:00Z", note_type: "generic" }],
-    "GET /projects/acme/notes/bozza-guida.md": { name: "bozza-guida.md", content: "# Bozza: Guida\n\n## Contesto\nTesto" },
+    "GET /projects/acme/notes": [{ name: `bozza-${type}-guida.md`, size: 10, modified_at: "2026-11-11T10:00:00Z", note_type: "generic" }],
+    [`GET /projects/acme/notes/bozza-${type}-guida.md`]: { name: `bozza-${type}-guida.md`, content: "# Bozza: Guida\n\n## Contesto\nTesto" },
     "GET /projects/acme/agent-tasks": [task(type, references)],
     "GET /projects/acme/activities": [],
     "GET /projects/acme/copilot-sessions": [],
-    "GET /projects/acme/agent-tasks/agent-task-guida.md/publish": { kind: type, draft: "bozza-guida.md", title: "Guida", body: "## Contesto\nTesto nuovo",
+    "GET /projects/acme/agent-tasks/agent-task-guida.md/publish": { kind: type, draft: `bozza-${type}-guida.md`, title: "Guida", body: "## Contesto\nTesto nuovo",
                                                                     unmasked: [], reference: null, target_title: "", target_body: "", target_url: "",
                                                                     space_key: "", project_key: "", ...preview },
-    "GET /projects/acme/atlassian/confluence/pages": [{ id: "55", title: "Architettura", url: "u", space_id: "9", body: "" }],
+    "GET /projects/acme/atlassian/confluence/places": (request: Request) => (new URL(request.url).searchParams.get("parent")
+      ? [{ id: "77", title: "Rilasci", kind: "folder", url: "" }] : [{ id: "55", title: "Architettura", kind: "page", url: "" }]),
+    "GET /projects/acme/atlassian/confluence/places/search": [{ id: "88", title: "Trovata", kind: "page", url: "" }],
     "GET /projects/acme/atlassian/jira/issue-types": ["Story", "Bug"],
     "POST /projects/acme/agent-tasks/agent-task-guida.md/publish": published,
   });
@@ -47,17 +49,18 @@ describe("publish a draft", () => {
     expect(await within(dialog).findByText(/Una pagina nuova/)).toBeInTheDocument();
     expect(within(dialog).getByText(/REPO_1 → login-api/)).toBeInTheDocument();
     expect(within(dialog).getByDisplayValue("DOC")).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByPlaceholderText(/In cima allo spazio|Carico/));
-    fireEvent.click(await screen.findByRole("option", { name: "Architettura" }));
+    fireEvent.click(await within(dialog).findByRole("button", { name: "Apri Architettura" })); // plan 32: the tree
+    fireEvent.click(await within(dialog).findByText("📁 Rilasci"));
+    expect(within(dialog).getAllByText(/Rilasci/).length).toBeGreaterThan(1); // chosen
     fireEvent.click(within(dialog).getByRole("button", { name: "Pubblica" }));
 
     await waitFor(() => expect(published).toHaveBeenCalled());
-    expect(await published.mock.results[0].value).toMatchObject({ space_key: "DOC", parent_id: "55", project_key: "", issue_type: "" });
+    expect(await published.mock.results[0].value).toMatchObject({ space_key: "DOC", parent_id: "77", project_key: "", issue_type: "" });
   });
 
   it("a new Jira issue needs its type; from the draft note", async () => {
     const { published } = api("jira", { mode: "create", project_key: "NAV" });
-    renderData("/projects/acme/project?note=bozza-guida.md");
+    renderData("/projects/acme/project?note=bozza-jira-guida.md");
 
     fireEvent.click(await screen.findByRole("button", { name: /Pubblica su Jira/ }));
     const dialog = await screen.findByRole("dialog");
@@ -97,5 +100,22 @@ describe("publish a draft", () => {
       { kind: "same", text: "a" }, { kind: "removed", text: "b" }, { kind: "added", text: "x" }, { kind: "same", text: "c" },
     ]);
     expect(diffLines("", "y").map((line) => line.kind)).toEqual(["removed", "added"]);
+  });
+
+  it("the task's destination comes first; search and badge (plan 32)", async () => {
+    const { published } = api("confluence", { mode: "create", space_key: "DOC", parent_id: "77", parent_title: "Rilasci", parent_kind: "folder" });
+    renderData("/projects/acme/project?note=bozza-confluence-guida.md");
+
+    expect(await screen.findByText("📄 Bozza Confluence")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: /Pubblica su Confluence/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText("📁 Rilasci")).toBeInTheDocument();
+    fireEvent.change(within(dialog).getByLabelText("Cerca dove metterla"), { target: { value: "trov" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cerca" }));
+    fireEvent.click(await within(dialog).findByText("📄 Trovata"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Pubblica" }));
+    await waitFor(() => expect(published).toHaveBeenCalled());
+    expect(await published.mock.results[0].value).toMatchObject({ parent_id: "88" });
+    expect(JSON.parse(localStorage.getItem("mbare-pilot:confluence-place:acme") ?? "{}")).toMatchObject({ space: "DOC", place: { id: "88" } });
   });
 });

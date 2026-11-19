@@ -174,3 +174,47 @@ def test_search_pages_builds_escaped_cql():
 
 def test_storage_to_markdown_empty():
     assert storage_to_markdown("") == ""
+
+
+# ------------------------------------------------------- places (plan 32)
+
+def test_root_pages_children_of_pages_and_folders_and_a_folder():
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append((request.url.path, dict(request.url.params)))
+        path = request.url.path
+        if path == "/wiki/api/v2/spaces/9/pages":
+            return httpx.Response(200, json={"results": [{"id": "1", "title": "Home", "_links": {"webui": "/spaces/DEV/pages/1"}}]})
+        if path == "/wiki/api/v2/pages/1/direct-children":
+            return httpx.Response(200, json={"results": [{"id": "2", "title": "Guide", "type": "page"}, {"id": "3", "title": "Rilasci", "type": "folder"},
+                                                         {"id": "4", "title": "Lavagna", "type": "whiteboard"}]})
+        if path == "/wiki/api/v2/folders/3/direct-children":
+            return httpx.Response(200, json={"results": [{"id": "5", "title": "2026", "type": "folder"}]})
+        if path == "/wiki/api/v2/folders/3":
+            return httpx.Response(200, json={"id": "3", "title": "Rilasci", "_links": {"webui": "/spaces/DEV/folder/3"}})
+        return httpx.Response(404)
+
+    client = ConfluenceClient(_http(handler))
+    [home] = client.root_pages("9")
+    assert (home.id, home.kind, home.url) == ("1", "page", f"{BASE}/wiki/spaces/DEV/pages/1")
+    assert seen[0][1]["depth"] == "root"
+    assert [(node.title, node.kind) for node in client.children("1")] == [("Guide", "page"), ("Rilasci", "folder")]  # no whiteboard
+    assert [(node.title, node.kind) for node in client.children("3", "folder")] == [("2026", "folder")]
+    assert client.get_folder("3").kind == "folder"
+
+
+def test_search_places_finds_pages_and_folders():
+    asked = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        asked["cql"] = request.url.params["cql"]
+        return httpx.Response(200, json={"results": [
+            {"content": {"id": "3", "type": "folder", "title": "Rilasci"}, "url": "/spaces/DEV/folder/3"},
+            {"content": {"id": "7", "type": "page", "title": "Rilascio 1"}, "url": "/spaces/DEV/pages/7"},
+            {"content": {"id": "8", "type": "attachment", "title": "x.png"}},
+        ]})
+
+    places = ConfluenceClient(_http(handler)).search_places('ril"asci', "DEV")
+    assert [(place.id, place.kind) for place in places] == [("3", "folder"), ("7", "page")]
+    assert asked["cql"] == 'type in (page, folder) AND title ~ "ril\\"asci" AND space = "DEV"'

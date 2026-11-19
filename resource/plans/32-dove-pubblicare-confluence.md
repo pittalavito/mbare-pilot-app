@@ -1,6 +1,6 @@
 # Dove pubblicare su Confluence
 
-Stato: **da realizzare**.
+Stato: **fatto**.
 
 ## Obiettivo
 
@@ -24,6 +24,10 @@ Mettere una pagina Confluence nuova nel posto giusto: oggi la «Pagina padre» e
 - Nella lista delle note un badge **«📄 Bozza Confluence»** o **«🎫 Bozza Jira»**, con «Pubblica» sulla nota.
 - La destinazione («Dove pubblicare») resta sul task: la bozza sa dove andare.
 - Niente retrocompatibilità: le bozze col nome vecchio si rinominano a mano o si risalvano.
+
+## Deciso in realizzazione
+- L'ultima posizione usata si ricorda nel browser, per progetto (e per spazio); la destinazione del task vince.
+- Sul task la destinazione è scritta come link o id (`publish_parent`), anche dal Refiner con `update_agent_task`; l'anteprima la risolve e dice se il link non si legge.
 
 ## Test e documentazione
 - pytest: figli di una pagina e di una cartella, ricerca di pagine e cartelle, padre da link, creazione sotto una cartella; destinazione del task e ultima scelta del progetto.

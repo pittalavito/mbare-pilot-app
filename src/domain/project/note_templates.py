@@ -90,8 +90,9 @@ STATUS_LABELS = {
 }
 TYPE_LABELS = {TaskType.DEVELOPMENT: "sviluppo", TaskType.ANALYSIS: "analisi", TaskType.CONFLUENCE: "doc confluence", TaskType.JIRA: "task jira",
                TaskType.PRE_DEV: "pre sviluppo", TaskType.POST_DEV: "post sviluppo"}
-NOTE_PREFIXES_BY_TYPE = {TaskType.ANALYSIS: "analisi-", TaskType.CONFLUENCE: "bozza-", TaskType.JIRA: "bozza-"}
-"""The generic note where Copilot's answer to a plan-only task is saved (``analisi-<task>.md``, ``bozza-<task>.md``)."""
+NOTE_PREFIXES_BY_TYPE = {TaskType.ANALYSIS: "analisi-", TaskType.CONFLUENCE: "bozza-confluence-", TaskType.JIRA: "bozza-jira-"}
+"""The generic note where Copilot's answer to a plan-only task is saved (``analisi-<task>.md``, ``bozza-confluence-<task>.md``,
+``bozza-jira-<task>.md``: plan 32, the kind in the name)."""
 PRIORITY_LABELS = {TodoPriority.HIGH: "alta", TodoPriority.MEDIUM: "media", TodoPriority.LOW: "bassa"}
 ACTIVITY_STATUS_LABELS = {ActivityStatus.TODO: "da fare", ActivityStatus.IN_PROGRESS: "in corso", ActivityStatus.DONE: "fatta"}
 
@@ -105,6 +106,8 @@ _STEPS = "Passi suggeriti"
 _COMMANDS = "Comandi"
 """A pre/post development task's commands, one bullet each in backticks (only when there are)."""
 _AUTOMATION = "Automation:"
+_PUBLISH_SPACE = "Spazio Confluence:"
+_PUBLISH_PARENT = "Pubblica sotto:"
 _DESCRIPTION, _TODO, _AGENT_TASKS = "Descrizione", "Todo", "Agent task"
 _SOURCE, _SOURCE_SEPARATOR = "Fonte:", " · "
 _CODE_FIELDS = {"repository": "Repository:", "path": "File:", "lines": "Righe:"}
@@ -121,6 +124,8 @@ def render_agent_task(task: AgentTask) -> str:
     lines = [f"# {_line(task.title)}", "", f"{_STATUS} {STATUS_LABELS[task.status]}", f"{_TYPE} {TYPE_LABELS[task.type]}"]
     lines += [f"{_TESTS} {SCOPE_LABELS[task.tests]}"] if task.tests else []
     lines += [f"{_AUTOMATION} {_line(task.automation)}"] if task.automation.strip() else []
+    lines += [f"{_PUBLISH_SPACE} {_line(task.publish_space)}"] if task.publish_space.strip() else []
+    lines += [f"{_PUBLISH_PARENT} {_line(task.publish_parent)}"] if task.publish_parent.strip() else []
     for field, heading in _SECTIONS.items():
         lines += ["", f"## {heading}"]
         if field == "criteria":
@@ -152,6 +157,8 @@ def parse_agent_task(text: str, fallback_title: str) -> AgentTask:
         steps=_bullets(sections.get(_STEPS.lower(), [])),
         commands=[command.strip("`").strip() for command in _bullets(sections.get(_COMMANDS.lower(), [])) if command.strip("`").strip()],
         automation=_value(head, _AUTOMATION),
+        publish_space=_value(head, _PUBLISH_SPACE),
+        publish_parent=_value(head, _PUBLISH_PARENT),
     )
 
 

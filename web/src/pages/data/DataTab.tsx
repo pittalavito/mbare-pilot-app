@@ -1,4 +1,4 @@
-import { Alert, Anchor, Button, Card, FileInput, Grid, Group, Loader, Modal, NavLink, SegmentedControl, Stack, Text, TextInput, Textarea } from "@mantine/core";
+import { Alert, Anchor, Badge, Button, Card, FileInput, Grid, Group, Loader, Modal, NavLink, SegmentedControl, Stack, Text, TextInput, Textarea } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
@@ -7,7 +7,7 @@ import { useSearchParams } from "react-router-dom";
 import {
   type DataFile, NOTE_PREFIXES, fileUrl, useAgentTasks, useDeleteFile, useDeleteNote, useFiles, useNote, useNotes, useSaveNote, useUploadFiles,
 } from "../../api/projectData";
-import { isDraft } from "../../api/publish";
+import { draftKind, isDraft } from "../../api/publish";
 import { WIP_NOTE, useWipState, wipKeys } from "../../api/wip";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Markdown } from "../../components/Markdown";
@@ -39,7 +39,9 @@ export function Notes({ project }: { project: string }) {
           {notes.isPending && <Loader size="sm" />}
           {notes.error && <Alert color="red">{notes.error.message}</Alert>}
           {names.map((name) => (
-            <NavLink key={name} label={name} active={name === selected} onClick={() => select(name)} />
+            <NavLink key={name} label={name} active={name === selected} onClick={() => select(name)}
+              rightSection={draftKind(name) && <Badge size="xs" variant="light" color={draftKind(name) === "confluence" ? "blue" : "indigo"}>
+                {draftKind(name) === "confluence" ? "📄 Bozza Confluence" : "🎫 Bozza Jira"}</Badge>} />
           ))}
         </Stack>
       </Grid.Col>
@@ -62,7 +64,7 @@ function NoteEditor({ project, name }: { project: string; name: string }) {
   return <NoteForm project={project} name={name} saved={note.data.content} extra={isDraft(name) ? () => <DraftPublish project={project} draft={name} /> : undefined} />;
 }
 
-/** A draft (``bozza-<task>.md``) is published from here too, for the task that links it. */
+/** A draft (``bozza-confluence-<task>.md``, ``bozza-jira-<task>.md``) is published from here too, for the task that links it. */
 function DraftPublish({ project, draft }: { project: string; draft: string }) {
   const tasks = useAgentTasks(project);
   const task = tasks.data?.find((item) => (item.references ?? []).includes(draft));

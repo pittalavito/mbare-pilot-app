@@ -17,6 +17,7 @@ from models.domain.atlassian import (
     AtlassianFavorite,
     AtlassianSettings,
     AtlassianUser,
+    ConfluenceNode,
     ConfluencePage,
     ConfluenceSearchHit,
     ConfluenceSpace,
@@ -35,6 +36,7 @@ _SPACE_KEY = re.compile(r"^~?[A-Za-z0-9_]{1,255}$")
 _KEY_IN_TEXT = re.compile(r"\b[A-Z][A-Z0-9_]{1,9}-\d+\b")
 """An issue key inside a text or a link (``…/browse/NAV-7``, ``…?selectedIssue=NAV-7``)."""
 _PAGE_IN_LINK = re.compile(r"/pages/(?:viewpage\.action\?pageId=)?(\d+)|[?&]pageId=(\d+)")
+_FOLDER_IN_LINK = re.compile(r"/folder/(\d+)")
 """A Confluence page's id inside a link (``…/wiki/spaces/DOC/pages/123/Titolo``, ``…?pageId=123``)."""
 
 
@@ -297,6 +299,39 @@ class AtlassianSite:
         if space is None:
             raise NotFoundError(f"Spazio Confluence non trovato: {key}")
         return self._confluence.list_pages(space.id, limit=limit)
+
+    def places(self, space_key: str | None = None, parent_id: str = "", kind: str = "page") -> list[ConfluenceNode]:
+        """Where a new page can go (plan 32): the space's top pages, or the pages and folders under ``parent_id``."""
+        if parent_id.strip():
+            if not parent_id.strip().isdigit():
+                raise ValidationError(f"Id non valido: {parent_id!r}")
+            return self._confluence.children(parent_id.strip(), "folder" if kind == "folder" else "page")
+        key = _space_key(self._default(space_key, self.confluence_space_key, "spazio Confluence"))
+        space = self._confluence.get_space(key)
+        if space is None:
+            raise NotFoundError(f"Spazio Confluence non trovato: {key}")
+        return self._confluence.root_pages(space.id)
+
+    def search_places(self, text: str, space_key: str | None = None) -> list[ConfluenceNode]:
+        """Pages and folders by title (in one space, or every space); a pasted link gives that page or folder."""
+        if not text.strip():
+            raise ValidationError("Il testo da cercare è vuoto.")
+        place = self.place_from_link(text)
+        if place is not None:
+            return [place]
+        return self._confluence.search_places(text.strip(), space_key=space_key or None)
+
+    def place_from_link(self, text: str) -> ConfluenceNode | None:
+        """The page or folder a link (or a bare id) points to; None when the text is neither."""
+        folder = _FOLDER_IN_LINK.search(text)
+        if folder:
+            return self._confluence.get_folder(folder.group(1))
+        page = _PAGE_IN_LINK.search(text)
+        identifier = (page.group(1) or page.group(2)) if page else (text.strip() if text.strip().isdigit() else "")
+        if not identifier:
+            return None
+        found = self.get_page(identifier)
+        return ConfluenceNode(id=found.id, title=found.title, kind="page", url=found.url)
 
     def get_page(self, page_id: str) -> ConfluencePage:
         if not page_id.strip().isdigit():

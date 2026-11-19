@@ -1377,6 +1377,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project}/atlassian/confluence/places": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Confluence Places
+         * @description Where a new page can go (plan 32): the space's top pages, or the pages and folders under ``parent``.
+         */
+        get: operations["confluence_places_projects__project__atlassian_confluence_places_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/atlassian/confluence/places/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Confluence Places
+         * @description Pages and folders by title; a pasted link (page or folder) gives that one.
+         */
+        get: operations["search_confluence_places_projects__project__atlassian_confluence_places_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project}/atlassian/favorites": {
         parameters: {
             query?: never;
@@ -3140,6 +3180,16 @@ export interface components {
              * @default
              */
             automation: string;
+            /**
+             * Publish Space
+             * @default
+             */
+            publish_space: string;
+            /**
+             * Publish Parent
+             * @default
+             */
+            publish_parent: string;
         };
         /** AgentTaskResponse */
         AgentTaskResponse: {
@@ -3190,6 +3240,16 @@ export interface components {
              * @default
              */
             automation: string;
+            /**
+             * Publish Space
+             * @default
+             */
+            publish_space: string;
+            /**
+             * Publish Parent
+             * @default
+             */
+            publish_parent: string;
             /** Name */
             name: string;
         };
@@ -3242,6 +3302,16 @@ export interface components {
              * @default
              */
             automation: string;
+            /**
+             * Publish Space
+             * @default
+             */
+            publish_space: string;
+            /**
+             * Publish Parent
+             * @default
+             */
+            publish_parent: string;
             /** Name */
             name: string;
             /**
@@ -3719,6 +3789,26 @@ export interface components {
             redis_dashboard_port: number;
             /** Postgres Dashboard Port */
             postgres_dashboard_port: number;
+        };
+        /**
+         * ConfluenceNode
+         * @description A place a new page can go under (plan 32): a page or a folder.
+         */
+        ConfluenceNode: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /**
+             * Kind
+             * @default page
+             */
+            kind: string;
+            /**
+             * Url
+             * @default
+             */
+            url: string;
         };
         /** ConfluencePageResponse */
         ConfluencePageResponse: {
@@ -5100,6 +5190,26 @@ export interface components {
              * @default
              */
             project_key: string;
+            /**
+             * Parent Id
+             * @default
+             */
+            parent_id: string;
+            /**
+             * Parent Title
+             * @default
+             */
+            parent_title: string;
+            /**
+             * Parent Kind
+             * @default
+             */
+            parent_kind: string;
+            /**
+             * Parent Error
+             * @default
+             */
+            parent_error: string;
         };
         /**
          * PublishRequest
@@ -9190,6 +9300,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConfluenceSearchHitResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confluence_places_projects__project__atlassian_confluence_places_get: {
+        parameters: {
+            query?: {
+                space?: string | null;
+                parent?: string;
+                kind?: string;
+            };
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfluenceNode"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_confluence_places_projects__project__atlassian_confluence_places_search_get: {
+        parameters: {
+            query: {
+                q: string;
+                space?: string | null;
+            };
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfluenceNode"][];
                 };
             };
             /** @description Validation Error */

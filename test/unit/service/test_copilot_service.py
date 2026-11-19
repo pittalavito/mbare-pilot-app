@@ -203,7 +203,7 @@ def test_a_plan_only_task_is_never_executed_and_its_answer_becomes_a_linked_note
     assert data.agent_task("acme", note).references == [reference, saved]
 
 
-@pytest.mark.parametrize(("kind", "saved"), [(TaskType.CONFLUENCE, "bozza-pagina.md"), (TaskType.JIRA, "bozza-pagina.md")])
+@pytest.mark.parametrize(("kind", "saved"), [(TaskType.CONFLUENCE, "bozza-confluence-pagina.md"), (TaskType.JIRA, "bozza-jira-pagina.md")])
 def test_confluence_and_jira_answers_are_drafts(data, project, stores, kind, saved):
     service = _service(stores, data)
     note = _task(data, "Pagina", type=kind, status=TaskStatus.REFINEMENT)
@@ -240,7 +240,7 @@ def test_a_session_whose_task_was_deleted_can_still_be_approved(data, project, s
 
 def test_output_note_names():
     assert output_note_name("agent-task-login.md", TaskType.ANALYSIS) == "analisi-login.md"
-    assert output_note_name("Studio libero.md", TaskType.JIRA) == "bozza-studio-libero.md"  # a name without the prefix
+    assert output_note_name("Studio libero.md", TaskType.JIRA) == "bozza-jira-studio-libero.md"  # a name without the prefix
 
 
 def test_a_commit_during_the_execution_is_reported_not_undone(data, project, stores):
