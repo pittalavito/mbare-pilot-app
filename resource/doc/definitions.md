@@ -1,6 +1,6 @@
 # Definizioni da file
 
-Agenti, chatbot e automation si possono scrivere come **file YAML** nella cartella dei dati (`MBARE_PILOT_HOME`, es. `mbare-pilot-data`) invece che dalla UI. Si applicano a un progetto dalla UI con **Impostazioni → 📄 Definizioni da file**: la sezione elenca cosa definiscono i file (anteprima, `GET /projects/{progetto}/definitions`: per ogni elemento **nuovo**, **esiste** o **errore**, senza applicare niente), scegli gli elementi con le caselle e premi **⟳ Sincronizza selezionati** (`POST /projects/{progetto}/definitions/sync` con `{"only": [{kind, file, name}, ...]}`; senza corpo applica tutto).
+Agenti, chatbot e automation sono **file YAML** in due strati (piano 28): i **default dell'app** in `resource/definition/` (versionati col codice, letti da lì) e i **tuoi** nella cartella dei dati (`MBARE_PILOT_HOME/definition/`), che vincono: nei file globali per **nome** dell'elemento, negli altri per **percorso**. All'avvio l'app applica tutti i file a tutti i progetti (crea o aggiorna; quello che i file non definiscono resta com'è). Un chatbot dei file salvato dalla UI (prompt o modello) si scrive nella cartella dati e diventa «tuo»; «↩ Torna al default» (`POST /chatbots/{id}/revert`) lo toglie. Ogni elemento dice da dove viene (`origin`: app, tuo, progetto). Si applicano a un progetto dalla UI con **Impostazioni → 📄 Definizioni da file**: la sezione elenca cosa definiscono i file (anteprima, `GET /projects/{progetto}/definitions`: per ogni elemento **nuovo**, **esiste** o **errore**, senza applicare niente), scegli gli elementi con le caselle e premi **⟳ Sincronizza selezionati** (`POST /projects/{progetto}/definitions/sync` con `{"only": [{kind, file, name}, ...]}`; senza corpo applica tutto).
 
 ```
 mbare-pilot-data/
@@ -29,9 +29,9 @@ mbare-pilot-data/
 
 `base-agent.yml` (in `definition/` e in `project/<slug>/`) è previsto ma non ancora implementato.
 
-**Per cominciare**: `python resource/scripts/init-definitions.py` copia in `definition/` i file di esempio di [resource/definition-example](../definition-example/README.md) che mancano (globali e un prompt di Copilot), senza mai sovrascrivere i tuoi. Un test li tiene validi.
+**Per cominciare**: niente da copiare: i default sono in [resource/definition](../definition/README.md) e un test li tiene validi. `APP_DEFINITIONS` può puntare a un'altra cartella di default.
 
-**Versionare**: `definition/` è configurazione (prompt, automation, coding agent): tienila in un suo repo git privato. `project/<slug>/` (note, file, contesto) sono dati: fuori da git, con un backup.
+**Versionare**: i default sono nel repo dell'app; la tua `definition/` contiene solo le tue modifiche. `project/<slug>/` (note, file, contesto) sono dati: fuori da git, con un backup.
 
 ## Come si applicano
 

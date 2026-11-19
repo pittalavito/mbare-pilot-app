@@ -1,6 +1,7 @@
 import { Alert, Badge, Button, Checkbox, Group, Loader, Stack, Table, Text } from "@mantine/core";
 import { useEffect, useState } from "react";
 
+import { ORIGINS } from "../../api/chat";
 import { type DefinitionEntry, type SyncReport, useDefinitionsPreview, useSyncDefinitions } from "../../api/masking";
 
 const OUTCOMES: Record<string, string> = { created: "✅ creato", updated: "🔄 aggiornato", unchanged: "➖ invariato", error: "❌ errore" };
@@ -82,7 +83,8 @@ export function DefinitionsSection({ project }: { project: string }) {
                   <Table.Td><b>{entry.name ?? "—"}</b></Table.Td>
                   <Table.Td><code>{entry.file}</code></Table.Td>
                   <Table.Td>
-                    <Badge size="sm" variant="light" color={STATES[entry.state]?.color}>{STATES[entry.state]?.label ?? entry.state}</Badge>
+                    <Badge size="sm" variant="light" color={STATES[entry.state]?.color}>{STATES[entry.state]?.label ?? entry.state}</Badge>{" "}
+                    <Badge size="sm" variant="outline" color={ORIGINS[entry.origin]?.color} title={ORIGINS[entry.origin]?.hint}>{ORIGINS[entry.origin]?.label ?? entry.origin}</Badge>
                     {entry.message && <Text size="xs" c="red" style={{ whiteSpace: "pre-wrap" }}>{entry.message}</Text>}
                   </Table.Td>
                 </Table.Tr>

@@ -96,7 +96,8 @@ def test_a_role_of_another_scope_is_an_error_and_the_other_agents_are_applied(se
     assert "non è del progetto acme" in report.items[0].message
 
 
-def test_at_startup_only_the_missing_global_agents_are_created(services, definition_store, agent_config_service):
+def test_at_startup_every_file_is_applied(services, definition_store, agent_config_service):
+    """Plan 28: the defaults follow the files (a change made only from the UI goes back to the file)."""
     definitions, _, _ = services
     agent_config_service.save_config(agent_config_service.get_config("hello").model_copy(update={"tool_names": []}))  # from UI
     hello = f"""
@@ -108,10 +109,10 @@ def test_at_startup_only_the_missing_global_agents_are_created(services, definit
 """
     _write(definition_store, "global-agent.yml", "agents:" + hello + REVIEWER.replace("reviewer", "nuovo").replace("revisione", "generale"))
 
-    items = definitions.seed_global_agents()
+    items = definitions.sync_at_startup([])
 
-    assert [(item.name, item.outcome.value) for item in items] == [("hello", "unchanged"), ("nuovo", "created")]
-    assert agent_config_service.get_config("hello").tool_names == []  # the UI change stays
+    assert [(item.name, item.outcome.value) for item in items] == [("hello", "updated"), ("nuovo", "created")]
+    assert agent_config_service.get_config("hello").tool_names == ["hello_world"]
     assert agent_config_service.get_config("nuovo").project_name is None
 
 
@@ -119,9 +120,9 @@ def test_at_startup_a_broken_file_is_logged_not_raised(services, definition_stor
     definitions, _, _ = services
     _write(definition_store, "global-agent.yml", "agents: [rotto")
 
-    [item] = definitions.seed_global_agents()
+    [item] = definitions.sync_at_startup(["acme", "nessuno"])
 
-    assert item.outcome.value == "error" and "YAML non valido" in caplog.text
+    assert item.outcome.value == "error" and "YAML non valido" in caplog.text and "Progetto non trovato: nessuno" in caplog.text
 
 
 # --------------------------------------------------------------- chatbot
@@ -324,30 +325,128 @@ def test_a_chatbot_s_tools_come_from_the_files_and_must_suit_its_kind(services, 
     assert "non può usare git_status" in definitions.preview("acme")[1].message
 
 
-def test_the_chatbots_of_the_files_are_created_where_missing_and_never_changed(services, caplog, catalog_store, project_store,
-                                                                             default_chatbots):
+def test_the_chatbots_of_the_files_are_created_or_updated_and_the_ui_ones_left_alone(services, caplog, catalog_store, project_store,
+                                                                                   default_chatbots):
     definitions, chatbots, _ = services
-    mine = chatbots.create_chatbot("acme", "segretario", system_prompt="Mio.", model=MODEL)  # same name: left as it is
+    mine = chatbots.create_chatbot("acme", "Mio", system_prompt="Mio.", model=MODEL)  # created from the UI: never touched
 
-    assert definitions.seed_default_chatbots(["acme"]) == 3
+    definitions.sync_at_startup(["acme"])
     bots = {bot.name: bot for bot in chatbots.list_chatbots("acme")}
-    assert set(bots) == {"Architetto", "Dev", "Refiner", "segretario"}
+    assert set(bots) == {"Architetto", "Dev", "Refiner", "Segretario", "Mio"}
     assert bots["Refiner"].kind.value == "refiner" and bots["Refiner"].tool_names == [
         "search_code", "read_agent_task", "update_agent_task", "finish_refinement", "search_context",
     ]
     assert bots["Architetto"].tool_names == ARCHITECT_TOOLS and bots["Architetto"].model == "openrouter/google/gemini-2.5-pro"
-    assert bots["segretario"] == mine
-    assert definitions.seed_default_chatbots(["acme"]) == 0  # already there
+    assert bots["Mio"] == mine
+    chatbots.update_chatbot(bots["Dev"].id, **{**bots["Dev"].model_dump(include={"name", "kind", "model", "description", "max_steps",
+                                                                                  "tool_names"}), "system_prompt": "Cambiato."})
+    definitions.sync_at_startup(["acme"])
+    assert next(bot for bot in chatbots.list_chatbots("acme") if bot.name == "Dev").system_prompt != "Cambiato."  # the file wins
 
     project_store.save(Project(name="beta", source=ProjectSource.FOLDER, root_path="/code/beta"))
     for key in ("openrouter/google/gemini-3.1-flash-lite-preview", "openrouter/google/gemini-2.5-pro"):  # the others' and the Architect's
         catalog_store.save_model(catalog_store.get_model(key).model_copy(update={"active": False}))
-    assert definitions.seed_default_chatbots(["beta"]) == 0  # logged, not raised: the app starts anyway
+    definitions.sync_at_startup(["beta"])  # logged, not raised: the app starts anyway
     assert chatbots.list_chatbots("beta") == [] and "è disattivato" in caplog.text
 
 
 def test_without_the_files_a_project_has_no_chatbots_and_a_broken_file_is_logged(services, caplog, definition_store):
     definitions, chatbots, _ = services
-    assert definitions.seed_default_chatbots(["acme"]) == 0 and chatbots.list_chatbots("acme") == []
+    definitions.sync_at_startup(["acme"])
+    assert chatbots.list_chatbots("acme") == []
     _write(definition_store, "global-chat-bots.yml", "chatbots: [\n")
-    assert definitions.seed_default_chatbots(["acme"]) == 0 and "YAML non valido" in caplog.text
+    definitions.sync_at_startup(["acme"])
+    assert "YAML non valido" in caplog.text
+
+
+# ------------------------------------------------------------- layers (plan 28)
+
+APP_BOTS = f"""chatbots:
+  - name: Refiner
+    kind: refiner
+    model: {MODEL}
+    tools: [read_agent_task]
+    system_prompt: Prompt dell'app.
+  - name: Dev
+    kind: operator
+    model: {MODEL}
+    tools: [git_status]
+    system_prompt: Dev dell'app.
+"""
+
+
+@pytest.fixture
+def layered(services, tmp_path, project_store, agent_store, agent_config_service, config):
+    from service.store.definition_store import DefinitionStore
+    _, chatbots, pipelines = services
+    app = tmp_path / "app-definitions"
+    app.mkdir()
+    (app / "global-chat-bots.yml").write_text(APP_BOTS, encoding="utf-8")
+    store = DefinitionStore(config.definitions_root, app)
+    return DefinitionService(store, project_store, agent_store, agent_config_service, chatbots, pipelines), chatbots, store
+
+
+def test_the_data_folder_wins_by_name_and_says_where_each_comes_from(layered):
+    definitions, chatbots, store = layered
+    store.save_definition("global-chat-bots.yml", f"chatbots:\n  - name: refiner\n    kind: refiner\n    model: {MODEL}\n"
+                                                  f"    tools: [read_agent_task]\n    system_prompt: Il mio prompt.\n"
+                                                  f"  - name: Nuovo\n    model: {MODEL}\n    system_prompt: Mio nuovo.\n")
+    definitions.sync_at_startup(["acme"])
+
+    bots = {bot.name.lower(): bot for bot in chatbots.list_chatbots("acme")}
+    assert bots["refiner"].system_prompt == "Il mio prompt." and bots["dev"].system_prompt == "Dev dell'app." and "nuovo" in bots
+    origins = {entry.name.lower(): entry.origin for entry in definitions.preview("acme") if entry.kind is DefinitionKind.CHATBOT}
+    assert origins == {"refiner": "tuo", "dev": "app", "nuovo": "tuo"}
+    assert definitions.chatbot_origin("acme", "Dev") == "app" and definitions.chatbot_origin("acme", "Altro") is None
+
+
+def test_saving_a_default_from_the_ui_writes_the_data_folder_and_revert_brings_the_app_back(layered):
+    definitions, chatbots, store = layered
+    definitions.sync_at_startup(["acme"])
+    dev = next(bot for bot in chatbots.list_chatbots("acme") if bot.name == "Dev")
+    changed = chatbots.update_chatbot(dev.id, **{**dev.model_dump(include={"name", "kind", "model", "description", "max_steps",
+                                                                            "tool_names"}), "system_prompt": "Dev mio."})
+
+    assert definitions.save_chatbot("acme", changed) == "global-chat-bots.yml"
+    assert "Dev mio." in store.read_layers("global-chat-bots.yml")[0] and definitions.chatbot_origin("acme", "Dev") == "tuo"
+    definitions.sync_at_startup(["acme"])
+    assert chatbots.get_chatbot(dev.id).system_prompt == "Dev mio."  # it stays after a restart
+    mine = chatbots.create_chatbot("acme", "Solo UI", system_prompt="x", model=MODEL)
+    assert definitions.save_chatbot("acme", mine) is None  # not a default: nothing written
+
+    assert definitions.revert_chatbot("acme", "Dev").outcome.value == "updated"
+    assert chatbots.get_chatbot(dev.id).system_prompt == "Dev dell'app." and store.origin("global-chat-bots.yml") == "app"
+    with pytest.raises(NotFoundError):
+        definitions.revert_chatbot("acme", "Solo UI")
+
+
+def test_a_chatbot_of_the_project_file_is_saved_there(layered, config):
+    definitions, chatbots, store = layered
+    store.save_definition(f"{PROJECT_DIR}/chat-bots.yml", f"chatbots:\n  - name: Suo\n    model: {MODEL}\n    system_prompt: Del progetto.\n")
+    store.save_definition("global-chat-bots.yml", "altro: 1\nchatbots: []\n")
+    definitions.sync_at_startup(["acme"])
+    suo = next(bot for bot in chatbots.list_chatbots("acme") if bot.name == "Suo")
+    assert definitions.chatbot_origin("acme", "Suo") == "progetto"
+    assert definitions.save_chatbot("acme", suo) == f"{PROJECT_DIR}/chat-bots.yml"
+    dev = next(bot for bot in chatbots.list_chatbots("acme") if bot.name == "Dev")
+    definitions.save_chatbot("acme", dev)
+    definitions.revert_chatbot("acme", "Dev")
+    assert store.read_layers("global-chat-bots.yml")[0].startswith("altro: 1")  # the rest of the user's file stays
+
+
+def test_the_chatbot_api_says_the_origin_saves_back_and_reverts(stores, project_store, config, default_chatbots):
+    from fastapi.testclient import TestClient
+
+    from core.app import create_app
+    from core.container import Container
+    project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path="/code/acme"))
+    with TestClient(create_app(Container(stores=stores))) as http:
+        bots = {bot["name"]: bot for bot in http.get("/projects/acme/chatbots").json()}
+        dev = bots["Dev"]
+        assert dev["origin"] == "tuo"  # the tests' data folder holds the example files
+        body = {key: dev[key] for key in ("name", "kind", "model", "description", "max_steps", "tool_names")} | {"system_prompt": "Mio."}
+        assert http.put(f"/chatbots/{dev['id']}", json=body).json()["system_prompt"] == "Mio."
+        assert "Mio." in (config.definitions_root / "global-chat-bots.yml").read_text(encoding="utf-8")
+        assert http.post(f"/chatbots/{dev['id']}/revert").status_code == 404  # no app default in the tests
+        mine = http.post("/projects/acme/chatbots", json={**body, "name": "Mio bot"}).json()
+        assert mine["origin"] is None and http.patch(f"/chatbots/{mine['id']}/model", json={"model": dev["model"]}).json()["origin"] is None

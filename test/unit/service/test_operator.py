@@ -240,12 +240,12 @@ def test_tool_steps_and_fields_are_validated_and_go_through_yaml(project, pipeli
 
 
 def test_the_definitions_sync_a_learned_automation(project, stores, config):  # noqa: F811
+    container = Container(stores=stores)  # the startup's sync first (plan 28): the file comes after
     folder = config.definitions_root / "project" / "acme"
     folder.mkdir(parents=True)
     (folder / "automation.yml").write_text(
         "automations:\n  - name: Prepara\n    purpose: prepare\n    fields: [branch]\n"
         "    steps:\n      - {name: Checkout, tool: git_checkout, args: {repository: api, branch: '{in:branch}'}}\n", encoding="utf-8")
-    container = Container(stores=stores)
     assert {item.outcome.value for item in container.definition_service.sync("acme").items if item.name == "Prepara"} == {"created"}
     assert {item.outcome.value for item in container.definition_service.sync("acme").items if item.name == "Prepara"} == {"unchanged"}
     [pipeline] = [item for item in container.pipeline_service.list_pipelines("acme") if item.name == "Prepara"]

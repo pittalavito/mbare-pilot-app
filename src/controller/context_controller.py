@@ -21,6 +21,8 @@ class GeneralDocument(BaseModel):
     name: str
     title: str
     content: str
+    origin: str = "app"
+    """``app`` (the app's default) or ``tuo`` (the data folder's, which wins)."""
 
 
 @router.get("/context")
@@ -60,7 +62,8 @@ def generate_repository_map(project: str, service: RepositoryMapService = Depend
 @router.get("/context-general")
 def general_context(project: str, rag: RagService = Depends(rag_service)) -> list[GeneralDocument]:
     """The general context (``definition/context/*.md``): edited in the definitions, read only here."""
-    return [GeneralDocument(name=name, title=title_of(text, name.removesuffix(".md")), content=text) for name, text in rag.general_documents()]
+    return [GeneralDocument(name=name, title=title_of(text, name.removesuffix(".md")), content=text, origin=rag.general_origin(name))
+            for name, text in rag.general_documents()]
 
 
 @router.get("/context-index")

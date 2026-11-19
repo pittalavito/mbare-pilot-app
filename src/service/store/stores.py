@@ -57,4 +57,4 @@ class Stores:
         self.masks = MaskStore(self.redis_client)
         # files under <data_home>
         self.project_files = ProjectFileStore(config.project_data_root)
-        self.definitions = DefinitionStore(config.definitions_root)
+        self.definitions = DefinitionStore(config.definitions_root, config.default_definitions_root)

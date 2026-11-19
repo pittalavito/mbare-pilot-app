@@ -1,6 +1,9 @@
 """Definitions as files (models/domain/definitions.py): agents, chatbots and
-automations written as YAML under ``<MBARE_PILOT_HOME>/definition/``, applied
-to a project on request:
+automations written as YAML, in two layers (plan 28): the app's defaults
+(``resource/definition``) and the user's (``<MBARE_PILOT_HOME>/definition/``).
+In the global files the user's elements win **by name** over the app's (the
+user's ``global-chat-bots.yml`` may hold just the Refiner changed); the
+projects' files are the user's only. The files:
 
 - ``global-agent.yml``: agents of the Library (global);
 - ``project/<slug>/agent.yml``: the project's agents;
@@ -19,12 +22,13 @@ An empty file (or one with only comments) defines nothing.
 (new or already there, or the error), and ``sync(project, only)`` can apply
 just the elements chosen from it.
 
-At startup ``seed_global_agents()`` creates the agents of ``global-agent.yml``
-that do not exist yet (a new installation has them; changes made from the UI
-stay until the next sync), and ``seed_default_chatbots(projects)`` the
-chatbots of the files (``global-chat-bots.yml`` and the project's own) that a
-project misses, by name: also when a project is created. The code creates no
-chatbot of its own: without the files a project has none."""
+At startup ``sync_at_startup(projects)`` applies every file to every project
+(created or updated; what the files do not define is left as it is): the
+defaults follow the files, a new installation has them. A chatbot of the
+files changed from the UI is written back to the user's layer
+(``save_chatbot``: it becomes «tuo» and wins on the next startup);
+``revert_chatbot`` removes it from there («↩ Torna al default»). Every entry
+of ``preview`` says where it comes from (``origin``: app, tuo, progetto)."""
 from collections.abc import Callable, Collection
 from dataclasses import dataclass
 from typing import Any
@@ -47,6 +51,7 @@ from domain.project.data_paths import (
     project_definitions,
 )
 from models.domain.agent import AgentConfig, AgentRole
+from models.domain.chatbot import Chatbot
 from models.domain.definitions import (
     AgentFile,
     AutomationFile,
@@ -64,12 +69,15 @@ from service.agent_config_service import AgentConfigService
 from service.chatbot_service import ChatbotService
 from service.pipeline_service import PipelineService
 from service.store.agent_store import AgentStore
-from service.store.definition_store import DefinitionStore
+from service.store.definition_store import APP, USER, DefinitionStore
 from service.store.project_store import ProjectStore
 
 _AGENTS_KEY = "agents"
 _AUTOMATIONS_KEY = "automations"
 _CHATBOTS_KEY = "chatbots"
+_MERGED = {GLOBAL_AGENTS_FILE: _AGENTS_KEY, GLOBAL_CHATBOTS_FILE: _CHATBOTS_KEY, GLOBAL_AUTOMATIONS_FILE: _AUTOMATIONS_KEY}
+"""The global files whose lists are merged by name across the two layers."""
+ORIGIN_PROJECT = "progetto"
 
 
 class DefinitionService:
@@ -108,7 +116,11 @@ class DefinitionService:
         return elements
 
     def _entry(self, project_name: str, element: "_Element") -> DefinitionEntry:
-        common = dict(kind=element.kind, file=element.file, name=element.name)
+        try:
+            origin = self.origin(element.file, element.name)
+        except AppError:
+            origin = USER  # a broken file of the user's layer
+        common = dict(kind=element.kind, file=element.file, name=element.name, origin=origin)
         try:
             element.validate()
         except PydanticValidationError as exc:
@@ -124,44 +136,70 @@ class DefinitionService:
         return DefinitionEntry(**common, state=DefinitionState.EXISTS if exists else DefinitionState.NEW)
 
     @observed(LogPrefix.DEFINITION_SERVICE)
-    def seed_global_agents(self) -> list[SyncItem]:
-        """At startup: the agents of global-agent.yml that do not exist yet; the
-        existing ones are left as they are. Errors are logged, never raised:
-        a broken file must not stop the app."""
-        elements = self._list(DefinitionKind.AGENT, GLOBAL_AGENTS_FILE, _AGENTS_KEY, AgentFile, self._create_missing_global_agent)
-        items = [element.apply_to_item() for element in elements]
+    def sync_at_startup(self, project_names: list[str]) -> list[SyncItem]:
+        """At startup (and for a new project): the global agents, then every project's files, created or updated.
+        Errors are logged, never raised: a broken file must not stop the app."""
+        items = [element.apply_to_item() for element in self._global_agents()]
+        for project_name in project_names:
+            try:
+                items += [element.apply_to_item() for element in self._elements(project_name) if element.file != GLOBAL_AGENTS_FILE]
+            except AppError as exc:
+                log_warning(LogPrefix.DEFINITION_SERVICE, "definizioni di %s: %s", project_name, exc)
         for item in items:
             if item.outcome is SyncOutcome.ERROR:
                 log_warning(LogPrefix.DEFINITION_SERVICE, "%s · %s: %s", item.file, item.name or "?", item.message)
         return items
 
-    def _create_missing_global_agent(self, spec: AgentFile) -> SyncOutcome:
-        if self._agent_store.get_config(spec.name) is not None:
-            return SyncOutcome.UNCHANGED
-        return self._sync_agent(None, spec)
+    def _global_agents(self) -> list["_Element"]:
+        return self._list(DefinitionKind.AGENT, GLOBAL_AGENTS_FILE, _AGENTS_KEY, AgentFile, lambda spec: self._sync_agent(None, spec))
+
+    # --------------------------------------------------------------- origin
+    def origin(self, file: str, name: str | None) -> str:
+        """Where an element comes from: ``progetto`` (a project's file), ``tuo`` (the user's layer) or ``app``."""
+        if file.startswith("project/"):
+            return ORIGIN_PROJECT
+        mine, _ = self._definitions.read_layers(file)
+        names = _names(_load(mine)) if mine is not None else {}
+        return USER if name and name.lower() in names.get(_list_key(file), set()) else APP
+
+    def chatbot_origin(self, project_name: str, name: str) -> str | None:
+        """The origin of a project's chatbot by name; None for one created from the UI (not in the files)."""
+        element = next((item for item in self._chatbots_of(project_name, project_definitions(project_name))
+                        if item.name and item.name.lower() == name.lower()), None)
+        return self.origin(element.file, element.name) if element else None
 
     @observed(LogPrefix.DEFINITION_SERVICE)
-    def seed_default_chatbots(self, project_names: list[str]) -> int:
-        """The chatbots of the files (the project's ``chat-bots.yml``, then
-        ``global-chat-bots.yml``) the projects miss, by name (case-insensitive);
-        the existing ones are left as they are. No file, no chatbot. Errors (e.g.
-        the model not in the catalog) are logged, never raised: they must not
-        stop the app. Returns how many were created."""
-        created = 0
-        for project_name in project_names:
-            names = {bot.name.lower() for bot in self._chatbots.list_chatbots(project_name)}
-            for element in self._chatbots_of(project_name, project_definitions(project_name)):
-                if element.raw is None or not element.name or element.name.lower() in names:
-                    if element.error:
-                        log_warning(LogPrefix.DEFINITION_SERVICE, "chatbot di %s: %s", project_name, element.error)
-                    continue
-                item = element.apply_to_item()  # also the API and the worker starting together: the name is unique in the DB
-                if item.outcome is SyncOutcome.CREATED:
-                    created += 1
-                    names.add(element.name.lower())
-                else:
-                    log_warning(LogPrefix.DEFINITION_SERVICE, "chatbot %s · %s: %s", project_name, element.name, item.message)
-        return created
+    def save_chatbot(self, project_name: str, chatbot: Chatbot) -> str | None:
+        """A chatbot of the files changed from the UI, written back as a file element: into the project's
+        ``chat-bots.yml`` when it comes from there, else into the user's ``global-chat-bots.yml`` (it wins over the
+        app's for every project). None (nothing written) for a chatbot created from the UI."""
+        origin = self.chatbot_origin(project_name, chatbot.name)
+        if origin is None:
+            return None
+        path = f"{project_definitions(project_name)}/{CHATBOTS_FILE}" if origin == ORIGIN_PROJECT else GLOBAL_CHATBOTS_FILE
+        element = {"name": chatbot.name, "kind": chatbot.kind.value, "tools": list(chatbot.tool_names), "description": chatbot.description,
+                   "model": chatbot.model, "max_steps": chatbot.max_steps, "system_prompt": chatbot.system_prompt}
+        mine, _ = self._definitions.read_layers(path)
+        data = _load(mine) if mine is not None else {}
+        items = [item for item in data.get(_CHATBOTS_KEY) or [] if not (isinstance(item, dict) and str(item.get("name", "")).lower() == chatbot.name.lower())]
+        self._definitions.save_definition(path, _dump({**data, _CHATBOTS_KEY: [*items, element]}))
+        return path
+
+    @observed(LogPrefix.DEFINITION_SERVICE)
+    def revert_chatbot(self, project_name: str, name: str) -> SyncItem:
+        """«↩ Torna al default»: the chatbot out of the user's ``global-chat-bots.yml``, the app's applied again."""
+        mine, app = self._definitions.read_layers(GLOBAL_CHATBOTS_FILE)
+        if app is None or name.lower() not in _names(_load(app)).get(_CHATBOTS_KEY, set()):
+            raise NotFoundError(f"{name} non è un chatbot dell'app: non ha un default.")
+        data = _load(mine) if mine is not None else {}
+        items = [item for item in data.get(_CHATBOTS_KEY) or [] if not (isinstance(item, dict) and str(item.get("name", "")).lower() == name.lower())]
+        if items or set(data) - {_CHATBOTS_KEY}:
+            self._definitions.save_definition(GLOBAL_CHATBOTS_FILE, _dump({**data, _CHATBOTS_KEY: items}))
+        else:
+            self._definitions.delete_definition(GLOBAL_CHATBOTS_FILE)
+        element = next(item for item in self._chatbots_of(project_name, project_definitions(project_name))
+                       if item.name and item.name.lower() == name.lower())
+        return element.apply_to_item()
 
     # ---------------------------------------------------------------- files
     def _list(self, kind: DefinitionKind, path: str, key: str, schema: type[BaseModel], sync: Callable[[Any], SyncOutcome],
@@ -183,19 +221,23 @@ class DefinitionService:
         ]
 
     def _read(self, path: str) -> dict | None:
-        """The YAML of a definition file; None when missing or empty."""
-        text = self._definitions.read_definition(path)
-        if text is None:
-            return None
-        try:
-            raw = yaml.safe_load(text)
-        except yaml.YAMLError as exc:
-            raise ValidationError(f"YAML non valido: {exc}") from exc
-        if raw is None:
-            return None
-        if not isinstance(raw, dict):
-            raise ValidationError("il file deve contenere dei campi (nome: valore).")
-        return raw
+        """The YAML of a definition file; None when missing or empty. A global file's list is the app's with the
+        user's elements in place of the ones with the same name (and the user's new ones after)."""
+        mine, app = self._definitions.read_layers(path)
+        if path not in _MERGED:
+            return _load(mine if mine is not None else app)
+        user_data, app_data = _load(mine), _load(app)
+        if user_data is None or app_data is None:
+            return user_data if user_data is not None else app_data
+        key = _MERGED[path]
+        theirs, ours = app_data.get(key) or [], user_data.get(key) or []
+        if not isinstance(theirs, list) or not isinstance(ours, list):
+            raise ValidationError(f"il file deve avere la lista «{key}:».")
+        by_name = {str(item.get("name", "")).lower(): item for item in ours if isinstance(item, dict) and item.get("name")}
+        merged = [by_name.pop(str(item.get("name", "")).lower(), item) if isinstance(item, dict) else item for item in theirs]
+        rest = [item for item in ours if not (isinstance(item, dict) and str(item.get("name", "")).lower() in
+                                             {str(other.get("name", "")).lower() for other in merged if isinstance(other, dict)})]
+        return {**app_data, **user_data, key: merged + rest}
 
     # --------------------------------------------------------------- agents
     def _sync_agent(self, project_name: str | None, spec: AgentFile) -> SyncOutcome:
@@ -354,6 +396,35 @@ def _shape(pipeline: Pipeline) -> tuple:
     ]
     edges = sorted((edge.source, edge.target, edge.condition.value, edge.value) for edge in pipeline.edges)
     return pipeline.name, pipeline.description.strip(), pipeline.active, steps, edges, list(pipeline.fields), pipeline.purpose
+
+
+def _load(text: str | None) -> dict | None:
+    """A definition file's YAML; None when missing or empty."""
+    if text is None:
+        return None
+    try:
+        raw = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        raise ValidationError(f"YAML non valido: {exc}") from exc
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ValidationError("il file deve contenere dei campi (nome: valore).")
+    return raw
+
+
+def _names(data: dict | None) -> dict[str, set[str]]:
+    """The names in each list of a file, lowercase."""
+    return {key: {str(item.get("name", "")).lower() for item in value if isinstance(item, dict)}
+            for key, value in (data or {}).items() if isinstance(value, list)}
+
+
+def _list_key(path: str) -> str:
+    return _MERGED.get(path, "")
+
+
+def _dump(data: dict) -> str:
+    return yaml.safe_dump(data, allow_unicode=True, sort_keys=False, width=140)
 
 
 def _first_error(exc: PydanticValidationError) -> str:

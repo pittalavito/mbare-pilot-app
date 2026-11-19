@@ -45,9 +45,9 @@ execute_prompt: Ok, procedi con il piano concordato, senza commit.
 denied_tools: ["shell(git commit)", "shell(git push)", "shell(git reset)"]
 """
 """Copilot's prompts and denied tools (global-coding-agent.yml): required to use Copilot."""
-EXAMPLE_AGENTS = Path(__file__).parents[1] / "resource" / "definition-example" / "global-agent.yml"
+EXAMPLE_AGENTS = Path(__file__).parents[1] / "resource" / "definition" / "global-agent.yml"
 """The agents of the Library: hello and the agents with a structured answer (wip, pianificatore, bozza-attivita)."""
-EXAMPLE_CHATBOTS = Path(__file__).parents[1] / "resource" / "definition-example" / "global-chat-bots.yml"
+EXAMPLE_CHATBOTS = Path(__file__).parents[1] / "resource" / "definition" / "global-chat-bots.yml"
 """The chatbots every project gets (the code creates none): the example file, as a new installation has it."""
 
 
@@ -73,6 +73,7 @@ def config(tmp_path):
         mbare_pilot_secret_key=Fernet.generate_key().decode(),
         copilot_command="copilot-disabled-in-tests",  # never the real CLI (it spends AI credits): tests use test/fake_copilot.py
         rag_embedder="hashing",  # the context index never calls a real embedder in the tests
+        app_definitions=str(tmp_path / "no-app-definitions"),  # only the tests' own files; the app's are tested on their own
     )
     test_config.definitions_root.mkdir(parents=True)
     (test_config.definitions_root / "global-agent.yml").write_text(HELLO_AGENT, encoding="utf-8")

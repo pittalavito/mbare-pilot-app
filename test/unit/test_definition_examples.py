@@ -1,24 +1,24 @@
-"""The example definitions (resource/definition-example/) stay valid with the
-same rules the app applies, and copying them never overwrites the user's files."""
+"""The app's default definitions (resource/definition/, plan 28) stay valid
+with the same rules the app applies, and the data folder overrides them:
+by name in the global YAML lists, by path for the other files."""
 import yaml
 
 from domain.project import coding_agent
-from domain.project.definition_examples import EXAMPLES_DIR, copy_missing
 from models.domain.definitions import AgentFile, AutomationFile, ChatbotFile
-from service.store.definition_store import DefinitionStore
+from service.store.definition_store import APP, USER, DefinitionStore
 from tool.registry import TOOL_REGISTRY
 
 
-def _yaml(name: str) -> dict:
-    return yaml.safe_load((EXAMPLES_DIR / name).read_text(encoding="utf-8"))
+def _yaml(config, name: str) -> dict:
+    return yaml.safe_load((config.app_root / "resource" / "definition" / name).read_text(encoding="utf-8"))
 
 
-def test_the_examples_are_valid_definitions(config):
-    for agent in _yaml("global-agent.yml")["agents"]:
+def test_the_defaults_are_valid_definitions(config):
+    for agent in _yaml(config, "global-agent.yml")["agents"]:
         AgentFile.model_validate(agent)
-    for chatbot in _yaml("global-chat-bots.yml")["chatbots"]:
+    for chatbot in _yaml(config, "global-chat-bots.yml")["chatbots"]:
         ChatbotFile.model_validate(chatbot)
-    for automation in _yaml("global-automation.yml")["automations"]:
+    for automation in _yaml(config, "global-automation.yml")["automations"]:
         for step in AutomationFile.model_validate(automation).steps:
             if step.tool:
                 properties, _ = TOOL_REGISTRY[step.tool].schema()
@@ -26,25 +26,24 @@ def test_the_examples_are_valid_definitions(config):
 
     for path in config.definitions_root.iterdir():  # the tests' own definitions out of the way
         path.unlink()
-    assert copy_missing(config.definitions_root)
-    settings = coding_agent.load(DefinitionStore(config.definitions_root))
+    store = DefinitionStore(config.definitions_root, config.app_root / "resource" / "definition")
+    settings = coding_agent.load(store)
     assert settings.denied_tools and "bugfix" in settings.prompts
     assert all(model.price for model in settings.models if model.name not in {"auto", "gpt-5.5"})
 
 
-def test_copying_the_examples_never_overwrites(tmp_path):
-    target = tmp_path / "definition"
-    (target / "coding-agent").mkdir(parents=True)
-    (target / "global-coding-agent.yml").write_text("il mio", encoding="utf-8")
+def test_the_data_folder_wins_by_path_and_writes_go_there(tmp_path):
+    app, mine = tmp_path / "app", tmp_path / "mine"
+    (app / "context").mkdir(parents=True)
+    (app / "context" / "a.md").write_text("app a", encoding="utf-8")
+    (app / "context" / "b.md").write_text("app b", encoding="utf-8")
+    store = DefinitionStore(mine, app)
+    store.save_definition("context/b.md", "mio b")
 
-    copied = copy_missing(target)
-
-    assert "global-coding-agent.yml" not in copied and (target / "global-coding-agent.yml").read_text(encoding="utf-8") == "il mio"
-    assert copied == ["coding-agent/analisi.md", "coding-agent/bugfix.md", "coding-agent/confluence.md", "coding-agent/jira.md",
-                      "coding-agent/templates/confluence.md", "coding-agent/templates/jira.md",
-                      "context/attivita-e-giro.md", "context/automation.md", "context/copilot.md", "context/cosa-non-fare.md",
-                      "context/errori-comuni.md", "context/esempi-di-automation.md", "context/esempi-di-task.md", "context/pre-post-sviluppo.md",
-                      "context/riferimenti-e-contesto.md", "context/task-e-stati.md", "context/tool.md",
-                      "global-agent.yml", "global-automation.yml", "global-chat-bots.yml"]
-    assert not (target / "README.md").exists()
-    assert copy_missing(target) == []
+    assert store.read_definition("context/a.md") == "app a" and store.read_definition("context/b.md") == "mio b"
+    assert store.list_definitions("context") == ["context/a.md", "context/b.md"]
+    assert (store.origin("context/a.md"), store.origin("context/b.md"), store.origin("context/c.md")) == (APP, USER, None)
+    assert store.read_layers("context/b.md") == ("mio b", "app b")
+    assert store.delete_definition("context/b.md") and store.read_definition("context/b.md") == "app b"
+    assert not store.delete_definition("context/b.md")
+    assert DefinitionStore(mine, tmp_path / "missing").read_definition("context/a.md") is None

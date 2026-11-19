@@ -175,12 +175,9 @@ class Container:
         self._seed_defaults()
 
     def _seed_defaults(self) -> None:
-        """At startup, what is missing: the default models, the tool catalog and
-        the global agents of definition/global-agent.yml (edits made from the UI
-        are never overwritten) and the default chatbots each project misses.
-        Models first: agents and chatbots need them."""
+        """At startup: the default models, the tool catalog, then every definition file applied (plan 28: the defaults
+        follow the files; what the user changed from the UI is in the data folder). Models first: agents and chatbots need them."""
         self.model_service.seed_defaults(DEFAULT_CHAT_MODELS)
         self.agent_config_service.sync_tools()
-        self.definition_service.seed_global_agents()
         projects = [project.name for project in self.project_service.list_projects()]
-        self.definition_service.seed_default_chatbots(projects)
+        self.definition_service.sync_at_startup(projects)
