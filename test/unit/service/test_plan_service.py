@@ -39,6 +39,9 @@ class FakeRag:
     def __init__(self, error=None):
         self.error = error
 
+    def catalog(self, project_name):
+        return "\n\nDocumenti di contesto che puoi cercare con search_context:\n- Progetto: Architettura"
+
     def search(self, project_name, question, limit=5):
         if self.error:
             raise self.error
@@ -489,6 +492,7 @@ def test_the_pianificatore_searches_the_context_before_answering(service, client
     plan = service.propose("acme", activity)
 
     assert client.calls[0]["tools"] == ["search_context"] and len(client.calls) == 2
+    assert client.calls[0]["system_prompt"].endswith("- Progetto: Architettura")  # plan 27: what there is to search
     assert "Architettura" in client.tool_results[0] and "Il login" in client.tool_results[0]
     assert [proposal.title for proposal in plan.proposals][:1] == ["Aggiorna la libreria"]
 

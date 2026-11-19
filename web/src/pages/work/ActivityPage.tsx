@@ -513,11 +513,11 @@ function Close({ project, activity, path, onBack }: { project: string; activity:
         <Group justify="space-between" mb={4}>
           <Text size="sm" fw={500}>Cosa ho imparato</Text>
           <Button size="compact-xs" variant="light" loading={proposeLearned.isPending}
-            onClick={() => proposeLearned.mutate(undefined, { onSuccess: (draft) => setLearned(draft.points.map((point) => `- ${point}`).join("\n")) })}>
+            onClick={() => proposeLearned.mutate(undefined, { onSuccess: (draft) => setLearned(draft.points.map((point) => `- ${point.theme}: ${point.text}`).join("\n")) })}>
             ✨ Proponi cosa ho imparato
           </Button>
         </Group>
-        <Textarea aria-label="Cosa ho imparato" autosize minRows={3} placeholder="- una cosa da ricordare per i lavori futuri, per riga"
+        <Textarea aria-label="Cosa ho imparato" autosize minRows={3} placeholder="- Tema: una cosa da ricordare per i lavori futuri, per riga (es. «- Build: prima lib-auth, poi l'api»)"
           value={learned} onChange={(event) => setLearned(event.currentTarget.value)} />
         <Text size="xs" c="dimmed" mt={4}>
           Alla chiusura va in cima a <code>context/imparato.md</code> (nell'indice del contesto: lo leggono Pianificatore, Refiner e Copilot). Vuoto = non si scrive niente.

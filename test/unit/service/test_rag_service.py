@@ -203,3 +203,28 @@ def test_a_broken_general_index_does_not_stop_the_search(general, data, monkeypa
     general.index_context("acme", "arch.md")
     monkeypatch.setattr(general, "index_general", lambda project: (_ for _ in ()).throw(UpstreamError("embedder giù")))
     assert [hit.path for hit in general.search("acme", "architettura")] == ["context/arch.md"]
+
+
+def test_the_catalog_lists_the_titles_for_the_prompt(general, data, rag):
+    """Plan 27: the titles of the project's and the general documents, for the agents with search_context."""
+    data.save_context("acme", "arch.md", "# Architettura\n\nFastAPI.")
+    assert general.catalog("acme").endswith("- Progetto: Architettura\n- Generale (come funziona l'app): Il giro")
+    assert rag.catalog("acme") == "\n\nDocumenti di contesto che puoi cercare con search_context:\n- Progetto: Architettura"
+    data.delete_context("acme", "arch.md")
+    assert rag.catalog("acme") == ""
+
+
+def test_the_agents_with_search_context_get_the_catalog_masked(make_agent_service, general, data, masking_service):
+    from models.domain.agent import AgentDefinition
+    data.save_context("acme", "arch.md", "# Architettura di Mario Rossi\n\nFastAPI.")
+    service = make_agent_service()
+    service._rag_service = general
+    definition = AgentDefinition(name="r", role_name="r", prompt_id=0, prompt_version=1, system_prompt="Sei il refiner.",
+                                 model="openai/gpt-4o", max_steps=2, tool_names=["search_context"])
+    masking_service.add_term("acme", __import__("models.domain.masking", fromlist=["MaskCategory"]).MaskCategory.PERSON, "Mario Rossi")
+
+    with_catalog = service._with_catalog(definition, "acme", masking_service.session("acme"))
+    assert with_catalog.system_prompt.startswith("Sei il refiner.") and "Architettura di PERSONA_1" in with_catalog.system_prompt
+    assert service._with_catalog(definition, "acme", None).system_prompt.endswith("Il giro")
+    assert service._with_catalog(definition.model_copy(update={"tool_names": []}), "acme", None) == definition.model_copy(update={"tool_names": []})
+    assert service._with_catalog(definition, None, None) == definition

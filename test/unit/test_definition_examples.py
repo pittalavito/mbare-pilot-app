@@ -42,7 +42,8 @@ def test_copying_the_examples_never_overwrites(tmp_path):
     assert "global-coding-agent.yml" not in copied and (target / "global-coding-agent.yml").read_text(encoding="utf-8") == "il mio"
     assert copied == ["coding-agent/analisi.md", "coding-agent/bugfix.md", "coding-agent/confluence.md", "coding-agent/jira.md",
                       "coding-agent/templates/confluence.md", "coding-agent/templates/jira.md",
-                      "context/attivita-e-giro.md", "context/automation.md", "context/copilot.md", "context/pre-post-sviluppo.md",
+                      "context/attivita-e-giro.md", "context/automation.md", "context/copilot.md", "context/cosa-non-fare.md",
+                      "context/errori-comuni.md", "context/esempi-di-automation.md", "context/esempi-di-task.md", "context/pre-post-sviluppo.md",
                       "context/riferimenti-e-contesto.md", "context/task-e-stati.md", "context/tool.md",
                       "global-agent.yml", "global-automation.yml", "global-chat-bots.yml"]
     assert not (target / "README.md").exists()

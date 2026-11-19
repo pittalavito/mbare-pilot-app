@@ -30,6 +30,7 @@ from domain.client.embedding.embedder import Embedder, Factory
 from domain.evaluation.scoring import compare, describe, describe_expected, rank, retrieval
 from domain.masking.preview import masked_text, tagged_terms
 from domain.project.data_paths import typed_note_file_name
+from domain.project.definition_examples import EXAMPLES_DIR
 from domain.rag.chunking import split_markdown, title_of
 from models.domain.agent import AgentDefinition
 from models.domain.evaluation import (
@@ -124,21 +125,25 @@ class EvaluationService:
     def run_rag(self, embedders: list[str]) -> tuple[str, list[RagResult]]:
         """Every question with every embedder, with and without the keyword bonus."""
         names = [name.strip() for name in embedders if name.strip()] or ["hashing"]
-        documents = sorted((self._data / "rag" / "context").glob("*.md"))
+        documents = [(f"context/{path.name}", path) for path in sorted((self._data / "rag" / "context").glob("*.md"))]
         questions = json.loads((self._data / "rag" / "questions.json").read_text(encoding="utf-8"))
+        general = self._data / "rag" / "general-questions.json"
+        if general.is_file():  # plan 27: what the agents ask of the general context (the example definitions')
+            documents += [(f"general/{path.name}", path) for path in sorted((EXAMPLES_DIR / "context").glob("*.md"))]
+            questions += json.loads(general.read_text(encoding="utf-8"))
         if not documents or not questions:
             raise ValidationError(f"Set del RAG vuoto in {self._data / 'rag'}.")
         results = []
         for name in names:
             embedder = self._embedders(name)
             pieces = []
-            for path in documents:
+            for where, path in documents:
                 text = path.read_text(encoding="utf-8")
                 title = title_of(text, path.stem)
                 for chunk in split_markdown(text, title):
                     section = str(chunk.metadata["section"])
                     content = f"{title} {section} {chunk.text}"
-                    pieces.append((f"context/{path.name}", section, content, embedder.embed(f"{title}\n{section}\n{chunk.text}")))
+                    pieces.append((where, section, content, embedder.embed(f"{title}\n{section}\n{chunk.text}")))
             queries = [(item, embedder.embed(item["question"]), keywords(item["question"])) for item in questions]
             for bonus in (KEYWORD_BONUS, 0.0):
                 results.append(_rag_result(embedder.name, bonus, pieces, queries))

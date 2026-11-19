@@ -33,6 +33,15 @@ export function useGeneralContext(project: string) {
   });
 }
 
+/** «🗺 Genera mappa dei repository» (plan 27): context/repository.md, only its generated part rewritten. */
+export function useGenerateRepositoryMap(project: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => unwrap(api.POST("/projects/{project}/context/repository-map", { params: { path: { project } } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects", project, "context"] }),
+  });
+}
+
 export function useContextIndex(project: string) {
   return useQuery({ queryKey: keys.index(project), queryFn: () => unwrap(api.GET("/projects/{project}/context-index", { params: { path: { project } } })) });
 }

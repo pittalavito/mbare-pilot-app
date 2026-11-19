@@ -119,7 +119,10 @@ class PlanService:
         automations = self._automations(project_name)
         masked = masked_text(model_input(activity, open_items, repositories, self._context(project_name, activity), references,
                                          self._rules(project_name), automations), entries)
-        call = self._agents.call(agent, masked.text, self._tools(project_name, agent.tool_names, entries))
+        tools = self._tools(project_name, agent.tool_names, entries)
+        if tools and self._rag is not None and (extra := self._rag.catalog(project_name)):
+            agent = agent.model_copy(update={"system_prompt": agent.system_prompt + masked_text(extra, entries).text})
+        call = self._agents.call(agent, masked.text, tools)
 
         clear = lambda text: unmask(text, entries, masked.temporary).strip()  # noqa: E731
         answer = call.answer if isinstance(call.answer, PlanAnswer) else None
