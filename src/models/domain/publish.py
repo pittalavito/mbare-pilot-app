@@ -1,4 +1,4 @@
-"""Publishing a draft (``bozza-<task>.md``) of a Confluence or Jira task (blocco 10)."""
+"""Publishing a draft (``bozza-confluence-<task>.md``, ``bozza-jira-<task>.md``) of a Confluence or Jira task (blocco 10)."""
 from enum import StrEnum
 
 from pydantic import BaseModel
@@ -36,7 +36,13 @@ class PublishPreview(BaseModel):
     target_url: str = ""
     space_key: str = ""
     project_key: str = ""
-    """CREATE: the project's default Confluence space / Jira project."""
+    """CREATE: the project's default Confluence space / Jira project (the task's space, when it has one)."""
+    parent_id: str = ""
+    parent_title: str = ""
+    parent_kind: str = ""
+    """CREATE: the parent page or folder the task says (plan 32); ``""`` = none (the UI offers the last place used)."""
+    parent_error: str = ""
+    """Why the task's parent could not be read (wrong link, no access)."""
 
 
 class PublishResult(BaseModel):

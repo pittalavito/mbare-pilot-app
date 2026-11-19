@@ -83,6 +83,15 @@ class ConfluencePage(BaseModel):
     """Plain text extracted from the storage (XHTML) body; empty in listings."""
 
 
+class ConfluenceNode(BaseModel):
+    """A place a new page can go under (plan 32): a page or a folder."""
+    id: str
+    title: str
+    kind: str = "page"
+    """``page`` or ``folder``."""
+    url: str = ""
+
+
 class ConfluenceSearchHit(BaseModel):
     id: str
     title: str

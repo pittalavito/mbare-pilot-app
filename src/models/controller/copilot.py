@@ -33,7 +33,7 @@ class CopilotMessageRequest(BaseModel):
 
 class CopilotSavedNoteResponse(BaseModel):
     note: str
-    """The note Copilot's answer was saved in (``analisi-<task>.md``, ``bozza-<task>.md``)."""
+    """The note Copilot's answer was saved in (``analisi-<task>.md``, ``bozza-confluence-<task>.md``, ``bozza-jira-<task>.md``)."""
     session: "CopilotSessionResponse"
 
 

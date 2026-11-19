@@ -109,11 +109,14 @@ def build_update(run: ToolContext) -> Tool:
         context: Annotated[str, "What is known around the task: where it comes from, decisions; '' = unchanged."],
         criteria: Annotated[list[str], "All the acceptance criteria, one per string; [] = unchanged."],
         constraints: Annotated[str, "What must not be done or touched; '' = unchanged."],
+        publish_space: Annotated[str, "Confluence task only: the space key of the new page, as the user said; '' = unchanged."] = "",
+        publish_parent: Annotated[str, "Confluence task only: the link (or id) of the parent page or folder the user gave; '' = unchanged."] = "",
     ) -> AgentTaskDetailResponse | ToolErrorResponse:
         def action() -> AgentTaskDetailResponse:
             note, current = _load(run)
             changes: dict[str, object] = {key: value.strip() for key, value in
-                             (("objective", objective), ("context", context), ("constraints", constraints)) if value.strip()}
+                             (("objective", objective), ("context", context), ("constraints", constraints),
+                              ("publish_space", publish_space), ("publish_parent", publish_parent)) if value.strip()}
             items = [text.strip() for text in criteria if text.strip()]
             if items:
                 done = {item.text: item.done for item in current.criteria}

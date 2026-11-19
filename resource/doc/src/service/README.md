@@ -374,3 +374,13 @@ In `test/unit/service/`: `store/test_run_store`, `store/test_pipeline_store` (tr
 ## Cosa vede il modello (piano 29)
 
 Ogni run di un agente (chatbot e agenti con risposta strutturata) salva nel trace (Redis) la **trascrizione mascherata** (`ModelTranscript`): il system prompt come l'ha ricevuto il modello, la storia della conversazione e l'input mascherati, la risposta grezza (per gli strutturati il JSON); le chiamate ai tool sono già nel trace, con argomenti e risultati come li ha visti il modello. `RunService.transcript(run_id)` la restituisce in due versioni (`RunTranscript`): `masked` così com'è e `clear` con la mappa del progetto rimessa in chiaro (input e risposta sono quelli in chiaro della run; i JSON indentati), più gli alias da evidenziare. Una run registrata prima del piano 29 non ha la trascrizione (404).
+
+
+## Costi dell'embedding (piano 31)
+
+`RagService._embed` usa `Embedder.embed_with_usage`: l'embedder remoto (OpenRouter) restituisce anche i token contati dal provider, quello locale (`hashing`) 0. Le chiamate con token si registrano in `embedding_usage` (`EmbeddingUsageStore`: progetto, modello, scopo `index` o `search`, token, costo stimato da `EMBEDDING_EUR_PER_1M`; un modello sconosciuto costa 0). `MetricsService` le somma per modello e scopo (`Metrics.embedding`) con gli stessi filtri di periodo e progetto; la pagina Metriche le mostra in «Embedding del RAG (costo stimato)».
+
+
+## Dove pubblicare su Confluence (piano 32)
+
+`AtlassianSite.places(space, parent_id, kind)` dà le pagine in cima allo spazio (`depth=root`) o le pagine e le **cartelle** sotto una pagina o una cartella (`direct-children` di Confluence v2; lavagne e altro esclusi), caricate ramo per ramo; `search_places` cerca pagine e cartelle per titolo (CQL `type in (page, folder)`); `place_from_link` legge un link di pagina (`/pages/<id>`, `pageId=`), di cartella (`/folder/<id>`) o un id. Una pagina nuova si crea sotto una pagina o una cartella (`parentId`). Un task Confluence può avere la sua destinazione (`publish_space`, `publish_parent`: righe «Spazio Confluence:» e «Pubblica sotto:» della nota, scritte anche dal Refiner): l'anteprima la risolve (`parent_id`, `parent_title`, `parent_kind`, o `parent_error`) e la finestra la propone per prima, altrimenti l'ultima posizione usata nel progetto (ricordata nel browser). Le bozze hanno il tipo nel nome: `bozza-confluence-<task>.md`, `bozza-jira-<task>.md`.

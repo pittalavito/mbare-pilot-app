@@ -9,7 +9,7 @@ import { Markdown } from "../../components/Markdown";
 import { count, credits, localTime } from "../../format";
 
 /** Admin → Observability → Metriche: what the agents cost and how long they
- * take (average and p95) by who, Copilot apart (AI credits, not euros), how
+ * take (average and p95) by who, Copilot apart (AI credits, not euros), the RAG's embedding calls (plan 31), how
  * «Elabora WIP»'s proposals were received, and the evaluations on the data
  * sets (queued for the worker; the same reports as resource/scripts). */
 
@@ -86,6 +86,17 @@ export function Metrics() {
                   </Text>
                 </Stack>
               )}
+            </Card>
+            <Card withBorder>
+              <Title order={5} mb="xs">Embedding del RAG <Text span size="xs" c="dimmed">(costo stimato)</Text></Title>
+              {!metrics.data.embedding?.length ? (
+                <Text size="sm" c="dimmed">Nessuna chiamata a un embedder remoto nel periodo (hashing è gratis).</Text>
+              ) : metrics.data.embedding.map((item) => (
+                <Text key={`${item.model}-${item.purpose}`} size="sm">
+                  <code>{item.model}</code> · {item.purpose === "index" ? "indicizzazione" : "ricerche"}: {count(item.calls ?? 0)} chiamate ·{" "}
+                  {count(item.tokens ?? 0)} token · {(item.cost_eur ?? 0).toLocaleString("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 6 })}
+                </Text>
+              ))}
             </Card>
           </Group>
         </>

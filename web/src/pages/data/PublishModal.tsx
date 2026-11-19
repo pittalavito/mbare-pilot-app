@@ -3,14 +3,35 @@ import { notifications } from "@mantine/notifications";
 import { useEffect, useState } from "react";
 
 import { type AgentTask } from "../../api/projectData";
-import { isDraft, usePublish, usePublishPreview, useIssueTypes, useSpacePages } from "../../api/publish";
+import { type ConfluenceNode, isDraft, usePublish, usePublishPreview, useIssueTypes } from "../../api/publish";
 import { Markdown } from "../../components/Markdown";
+import { PlacePicker } from "./PlacePicker";
 
 /** «Pubblica su Confluence/Jira» of a Confluence or Jira task's draft: the
  * preview (rendered), the comparison with the page or issue it updates, the
- * aliases put back to their real values; for a new page the space and the
- * parent, for a new issue the Jira project and its type. Nothing is
- * published before «Pubblica». */
+ * aliases put back to their real values; for a new page the space and where
+ * to put it (plan 32: tree of pages and folders, search, pasted link; the
+ * task's destination first, else the last place used in the project), for a
+ * new issue the Jira project and its type. Nothing is published before «Pubblica». */
+
+const LAST_PLACE = (project: string) => `mbare-pilot:confluence-place:${project}`;
+
+function lastPlace(project: string): { space: string; place: ConfluenceNode | null } | null {
+  try {
+    const raw = localStorage.getItem(LAST_PLACE(project));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberPlace(project: string, space: string, place: ConfluenceNode | null) {
+  try {
+    localStorage.setItem(LAST_PLACE(project), JSON.stringify({ space, place }));
+  } catch {
+    // a private window or blocked storage: nothing to remember
+  }
+}
 
 const LABELS = { confluence: "Confluence", jira: "Jira" } as const;
 
@@ -33,25 +54,37 @@ export function PublishModal({ project, task, opened, onClose }: { project: stri
   const data = preview.data;
   const creating = data?.mode === "create";
   const [space, setSpace] = useState("");
-  const [parent, setParent] = useState<string | null>(null);
+  const [place, setPlace] = useState<ConfluenceNode | null>(null);
   const [jiraProject, setJiraProject] = useState("");
   const [issueType, setIssueType] = useState<string | null>(null);
-  useEffect(() => { // the project's defaults, each time it opens
+  useEffect(() => { // each time it opens: the task's destination, else the last place used, else the project's space
     if (!data) return;
-    setSpace(data.space_key ?? "");
+    const last = lastPlace(project);
+    if (data.parent_id) {
+      setSpace(data.space_key ?? "");
+      setPlace({ id: data.parent_id, title: data.parent_title || data.parent_id, kind: data.parent_kind || "page", url: "" });
+    } else if (last && !data.space_key?.trim()) {
+      setSpace(last.space);
+      setPlace(last.place);
+    } else if (last && last.space === data.space_key) {
+      setSpace(last.space);
+      setPlace(last.place);
+    } else {
+      setSpace(data.space_key ?? "");
+      setPlace(null);
+    }
     setJiraProject(data.project_key ?? "");
-    setParent(null);
     setIssueType(null);
     publish.reset();
   }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
-  const pages = useSpacePages(project, space, opened && creating && data?.kind === "confluence");
   const types = useIssueTypes(project, jiraProject, opened && creating && data?.kind === "jira");
   const ready = !!data && (!creating || (data.kind === "confluence" ? !!space.trim() : !!jiraProject.trim() && !!issueType));
 
   const submit = () => publish.mutate(
-    { space_key: space.trim(), parent_id: parent ?? "", project_key: jiraProject.trim(), issue_type: issueType ?? "" },
+    { space_key: space.trim(), parent_id: place?.id ?? "", project_key: jiraProject.trim(), issue_type: issueType ?? "" },
     {
       onSuccess: (result) => {
+        if (result.kind === "confluence" && creating) rememberPlace(project, space.trim(), place);
         notifications.show({
           color: "green",
           message: <>Pubblicata su {LABELS[result.kind]}: <Anchor href={result.url} target="_blank">apri</Anchor>. Il task è «fatto».</>,
@@ -85,14 +118,11 @@ export function PublishModal({ project, task, opened, onClose }: { project: stri
               </Alert>
             )}
             {creating && data.kind === "confluence" && (
-              <Group grow align="flex-start">
-                <TextInput label="Spazio" value={space} onChange={(event) => setSpace(event.currentTarget.value)} />
-                <Select
-                  label="Pagina padre (facoltativa)" placeholder={pages.isPending && space ? "Carico le pagine…" : "In cima allo spazio"} searchable clearable
-                  data={(pages.data ?? []).map((page) => ({ value: page.id, label: page.title }))} value={parent} onChange={setParent}
-                  error={pages.error?.message}
-                />
-              </Group>
+              <Stack gap="xs">
+                <TextInput label="Spazio" value={space} onChange={(event) => { setSpace(event.currentTarget.value); setPlace(null); }} />
+                {data.parent_error && <Alert color="orange" p="xs">{data.parent_error}</Alert>}
+                <PlacePicker project={project} space={space} value={place} onChange={setPlace} />
+              </Stack>
             )}
             {creating && data.kind === "jira" && (
               <Group grow align="flex-start">

@@ -97,7 +97,7 @@ function AgentTaskList({ project, onSelected, onRefine }: {
         return <Badge size="xs" variant="outline" color={kind.color}>{kind.label}</Badge>;
       }}
       create={(title, done) => save.mutate({
-        body: { title, status: "created", type: type === ALL ? "development" : type as AgentTaskBody["type"], objective: "", context: "", criteria: [], constraints: "", references: [], steps: [], commands: [], automation: "" },
+        body: { title, status: "created", type: type === ALL ? "development" : type as AgentTaskBody["type"], objective: "", context: "", criteria: [], constraints: "", references: [], steps: [], commands: [], automation: "", publish_space: "", publish_parent: "" },
       }, done)}
       creating={save.isPending}
       onSelected={onSelected}
@@ -536,6 +536,14 @@ function AgentTaskEditor({ project, task, onRefine }: { project: string; task: A
             onChange={(event) => set({ steps: event.currentTarget.value.split("\n") })} />
           <OperationFields project={project} commands={form.commands ?? []} automation={form.automation ?? ""} onChange={set} />
         </>
+      )}
+      {form.type === "confluence" && (
+        <Group grow align="flex-start">
+          <TextInput label="Spazio Confluence" description="Per una pagina nuova; vuoto = quello del progetto" value={form.publish_space ?? ""}
+            onChange={(event) => set({ publish_space: event.currentTarget.value })} />
+          <TextInput label="Pubblica sotto" description="Link (o id) della pagina o cartella padre; vuoto = l'ultima usata"
+            value={form.publish_parent ?? ""} onChange={(event) => set({ publish_parent: event.currentTarget.value })} />
+        </Group>
       )}
       {form.type === "post_dev" && (
         <div>

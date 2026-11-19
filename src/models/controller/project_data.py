@@ -71,6 +71,10 @@ class AgentTaskBody(BaseModel):
     """A pre/post development task's commands, one each (plan 25)."""
     automation: str = ""
     """A pre/post development task's automation of the project, by name; ``""`` = none."""
+    publish_space: str = ""
+    """A Confluence task's space for a new page (plan 32)."""
+    publish_parent: str = ""
+    """A Confluence task's parent page or folder (id or link) for a new page (plan 32)."""
 
     def to_task(self) -> AgentTask:
         return AgentTask(**self.model_dump(exclude={"criteria"}), criteria=[ChecklistItem(**item.model_dump()) for item in self.criteria])

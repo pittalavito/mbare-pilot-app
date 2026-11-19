@@ -103,6 +103,10 @@ class AgentTask(BaseModel):
     """A pre/post development task's shell commands, one each, run in its repository without an agent (plan 25)."""
     automation: str = ""
     """A pre/post development task's automation of the project (by name), run after the commands; ``""`` = none."""
+    publish_space: str = ""
+    """A Confluence task's space for a new page (plan 32); ``""`` = the project's."""
+    publish_parent: str = ""
+    """A Confluence task's parent page or folder for a new page: its id or link (plan 32); ``""`` = the last place used."""
 
 
 class TodoPriority(StrEnum):

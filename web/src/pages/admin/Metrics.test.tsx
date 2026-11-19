@@ -13,6 +13,7 @@ const METRICS = {
   copilot: [{ model: "gpt-5", turns: 4, usage: { premium_requests: 4, ai_credits: 1.5, input_tokens: 9000, output_tokens: 300, cache_read_tokens: 0,
                                                  cache_write_tokens: 0, reasoning_tokens: 0, api_duration_ms: 0 } }],
   wip: { runs: 5, applied: 3, dismissed: 1, open: 1, proposed: 14, accepted: 7, corrected: 2, discarded: 3, skipped: 0, acceptance_rate: 0.583 },
+  embedding: [{ model: "openai/text-embedding-3-small", purpose: "search", calls: 12, tokens: 340, cost_eur: 0.0000068 }],
 };
 const REPORT = { name: "rag-20261110-120000", kind: "rag", created_at: "2026-11-10T12:00:00Z" };
 
@@ -31,6 +32,7 @@ describe("Metriche", () => {
     expect(screen.getByText("4,2 s")).toBeInTheDocument(); // p95
     expect(screen.getByText(/1,50 crediti/)).toBeInTheDocument();
     expect(screen.getByText("58%")).toBeInTheDocument();
+    expect(screen.getByText(/ricerche: 12 chiamate · 340 token/)).toBeInTheDocument(); // plan 31
     expect(screen.getByText("Nessun report ancora.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("radio", { name: "Tutto" }));
     await waitFor(() => expect(asked.at(-1)).toBe(""));
@@ -40,7 +42,7 @@ describe("Metriche", () => {
   it("launches the evaluations and opens a report", async () => {
     const launched = vi.fn(async (request: Request) => ({ id: 1, status: "queued", ...(await request.json()) }));
     mockApi({
-      "GET /observability/metrics": { ...METRICS, agents: [], copilot: [], wip: { ...METRICS.wip, runs: 0 } },
+      "GET /observability/metrics": { ...METRICS, agents: [], copilot: [], wip: { ...METRICS.wip, runs: 0 }, embedding: [] },
       "GET /projects": [],
       "GET /observability/evaluations": { runs: [{ id: 2, kind: "wip", status: "failed", error: "quota finita", created_at: "2026-11-10T11:00:00Z" }], reports: [REPORT] },
       "GET /models": [{ provider: "openrouter", model: "google/gemini-3.1-flash-lite-preview", active: true }, { provider: "mock", model: "echo", active: true }],

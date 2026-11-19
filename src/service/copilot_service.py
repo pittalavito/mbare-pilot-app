@@ -90,7 +90,7 @@ def _now() -> datetime:
 
 def output_note_name(task_note: str, task_type: TaskType) -> str:
     """Where a plan-only task's answer is saved: ``agent-task-login.md`` →
-    ``analisi-login.md`` (an analysis) or ``bozza-login.md`` (a draft)."""
+    ``analisi-login.md`` (an analysis) or ``bozza-confluence-login.md`` / ``bozza-jira-login.md`` (a draft)."""
     name = note_file_name(task_note).removesuffix(".md")
     name = name[len("agent-task-"):] if name.lower().startswith("agent-task-") else name
     return note_file_name(NOTE_PREFIXES_BY_TYPE[task_type] + slug(name, "task"))
@@ -351,7 +351,7 @@ class CopilotService:
     @observed(LogPrefix.COPILOT_SERVICE)
     def save_as_note(self, session_id: int) -> tuple[str, CopilotSession]:
         """A plan-only task (analysis, Confluence, Jira): Copilot's last answer
-        becomes a note (``analisi-<task>.md`` or ``bozza-<task>.md``, rewritten
+        becomes a note (``analisi-<task>.md`` or ``bozza-<kind>-<task>.md``, rewritten
         when it exists), linked to the task, which becomes done. Returns the
         note's name and the session."""
         session = self.session(session_id)

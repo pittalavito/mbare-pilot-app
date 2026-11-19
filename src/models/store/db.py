@@ -571,3 +571,16 @@ class DevAccessTable(SQLModel, table=True):
     id: int = Field(default=1, primary_key=True)
     token_hash: str
     created_at: datetime = _timestamp()
+
+
+class EmbeddingUsageTable(SQLModel, table=True):
+    """One call to a remote embedder (plan 31): the context index (``index``) or a search (``search``)."""
+    __tablename__ = "embedding_usage"
+
+    id: int | None = Field(default=None, primary_key=True)
+    project_name: str = _project_fk(nullable=False)
+    model: str
+    purpose: str
+    tokens: int = 0
+    cost_eur: float = 0.0
+    created_at: datetime = _timestamp()

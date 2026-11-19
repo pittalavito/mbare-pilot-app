@@ -8,7 +8,10 @@ from typing import Any
 
 from domain.client.atlassian.http import AtlassianHttp
 from domain.client.atlassian.markdown import fenced, inline_code, join_blocks, prefix_lines, table, tidy
-from models.domain.atlassian import ConfluencePage, ConfluenceSearchHit, ConfluenceSpace
+from models.domain.atlassian import ConfluenceNode, ConfluencePage, ConfluenceSearchHit, ConfluenceSpace
+
+PLACES = ("page", "folder")
+"""What a new page can go under."""
 
 
 class ConfluenceClient:
@@ -28,6 +31,30 @@ class ConfluenceClient:
         """Pages of a space (titles only, no body)."""
         path = f"/wiki/api/v2/spaces/{space_id}/pages"
         return [self._to_page(raw) for raw in self._http.paginate_cursor(path, {"status": "current"}, limit)]
+
+    def root_pages(self, space_id: str, limit: int = 250) -> list[ConfluenceNode]:
+        """The space's top pages (its home page and the other pages without a parent)."""
+        path = f"/wiki/api/v2/spaces/{space_id}/pages"
+        return [self._to_node(raw, "page") for raw in self._http.paginate_cursor(path, {"status": "current", "depth": "root"}, limit)]
+
+    def children(self, node_id: str, kind: str = "page", limit: int = 250) -> list[ConfluenceNode]:
+        """The pages and folders right under a page or a folder (plan 32); whiteboards and the rest are left out."""
+        path = f"/wiki/api/v2/{'folders' if kind == 'folder' else 'pages'}/{node_id}/direct-children"
+        return [self._to_node(raw, raw.get("type", "page")) for raw in self._http.paginate_cursor(path, {}, limit)
+                if raw.get("type", "page") in PLACES]
+
+    def get_folder(self, folder_id: str) -> ConfluenceNode:
+        return self._to_node(self._http.get(f"/wiki/api/v2/folders/{folder_id}"), "folder")
+
+    def search_places(self, text: str, space_key: str | None = None, limit: int = 25) -> list[ConfluenceNode]:
+        """Pages and folders whose title matches ``text`` (CQL), optionally in one space."""
+        cql = f'type in (page, folder) AND title ~ "{_cql_escape(text)}"'
+        if space_key:
+            cql += f' AND space = "{_cql_escape(space_key)}"'
+        body = self._http.get("/wiki/rest/api/search", {"cql": cql, "limit": min(limit, 100)})
+        return [ConfluenceNode(id=str(raw["content"]["id"]), title=raw["content"].get("title", raw.get("title", "")),
+                               kind=raw["content"].get("type", "page"), url=self._url(raw.get("url")))
+                for raw in body.get("results", []) if raw.get("content") and raw["content"].get("type", "page") in PLACES]
 
     def get_page(self, page_id: str) -> ConfluencePage:
         """One page with its body as Markdown."""
@@ -74,6 +101,9 @@ class ConfluenceClient:
             id=str(raw["id"]), title=raw.get("title", ""), space_id=_str_or_none(raw.get("spaceId")),
             url=self._url(raw.get("_links", {}).get("webui")), body=storage_to_markdown(storage),
         )
+
+    def _to_node(self, raw: dict[str, Any], kind: str) -> ConfluenceNode:
+        return ConfluenceNode(id=str(raw["id"]), title=raw.get("title", ""), kind=kind, url=self._url(raw.get("_links", {}).get("webui")))
 
     def _to_hit(self, raw: dict[str, Any]) -> ConfluenceSearchHit:
         content = raw["content"]

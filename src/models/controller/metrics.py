@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 from models.controller.copilot import CopilotModelUsageResponse
 from models.domain.evaluation import EvaluationKind, EvaluationReport, EvaluationRun
-from models.domain.metrics import AgentMetrics, Metrics, WipMetrics
+from models.domain.metrics import AgentMetrics, EmbeddingUsage, Metrics, WipMetrics
 
 
 class MetricsResponse(BaseModel):
@@ -13,11 +13,14 @@ class MetricsResponse(BaseModel):
     copilot: list[CopilotModelUsageResponse]
     """In AI credits, not euros: apart from the agents."""
     wip: WipMetrics
+    embedding: list[EmbeddingUsage] = []
+    """The RAG's calls to a remote embedder (plan 31), with an estimated cost."""
 
     @classmethod
     def from_metrics(cls, metrics: Metrics) -> "MetricsResponse":
         return cls(days=metrics.days, project_name=metrics.project_name, agents=metrics.agents,
-                   copilot=[CopilotModelUsageResponse.from_model_usage(item) for item in metrics.copilot], wip=metrics.wip)
+                   copilot=[CopilotModelUsageResponse.from_model_usage(item) for item in metrics.copilot], wip=metrics.wip,
+                   embedding=metrics.embedding)
 
 
 class EvaluationRequest(BaseModel):
