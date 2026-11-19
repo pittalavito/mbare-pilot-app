@@ -19,11 +19,7 @@ python resource/scripts/start-venv.py
 python resource/scripts/start-docker.py
 ```
 
-4. Copia le definizioni di esempio nella cartella dei dati (`MBARE_PILOT_HOME`), solo quelle che mancano. Senza `global-coding-agent.yml` Copilot non parte ([esempi](resource/definition-example/README.md)):
-
-```bash
-python resource/scripts/init-definitions.py
-```
+4. Le definizioni di default (agenti, chatbot, automation, prompt di Copilot, contesto generale) sono nell'app, in [resource/definition](resource/definition/README.md): non c'è niente da copiare. Quello che cambi tu va in `<MBARE_PILOT_HOME>/definition/` e vince su quello dell'app.
 
 5. Avvia l'app: compila il frontend se serve e avvia l'API, che serve tutto su `API_URL`. Il worker si accende dall'intestazione della pagina.
 

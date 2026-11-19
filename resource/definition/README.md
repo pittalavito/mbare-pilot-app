@@ -1,12 +1,12 @@
-# Definizioni di esempio
+# Definizioni di default
 
-Un punto di partenza per la cartella `definition/` dei dati (`MBARE_PILOT_HOME`): da copiare, non da usare da qui. L'app legge solo `<MBARE_PILOT_HOME>/definition/`.
+Le definizioni dell'app, versionate con il codice (piano 28): l'app le legge da qui. All'avvio allinea da sola agenti, chatbot e automation a questi file (e a quelli della cartella dati).
 
-```bash
-python resource/scripts/init-definitions.py
-```
-
-Lo script copia in `<MBARE_PILOT_HOME>/definition/` i file che mancano e non sovrascrive mai quelli che ci sono già.
+**Cambiarle senza toccare l'app**: in `<MBARE_PILOT_HOME>/definition/` metti solo quello che cambi.
+- Nei file YAML globali (`global-agent.yml`, `global-chat-bots.yml`, `global-automation.yml`) un elemento con lo **stesso nome** vince su quello di qui; gli altri restano questi (il tuo `global-chat-bots.yml` può contenere solo il Refiner cambiato).
+- Negli altri file (`global-coding-agent.yml`, `coding-agent/*.md`, `context/*.md`) vince il file con lo **stesso percorso**.
+- Dalla UI di un chatbot, «Salva prompt» o il cambio di modello scrivono il chatbot lì (diventa «tuo»); «↩ Torna al default» lo toglie.
+- I file dei progetti (`project/<slug>/`) stanno solo lì.
 
 | File | Cosa |
 |---|---|

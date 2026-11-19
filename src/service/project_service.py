@@ -65,7 +65,7 @@ class ProjectService:
 
     def _with_chatbots(self, project: Project) -> Project:
         if self._definitions is not None:
-            self._definitions.seed_default_chatbots([project.name])
+            self._definitions.sync_at_startup([project.name])
         return project
 
     def update(self, name: str, *, description: str, embedding_model: EmbeddingModelName) -> Project:

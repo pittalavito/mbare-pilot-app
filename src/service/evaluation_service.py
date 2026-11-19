@@ -23,6 +23,7 @@ from collections.abc import Callable
 from datetime import date, datetime, timezone
 from pathlib import Path
 
+from config import Config
 from core.error import AppError, NotFoundError, ValidationError
 from core.observability import LogPrefix, log_exception, observed
 from domain.agent.outputs import WIP as WIP_OUTPUT, WIP_AGENT
@@ -30,7 +31,6 @@ from domain.client.embedding.embedder import Embedder, Factory
 from domain.evaluation.scoring import compare, describe, describe_expected, rank, retrieval
 from domain.masking.preview import masked_text, tagged_terms
 from domain.project.data_paths import typed_note_file_name
-from domain.project.definition_examples import EXAMPLES_DIR
 from domain.rag.chunking import split_markdown, title_of
 from models.domain.agent import AgentDefinition
 from models.domain.evaluation import (
@@ -129,7 +129,8 @@ class EvaluationService:
         questions = json.loads((self._data / "rag" / "questions.json").read_text(encoding="utf-8"))
         general = self._data / "rag" / "general-questions.json"
         if general.is_file():  # plan 27: what the agents ask of the general context (the example definitions')
-            documents += [(f"general/{path.name}", path) for path in sorted((EXAMPLES_DIR / "context").glob("*.md"))]
+            defaults = Config.get().default_definitions_root / "context"
+            documents += [(f"general/{path.name}", path) for path in sorted(defaults.glob("*.md"))]
             questions += json.loads(general.read_text(encoding="utf-8"))
         if not documents or not questions:
             raise ValidationError(f"Set del RAG vuoto in {self._data / 'rag'}.")

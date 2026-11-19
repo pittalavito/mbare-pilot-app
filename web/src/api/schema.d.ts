@@ -390,7 +390,7 @@ export interface paths {
         get?: never;
         /**
          * Update Chatbot
-         * @description A changed system prompt gets the next ``prompt_version``.
+         * @description A changed system prompt gets the next ``prompt_version``; a chatbot of the files is written back to the data folder.
          */
         put: operations["update_chatbot_chatbots__chatbot_id__put"];
         post?: never;
@@ -399,6 +399,26 @@ export interface paths {
          * @description With all its conversations; the agent runs stay in Observability.
          */
         delete: operations["delete_chatbot_chatbots__chatbot_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/chatbots/{chatbot_id}/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revert Chatbot
+         * @description «↩ Torna al default» (plan 28): out of the data folder, the app's version applied again (404 without one).
+         */
+        post: operations["revert_chatbot_chatbots__chatbot_id__revert_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -419,8 +439,7 @@ export interface paths {
         head?: never;
         /**
          * Set Chatbot Model
-         * @description Only the model (the UI changes nothing else); 400 when it is not usable.
-         *     A sync of the definition files that defines the chatbot sets it again.
+         * @description Only the model (the UI changes nothing else); 400 when it is not usable. A chatbot of the files is written back.
          */
         patch: operations["set_chatbot_model_chatbots__chatbot_id__model_patch"];
         trace?: never;
@@ -3467,6 +3486,8 @@ export interface components {
              * @default false
              */
             automation_cache: boolean;
+            /** Origin */
+            origin?: string | null;
         };
         /** ChecklistItemBody */
         ChecklistItemBody: {
@@ -4041,6 +4062,11 @@ export interface components {
             state: string;
             /** Message */
             message: string;
+            /**
+             * Origin
+             * @default app
+             */
+            origin: string;
         };
         /**
          * DefinitionKeyRequest
@@ -4276,6 +4302,11 @@ export interface components {
             title: string;
             /** Content */
             content: string;
+            /**
+             * Origin
+             * @default app
+             */
+            origin: string;
         };
         /** GitBranchesResponse */
         GitBranchesResponse: {
@@ -6915,6 +6946,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revert_chatbot_chatbots__chatbot_id__revert_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chatbot_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatbotResponse"];
+                };
             };
             /** @description Validation Error */
             422: {

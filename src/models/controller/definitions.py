@@ -49,7 +49,9 @@ class DefinitionEntryResponse(BaseModel):
     state: str
     """``new`` (a sync creates it) | ``exists`` (a sync updates it: the file wins) | ``error`` (skipped)."""
     message: str
+    origin: str = "app"
+    """``app`` (the app's default), ``tuo`` (the data folder), ``progetto`` (the project's file)."""
 
     @classmethod
     def from_entry(cls, entry: DefinitionEntry) -> "DefinitionEntryResponse":
-        return cls(kind=entry.kind, file=entry.file, name=entry.name, state=entry.state.value, message=entry.message)
+        return cls(kind=entry.kind, file=entry.file, name=entry.name, state=entry.state.value, message=entry.message, origin=entry.origin)

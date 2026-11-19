@@ -129,6 +129,10 @@ class RagService:
                 found.append((path.rsplit("/", 1)[-1], text))
         return found
 
+    def general_origin(self, name: str) -> str:
+        """``tuo`` when the data folder has the general document, else ``app``."""
+        return (self._definitions.origin(f"{GENERAL_DIR}/{name}") if self._definitions else None) or "app"
+
     @observed(LogPrefix.RAG_SERVICE)
     def index_general(self, project_name: str) -> int:
         """The general documents in the project's index: the changed ones embedded, the gone ones removed. How many were embedded."""

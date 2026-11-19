@@ -70,6 +70,9 @@ class Config(BaseSettings):
     """Embedder of the cache: ``hashing`` (a mock: same words = similar) or
     ``openrouter/<model>`` (e.g. ``openrouter/openai/text-embedding-3-small``;
     the text is masked before it leaves the PC)."""
+    app_definitions: str = ""
+    """The default definitions (plan 28): ``""`` = the app's ``resource/definition``; the data folder's
+    ``definition/`` overrides them (by name in the YAML lists, by path for the other files)."""
     rag_embedder: str = ""
     """Embedder of the projects' context index (RAG): ``""`` = each project's
     ``embedding_model`` through OpenRouter (``openai/text-embedding-3-small`` →
@@ -155,8 +158,13 @@ class Config(BaseSettings):
 
     @property
     def definitions_root(self) -> Path:
-        """Root of the definitions as files: ``<data_home>/definition`` (global ones, ``project/<slug>/``)."""
+        """Root of the user's definitions: ``<data_home>/definition`` (what overrides the app's, ``project/<slug>/``)."""
         return self.data_home / "definition"
+
+    @property
+    def default_definitions_root(self) -> Path:
+        """The app's default definitions, versioned with the code: ``resource/definition`` (plan 28)."""
+        return Path(self.app_definitions).expanduser() if self.app_definitions else self.app_root / "resource" / "definition"
 
     @property
     def backup_path(self) -> Path:

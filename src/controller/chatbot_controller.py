@@ -5,8 +5,8 @@ of an automation chatbot (entries made from a user message:
 Sending a message waits for the agent's answer (no streaming yet)."""
 from fastapi import APIRouter, Depends, Response, status
 
-from controller.dependencies import automation_cache_service, chatbot_service
-from core.error import NotFoundError
+from controller.dependencies import automation_cache_service, chatbot_service, definition_service
+from core.error import AppError, NotFoundError
 from models.controller.chatbot import (
     AutomationCacheEntryRequest,
     AutomationCacheEntryResponse,
@@ -20,13 +20,31 @@ from models.controller.chatbot import (
 )
 from service.automation_cache_service import AutomationCacheService
 from service.chatbot_service import ChatbotService
+from service.definition_service import DefinitionService
 
 router = APIRouter(tags=["chat"])
 
 
 @router.get("/projects/{project}/chatbots")
-def list_chatbots(project: str, service: ChatbotService = Depends(chatbot_service)) -> list[ChatbotResponse]:
-    return [ChatbotResponse.from_chatbot(chatbot) for chatbot in service.list_chatbots(project)]
+def list_chatbots(project: str, service: ChatbotService = Depends(chatbot_service),
+                  definitions: DefinitionService = Depends(definition_service)) -> list[ChatbotResponse]:
+    return [ChatbotResponse.from_chatbot(chatbot, _origin(definitions, chatbot)) for chatbot in service.list_chatbots(project)]
+
+
+def _origin(definitions: DefinitionService, chatbot) -> str | None:
+    try:
+        return definitions.chatbot_origin(chatbot.project_name, chatbot.name)
+    except AppError:
+        return None
+
+
+def _saved(definitions: DefinitionService, chatbot) -> ChatbotResponse:
+    """A chatbot of the files changed from the UI is written back to the data folder (plan 28): it stays after a restart."""
+    try:
+        definitions.save_chatbot(chatbot.project_name, chatbot)
+    except AppError:
+        pass
+    return ChatbotResponse.from_chatbot(chatbot, _origin(definitions, chatbot))
 
 
 @router.post("/projects/{project}/chatbots", status_code=status.HTTP_201_CREATED)
@@ -37,16 +55,27 @@ def create_chatbot(project: str, request: ChatbotRequest, service: ChatbotServic
 
 
 @router.put("/chatbots/{chatbot_id}")
-def update_chatbot(chatbot_id: int, request: ChatbotRequest, service: ChatbotService = Depends(chatbot_service)) -> ChatbotResponse:
-    """A changed system prompt gets the next ``prompt_version``."""
-    return ChatbotResponse.from_chatbot(service.update_chatbot(chatbot_id, **request.model_dump()))
+def update_chatbot(chatbot_id: int, request: ChatbotRequest, service: ChatbotService = Depends(chatbot_service),
+                   definitions: DefinitionService = Depends(definition_service)) -> ChatbotResponse:
+    """A changed system prompt gets the next ``prompt_version``; a chatbot of the files is written back to the data folder."""
+    return _saved(definitions, service.update_chatbot(chatbot_id, **request.model_dump()))
+
+
+@router.post("/chatbots/{chatbot_id}/revert")
+def revert_chatbot(chatbot_id: int, service: ChatbotService = Depends(chatbot_service),
+                   definitions: DefinitionService = Depends(definition_service)) -> ChatbotResponse:
+    """«↩ Torna al default» (plan 28): out of the data folder, the app's version applied again (404 without one)."""
+    chatbot = service.get_chatbot(chatbot_id)
+    definitions.revert_chatbot(chatbot.project_name, chatbot.name)
+    current = service.get_chatbot(chatbot_id)
+    return ChatbotResponse.from_chatbot(current, _origin(definitions, current))
 
 
 @router.patch("/chatbots/{chatbot_id}/model")
-def set_chatbot_model(chatbot_id: int, request: ChatbotModelRequest, service: ChatbotService = Depends(chatbot_service)) -> ChatbotResponse:
-    """Only the model (the UI changes nothing else); 400 when it is not usable.
-    A sync of the definition files that defines the chatbot sets it again."""
-    return ChatbotResponse.from_chatbot(service.set_model(chatbot_id, request.model))
+def set_chatbot_model(chatbot_id: int, request: ChatbotModelRequest, service: ChatbotService = Depends(chatbot_service),
+                      definitions: DefinitionService = Depends(definition_service)) -> ChatbotResponse:
+    """Only the model (the UI changes nothing else); 400 when it is not usable. A chatbot of the files is written back."""
+    return _saved(definitions, service.set_model(chatbot_id, request.model))
 
 
 @router.delete("/chatbots/{chatbot_id}", status_code=status.HTTP_204_NO_CONTENT)

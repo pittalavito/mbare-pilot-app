@@ -21,10 +21,13 @@ class ChatbotResponse(BaseModel):
     tool_names: list[str]
     automation_cache: bool = False
     """It uses the automation cache (none does since blocco 05: the cache stays in the code)."""
+    origin: str | None = None
+    """Plan 28: ``app`` (a default of the app), ``tuo`` (changed by the user: in the data folder), ``progetto`` (the project's
+    file); None = created from the UI. Saving one from the files writes it back to the data folder."""
 
     @classmethod
-    def from_chatbot(cls, chatbot: Chatbot) -> "ChatbotResponse":
-        return cls(**chatbot.model_dump(), automation_cache=chatbot.has_automation_cache)
+    def from_chatbot(cls, chatbot: Chatbot, origin: str | None = None) -> "ChatbotResponse":
+        return cls(**chatbot.model_dump(), automation_cache=chatbot.has_automation_cache, origin=origin)
 
 
 class ChatbotRequest(BaseModel):

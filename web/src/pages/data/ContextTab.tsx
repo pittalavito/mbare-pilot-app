@@ -118,7 +118,7 @@ export function ContextTab({ project }: { project: string }) {
             </Text>
             {general.data && !general.data.length && <Text size="xs" c="dimmed">Nessun documento in definition/context/.</Text>}
             {general.data?.map((item) => (
-              <NavLink key={item.name} label={item.title} description={item.name} active={item.name === generalOpen}
+              <NavLink key={item.name} label={item.title} description={`${item.name}${item.origin === "tuo" ? " · tuo" : ""}`} active={item.name === generalOpen}
                 onClick={() => setGeneralOpen(item.name)} />
             ))}
           </Stack>

@@ -223,6 +223,8 @@ class DefinitionEntry(DefinitionKey):
 
     state: DefinitionState
     message: str = ""
+    origin: str = "app"
+    """Where it comes from (plan 28): ``app`` (the app's default), ``tuo`` (the data folder), ``progetto`` (the project's file)."""
 
 
 class SyncOutcome(StrEnum):

@@ -59,6 +59,35 @@ export function useSetChatbotModel(chatbot: Chatbot) {
   });
 }
 
+/** Save the chatbot's prompt (the rest as it is): a chatbot of the files is written back to the data folder (plan 28). */
+export function useSaveChatbotPrompt(chatbot: Chatbot) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (systemPrompt: string) =>
+      unwrap(api.PUT("/chatbots/{chatbot_id}", {
+        params: { path: { chatbot_id: chatbot.id } },
+        body: { name: chatbot.name, kind: chatbot.kind, model: chatbot.model, description: chatbot.description, max_steps: chatbot.max_steps,
+          tool_names: chatbot.tool_names, system_prompt: systemPrompt },
+      })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: chatKeys.chatbots(chatbot.project_name) }),
+  });
+}
+
+/** «↩ Torna al default»: the chatbot out of the data folder, the app's version back. */
+export function useRevertChatbot(chatbot: Chatbot) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => unwrap(api.POST("/chatbots/{chatbot_id}/revert", { params: { path: { chatbot_id: chatbot.id } } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: chatKeys.chatbots(chatbot.project_name) }),
+  });
+}
+
+export const ORIGINS: Record<string, { label: string; color: string; hint: string }> = {
+  app: { label: "app", color: "gray", hint: "Il default dell'app: si aggiorna con l'app" },
+  tuo: { label: "tuo", color: "blue", hint: "Cambiato da te: sta nella cartella dati e vince sull'app" },
+  progetto: { label: "progetto", color: "grape", hint: "Dal file del progetto" },
+};
+
 /** ``context`` given: only the conversations about that note (the agent panel); undefined: all of them. */
 export function useConversations(chatbotId: number, context?: string) {
   return useQuery({
