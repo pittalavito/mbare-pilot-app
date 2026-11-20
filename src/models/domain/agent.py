@@ -122,6 +122,8 @@ class RunOrigin(StrEnum):
     """Step «Chiudi»: what an activity taught, proposed by the agent ``imparato`` (service/activity_close_service.py)."""
     DRAFT = "draft"
     """«📎 Da riferimenti»: the new activity proposed by the secretary's model from titles (service/activity_draft_service.py)."""
+    REGEX = "regex"
+    """«✨ Regex»: a regex for a saved search, proposed by the agent ``regex`` (service/saved_search_service.py)."""
 
 
 

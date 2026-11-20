@@ -62,6 +62,8 @@ class ProjectTable(SQLModel, table=True):
     """Commands allowed «Solo stavolta»: each is used up by its next run."""
     operator_chatbot_id: int | None = None
     """The Operator of the preparation before Copilot; NULL = the project's first one."""
+    code_searches: list[dict] | None = Field(default=None, sa_type=JSON)
+    """The project's saved searches (plan 34: {name, query, regex, files, description}); NULL = none."""
 
 
 class ProjectAtlassianTable(SQLModel, table=True):

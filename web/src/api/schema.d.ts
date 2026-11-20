@@ -2431,9 +2431,73 @@ export interface paths {
         put?: never;
         /**
          * Draft Activity
-         * @description One call to the secretary's model: title, description and todo items (400 with nothing chosen, 502 when the model fails).
+         * @description One call to the secretary's model: title, description and todo items (400 with nothing written or chosen, 502 when the model fails).
          */
         post: operations["draft_activity_projects__project__activities_draft_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/code-search/saved": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Saved
+         * @description The defaults (``origin: app``) and the project's own (``origin: progetto``, they replace a default with the same name).
+         */
+        get: operations["list_saved_projects__project__code_search_saved_get"];
+        /**
+         * Save Saved
+         * @description The search in the project, by name (400 for a broken regex); the list after.
+         */
+        put: operations["save_saved_projects__project__code_search_saved_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/code-search/saved/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Saved
+         * @description The project's search removed (404 when it has none with that name); a default it replaced comes back.
+         */
+        delete: operations["delete_saved_projects__project__code_search_saved__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/code-search/regex": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Propose Regex
+         * @description «✨ Regex»: one call to the agent ``regex`` (400 without a description, 502 when the model fails).
+         */
+        post: operations["propose_regex_projects__project__code_search_regex_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2956,6 +3020,11 @@ export interface components {
              * @default []
              */
             context: string[];
+            /**
+             * Description
+             * @default
+             */
+            description: string;
         };
         /**
          * ActivityPath
@@ -5491,6 +5560,46 @@ export interface components {
             /** Linked From */
             linked_from: string[];
         };
+        /** RegexProposal */
+        RegexProposal: {
+            /**
+             * Regex
+             * @default
+             */
+            regex: string;
+            /**
+             * Explanation
+             * @default
+             */
+            explanation: string;
+            /**
+             * Example
+             * @default
+             */
+            example: string;
+            /**
+             * Valid
+             * @default true
+             */
+            valid: boolean;
+            /**
+             * Example Matches
+             * @default false
+             */
+            example_matches: boolean;
+            /** Run Id */
+            run_id: string;
+            /**
+             * Cost Eur
+             * @default 0
+             */
+            cost_eur: number;
+        };
+        /** RegexRequest */
+        RegexRequest: {
+            /** Description */
+            description: string;
+        };
         /** RepositoryResponse */
         RepositoryResponse: {
             /** Path */
@@ -5668,6 +5777,60 @@ export interface components {
             clear: components["schemas"]["TranscriptView"];
             /** Aliases */
             aliases?: string[];
+        };
+        /** SavedSearchBody */
+        SavedSearchBody: {
+            /** Name */
+            name: string;
+            /** Query */
+            query: string;
+            /**
+             * Regex
+             * @default true
+             */
+            regex: boolean;
+            /**
+             * Files
+             * @default
+             */
+            files: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Replacing
+             * @default
+             */
+            replacing: string;
+        };
+        /** SavedSearchView */
+        SavedSearchView: {
+            /** Name */
+            name: string;
+            /** Query */
+            query: string;
+            /**
+             * Regex
+             * @default true
+             */
+            regex: boolean;
+            /**
+             * Files
+             * @default
+             */
+            files: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Origin
+             * @default app
+             */
+            origin: string;
         };
         /** StatusResponse */
         StatusResponse: {
@@ -11250,6 +11413,139 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActivityDraft"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_saved_projects__project__code_search_saved_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedSearchView"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_saved_projects__project__code_search_saved_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedSearchBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedSearchView"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_saved_projects__project__code_search_saved__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedSearchView"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    propose_regex_projects__project__code_search_regex_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegexRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegexProposal"];
                 };
             };
             /** @description Validation Error */

@@ -16,10 +16,12 @@ class ActivityDraftRequest(BaseModel):
     """Reference notes of the project, by name."""
     context: list[str] = []
     """Titles of the chosen pieces of the context index (only text for the proposal)."""
+    description: str = ""
+    """«Cosa vuoi fare» (plan 34): what the user wants, the main intent; enough alone."""
 
 
 @router.post("/activities/draft")
 def draft_activity(project: str, request: ActivityDraftRequest,
                    service: ActivityDraftService = Depends(activity_draft_service)) -> ActivityDraft:
-    """One call to the secretary's model: title, description and todo items (400 with nothing chosen, 502 when the model fails)."""
-    return service.propose(project, request.references, request.context)
+    """One call to the secretary's model: title, description and todo items (400 with nothing written or chosen, 502 when the model fails)."""
+    return service.propose(project, request.references, request.context, request.description)

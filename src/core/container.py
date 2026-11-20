@@ -42,6 +42,7 @@ from service.rag_service import RagService
 from service.repository_map_service import RepositoryMapService
 from service.roadmap_service import RoadmapService
 from service.run_service import RunService
+from service.saved_search_service import SavedSearchService
 from service.store.stores import Stores
 from service.structured_agent_service import StructuredAgentService
 from service.today_service import TodayService
@@ -146,6 +147,8 @@ class Container:
         self.activity_close_service = ActivityCloseService(project_data=self.project_data_service, masking=self.masking_service,
                                                            agents=self.structured_agents, plan=self.plan_service, plans=stores.plans,
                                                            rag=self.rag_service, copilot=self.copilot_service)
+        self.saved_search_service = SavedSearchService(definitions=stores.definitions, projects=stores.projects, masking=self.masking_service,
+                                                       agents=self.structured_agents)
         self.activity_draft_service = ActivityDraftService(project_data=self.project_data_service, masking=self.masking_service,
                                                            agents=self.structured_agents)
         self.definition_service = DefinitionService(

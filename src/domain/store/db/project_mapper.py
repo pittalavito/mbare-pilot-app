@@ -1,6 +1,7 @@
 """Projects: domain ``Project`` <-> ``project`` rows."""
 from domain.store.db.mapper import as_utc
 from models.domain.chat import EmbeddingModelName
+from models.domain.code_search import SavedSearch
 from models.domain.dev import TestScope
 from models.domain.note import NoteType
 from models.domain.project import CommandRequest, Project, ProjectSource
@@ -27,6 +28,7 @@ class Adapter:
             command_requests=[CommandRequest.model_validate(item) for item in row.command_requests or []],
             command_grants=list(row.command_grants or []),
             operator_chatbot_id=row.operator_chatbot_id,
+            code_searches=[SavedSearch.model_validate(item) for item in row.code_searches or []],
             created_at=as_utc(row.created_at),
         )
 
@@ -51,6 +53,7 @@ class Factory:
             command_requests=[item.model_dump() for item in project.command_requests] or None,
             command_grants=list(project.command_grants) or None,
             operator_chatbot_id=project.operator_chatbot_id,
+            code_searches=[item.model_dump() for item in project.code_searches] or None,
             created_at=project.created_at,
         )
 
