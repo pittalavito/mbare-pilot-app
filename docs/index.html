@@ -247,7 +247,7 @@ footer .wrap { display: flex; justify-content: space-between; gap: 14px; flex-wr
       <a href="#soluzione" class="hide-sm" data-home>Soluzione</a>
       <a href="#architettura" class="hide-sm" data-home>Architettura</a>
       <a href="#agenti" class="hide-sm" data-home>Agenti</a>
-      <a href="#insieme" class="hide-sm" data-home>Come funziona</a>
+      <a href="#insieme" class="hide-sm" data-home>Automation</a>
       <a href="#doc/README.md" id="nav-docs">Documentazione</a>
       <a href="https://github.com/pittalavito/mbare-pilot-app" rel="noopener">GitHub</a>
       <button class="theme-btn" id="theme" aria-label="Cambia tema" title="Cambia tema">◐</button>
@@ -528,11 +528,12 @@ footer .wrap { display: flex; justify-content: space-between; gap: 14px; flex-wr
 <!-- ------------------------------------------------------------ insieme -->
 <section class="block" id="insieme">
   <div class="wrap">
-    <p class="eyebrow">Come lavorano insieme</p>
-    <h2>Agenti, tool, automation e Claude Code: un ciclo che migliora da solo</h2>
+    <p class="eyebrow">Automation e Claude Code <span class="pill warn" style="margin-left:8px;letter-spacing:0;text-transform:none">già nel codice, non ancora provate sul lavoro vero</span></p>
+    <h2>Quello che si ripete diventa un'automation, quello che manca lo scrive Claude Code</h2>
     <p class="lead">
-      Tutto quello che un agente sa fare passa da un <b>registro unico di tool</b>. Quello che funziona in chat diventa
-      un'automation; quello che manca lo scrive Claude Code, con i test e una PR.
+      Tutto quello che un agente sa fare passa da un <b>registro unico di tool</b>. Un'automation è un grafo di step che il
+      worker esegue: step <b>tool</b> (deterministici, costo zero) e step <b>agente</b> solo quando serve ragionare. Quello
+      che funziona in chat diventa un'automation; il tool che manca lo scrive Claude Code, con i test e una PR.
     </p>
     <div class="diagram mt" role="img" aria-label="Ciclo: agenti e tool, Dev, automation, Architetto, richiesta di tool, Claude Code, PR, catalogo">
       <svg viewBox="0 0 1140 330" xmlns="http://www.w3.org/2000/svg">
@@ -577,6 +578,25 @@ footer .wrap { display: flex; justify-content: space-between; gap: 14px; flex-wr
       <div class="card"><div class="ico">✅</div><h3>Dalla chat all'automation</h3><p>Sotto una risposta di Dev, «Giusto: fanne un'automation» tiene le azioni, chiede i campi da parametrizzare e la salva.</p></div>
       <div class="card"><div class="ico">🏗️</div><h3>L'Architetto</h3><p>Progetta l'automation con i tool che ci sono, la valida, la mostra come grafo e la esporta in YAML.</p></div>
       <div class="card"><div class="ico">🤝</div><h3>Claude Code</h3><p>Lavora le richieste di tool dal server MCP dev: scrive tool e test, apre la PR. Unita la PR, il tool è nel catalogo.</p></div>
+    </div>
+    <h3 class="mt">Un'automation, per esempio</h3>
+    <div class="diagram" style="margin-top:14px" role="img" aria-label="Esempio di automation: stato git, aggiorna i branch, build, salva nota">
+      <svg viewBox="0 0 1100 150" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10z" class="d-arrow"/></marker></defs>
+        <rect x="20" y="40" width="200" height="70" rx="12" class="d-box"/><text x="120" y="70" text-anchor="middle" class="d-t">git status</text><text x="120" y="92" text-anchor="middle" class="d-s">tool · tutti i repository</text>
+        <path d="M220 75 H284" class="d-line" marker-end="url(#ar3)"/>
+        <rect x="288" y="40" width="220" height="70" rx="12" class="d-box"/><text x="398" y="70" text-anchor="middle" class="d-t">aggiorna i branch</text><text x="398" y="92" text-anchor="middle" class="d-s">tool · solo fast-forward</text>
+        <path d="M508 75 H572" class="d-line" marker-end="url(#ar3)"/>
+        <rect x="576" y="40" width="220" height="70" rx="12" class="d-accent"/><text x="686" y="70" text-anchor="middle" class="d-t">riassumi</text><text x="686" y="92" text-anchor="middle" class="d-s">agente · solo se serve</text>
+        <path d="M796 75 H860" class="d-line" marker-end="url(#ar3)"/>
+        <rect x="864" y="40" width="216" height="70" rx="12" class="d-box"/><text x="972" y="70" text-anchor="middle" class="d-t">salva nota</text><text x="972" y="92" text-anchor="middle" class="d-s">tool · nel progetto</text>
+      </svg>
+    </div>
+    <div class="card mt" style="border-left:4px solid var(--warn)">
+      <h3>A che punto sono</h3>
+      <p>Motore delle automation, Architetto, «fanne un'automation» e richieste di tool per Claude Code sono nel codice e
+      coperti dai test, ma non li ho ancora usati nel lavoro di tutti i giorni. Oggi il lavoro ripetitivo lo fanno i comandi
+      del pre e del post degli sviluppi; questa parte è la prossima da mettere alla prova.</p>
     </div>
   </div>
 </section>
@@ -647,31 +667,6 @@ corretto, come da specifica <mark class="al">TERMINE_1</mark>.</pre>
       <div class="card"><h3>Mappa del progetto</h3><p>Repository, persone, email e termini: alias stabili, scritti a mano o aggiunti da soli (i repository entrano appena il progetto li vede).</p></div>
       <div class="card"><h3>Riconoscimento automatico</h3><p>Email, URL, indirizzi IP, token e chiavi trovati nel testo diventano alias temporanei (<code>MAIL_1</code>, <code>URL_1</code>…), validi solo per quella chiamata.</p></div>
       <div class="card"><h3>Ovunque</h3><p>Chat, agenti strutturati, risultati dei tool e contesto: tutto passa dalla stessa maschera, prima di uscire.</p></div>
-    </div>
-  </div>
-</section>
-
-<!-- ------------------------------------------------------------ automation -->
-<section class="block" id="automation">
-  <div class="wrap">
-    <p class="eyebrow">Automation <span class="pill warn" style="margin-left:8px;letter-spacing:0;text-transform:none">pronte, oggi non usate</span></p>
-    <h2>Quello che si ripete uguale, senza LLM</h2>
-    <p class="lead">
-      Un'automation è un grafo di step che il worker esegue: step <b>tool</b> (deterministici, costo zero) e step
-      <b>agente</b> quando serve ragionare. L'Architetto le progetta in chat e si esportano in YAML.
-      Il motore è pronto e testato (vedi <a href="#insieme">come lavorano insieme</a>); nel flusso di oggi il lavoro ripetitivo lo fanno i comandi del pre e del post.
-    </p>
-    <div class="diagram mt" role="img" aria-label="Esempio di automation: stato git, aggiorna i branch, build, salva nota">
-      <svg viewBox="0 0 1100 150" xmlns="http://www.w3.org/2000/svg">
-        <defs><marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10z" class="d-arrow"/></marker></defs>
-        <rect x="20" y="40" width="200" height="70" rx="12" class="d-box"/><text x="120" y="70" text-anchor="middle" class="d-t">git status</text><text x="120" y="92" text-anchor="middle" class="d-s">tool · tutti i repository</text>
-        <path d="M220 75 H284" class="d-line" marker-end="url(#ar3)"/>
-        <rect x="288" y="40" width="220" height="70" rx="12" class="d-box"/><text x="398" y="70" text-anchor="middle" class="d-t">aggiorna i branch</text><text x="398" y="92" text-anchor="middle" class="d-s">tool · solo fast-forward</text>
-        <path d="M508 75 H572" class="d-line" marker-end="url(#ar3)"/>
-        <rect x="576" y="40" width="220" height="70" rx="12" class="d-accent"/><text x="686" y="70" text-anchor="middle" class="d-t">riassumi</text><text x="686" y="92" text-anchor="middle" class="d-s">agente · solo se serve</text>
-        <path d="M796 75 H860" class="d-line" marker-end="url(#ar3)"/>
-        <rect x="864" y="40" width="216" height="70" rx="12" class="d-box"/><text x="972" y="70" text-anchor="middle" class="d-t">salva nota</text><text x="972" y="92" text-anchor="middle" class="d-s">tool · nel progetto</text>
-      </svg>
     </div>
   </div>
 </section>
