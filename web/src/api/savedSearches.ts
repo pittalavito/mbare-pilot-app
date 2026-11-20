@@ -3,12 +3,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "./client";
 import type { components } from "./schema";
 
-/** Saved searches in the code (plan 34, «regex parlanti»): the defaults of the
+/** Saved searches in the code («regex parlanti»): the defaults of the
  * definitions (``origin: app``) and the project's own (``progetto``), plus «✨ Regex». */
 
 export type SavedSearch = components["schemas"]["SavedSearchView"];
 export type SavedSearchBody = components["schemas"]["SavedSearchBody"];
-export type RegexProposal = components["schemas"]["RegexProposal"];
 
 const key = (project: string) => ["projects", project, "saved-searches"] as const;
 

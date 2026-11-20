@@ -1,4 +1,4 @@
-"""Blocco 08: an item remembers the agent task born from it (``→ agent-task-….md``
+"""An item remembers the agent task born from it (``→ agent-task-….md``
 on its line) and is checked by itself when the task gets «done»."""
 from datetime import date
 

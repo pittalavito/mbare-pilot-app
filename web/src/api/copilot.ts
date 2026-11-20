@@ -10,12 +10,9 @@ import type { components } from "./schema";
 
 export type CopilotSession = components["schemas"]["CopilotSessionResponse"];
 export type CopilotMessage = components["schemas"]["CopilotMessageResponse"];
-export type CopilotStatus = CopilotSession["status"];
-export type CopilotUsage = components["schemas"]["CopilotUsageResponse"];
-export type CopilotTurn = components["schemas"]["CopilotTurnResponse"];
 export type CopilotModelOption = components["schemas"]["CopilotModelOptionResponse"];
 
-/** The repository Selects' value for «Nessun repository» (plan 21: only a task without code). */
+/** The repository Selects' value for «Nessun repository» (only a task without code). */
 export const NO_REPOSITORY = "__none__";
 /** How a session's repository is shown: the project folder, or no repository at all. */
 export const repoLabel = (path: string, none = false) => (none ? "nessun repository" : path || "(cartella del progetto)");

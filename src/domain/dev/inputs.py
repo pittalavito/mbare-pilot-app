@@ -1,4 +1,4 @@
-"""The run input of «Prepara sviluppo» and «Verifica sviluppo», as text: the
+"""The input of the tools git_check_clean, git_checkout_branches and run_tests, as text: the
 app writes it, the functions read it (``FunctionContext.pipeline_input``), and
 the user can type it to launch the automation by hand.
 

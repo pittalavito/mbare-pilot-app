@@ -1,4 +1,4 @@
-/** The request for Dev on a development's Pre or Post (plan 34), ready in the
+/** The request for Dev on a development's Pre or Post, ready in the
  * agent panel (not sent): the task, its repository and the phase's suggested steps. */
 export function devRequest(task: { name: string; title: string; pre?: { steps?: string[] }; post?: { steps?: string[] } }, phase: "pre" | "post",
   repository = ""): string {

@@ -1,4 +1,4 @@
-"""Blocco 05: an automation as YAML in the definitions' format: checked as a
+"""An automation as YAML in the definitions' format: checked as a
 save would (the Architect's proposals), saved with «Salva», exported with
 «Esporta YAML» exactly as the definitions write it."""
 import pytest

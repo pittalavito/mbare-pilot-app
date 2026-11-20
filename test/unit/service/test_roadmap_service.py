@@ -1,4 +1,4 @@
-"""Plan 30: the board of Mbare Pilot from roadmap.yml (the app's default, the data folder's wins)."""
+"""The board of Mbare Pilot from roadmap.yml (the app's default, the data folder's wins)."""
 import pytest
 from fastapi.testclient import TestClient
 

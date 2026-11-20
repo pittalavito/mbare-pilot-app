@@ -397,7 +397,7 @@ def test_pull_all_tool_hides_local_paths(git, repos):
     assert str(repos) not in failed["reason"]
 
 
-# ---------------------------------------- the tools of the automations (plan 15)
+# ---------------------------------------- the tools of the automations
 
 def _step_tool(name, git, project_data_service, **args):
     return call_tool(name, ToolContext(project_name="Shop", git=git, project_data=project_data_service), **args)

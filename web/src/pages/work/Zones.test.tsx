@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mockApi, renderPage } from "../../test/render";
 import { zoneRoutes } from "../../test/zones";
 
-/** Plan 13a: the zones «Lavoro» and «Progetto», an agent task opened inside its
+/** The zones «Lavoro» and «Progetto», an agent task opened inside its
  * activity, and the links of the old tabs (also written by the agents). */
 
 afterEach(() => vi.unstubAllGlobals());

@@ -39,7 +39,7 @@ def _origin(definitions: DefinitionService, chatbot) -> str | None:
 
 
 def _saved(definitions: DefinitionService, chatbot) -> ChatbotResponse:
-    """A chatbot of the files changed from the UI is written back to the data folder (plan 28): it stays after a restart."""
+    """A chatbot of the files changed from the UI is written back to the data folder: it stays after a restart."""
     try:
         definitions.save_chatbot(chatbot.project_name, chatbot)
     except AppError:
@@ -64,7 +64,7 @@ def update_chatbot(chatbot_id: int, request: ChatbotRequest, service: ChatbotSer
 @router.post("/chatbots/{chatbot_id}/revert")
 def revert_chatbot(chatbot_id: int, service: ChatbotService = Depends(chatbot_service),
                    definitions: DefinitionService = Depends(definition_service)) -> ChatbotResponse:
-    """«↩ Torna al default» (plan 28): out of the data folder, the app's version applied again (404 without one)."""
+    """«↩ Torna al default»: out of the data folder, the app's version applied again (404 without one)."""
     chatbot = service.get_chatbot(chatbot_id)
     definitions.revert_chatbot(chatbot.project_name, chatbot.name)
     current = service.get_chatbot(chatbot_id)

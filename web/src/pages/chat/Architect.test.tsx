@@ -6,7 +6,7 @@ import { mockApi, renderPage } from "../../test/render";
 import { AutomationEditor } from "../automation/AutomationEditor";
 import { PROJECT_API, projectRoutes } from "../../test/zones";
 
-/** Blocco 05: the Architect's proposal in the chat (graph, «Salva») and «Esporta YAML» in the editor. */
+/** The Architect's proposal in the chat (graph, «Salva») and «Esporta YAML» in the editor. */
 
 afterEach(() => vi.unstubAllGlobals());
 

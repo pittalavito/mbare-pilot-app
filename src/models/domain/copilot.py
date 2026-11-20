@@ -48,7 +48,7 @@ class CopilotSession(BaseModel):
     repository: str = ""
     """Folder of the repository inside the project (``""`` = the project folder)."""
     no_repository: bool = False
-    """No repository (plan 21, only a task without code: analysis, Confluence,
+    """No repository (only a task without code: analysis, Confluence,
     Jira): Copilot works in ``copilot/<task>/`` of the project's data, no git."""
     copilot_session_id: str
     """Copilot's own session (UUID): every turn resumes it."""

@@ -181,7 +181,7 @@ class Container:
         self._seed_defaults()
 
     def _seed_defaults(self) -> None:
-        """At startup: the default models, the tool catalog, then every definition file applied (plan 28: the defaults
+        """At startup: the default models, the tool catalog, then every definition file applied (the defaults
         follow the files; what the user changed from the UI is in the data folder). Models first: agents and chatbots need them."""
         self.model_service.seed_defaults(DEFAULT_CHAT_MODELS)
         self.agent_config_service.sync_tools()

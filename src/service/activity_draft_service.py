@@ -1,8 +1,8 @@
-"""«📎 Da riferimenti» (plan 16): **one call** to the agent ``bozza-attivita`` of
+"""«📎 Da riferimenti»: **one call** to the agent ``bozza-attivita`` of
 global-agent.yml (structured answer ``DraftAnswer``, no tools, few tokens). It reads **only the
 titles** of the chosen references (notes of the project, also those just copied
 from Jira or Confluence) and of the chosen pieces of the context index, plus
-what the user wrote in «Cosa vuoi fare» (plan 34, the main intent; it is enough
+what the user wrote in «Cosa vuoi fare» (the main intent; it is enough
 alone), masked like «Elabora WIP», and proposes title, description and todo items. Nothing is
 created: the user corrects the proposal and creates the activity as usual.
 Recorded as an agent run (origin ``draft``)."""

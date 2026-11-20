@@ -4,7 +4,6 @@ import { api, unwrap } from "./client";
 import type { components } from "./schema";
 
 export type Chatbot = components["schemas"]["ChatbotResponse"];
-export type Conversation = components["schemas"]["ConversationResponse"];
 export type Message = components["schemas"]["MessageResponse"];
 export type AutomationCacheEntry = components["schemas"]["AutomationCacheEntryResponse"];
 
@@ -59,7 +58,7 @@ export function useSetChatbotModel(chatbot: Chatbot) {
   });
 }
 
-/** Save the chatbot's prompt (the rest as it is): a chatbot of the files is written back to the data folder (plan 28). */
+/** Save the chatbot's prompt (the rest as it is): a chatbot of the files is written back to the data folder. */
 export function useSaveChatbotPrompt(chatbot: Chatbot) {
   const queryClient = useQueryClient();
   return useMutation({

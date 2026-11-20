@@ -1,4 +1,4 @@
-"""Plan 11, from an agent to an automation: the Operator's commands (allowed,
+"""From an agent to an automation: the Operator's commands (allowed,
 asked, granted), its tools, the ``tool`` steps with named fields, the draft
 of an automation from a run's trace and the learned preparation at the
 delegation, on real repositories."""
@@ -87,7 +87,7 @@ def test_only_allowed_commands_run_the_others_wait_for_the_users_answer(commands
 
 
 def test_commands_run_in_any_folder_of_the_project_even_without_git(commands, stores):
-    """Plan 25: e.g. ``git init`` in a folder that is not a repository yet; never outside the project."""
+    """E.g. ``git init`` in a folder that is not a repository yet; never outside the project."""
     service, fake = commands
     service.save_allowed("acme", ["git init"])
     new = Path(stores.projects.get("acme").root_path) / "nuovo"
@@ -240,7 +240,7 @@ def test_tool_steps_and_fields_are_validated_and_go_through_yaml(project, pipeli
 
 
 def test_the_definitions_sync_a_learned_automation(project, stores, config):  # noqa: F811
-    container = Container(stores=stores)  # the startup's sync first (plan 28): the file comes after
+    container = Container(stores=stores)  # the startup's sync first: the file comes after
     folder = config.definitions_root / "project" / "acme"
     folder.mkdir(parents=True)
     (folder / "automation.yml").write_text(

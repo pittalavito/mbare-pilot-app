@@ -39,7 +39,7 @@ class WipMetrics(BaseModel):
 
 
 class EmbeddingUsage(BaseModel):
-    """The context index's calls to a remote embedder (plan 31), by model and purpose (``index`` or ``search``)."""
+    """The context index's calls to a remote embedder, by model and purpose (``index`` or ``search``)."""
     model: str
     purpose: str
     calls: int = 0
@@ -56,4 +56,4 @@ class Metrics(BaseModel):
     copilot: list[CopilotModelUsage]
     wip: WipMetrics
     embedding: list[EmbeddingUsage] = []
-    """The RAG's embedding calls (plan 31); the local ``hashing`` embedder is free and not counted."""
+    """The RAG's embedding calls; the local ``hashing`` embedder is free and not counted."""

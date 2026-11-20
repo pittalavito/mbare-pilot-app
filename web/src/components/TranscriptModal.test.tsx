@@ -14,7 +14,7 @@ const view = (who: string, repo: string) => ({
   output: `Ho controllato **${repo}**.`,
 });
 
-describe("TranscriptModal (plan 29)", () => {
+describe("TranscriptModal", () => {
   it("shows every part, masked or in clear", async () => {
     mockApi({
       "GET /observability/runs/r1/transcript": {

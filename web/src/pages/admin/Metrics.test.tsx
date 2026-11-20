@@ -32,7 +32,7 @@ describe("Metriche", () => {
     expect(screen.getByText("4,2 s")).toBeInTheDocument(); // p95
     expect(screen.getByText(/1,50 crediti/)).toBeInTheDocument();
     expect(screen.getByText("58%")).toBeInTheDocument();
-    expect(screen.getByText(/ricerche: 12 chiamate · 340 token/)).toBeInTheDocument(); // plan 31
+    expect(screen.getByText(/ricerche: 12 chiamate · 340 token/)).toBeInTheDocument();
     expect(screen.getByText("Nessun report ancora.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("radio", { name: "Tutto" }));
     await waitFor(() => expect(asked.at(-1)).toBe(""));

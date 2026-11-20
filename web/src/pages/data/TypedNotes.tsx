@@ -41,7 +41,7 @@ export const STATUS = [
 /** What the task asks for; it picks Copilot's planning prompt (type_prompts).
  * Only a development changes the code; analysis, Confluence and Jira stay in
  * planning and Copilot's answer is saved as a note (``planOnly``); a development
- * has its Pre and Post (plan 34), never Copilot's: done in the activity's round. */
+ * has its Pre and Post, never Copilot's: done in the activity's round. */
 export const TYPES = [
   { value: "development", label: "Sviluppo", color: "teal", hint: "Copilot cambia il codice" },
   { value: "analysis", label: "Analisi", color: "orange", hint: "Copilot legge il codice e risponde con una nota" },

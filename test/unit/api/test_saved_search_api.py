@@ -1,4 +1,4 @@
-"""Plan 34: saved searches («regex parlanti») — the defaults of code-searches.yml,
+"""Saved searches («regex parlanti») — the defaults of code-searches.yml,
 the project's own (they replace a default with the same name) and «✨ Regex»
 (one structured call to the agent ``regex``, fake model)."""
 import pytest

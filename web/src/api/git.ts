@@ -3,7 +3,6 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, unwrap } from "./client";
 import type { components } from "./schema";
 
-export type Repository = components["schemas"]["RepositoryResponse"];
 export type Commit = components["schemas"]["CommitResponse"];
 export type GitStatus = components["schemas"]["StatusResponse"];
 export type Change = components["schemas"]["ChangeResponse"];

@@ -169,7 +169,7 @@ def test_the_wip_evaluation_can_try_another_prompt(evaluations, models, monkeypa
 
 
 def test_the_rag_evaluation_reports_hits_with_and_without_the_bonus(evaluations, config):
-    config.app_definitions = ""  # the app's general context (plan 27), not the tests' empty one
+    config.app_definitions = ""  # the app's general context, not the tests' empty one
     name, results = evaluations.run_rag([])  # hashing by default
 
     assert [(result.embedder, result.bonus) for result in results] == [("hashing-512", 0.15), ("hashing-512", 0.0)]

@@ -1,4 +1,4 @@
-"""Blocco 10: the drafts' templates (coding-agent/templates/<type>.md), the
+"""The drafts' templates (coding-agent/templates/<type>.md), the
 project's over the global ones, put where a prompt writes {template}."""
 from domain.project import coding_agent
 from models.domain.note import TaskType

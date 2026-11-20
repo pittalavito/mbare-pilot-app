@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mockApi, renderPage } from "../../test/render";
 import { ToolTrial } from "./ToolTrial";
 
-/** Plan 15, Admin → Tool: a tool tried by hand on a project; the ones that change something ask first. */
+/** Admin → Tool: a tool tried by hand on a project; the ones that change something ask first. */
 
 afterEach(() => vi.unstubAllGlobals());
 

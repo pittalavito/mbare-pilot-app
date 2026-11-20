@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { type LearnedStep, type Pipeline, useLearnDraft, useSaveLearned } from "../../api/automation";
 import { eur } from "../../format";
 
-/** «✅ Giusto: fanne un'automation» (plan 11): what the Operator did right in
+/** «✅ Giusto: fanne un'automation»: what the Operator did right in
  * an answer, as steps without an LLM. The app proposes which values change
  * from a time to the next (fields: branch, base, task); the user keeps the
  * steps they want, corrects the fields, names it and saves. Zero tokens. */
@@ -27,7 +27,7 @@ function LearnModal({ project, messageId, onClose }: { project: string; messageI
   const save = useSaveLearned(project);
   const [kept, setKept] = useState<boolean[]>([]);
   const [fields, setFields] = useState<Record<string, string>>({});
-  const [name, setName] = useState("Prepara sviluppo (imparata)");
+  const [name, setName] = useState("Procedura di Dev (imparata)");
   const [prepare, setPrepare] = useState(true);
   const [saved, setSaved] = useState<Pipeline>();
   useEffect(() => {

@@ -1,7 +1,7 @@
 """A project's context (RAG), under /projects/{project}: the documents of
 ``context/`` (saving one indexes it), the state of the index, «Reindicizza
 tutto» and a search to try it from the UI (what the agents get); the general
-context of the definitions (how the app works, plan 26), read only."""
+context of the definitions (how the app works), read only."""
 from fastapi import APIRouter, Depends, Response, status
 from pydantic import BaseModel
 
@@ -54,7 +54,7 @@ def delete_context(project: str, name: str, service: ProjectDataService = Depend
 
 @router.post("/context/repository-map")
 def generate_repository_map(project: str, service: RepositoryMapService = Depends(repository_map_service)) -> ContextSavedResponse:
-    """«🗺 Genera mappa dei repository» (plan 27): context/repository.md, only its generated part rewritten; indexed."""
+    """«🗺 Genera mappa dei repository»: context/repository.md, only its generated part rewritten; indexed."""
     name, error = service.generate(project)
     return ContextSavedResponse(name=name, index_error=error)
 

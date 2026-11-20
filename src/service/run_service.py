@@ -34,7 +34,7 @@ class RunService:
         return trace
 
     def transcript(self, run_id: str) -> RunTranscript:
-        """«🔍 Cosa ha visto il modello» (plan 29): the exchange as it went (masked) and in clear (the project's map
+        """«🔍 Cosa ha visto il modello»: the exchange as it went (masked) and in clear (the project's map
         applied back; input and output are the run's own clear ones)."""
         trace = self.trace(run_id)
         if trace.transcript is None:

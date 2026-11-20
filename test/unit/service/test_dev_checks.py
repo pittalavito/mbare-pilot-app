@@ -1,4 +1,4 @@
-"""The tests' settings (blocco 09) and, since plan 22, nothing automatic
+"""The tests' settings and nothing automatic
 around Copilot: a development finished by Copilot is «to verify» and nothing
 else runs (cleaning and tests are a post development task, for Dev)."""
 import shutil
@@ -25,7 +25,7 @@ def test_after_copilot_nothing_runs_by_itself(project, data, stores):  # noqa: F
 
     assert session.status is CopilotSessionStatus.DONE and data.agent_task("acme", note).status is TaskStatus.TO_VERIFY
     assert not any("Verifica" in message.content for message in service.messages(session.id) if message.role is CopilotMessageRole.EVENT)
-    assert not (project / "api" / "mbare-pilot").exists()  # plan 37: nothing in the repository
+    assert not (project / "api" / "mbare-pilot").exists()  # Nothing in the repository
 
 
 def test_the_task_scope_wins_over_the_project_default(project, data, pipeline_store):  # noqa: F811

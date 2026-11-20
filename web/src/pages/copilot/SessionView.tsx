@@ -233,7 +233,7 @@ function MessageItem({ message }: { message: CopilotMessage }) {
   );
 }
 
-/** The repository picked by mistake, changed before the first execution (plan 21): the chat stays,
+/** The repository picked by mistake, changed before the first execution: the chat stays,
  * task.md moves; «Nessun repository» only for a task without code. */
 function RepositoryChange({ project, session, planOnly, busy }: {
   project: string; session: CopilotSession; planOnly: boolean; busy: boolean;
@@ -271,7 +271,7 @@ function RepositoryChange({ project, session, planOnly, busy }: {
 }
 
 
-/** «📤 Pubblica» in the chat of a Confluence or Jira task once its draft is saved (plan 33). */
+/** «📤 Pubblica» in the chat of a Confluence or Jira task once its draft is saved. */
 function SessionPublish({ project, task }: { project: string; task: string }) {
   const tasks = useAgentTasks(project);
   const found = tasks.data?.find((item) => item.name === task);

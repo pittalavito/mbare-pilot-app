@@ -82,7 +82,7 @@ class FakeStructuredClient:
     """A chat client that answers ``structured_response`` with ``answer`` (or
     raises ``error``), emitting a generation span, and remembers what it got.
     ``tool_calls`` ((name, arguments) pairs) are asked first, one per call, when
-    the call has tools (an agent with tools, plan 26); ``tool_results`` gets what they gave."""
+    the call has tools (an agent with tools); ``tool_results`` gets what they gave."""
 
     def __init__(self, answer: BaseModel | None = None, error: Exception | None = None, tool_calls: list | None = None):
         self.answer = answer

@@ -1,6 +1,6 @@
 """search_context: the project's context index (RAG, service/rag_service.py):
 the documents of the project's ``context/`` and the general context of the
-definitions (how the app works, plan 26). The best pieces for a question,
+definitions (how the app works). The best pieces for a question,
 each with where it comes from (``origin``: progetto / generale), to cite it;
 the project's context wins over the general one.
 Costs tokens only when called; replaces read_context, which read everything."""

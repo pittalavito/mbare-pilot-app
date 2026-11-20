@@ -1,4 +1,4 @@
-"""Plan 16, «📎 Da riferimenti»: the secretary (one structured call, fake model)
+"""«📎 Da riferimenti»: the secretary (one structured call, fake model)
 proposes a new activity reading only the titles of the chosen references and
 context pieces; nothing is created."""
 import pytest

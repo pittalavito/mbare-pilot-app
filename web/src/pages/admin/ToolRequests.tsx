@@ -5,7 +5,7 @@ import { useSearchParams } from "react-router-dom";
 import { type ToolRequest, useDismissToolRequest, useNewDevToken, useToolRequests } from "../../api/toolRequests";
 import { localTime } from "../../format";
 
-/** Admin → «Richieste di tool» (plan 20): the tools the Architetto asked for, of
+/** Admin → «Richieste di tool»: the tools the Architetto asked for, of
  * the whole app. Claude Code on this PC, in a clone of mbare-pilot-app, reads
  * them through its MCP server (the token and the command here), writes the
  * tool, opens the PR and marks the request done. */

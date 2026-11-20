@@ -1,6 +1,6 @@
-"""git_check_clean («Prepara sviluppo»): the repositories to prepare
+"""git_check_clean (a development's Pre): the repositories to prepare
 have no uncommitted changes to tracked files (new untracked files are fine);
-otherwise the step fails, so Copilot does not start on top of them.
+otherwise it fails, so Copilot does not start on top of them.
 
 The repositories are those of ``targets`` (``<repository> <branch> [<base>]``
 per line, domain/dev/inputs.py): in the automation, the run input."""
@@ -41,6 +41,6 @@ def run(context: ToolContext, params: Params) -> Result:
 
 GIT_CHECK_CLEAN = params_tool(
     "git_check_clean",
-    "Fails if the given repositories have uncommitted changes to tracked files (the first step of «Prepara sviluppo»).",
+    "Fails if the given repositories have uncommitted changes to tracked files (useful before a development).",
     Params, run,
 )

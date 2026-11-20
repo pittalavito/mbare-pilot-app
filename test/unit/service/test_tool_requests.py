@@ -1,4 +1,4 @@
-"""Plan 20: the Architetto asks for a missing tool (request_tool) and the request,
+"""The Architetto asks for a missing tool (request_tool) and the request,
 of the whole app, reaches Claude Code through its own MCP server (/mcp-dev, a
 token generated in Admin), which marks it working, done or dismissed."""
 import httpx

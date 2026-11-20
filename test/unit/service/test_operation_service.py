@@ -1,4 +1,4 @@
-"""Plans 25 and 34: «🤖 Automatico» of a development's Pre or Post: the commands,
+"""«🤖 Automatico» of a development's Pre or Post: the commands,
 then the automation, run by the worker without an agent; commands not
 allowed are asked first; first error = stop; all fine = the Pre or Post is done."""
 import shutil

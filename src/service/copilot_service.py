@@ -17,7 +17,7 @@ The task reaches Copilot through the app's **MCP server**
 (controller/mcp_server.py): every session has its own token, valid only for
 its task; each turn gives Copilot the server and the token (``McpAccess``),
 after checking that the server answers (no answer = the turn does not start).
-Nothing is written in the repository (plan 37): the prompt names the task
+Nothing is written in the repository: the prompt names the task
 (``{task}``) and Copilot reads it from the server.
 
 The MCP tools are methods here: ``mcp_task``, ``mcp_links``, ``mcp_link``,
@@ -34,7 +34,7 @@ execution of the same session), back to todo otherwise.
 Only a development task is executed. The other types (analysis, Confluence,
 Jira: ``TaskType.plan_only``) stay in planning: Copilot reads and answers, and
 the user saves its last answer as a note linked to the task, which becomes done.
-They can also be delegated **without a repository** (plan 21): Copilot works
+They can also be delegated **without a repository**: Copilot works
 in ``copilot/<task>/`` of the project's data (no git), a folder removed when
 the answer is saved as a note or the session is deleted.
 
@@ -223,7 +223,7 @@ class CopilotService:
         task's type in ``type_prompts``, else ``plan_prompt``); ``model``: one
         of its models (``""`` = the default), for every turn. A task not
         refined yet (created, refinement) can be delegated: the chat says so.
-        ``no_repository``: only a task without code, Copilot works in its data folder (plan 21)."""
+        ``no_repository``: only a task without code, Copilot works in its data folder."""
         if not self._client.available:
             raise UpstreamError(NOT_FOUND)
         settings = self.coding_agent(project_name)
@@ -281,7 +281,7 @@ class CopilotService:
     @observed(LogPrefix.COPILOT_SERVICE)
     def change_repository(self, session_id: int, repository: str = "", no_repository: bool = False) -> CopilotSession:
         """The repository picked by mistake, changed while the session has never
-        been executed (plan 21): the chat stays. ``no_repository`` only for a task without code."""
+        been executed: the chat stays. ``no_repository`` only for a task without code."""
         session = self.session(session_id)
         if session.status != CopilotSessionStatus.PLANNING or session.head_before is not None:
             raise ConflictError("Il repository si cambia solo prima della prima esecuzione: "
@@ -344,7 +344,7 @@ class CopilotService:
         """A plan-only task (analysis, Confluence, Jira): Copilot's last answer
         becomes a note (``analisi-<task>.md`` or ``bozza-<kind>-<task>.md``, rewritten
         when it exists), linked to the task: an analysis becomes done, a draft
-        «da verificare» until it is published (plan 33). Returns the note's name and the session."""
+        «da verificare» until it is published. Returns the note's name and the session."""
         session = self.session(session_id)
         if session.status in (CopilotSessionStatus.QUEUED, CopilotSessionStatus.RUNNING):
             raise ConflictError("Copilot sta eseguendo il task: aspetta che finisca o annulla.")
@@ -359,7 +359,7 @@ class CopilotService:
         heading = "Analisi" if task.type == TaskType.ANALYSIS else "Bozza"
         self._data.save_note(session.project_name, note, f"# {heading}: {task.title}\n\n{answer.strip()}\n")
         references = task.references if note in task.references else [*task.references, note]
-        status = TaskStatus.TO_VERIFY if task.type.publishes else TaskStatus.DONE  # plan 33: a draft waits for «Pubblica»
+        status = TaskStatus.TO_VERIFY if task.type.publishes else TaskStatus.DONE  # A draft waits for «Pubblica»
         self._data.save_agent_task(session.project_name, session.task_note,
                                    task.model_copy(update={"references": references, "status": status}))
         self._message(session, CopilotMessageRole.EVENT, f"💾 Salvata come nota {note}, collegata al task: " + (

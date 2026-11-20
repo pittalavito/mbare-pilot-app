@@ -71,17 +71,17 @@ class TaskType(StrEnum):
 
     @property
     def publishes(self) -> bool:
-        """Confluence or Jira (plan 33): the draft saved, then «Pubblica»; done when published."""
+        """Confluence or Jira: the draft saved, then «Pubblica»; done when published."""
         return self in (TaskType.CONFLUENCE, TaskType.JIRA)
 
     @property
     def phases(self) -> bool:
-        """A development (plan 34): Pre before the delegation, Post after the final confirmation."""
+        """A development: Pre before the delegation, Post after the final confirmation."""
         return self is TaskType.DEVELOPMENT
 
 
 class Phase(StrEnum):
-    """Pre and Post of a development (plan 34; were the pre_dev and post_dev tasks of plan 22)."""
+    """Pre and Post of a development."""
     PRE = "pre"
     """Before the delegation: branch, update, build."""
     POST = "post"
@@ -93,7 +93,7 @@ class DevPhase(BaseModel):
     steps: list[str] = []
     """The suggested steps, in words."""
     commands: list[str] = []
-    """Shell commands, one each, run in the task's repository without an agent (plan 25)."""
+    """Shell commands, one each, run in the task's repository without an agent."""
     automation: str = ""
     """An automation of the project (by name), run after the commands; ``""`` = none."""
 
@@ -122,13 +122,13 @@ class AgentTask(BaseModel):
     tests: TestScope | None = None
     """``run_tests``: every test or only the touched ones; None = the project's default."""
     pre: DevPhase = DevPhase()
-    """A development's Pre (plan 34): before the delegation."""
+    """A development's Pre: before the delegation."""
     post: DevPhase = DevPhase()
-    """A development's Post (plan 34): after the final confirmation."""
+    """A development's Post: after the final confirmation."""
     publish_space: str = ""
-    """A Confluence task's space for a new page (plan 32); ``""`` = the project's."""
+    """A Confluence task's space for a new page; ``""`` = the project's."""
     publish_parent: str = ""
-    """A Confluence task's parent page or folder for a new page: its id or link (plan 32); ``""`` = the last place used."""
+    """A Confluence task's parent page or folder for a new page: its id or link; ``""`` = the last place used."""
 
 
 class TodoPriority(StrEnum):

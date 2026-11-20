@@ -97,7 +97,7 @@ def test_a_role_of_another_scope_is_an_error_and_the_other_agents_are_applied(se
 
 
 def test_at_startup_every_file_is_applied(services, definition_store, agent_config_service):
-    """Plan 28: the defaults follow the files (a change made only from the UI goes back to the file)."""
+    """The defaults follow the files (a change made only from the UI goes back to the file)."""
     definitions, _, _ = services
     agent_config_service.save_config(agent_config_service.get_config("hello").model_copy(update={"tool_names": []}))  # from UI
     hello = f"""
@@ -359,7 +359,7 @@ def test_without_the_files_a_project_has_no_chatbots_and_a_broken_file_is_logged
     assert "YAML non valido" in caplog.text
 
 
-# ------------------------------------------------------------- layers (plan 28)
+# ------------------------------------------------------------- layers
 
 APP_BOTS = f"""chatbots:
   - name: Refiner

@@ -6,7 +6,7 @@ import type { CopilotSession } from "../../api/copilot";
 import { mockApi, renderPage } from "../../test/render";
 import { PROJECT_API, projectRoutes } from "../../test/zones";
 
-/** Copilot without its tab (plan 13b): delegated from the task's form, its chat
+/** Copilot without its tab: delegated from the task's form, its chat
  * in the agent panel of the task (questions during the execution, cancel, the
  * files changed). */
 
@@ -136,7 +136,7 @@ describe("Copilot", () => {
     expect(screen.getByText(/L'HEAD è cambiato/)).toBeInTheDocument();
   });
 
-  it("a task without code starts from «Nessun repository» and goes without one (plan 21)", async () => {
+  it("a task without code starts from «Nessun repository» and goes without one", async () => {
     const started = vi.fn(async (request: Request) => ({ ...session({ id: 9, no_repository: true, repository: "" }), ...(await request.json()) }));
     api({
       "GET /projects/acme/agent-tasks": [{ ...TASK, type: "confluence" }],
@@ -156,7 +156,7 @@ describe("Copilot", () => {
     expect(await started.mock.results[0].value).toMatchObject({ repository: "", no_repository: true });
   });
 
-  it("the repository changes in the chat before the first execution (plan 21)", async () => {
+  it("the repository changes in the chat before the first execution", async () => {
     const changed = vi.fn(async (request: Request) => ({ ...session({ repository: "web" }), ...(await request.json()) }));
     api({
       "GET /projects/acme/copilot-sessions": [session()],

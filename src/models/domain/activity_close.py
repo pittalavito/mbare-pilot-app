@@ -1,4 +1,4 @@
-"""Step «Chiudi» of an activity (plan 18): what it taught goes in ``context/imparato.md``."""
+"""Step «Chiudi» of an activity: what it taught goes in ``context/imparato.md``."""
 from pydantic import BaseModel, Field
 
 
@@ -28,7 +28,7 @@ class ActivityClosed(BaseModel):
 
 
 class ActivityArchived(BaseModel):
-    """«🗄 Archivia» (plan 33): the summary note written and what was deleted."""
+    """«🗄 Archivia»: the summary note written and what was deleted."""
     note: str
     deleted: list[str] = []
     """The notes deleted: the activity, its tasks, their answers and drafts, the references chosen."""

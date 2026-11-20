@@ -12,7 +12,7 @@ import { SessionView } from "../copilot/SessionView";
 import { ReferenceModal } from "../data/ReferencesSection";
 import { isPlanOnly } from "../data/TypedNotes";
 
-/** The agent panel (plan 13b): one chat at the right of the zones «Lavoro» and
+/** The agent panel: one chat at the right of the zones «Lavoro» and
  * «Automation», with the agent of what is open:
  *
  * | open                                         | agent        | its conversations are about |
@@ -26,7 +26,7 @@ import { isPlanOnly } from "../data/TypedNotes";
  * Its menu changes agent by hand (also to a chatbot of the project's own): the
  * choice lasts until what is open changes. A page asks the panel's agent to do
  * something (e.g. «Rifinisci con il Refiner») with ``useAgentPanel().ask``, or
- * the Operator (plan 11: «Fallo fare all'Operatore» in the delegation) with
+ * the Operator («Fallo fare all'Operatore» in the delegation) with
  * ``ask(text, "operator")``: the project's Operator of the preparation. The
  * Operator's answers can become automations, and the commands it asks for
  * wait for the user's ok here. */

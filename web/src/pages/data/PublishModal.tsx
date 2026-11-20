@@ -10,7 +10,7 @@ import { PlacePicker } from "./PlacePicker";
 /** «Pubblica su Confluence/Jira» of a Confluence or Jira task's draft: the
  * preview (rendered), the comparison with the page or issue it updates, the
  * aliases put back to their real values; for a new page the space and where
- * to put it (plan 32: tree of pages and folders, search, pasted link; the
+ * to put it (tree of pages and folders, search, pasted link; the
  * task's destination first, else the last place used in the project), for a
  * new issue the Jira project and its type. Nothing is published before «Pubblica». */
 

@@ -123,7 +123,7 @@ def search_pages(project: str, q: str, space: str | None = None, limit: int = 25
 @router.get("/confluence/places")
 def confluence_places(project: str, space: str | None = None, parent: str = "", kind: str = "page",
                       service: AtlassianService = Depends(atlassian_service)) -> list[ConfluenceNode]:
-    """Where a new page can go (plan 32): the space's top pages, or the pages and folders under ``parent``."""
+    """Where a new page can go: the space's top pages, or the pages and folders under ``parent``."""
     return service.site(project).places(space, parent, kind)
 
 

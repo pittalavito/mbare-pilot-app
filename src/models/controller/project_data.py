@@ -67,13 +67,13 @@ class AgentTaskBody(BaseModel):
     tests: TestScope | None = None
     """``run_tests``: ``all`` or ``touched`` tests; null = the project's default."""
     pre: DevPhase = DevPhase()
-    """A development's Pre (plan 34): steps, commands, automation; before the delegation."""
+    """A development's Pre: steps, commands, automation; before the delegation."""
     post: DevPhase = DevPhase()
-    """A development's Post (plan 34): after the final confirmation."""
+    """A development's Post: after the final confirmation."""
     publish_space: str = ""
-    """A Confluence task's space for a new page (plan 32)."""
+    """A Confluence task's space for a new page."""
     publish_parent: str = ""
-    """A Confluence task's parent page or folder (id or link) for a new page (plan 32)."""
+    """A Confluence task's parent page or folder (id or link) for a new page."""
 
     def to_task(self) -> AgentTask:
         return AgentTask(**self.model_dump(exclude={"criteria"}), criteria=[ChecklistItem(**item.model_dump()) for item in self.criteria])

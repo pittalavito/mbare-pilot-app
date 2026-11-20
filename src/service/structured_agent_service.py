@@ -1,6 +1,6 @@
-"""The agents of the Library with a structured answer (``output:``, plan 17):
+"""The agents of the Library with a structured answer (``output:``):
 **one call**, no tools, the schema of ``STRUCTURED_OUTPUTS``; a service may
-give it tools (the Pianificatore's ``search_context``, plan 26): then a few
+give it tools (the Pianificatore's ``search_context``): then a few
 steps (``max_steps``) of tool calls before the structured answer. The services
 («Elabora WIP», the Pianificatore, «📎 Da riferimenti») prepare and mask the
 input, call the agent by name, use the answer and record the run with what
@@ -36,7 +36,7 @@ class StructuredCall:
     telemetry: RunTelemetry
     latency_ms: float
     transcript: ModelTranscript | None = None
-    """What went to and came from the model, masked (plan 29)."""
+    """What went to and came from the model, masked."""
 
 
 class StructuredAgentService:

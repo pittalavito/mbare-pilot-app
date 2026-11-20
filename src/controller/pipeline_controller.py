@@ -49,7 +49,7 @@ def create_pipeline(project: str, request: PipelineRequest, service: PipelineSer
 
 @router.get("/messages/{message_id}/learn-draft")
 def learn_draft(message_id: int, service: LearnService = Depends(learn_service)) -> LearnDraft:
-    """«✅ Giusto: fanne un'automation» (plan 11): what the agent did right in that answer, as steps and values; 404 once the trace expired."""
+    """«✅ Giusto: fanne un'automation»: what the agent did right in that answer, as steps and values; 404 once the trace expired."""
     return service.draft(message_id)
 
 
@@ -105,7 +105,7 @@ def delete_run(run_id: int, service: PipelineService = Depends(pipeline_service)
 
 @router.get("/tool-specs")
 def list_tool_specs() -> list[ToolSpecResponse]:
-    """Every tool of the registry with its arguments (plan 15): the editor offers the non chat-only ones for a step."""
+    """Every tool of the registry with its arguments: the editor offers the non chat-only ones for a step."""
     return [ToolSpecResponse.from_spec(spec) for spec in sorted(TOOL_REGISTRY.values(), key=lambda spec: spec.name)]
 
 

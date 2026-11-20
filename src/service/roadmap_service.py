@@ -1,4 +1,4 @@
-"""The board of Mbare Pilot (plan 30): ``roadmap.yml`` read from the
+"""The board of Mbare Pilot: ``roadmap.yml`` read from the
 definitions (the data folder's wins over the app's, like the other files)
 and validated. Read only: the board is changed in the file."""
 import yaml

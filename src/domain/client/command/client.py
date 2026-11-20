@@ -1,5 +1,5 @@
-"""A command run as a subprocess in a repository's folder (the tests of the
-«Verifica sviluppo»): no shell, stdin closed, output (stdout and stderr
+"""A command run as a subprocess in a repository's folder (tests, builds, the
+commands of a Pre or Post): no shell, stdin closed, output (stdout and stderr
 together) and exit code returned; only a command that cannot start or does
 not finish in time is an error."""
 import subprocess

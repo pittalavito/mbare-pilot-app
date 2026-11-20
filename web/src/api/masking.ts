@@ -5,7 +5,6 @@ import type { components } from "./schema";
 
 /** The values of a project the LLM sees only as aliases, and the definitions synced from files. */
 
-export type MaskEntry = components["schemas"]["MaskEntryResponse"];
 export type MaskCategory = components["schemas"]["MaskCategory"];
 export type SyncReport = components["schemas"]["SyncReportResponse"];
 

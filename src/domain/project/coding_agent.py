@@ -6,9 +6,8 @@ The planning prompts to choose from when delegating are the ``<name>.md`` of
 (the project's win by name); ``type_prompts`` picks one per task type when
 the user does not choose; ``task_checklists`` say, per task type, what a
 refined task should have (the Refiner checks it). Every planning prompt names the task with
-``{task}`` (plan 37): Copilot reads it and its references through the app's MCP
-server, nothing is written in the repository. The drafts' templates
-(blocco 10) are ``coding-agent/templates/<type>.md`` (``confluence.md``,
+``{task}``: Copilot reads it and its references through the app's MCP
+server, nothing is written in the repository. The drafts' templates are ``coding-agent/templates/<type>.md`` (``confluence.md``,
 ``jira.md``; the project's win by name): a prompt puts the template of the
 task's type where it writes ``{template}``.
 

@@ -1,18 +1,18 @@
-"""Step «Chiudi» of an activity (plan 18).
+"""Step «Chiudi» of an activity.
 
 - **Proposal** (``propose_learned``): **one call** to the agent ``imparato`` of
   global-agent.yml (structured answer ``LearnedAnswer``, no tools): the
   activity's title and description, its tasks and the round's summary,
   masked; a few points to remember, in clear, for the user to correct.
 - **Close** (``close``): what was learned goes in the project's context
-  document ``context/imparato.md`` **by theme** (plan 27): each point
+  document ``context/imparato.md`` **by theme**: each point
   («Tema: testo», one per line; no theme = «Generale») at the top of its
   ``## <tema>`` section (made when missing), with the activity and the date;
   the document is then indexed for the agents with ``search_context``. Nothing learned = the
   document is not touched. The activity becomes «done» and its round stops.
 - **Reopen** (``reopen``): back to «in progress»; the section already written
   stays (the document is a diary: corrected by hand from the Contesto section).
-- **Archive** (``archive``, plan 33): a done activity becomes a summary note
+- **Archive** (``archive``): a done activity becomes a summary note
   ``archivio-<attività>.md`` (description, items, tasks with their outcome and
   the pages and issues they made); the activity, its tasks, their answers and
   drafts, its plan and the tasks' Copilot sessions are deleted, and the
@@ -112,7 +112,7 @@ class ActivityCloseService:
 
     @observed(LogPrefix.CLOSE_SERVICE)
     def archive(self, project_name: str, activity_name: str, delete_references: list[str], today: date | None = None) -> ActivityArchived:
-        """A done activity into ``archivio-<attività>.md`` (plan 33); the rest deleted, the references in ``delete_references`` too."""
+        """A done activity into ``archivio-<attività>.md``; the rest deleted, the references in ``delete_references`` too."""
         name = note_file_name(activity_name)
         activity = self._data.activity(project_name, name)
         if activity.status is not ActivityStatus.DONE:

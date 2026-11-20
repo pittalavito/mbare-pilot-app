@@ -163,7 +163,7 @@ def test_a_missing_open_task_and_runs_outside_a_chatbot(context):
 
 
 def test_the_refiner_writes_where_to_publish(context):
-    """Plan 32: the destination of a new Confluence page, as the user said."""
+    """The destination of a new Confluence page, as the user said."""
     run = _open(context, IN_LAVORO)
     _update(run, publish_space="DOC", publish_parent="https://acme.atlassian.net/wiki/spaces/DOC/folder/3")
     task = run.project_data.agent_task("Acme Srl", IN_LAVORO)

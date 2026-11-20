@@ -6,8 +6,8 @@ import { mockApi, renderPage } from "../../test/render";
 import { PROJECT_API, projectRoutes } from "../../test/zones";
 import { stepOf } from "./ActivityPage";
 
-/** Plan 18, an activity in steps: Descrivi → Pianifica → Lavora → Chiudi;
- * plan 22: pre/post development tasks (Dev or by hand, «Fatto») and «Apri». */
+/** An activity in steps: Descrivi → Pianifica → Lavora → Chiudi;
+ * Pre/post development tasks (Dev or by hand, «Fatto») and «Apri». */
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -141,7 +141,7 @@ describe("3. Lavora", () => {
 
     expect(await screen.findByRole("tab", { name: /Lavora/, selected: true })).toBeInTheDocument();
     expect(screen.getByText(/Pronto\. Premi «▶️ Avvia»/)).toBeInTheDocument();
-    expect(screen.queryByText("Prima di delegare a Copilot")).not.toBeInTheDocument(); // plan 22: pre/post development tasks instead
+    expect(screen.queryByText("Prima di delegare a Copilot")).not.toBeInTheDocument(); // pre and post are steps of the development
     expect(screen.getByRole("button", { name: "🤖 Delega a mano" })).toBeInTheDocument(); // paused: by hand
     fireEvent.click(screen.getByRole("button", { name: "▶️ Avvia" }));
     await waitFor(() => expect(paused).toHaveBeenCalled());
@@ -341,7 +341,7 @@ describe("4. Chiudi", () => {
     await waitFor(() => expect(reopened).toHaveBeenCalled());
   });
 
-  it("«🗄 Archivia» deletes the references chosen and opens the archive (plan 33)", async () => {
+  it("«🗄 Archivia» deletes the references chosen and opens the archive", async () => {
     const archived = vi.fn(async (request: Request) => ({ note: "archivio-login-sicuro.md", deleted: [], body: await request.json() }));
     api(DONE_PATH, {
       "POST /projects/acme/activities/attivita-login.md/archive": archived,
@@ -359,7 +359,7 @@ describe("4. Chiudi", () => {
   });
 });
 
-describe("plan 33: publish in the round and references in Pianifica", () => {
+describe("publish in the round and references in Pianifica", () => {
   it("a Confluence task with its draft saved shows «📤 Pubblica», with the draft editable", async () => {
     const page = { ...AGENT_TASK, name: "agent-task-pagina.md", title: "Pagina", type: "confluence", status: "to_verify", references: ["bozza-confluence-pagina.md"] };
     const published = vi.fn(async (request: Request) => ({ kind: "confluence", mode: "create", url: "u", reference: "r.md", draft: "", ...(await request.json()) }));

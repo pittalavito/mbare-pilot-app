@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mockApi, renderPage } from "../../test/render";
 import { AdminPage } from "./AdminPage";
 
-/** Plan 20, Admin → «Richieste di tool»: the requests for Claude Code, the token and the command, dismissing one. */
+/** Admin → «Richieste di tool»: the requests for Claude Code, the token and the command, dismissing one. */
 
 afterEach(() => vi.unstubAllGlobals());
 

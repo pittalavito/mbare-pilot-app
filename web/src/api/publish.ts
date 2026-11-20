@@ -4,23 +4,21 @@ import { api, unwrap } from "./client";
 import { dataKeys } from "./projectData";
 import type { components } from "./schema";
 
-/** «Pubblica su Confluence/Jira» of a task's draft (blocco 10): what it would
+/** «Pubblica su Confluence/Jira» of a task's draft: what it would
  * do, the pages and issue types to choose from, the publication. */
 
-export type PublishPreview = components["schemas"]["PublishPreview"];
-export type PublishResult = components["schemas"]["PublishResult"];
 export type PublishRequest = components["schemas"]["PublishRequest"];
 
 /** Is ``note`` a draft to publish (``bozza-confluence-<task>.md`` / ``bozza-jira-<task>.md``, saved from Copilot's answer)? */
 export const isDraft = (note: string) => note.startsWith("bozza-confluence-") || note.startsWith("bozza-jira-");
 
-/** The draft's kind, from its name (plan 32): a badge in the notes list. */
+/** The draft's kind, from its name: a badge in the notes list. */
 export const draftKind = (note: string): "confluence" | "jira" | null =>
   note.startsWith("bozza-confluence-") ? "confluence" : note.startsWith("bozza-jira-") ? "jira" : null;
 
 export type ConfluenceNode = components["schemas"]["ConfluenceNode"];
 
-/** Where a new page can go (plan 32): the space's top pages, or the pages and folders under ``parent``. */
+/** Where a new page can go: the space's top pages, or the pages and folders under ``parent``. */
 export function usePlaces(project: string, space: string, parent: ConfluenceNode | null, enabled: boolean) {
   return useQuery({
     queryKey: ["projects", project, "atlassian", "places", space, parent?.id ?? ""],
@@ -58,14 +56,6 @@ export function usePublish(project: string, task: string) {
   });
 }
 
-/** The pages of a Confluence space (to pick the new page's parent). */
-export function useSpacePages(project: string, space: string, enabled: boolean) {
-  return useQuery({
-    queryKey: ["projects", project, "atlassian", "pages", space],
-    queryFn: () => unwrap(api.GET("/projects/{project}/atlassian/confluence/pages", { params: { path: { project }, query: { space } } })),
-    enabled: enabled && !!space.trim(),
-  });
-}
 
 export function useIssueTypes(project: string, projectKey: string, enabled: boolean) {
   return useQuery({

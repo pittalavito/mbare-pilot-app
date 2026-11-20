@@ -41,13 +41,13 @@ def run_trace(run_id: str, service: RunService = Depends(run_service)) -> dict[s
 
 @router.get("/observability/runs/{run_id}/transcript")
 def run_transcript(run_id: str, service: RunService = Depends(run_service)) -> RunTranscript:
-    """«🔍 Cosa ha visto il modello» (plan 29): system prompt, history, input, tools and answer, masked and in clear."""
+    """«🔍 Cosa ha visto il modello»: system prompt, history, input, tools and answer, masked and in clear."""
     return service.transcript(run_id)
 
 
 @router.get("/roadmap")
 def roadmap(service: RoadmapService = Depends(roadmap_service)) -> Roadmap:
-    """«🚀 Mbare Pilot» (plan 30): the app's future activities, from roadmap.yml of the definitions."""
+    """«🚀 Mbare Pilot»: the app's future activities, from roadmap.yml of the definitions."""
     return service.roadmap()
 
 

@@ -6,8 +6,8 @@ import { CHATBOT_KINDS, type Chatbot, ORIGINS, useRevertChatbot, useSaveChatbotP
 import { ModelSelect } from "../../components/ModelSelect";
 
 /** A chatbot and its agent: model and system prompt change here. A chatbot of
- * the definition files saved here is written back to the data folder (plan 28:
- * «tuo», it wins over the app's default after a restart); «↩ Torna al default»
+ * the definition files saved here is written back to the data folder
+ * («tuo», it wins over the app's default after a restart); «↩ Torna al default»
  * brings the app's back. */
 export function ChatbotDetails({ chatbot, opened, onClose }: { chatbot: Chatbot; opened: boolean; onClose: () => void }) {
   const kind = CHATBOT_KINDS[chatbot.kind];

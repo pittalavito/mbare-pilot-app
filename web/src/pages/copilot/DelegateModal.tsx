@@ -7,7 +7,7 @@ import { credits } from "../../format";
 import { useRepositories } from "../../api/git";
 import { useAgentTasks } from "../../api/projectData";
 
-/** Analysis, Confluence, Jira: no code to change, they can go without a repository (plan 21). */
+/** Analysis, Confluence, Jira: no code to change, they can go without a repository. */
 export const withoutCode = (type?: string) => type === "analysis" || type === "confluence" || type === "jira";
 /** The Select's value for "the default" (the API's ``""``). */
 const DEFAULT = "__default__";
@@ -16,14 +16,12 @@ const fromSelect = (value: string | null) => (value === null || value === DEFAUL
 const usd = (value: number) => `$${value.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 3 })}`;
 const modelLabel = (option: CopilotModelOption) =>
   option.price ? `${option.name} · ${usd(option.price.input)} / ${usd(option.price.output)}` : `${option.name} · prezzo non indicato`;
-/** ``agent-task-login-form.md`` → ``login-form``. */
-export const taskSlug = (note: string) => note.replace(/^agent-task-/, "").replace(/\.md$/, "");
 
 /** Delegate an agent task to Copilot on a repository of the project: the
  * planning chat opens with Copilot's first answer (it reads the task and the
  * code: tens of seconds). ``task`` fixed when opened from the task's form.
  * Prompt and model come from the coding-agent definition (data folder).
- * Nothing is prepared first (plan 22: that is a pre development task).
+ * Nothing is prepared first (that is a pre development task).
  * A task without code starts from «Nessun repository» (Copilot works in the
  * project's data), unless the plan proposes one. */
 export function DelegateModal({ project, task, repository: proposed, opened, onClose }: {

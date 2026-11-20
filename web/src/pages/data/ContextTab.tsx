@@ -10,9 +10,9 @@ import { ConfirmButton } from "../../components/ConfirmButton";
 /** «📚 Contesto»: the documents of the project's context/ folder
  * (architecture, conventions, decisions, runbooks, glossary). Saving one
  * indexes it; the agents search the index (search_context) together with the
- * general context of the definitions (how the app works, plan 26: shown read
+ * general context of the definitions (how the app works, shown read
  * only under «Generale»; Copilot gets only the project's). */
-/** The project's development rules (plan 22): the Pianificatore reads them to propose the pre/post development tasks. */
+/** The project's development rules: the Pianificatore reads them to propose the pre/post development tasks. */
 export const RULES_DOCUMENT = "sviluppo.md";
 export const RULES_TEMPLATE = `# Sviluppo
 
@@ -32,7 +32,7 @@ Le regole che il Pianificatore segue per proporre i task pre e post sviluppo att
 - Test: mvn -B test
 `;
 
-/** The other ready documents (plan 27): a button for each one the project lacks. */
+/** The other ready documents: a button for each one the project lacks. */
 export const TEMPLATES: { name: string; label: string; title: string; content: string }[] = [
   { name: "convenzioni.md", label: "📏 Convenzioni", title: "Branch, commit, package, stile e test: il Refiner e Copilot le seguono", content: `# Convenzioni
 

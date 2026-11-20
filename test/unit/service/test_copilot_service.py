@@ -87,7 +87,7 @@ def test_delegating_a_task_starts_the_planning_chat_on_the_same_copilot_session(
     messages = service.messages(session.id)
     assert [m.role for m in messages] == [CopilotMessageRole.USER, CopilotMessageRole.COPILOT] * 2
     assert f"Ti affido il task {note}:" in messages[0].content and "dal server MCP" in messages[0].content
-    assert not (project / "api" / "mbare-pilot").exists()  # plan 37: nothing in the repository
+    assert not (project / "api" / "mbare-pilot").exists()  # Nothing in the repository
     assert messages[3].content.endswith("(turni in questa sessione: 2)")  # Copilot remembered the first turn
     turns = _turns(tmp_path, session)
     assert all(turn["mode"] == "plan" and "--allow-all-tools" not in turn["args"] for turn in turns)
@@ -206,7 +206,7 @@ def test_confluence_and_jira_answers_are_drafts(data, project, stores, kind, sav
 
     assert service.save_as_note(session.id)[0] == saved
     assert data.read_note("acme", saved).startswith("# Bozza: Pagina\n")
-    assert data.agent_task("acme", note).status == TaskStatus.TO_VERIFY  # plan 33: it waits for «Pubblica»
+    assert data.agent_task("acme", note).status == TaskStatus.TO_VERIFY  # It waits for «Pubblica»
 
 
 def test_saving_as_a_note_needs_an_answer_and_a_plan_only_task(data, project, stores, copilot_store):
@@ -647,7 +647,7 @@ def test_deleting_a_tasks_sessions_keeps_the_others_and_the_usage(data, project,
     assert service.delete_task_sessions("acme", note) == 0
 
 
-# --------------------------------------------------------------- the task (plan 37)
+# --------------------------------------------------------------- the task
 
 def test_nothing_is_written_in_the_repository_the_task_is_read_through_mcp(data, project, tmp_path, stores):
     service = _service(stores, data)
@@ -676,7 +676,7 @@ def test_a_deleted_task_does_not_stop_the_chat(data, project, tmp_path, stores):
     assert session.status == CopilotSessionStatus.PLANNING and len(_turns(tmp_path, session)) == 2
 
 
-# ------------------------------------------------------ repository (plan 21)
+# ------------------------------------------------------ repository
 
 def test_a_task_without_code_is_delegated_without_a_repository_in_the_projects_data(data, project, tmp_path, stores):
     service = _service(stores, data)

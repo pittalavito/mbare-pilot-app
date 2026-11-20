@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { type ConfluenceNode, usePlaces, useSearchPlaces } from "../../api/publish";
 
-/** Where a new Confluence page goes (plan 32): the space's tree of pages and
+/** Where a new Confluence page goes: the space's tree of pages and
  * folders (children loaded when a branch opens), a search by title above it,
  * a pasted link of a page or folder; ``null`` = at the top of the space. */
 export function PlacePicker({ project, space, value, onChange }: {

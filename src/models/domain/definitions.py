@@ -187,7 +187,7 @@ class AutomationFile(_File):
     steps: list[StepFile] = Field(min_length=1)
     edges: list[EdgeFile] | None = None
     fields: list[FieldName] = Field(default_factory=list)
-    """The named values of a run, used by the steps as ``{in:campo}`` (plan 11)."""
+    """The named values of a run, used by the steps as ``{in:campo}``."""
     purpose: AutomationPurpose = AutomationPurpose.NONE
     """``prepare``: offered in the delegation to Copilot, its fields filled from the task."""
 
@@ -224,7 +224,7 @@ class DefinitionEntry(DefinitionKey):
     state: DefinitionState
     message: str = ""
     origin: str = "app"
-    """Where it comes from (plan 28): ``app`` (the app's default), ``tuo`` (the data folder), ``progetto`` (the project's file)."""
+    """Where it comes from: ``app`` (the app's default), ``tuo`` (the data folder), ``progetto`` (the project's file)."""
 
 
 class SyncOutcome(StrEnum):

@@ -1,4 +1,4 @@
-"""«🔍 Cosa ha visto il modello» (plan 29): one run's exchange with the
+"""«🔍 Cosa ha visto il modello»: one run's exchange with the
 model, masked (as it left) and in clear."""
 from pydantic import BaseModel, Field
 

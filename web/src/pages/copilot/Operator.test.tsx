@@ -7,7 +7,7 @@ import { mockApi, renderPage } from "../../test/render";
 import { PROJECT_API, projectRoutes } from "../../test/zones";
 import { AutomationTab } from "../automation/AutomationTab";
 
-/** Plan 11, from an agent to an automation: the Operator in the panel (its
+/** From an agent to an automation: the Operator in the panel (its
  * commands waiting for an ok, «✅ Giusto: fanne un'automation»), the choice of
  * how to prepare in the delegation and the automations with fields. */
 

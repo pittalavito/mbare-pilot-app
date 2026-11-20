@@ -6,7 +6,7 @@ import { mockApi, renderPage } from "../../test/render";
 import { zoneRoutes } from "../../test/zones";
 import { diffLines } from "./PublishModal";
 
-/** Blocco 10: «Pubblica su Confluence/Jira» from the task and from its draft. */
+/** «Pubblica su Confluence/Jira» from the task and from its draft. */
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -49,7 +49,7 @@ describe("publish a draft", () => {
     expect(await within(dialog).findByText(/Una pagina nuova/)).toBeInTheDocument();
     expect(within(dialog).getByText(/REPO_1 → login-api/)).toBeInTheDocument();
     expect(within(dialog).getByDisplayValue("DOC")).toBeInTheDocument();
-    fireEvent.click(await within(dialog).findByRole("button", { name: "Apri Architettura" })); // plan 32: the tree
+    fireEvent.click(await within(dialog).findByRole("button", { name: "Apri Architettura" })); // the tree
     fireEvent.click(await within(dialog).findByText("📁 Rilasci"));
     expect(within(dialog).getAllByText(/Rilasci/).length).toBeGreaterThan(1); // chosen
     fireEvent.click(within(dialog).getByRole("button", { name: "Pubblica" }));
@@ -102,7 +102,7 @@ describe("publish a draft", () => {
     expect(diffLines("", "y").map((line) => line.kind)).toEqual(["removed", "added"]);
   });
 
-  it("the task's destination comes first; search and badge (plan 32)", async () => {
+  it("the task's destination comes first; search and badge", async () => {
     const { published } = api("confluence", { mode: "create", space_key: "DOC", parent_id: "77", parent_title: "Rilasci", parent_kind: "folder" });
     renderData("/projects/acme/project?note=bozza-confluence-guida.md");
 

@@ -77,7 +77,7 @@ def pipelines(pipeline_service, project_store):
 
 @pytest.fixture(autouse=True)
 def cache_on(monkeypatch):
-    """No chatbot kind uses the cache now (blocco 05): it stays in the code, tested on the automation kind."""
+    """No chatbot kind uses the cache now: it stays in the code, tested on the automation kind."""
     monkeypatch.setattr("models.domain.chatbot.CACHE_KINDS", {ChatbotKind.AUTOMATION})
 
 

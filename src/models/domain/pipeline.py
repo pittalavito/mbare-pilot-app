@@ -37,12 +37,12 @@ class StepKind(StrEnum):
     """An agent of the Library (global or of the project)."""
     TOOL = "tool"
     """A tool implemented in code, called with its arguments (no LLM), the same
-    an agent can call (plan 15: the functions of before are tools too).
+    an agent can call (the functions of before are tools too).
     Its arguments can use ``{input}``, ``{pipeline_input}``, ``{nodo:Name}`` and ``{in:field}``."""
 
 
 class AutomationPurpose(StrEnum):
-    """Where the app offers an automation by itself (plan 11), besides the list."""
+    """Where the app offers an automation by itself, besides the list."""
     NONE = ""
     PREPARE = "prepare"
     """The preparation before Copilot: offered in the delegation, its fields filled from the task."""
@@ -156,7 +156,7 @@ class Pipeline(BaseModel):
     """The nodes; their order breaks ties in the execution order."""
     edges: list[PipelineEdge] = Field(default_factory=list)
     fields: list[FieldName] = Field(default_factory=list)
-    """The named values a run receives (plan 11), used by the steps as ``{in:field}``:
+    """The named values a run receives, used by the steps as ``{in:field}``:
     the run input is then a JSON object with them (``run_fields``)."""
     purpose: AutomationPurpose = AutomationPurpose.NONE
     created_at: datetime = Field(default_factory=_utc_now)

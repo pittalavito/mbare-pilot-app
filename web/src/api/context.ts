@@ -1,12 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api, unwrap } from "./client";
-import type { components } from "./schema";
 
 /** The project's context (RAG): the documents of context/ (saving one indexes
  * it), the state of the index, «Reindicizza tutto», a search to try it. */
 
-export type RagHit = components["schemas"]["RagHit"];
 
 const keys = {
   list: (project: string) => ["projects", project, "context"] as const,
@@ -25,7 +23,7 @@ export function useContextDocument(project: string, name: string) {
   });
 }
 
-/** The general context (definitions' context/, plan 26): how the app works, the same for every project; read only. */
+/** The general context (definitions' context/): how the app works, the same for every project; read only. */
 export function useGeneralContext(project: string) {
   return useQuery({
     queryKey: ["projects", project, "context-general"],
@@ -33,7 +31,7 @@ export function useGeneralContext(project: string) {
   });
 }
 
-/** «🗺 Genera mappa dei repository» (plan 27): context/repository.md, only its generated part rewritten. */
+/** «🗺 Genera mappa dei repository»: context/repository.md, only its generated part rewritten. */
 export function useGenerateRepositoryMap(project: string) {
   const queryClient = useQueryClient();
   return useMutation({

@@ -1,7 +1,7 @@
 import { NOTE_PREFIXES } from "../../api/projectData";
 import { WIP_NOTE } from "../../api/wip";
 
-/** An archived activity's summary (plan 33): ``archivio-<attività>.md``, in «Lavoro» → «🗄 Archivio». */
+/** An archived activity's summary: ``archivio-<attività>.md``, in «Lavoro» → «🗄 Archivio». */
 export const ARCHIVE_PREFIX = "archivio-";
 
 /** Where a note lives: activities, agent tasks, archived activities and the WIP note in «Lavoro», the rest in «Progetto». */

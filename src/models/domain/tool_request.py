@@ -1,4 +1,4 @@
-"""Requests of tools that do not exist yet (plan 20): written by the Architetto,
+"""Requests of tools that do not exist yet: written by the Architetto,
 worked by Claude Code on the mbare-pilot-app repository through its own MCP server."""
 from datetime import datetime, timezone
 from enum import StrEnum

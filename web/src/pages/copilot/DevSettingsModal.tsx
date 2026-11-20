@@ -5,10 +5,9 @@ import { useEffect, useState } from "react";
 import { useChatbots } from "../../api/chat";
 import { SCOPE_LABELS, type TestScope, useDevSettings, useSaveDevSettings } from "../../api/dev";
 
-/** The checks around a development delegated to Copilot: whether the project
- * has the two automations, which tests the «Verifica sviluppo» runs by
- * default (a task can change it) and each repository's tests command (the
- * detected one unless another is written). Also the Operator (plan 11): which
+/** The checks around a development delegated to Copilot: which tests
+ * run_tests runs by default (a task can change it) and each repository's tests command (the
+ * detected one unless another is written). Also the Operator: which
  * one prepares the repositories and the commands it may run (the detected
  * install and test commands offered with a click). */
 export function DevSettingsModal({ project, opened, onClose }: { project: string; opened: boolean; onClose: () => void }) {

@@ -1,4 +1,4 @@
-"""Saved searches in the code (plan 34), under /projects/{project}/code-search:
+"""Saved searches in the code, under /projects/{project}/code-search:
 the defaults of the definitions plus the project's own, written and removed
 in the project; «✨ Regex» proposes a regex from a description in words."""
 from fastapi import APIRouter, Depends

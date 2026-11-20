@@ -16,7 +16,7 @@ naming rules for notes and uploaded files. Pure functions: no filesystem here.
       context/                       the project's context: read_context, the RAG later
       copilot/<task>/                Copilot's working folder for a task delegated without a repository
 
-Nothing is written in the repositories Copilot works on (plan 37)."""
+Nothing is written in the repositories Copilot works on."""
 import re
 from pathlib import PurePath
 
@@ -27,7 +27,7 @@ NOTES_DIR = "notes"
 FILES_DIR = "files"
 CONTEXT_DIR = "context"
 COPILOT_DIR = "copilot"
-"""Copilot's working folders for the tasks delegated without a repository (plan 21)."""
+"""Copilot's working folders for the tasks delegated without a repository."""
 NOTE_SUFFIX = ".md"
 NOTE_PREFIXES = {
     NoteType.AGENT_TASK: "agent-task-",

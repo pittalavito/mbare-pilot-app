@@ -5,7 +5,7 @@ import { useNote, useNotes } from "../../api/projectData";
 import { Markdown } from "../../components/Markdown";
 import { ARCHIVE_PREFIX } from "../project/noteZone";
 
-/** «🗄 Archivio» (plan 33): the summary notes of the archived activities (``archivio-<attività>.md``), read only. */
+/** «🗄 Archivio»: the summary notes of the archived activities (``archivio-<attività>.md``), read only. */
 export function Archive({ project }: { project: string }) {
   const notes = useNotes(project);
   const [search, setSearch] = useSearchParams();

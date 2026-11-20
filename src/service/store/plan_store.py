@@ -44,7 +44,7 @@ class PlanStore:
         return plans
 
     def with_operations(self) -> list[ActivityPlan]:
-        """The latest plan of every activity with a «🤖 Automatico» queued or running (plan 25), paused or not."""
+        """The latest plan of every activity with a «🤖 Automatico» queued or running, paused or not."""
         seen: set[tuple[str, str]] = set()
         plans = []
         for row in self._plans.list_all():
@@ -56,7 +56,7 @@ class PlanStore:
         return plans
 
     def delete_activity(self, project_name: str, activity: str) -> int:
-        """Every plan row of the activity (plan 33: archived); how many."""
+        """Every plan row of the activity (archived); how many."""
         rows = [row for row in self._plans.list_for_project(project_name) if row.activity == activity]
         for row in rows:
             self._plans.delete(row.id)

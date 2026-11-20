@@ -6,7 +6,7 @@ import { Markdown } from "./Markdown";
 
 type View = RunTranscript["masked"];
 
-/** «🔍 Cosa ha visto il modello» (plan 29): what went to and came from the model in one run
+/** «🔍 Cosa ha visto il modello»: what went to and came from the model in one run
  * (system prompt, input and history, tool calls, answer), masked as it left or in clear;
  * one accordion section per part, the aliases highlighted in the masked view, «Copia» on each block. */
 export function TranscriptModal({ runId, opened, onClose }: { runId: string; opened: boolean; onClose: () => void }) {

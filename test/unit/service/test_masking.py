@@ -208,7 +208,7 @@ def _definition(agent_service):
 
 
 def test_the_run_keeps_what_the_model_saw_masked_and_shows_it_in_clear(agent_service, masking, monkeypatch, run_store):
-    """Plan 29: «🔍 Cosa ha visto il modello»."""
+    """«🔍 Cosa ha visto il modello»."""
     from core.error import NotFoundError
     from service.run_service import RunService
     masking.add_term("acme", MaskCategory.PERSON, "Mario Rossi")
@@ -227,7 +227,7 @@ def test_the_run_keeps_what_the_model_saw_masked_and_shows_it_in_clear(agent_ser
     assert transcript.masked.system_prompt and {"PERSONA_1", "REPO_1"} <= set(transcript.aliases)
 
     trace = run_store.get_trace(record.run_id)
-    run_store._traces.save(trace.model_copy(update={"transcript": None}))  # a run recorded before plan 29
+    run_store._traces.save(trace.model_copy(update={"transcript": None}))  # a run recorded without a transcript
     with pytest.raises(NotFoundError, match="trascrizione"):
         RunService(run_store, masking).transcript(record.run_id)
 

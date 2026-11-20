@@ -36,7 +36,7 @@ describe("Layout", () => {
     for (const section of ["Progetti", "Libreria", "Admin"]) {
       expect(screen.getByText(section)).toBeInTheDocument();
     }
-    expect(screen.getByRole("link", { name: /Mbare Pilot/ })).toHaveAttribute("href", "/mbare-pilot"); // plan 30
+    expect(screen.getByRole("link", { name: /Mbare Pilot/ })).toHaveAttribute("href", "/mbare-pilot");
     expect(await screen.findByText("API attiva")).toBeInTheDocument();
     expect(await screen.findByText("Worker fermo")).toBeInTheDocument();
   });

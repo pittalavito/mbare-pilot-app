@@ -45,7 +45,7 @@ class Embedder(ABC):
         """False when the text is sent outside the PC: callers must mask it first."""
 
     def embed_with_usage(self, text: str) -> tuple[list[float], int]:
-        """The vector and the tokens the provider counted (0 for a local embedder): plan 31."""
+        """The vector and the tokens the provider counted (0 for a local embedder)."""
         return self.embed(text), 0
 
     @abstractmethod

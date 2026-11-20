@@ -1,4 +1,4 @@
-"""POST /projects/{project}/code-search and /code-search/reference (plan 23)."""
+"""POST /projects/{project}/code-search and /code-search/reference."""
 import shutil
 import subprocess
 

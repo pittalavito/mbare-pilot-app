@@ -2,7 +2,7 @@
 planning chat (each message waits for Copilot's answer), the ok that queues
 the execution for the worker, sending a task to verify back to Copilot,
 saving the answer of a plan-only task as a note, the repository changed before
-the first execution (plan 21), cancellation; what the turns used, per session
+the first execution, cancellation; what the turns used, per session
 and for Observability (/observability/copilot/...)."""
 from fastapi import APIRouter, Depends, Response, status
 
@@ -132,7 +132,7 @@ def send_back(session_id: int, request: CopilotMessageRequest, service: CopilotS
 def save_note(session_id: int, service: CopilotService = Depends(copilot_service),
               plans: PlanService = Depends(plan_service)) -> CopilotSavedNoteResponse:
     """A plan-only task (analysis, Confluence, Jira): Copilot's last answer becomes a note linked to the task (an analysis is done,
-    a draft waits for «Pubblica») and to the next task of its activity (plan 33)."""
+    a draft waits for «Pubblica») and to the next task of its activity."""
     note, session = service.save_as_note(session_id)
     plans.pass_on(session.project_name, session.task_note, note)
     return CopilotSavedNoteResponse(note=note, session=CopilotSessionResponse.from_session(session))

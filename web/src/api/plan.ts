@@ -5,13 +5,12 @@ import { dataKeys } from "./projectData";
 import type { components } from "./schema";
 import { todayKey } from "./today";
 
-/** An activity's steps «Pianifica», «Lavora», «Chiudi» (plan 18): the
+/** An activity's steps «Pianifica», «Lavora», «Chiudi»: the
  * Pianificatore's proposals, creating the tasks, the round and its settings,
  * what was learned and the closing. */
 
 export type ActivityPath = components["schemas"]["ActivityPath"];
 export type ActivityPlan = components["schemas"]["ActivityPlan"];
-export type PlanProposal = components["schemas"]["PlanProposal"];
 export type PlanChoice = components["schemas"]["PlanChoice"];
 export type PathTask = components["schemas"]["PathTask"];
 export type PathStep = components["schemas"]["PathStep"];
@@ -93,11 +92,11 @@ export function useRetryStep(project: string, activity: string) {
   });
 }
 
-/** A development's Pre or Post (plan 34). */
+/** A development's Pre or Post. */
 export type Phase = "pre" | "post";
 export type PhaseBody = { task: string; phase: Phase };
 
-/** «✅ Fatto» on a development's Pre or Post (plan 34): done by hand or by Dev, the round goes on. */
+/** «✅ Fatto» on a development's Pre or Post: done by hand or by Dev, the round goes on. */
 export function useMarkDone(project: string, activity: string) {
   const refresh = useRefresh(project, activity);
   return useMutation({
@@ -107,7 +106,7 @@ export function useMarkDone(project: string, activity: string) {
   });
 }
 
-/** «⏭ Salta» on a development's Pre or Post (plan 34): nothing to do this time. */
+/** «⏭ Salta» on a development's Pre or Post: nothing to do this time. */
 export function useSkipPhase(project: string, activity: string) {
   const refresh = useRefresh(project, activity);
   return useMutation({
@@ -117,7 +116,7 @@ export function useSkipPhase(project: string, activity: string) {
   });
 }
 
-/** «🤖 Automatico» on a development's Pre or Post (plan 25, plan 34): its commands, then its automation, run by the worker;
+/** «🤖 Automatico» on a development's Pre or Post: its commands, then its automation, run by the worker;
  * ``pending_commands`` = commands not allowed, nothing started (answer them, then again). */
 export function useStartAuto(project: string, activity: string) {
   const refresh = useRefresh(project, activity);
@@ -146,7 +145,6 @@ export function useSetPlanOptions(project: string, activity: string) {
   });
 }
 
-export type LearnedDraft = components["schemas"]["LearnedDraft"];
 
 /** «✨ Proponi cosa ho imparato»: one call to the agent ``imparato``. */
 export function useProposeLearned(project: string, activity: string) {
@@ -166,7 +164,7 @@ export function useCloseActivity(project: string, activity: string) {
   });
 }
 
-/** «🗄 Archivia» (plan 33): a summary note stays; the activity, its tasks and the references chosen go. */
+/** «🗄 Archivia»: a summary note stays; the activity, its tasks and the references chosen go. */
 export function useArchiveActivity(project: string, activity: string) {
   const refresh = useRefresh(project, activity);
   const queryClient = useQueryClient();

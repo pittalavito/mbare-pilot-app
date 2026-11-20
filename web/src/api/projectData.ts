@@ -14,7 +14,6 @@ export type AgentTask = components["schemas"]["AgentTaskResponse"];
 export type AgentTaskBody = components["schemas"]["AgentTaskBody"];
 export type Activity = components["schemas"]["ActivityResponse"];
 export type ActivityBody = components["schemas"]["ActivityBody"];
-export type TaskType = AgentTaskBody["type"];
 /** An item checked or unchecked by itself, because its agent task got or left «done». */
 export type ItemChange = components["schemas"]["ItemChange"];
 export type Reference = components["schemas"]["ReferenceResponse"];

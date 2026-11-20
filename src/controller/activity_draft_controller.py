@@ -1,4 +1,4 @@
-"""«📎 Da riferimenti» (plan 16), under /projects/{project}: the activity the
+"""«📎 Da riferimenti», under /projects/{project}: the activity the
 secretary proposes from the titles of the chosen references and context pieces
 (one call, nothing created: the activity is created with POST /activities)."""
 from fastapi import APIRouter, Depends
@@ -17,7 +17,7 @@ class ActivityDraftRequest(BaseModel):
     context: list[str] = []
     """Titles of the chosen pieces of the context index (only text for the proposal)."""
     description: str = ""
-    """«Cosa vuoi fare» (plan 34): what the user wants, the main intent; enough alone."""
+    """«Cosa vuoi fare»: what the user wants, the main intent; enough alone."""
 
 
 @router.post("/activities/draft")

@@ -2,7 +2,7 @@ import { Alert, Badge, Card, Grid, Group, Loader, Paper, Stack, Text, Title } fr
 
 import { type RoadmapItem, useRoadmap } from "../../api/roadmap";
 
-/** «🚀 Mbare Pilot» (plan 30): the app's future activities towards the demo, from roadmap.yml
+/** «🚀 Mbare Pilot»: the app's future activities towards the demo, from roadmap.yml
  * of the definitions; a board to look at. It will become the dashboard where bugs and
  * activities on the app are opened and given to an agent. */
 

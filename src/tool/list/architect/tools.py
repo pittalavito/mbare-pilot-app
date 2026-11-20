@@ -1,4 +1,4 @@
-"""The Architect's tools (the automation chatbot, blocco 05): what the
+"""The Architect's tools (the automation chatbot): what the
 automation engine offers, the project's automations in YAML, the validation
 of a proposal (the same rules as a save, nothing saved) and, after the
 user's ok, the agent task for a missing tool. Saving a proposal is the
