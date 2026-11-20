@@ -82,7 +82,7 @@ automations:
       - name: Riassumi
         input: "Riassumi: {input}"
         system_prompt: Riassumi in tre righe.
-        model: openrouter/google/gemini-3.1-flash-lite-preview
+        model: openrouter/google/gemini-3.1-flash-lite
         max_steps: 2
     edges:
       - {from: input, to: Stato}

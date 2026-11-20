@@ -155,7 +155,7 @@ def test_one_call_gives_the_proposals_in_clear_and_drops_those_not_in_the_list(s
     trace = run_store.get_trace(result.run_id)
     assert "Marco" in trace.input and "Sentire Marco" in trace.output  # the record keeps the real values
     run = stores.wip.get_run(result.run_id)
-    assert (run.proposed, run.prompt_version, run.model, run.applied_at) == (4, 1, "openai/gpt-4o-mini", None)
+    assert (run.proposed, run.prompt_version, run.model, run.applied_at) == (4, 1, "openrouter/google/gemini-2.5-pro", None)
 
 
 def test_the_agent_s_new_prompt_version_is_used(service, data, client, agent_config_service):

@@ -344,7 +344,7 @@ def test_the_chatbots_of_the_files_are_created_or_updated_and_the_ui_ones_left_a
     assert next(bot for bot in chatbots.list_chatbots("acme") if bot.name == "Dev").system_prompt != "Cambiato."  # the file wins
 
     project_store.save(Project(name="beta", source=ProjectSource.FOLDER, root_path="/code/beta"))
-    for key in ("openrouter/google/gemini-3.1-flash-lite-preview", "openrouter/google/gemini-2.5-pro"):  # the others' and the Architect's
+    for key in ("openrouter/google/gemini-3.1-flash-lite", "openrouter/google/gemini-2.5-pro"):  # the others' and the Architect's
         catalog_store.save_model(catalog_store.get_model(key).model_copy(update={"active": False}))
     definitions.sync_at_startup(["beta"])  # logged, not raised: the app starts anyway
     assert chatbots.list_chatbots("beta") == [] and "è disattivato" in caplog.text

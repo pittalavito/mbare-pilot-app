@@ -102,7 +102,7 @@ chatbots:
     # oppure: system_prompt_file: prompt.md    (un file accanto a questo, usato così com'è)
   - name: Segretario
     kind: secretary
-    model: openrouter/google/gemini-3.1-flash-lite-preview
+    model: openrouter/google/gemini-3.1-flash-lite
     system_prompt: |
       Sei il mio segretario sul progetto...
   - name: Un altro
