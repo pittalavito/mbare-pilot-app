@@ -90,7 +90,7 @@ Collegati:
 - **`EvaluationService`**: valutazioni (Elabora WIP, RAG) sui set di `resource/eval`, nel worker o da terminale.
 - **`ProcessService`**: il worker avviato e fermato dall'API, i log.
 - **`BackupService`**: export del DB in `<BACKUP_DIR>/db/`.
-- **`RoadmapService`**: la bacheca da `roadmap.yml`.
+- **`RoadmapService`**: la bacheca da `roadmap.yml`; la UI la scrive nella cartella dati (testata, schede nuove, modificate, spostate, eliminate; ogni scheda con un `id` stabile).
 
 ## Test
 

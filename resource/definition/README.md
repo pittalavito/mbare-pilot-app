@@ -10,7 +10,7 @@ Le definizioni dell'app, versionate con il codice (piano 28): l'app le legge da 
 
 | File | Cosa |
 |---|---|
-| `roadmap.yml` | la bacheca «🚀 Mbare Pilot» (piano 30): le attività future dell'app verso la demo |
+| `roadmap.yml` | la bacheca «🚀 Mbare Pilot»: le modifiche future dell'app (dalla UI si scrive la copia nella cartella dati) |
 | `code-searches.yml` | le ricerche salvate nel codice di ogni progetto (piano 34): TODO, FIXME, Commenti Mbare Pilot |
 | `global-coding-agent.yml` | prompt, divieti e modelli (con i prezzi) di Copilot: **senza questo Copilot non parte** |
 | `coding-agent/bugfix.md` | un prompt di preparazione da scegliere quando deleghi un bug |

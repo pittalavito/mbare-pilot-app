@@ -133,7 +133,7 @@ Documenti `.md` che spiegano agli agenti come funziona l'app (task e stati, atti
 
 ## Bacheca (`roadmap.yml`)
 
-`goal`, `vision`, `items` con `title`, `description`, `kind`, `owner`, `status` (`todo`, `in_progress`, `done`), `feasibility`. La mostra «🚀 Mbare Pilot».
+`goal`, `vision`, `items` con `id`, `title`, `description`, `kind` (bug, funzione, refactoring, documentazione, integrazione, uso, progettazione, rag), `priority` (`high`, `medium`, `low`), `owner`, `status` (`todo`, `in_progress`, `done`), `feasibility`. La mostra «🚀 Mbare Pilot», dove le schede si creano, si modificano, si trascinano tra le colonne e si eliminano: ogni modifica scrive `roadmap.yml` nella tua cartella dati (quello dell'app resta il punto di partenza). Una scheda senza `id` lo prende dal titolo.
 
 ## Codice
 

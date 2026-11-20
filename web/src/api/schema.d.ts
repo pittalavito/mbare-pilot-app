@@ -415,7 +415,7 @@ export interface paths {
         put?: never;
         /**
          * Revert Chatbot
-         * @description «↩ Torna al default» (plan 28): out of the data folder, the app's version applied again (404 without one).
+         * @description «↩ Torna al default»: out of the data folder, the app's version applied again (404 without one).
          */
         post: operations["revert_chatbot_chatbots__chatbot_id__revert_post"];
         delete?: never;
@@ -933,7 +933,7 @@ export interface paths {
         };
         /**
          * Learn Draft
-         * @description «✅ Giusto: fanne un'automation» (plan 11): what the agent did right in that answer, as steps and values; 404 once the trace expired.
+         * @description «✅ Giusto: fanne un'automation»: what the agent did right in that answer, as steps and values; 404 once the trace expired.
          */
         get: operations["learn_draft_messages__message_id__learn_draft_get"];
         put?: never;
@@ -1038,7 +1038,7 @@ export interface paths {
         };
         /**
          * List Tool Specs
-         * @description Every tool of the registry with its arguments (plan 15): the editor offers the non chat-only ones for a step.
+         * @description Every tool of the registry with its arguments: the editor offers the non chat-only ones for a step.
          */
         get: operations["list_tool_specs_tool_specs_get"];
         put?: never;
@@ -1386,7 +1386,7 @@ export interface paths {
         };
         /**
          * Confluence Places
-         * @description Where a new page can go (plan 32): the space's top pages, or the pages and folders under ``parent``.
+         * @description Where a new page can go: the space's top pages, or the pages and folders under ``parent``.
          */
         get: operations["confluence_places_projects__project__atlassian_confluence_places_get"];
         put?: never;
@@ -1524,7 +1524,7 @@ export interface paths {
         };
         /**
          * Run Transcript
-         * @description «🔍 Cosa ha visto il modello» (plan 29): system prompt, history, input, tools and answer, masked and in clear.
+         * @description «🔍 Cosa ha visto il modello»: system prompt, history, input, tools and answer, masked and in clear.
          */
         get: operations["run_transcript_observability_runs__run_id__transcript_get"];
         put?: never;
@@ -1544,11 +1544,92 @@ export interface paths {
         };
         /**
          * Roadmap
-         * @description «🚀 Mbare Pilot» (plan 30): the app's future activities, from roadmap.yml of the definitions.
+         * @description «🚀 Mbare Pilot»: the app's future changes, from roadmap.yml of the definitions.
          */
         get: operations["roadmap_roadmap_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/roadmap/header": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Roadmap Header
+         * @description Goal and vision; the board is written into the data folder.
+         */
+        put: operations["save_roadmap_header_roadmap_header_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/roadmap/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Roadmap Item
+         * @description A new card at the end of the board.
+         */
+        post: operations["add_roadmap_item_roadmap_items_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/roadmap/items/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Roadmap Item
+         * @description The card changed (404 when there is none).
+         */
+        put: operations["update_roadmap_item_roadmap_items__item_id__put"];
+        post?: never;
+        /** Delete Roadmap Item */
+        delete: operations["delete_roadmap_item_roadmap_items__item_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/roadmap/items/{item_id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move Roadmap Item
+         * @description The card to another column (dragged, or «Sposta»).
+         */
+        post: operations["move_roadmap_item_roadmap_items__item_id__move_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2012,7 +2093,7 @@ export interface paths {
         /**
          * Save Note
          * @description A plan-only task (analysis, Confluence, Jira): Copilot's last answer becomes a note linked to the task (an analysis is done,
-         *     a draft waits for «Pubblica») and to the next task of its activity (plan 33).
+         *     a draft waits for «Pubblica») and to the next task of its activity.
          */
         post: operations["save_note_copilot_sessions__session_id__save_note_post"];
         delete?: never;
@@ -2309,7 +2390,7 @@ export interface paths {
         put?: never;
         /**
          * Mark Done
-         * @description «✅ Fatto» on a development's Pre or Post (plan 34): done by hand or by Dev, the round goes on.
+         * @description «✅ Fatto» on a development's Pre or Post: done by hand or by Dev, the round goes on.
          */
         post: operations["mark_done_projects__project__activities__activity__plan_done_post"];
         delete?: never;
@@ -2329,7 +2410,7 @@ export interface paths {
         put?: never;
         /**
          * Skip Phase
-         * @description «⏭ Salta» on a development's Pre or Post (plan 34): nothing to do this time, the round goes on.
+         * @description «⏭ Salta» on a development's Pre or Post: nothing to do this time, the round goes on.
          */
         post: operations["skip_phase_projects__project__activities__activity__plan_skip_post"];
         delete?: never;
@@ -2349,7 +2430,7 @@ export interface paths {
         put?: never;
         /**
          * Start Auto
-         * @description «🤖 Automatico» on a development's Pre or Post (plan 25, plan 34): its commands, then its automation, run by the
+         * @description «🤖 Automatico» on a development's Pre or Post: its commands, then its automation, run by the
          *     worker; commands not allowed come back first, nothing started.
          */
         post: operations["start_auto_projects__project__activities__activity__plan_auto_post"];
@@ -2410,7 +2491,7 @@ export interface paths {
         put?: never;
         /**
          * Archive Activity
-         * @description «🗄 Archivia» (plan 33): a summary note archivio-<attività>.md; the activity, its tasks, answers, drafts, plan and
+         * @description «🗄 Archivia»: a summary note archivio-<attività>.md; the activity, its tasks, answers, drafts, plan and
          *     Copilot sessions deleted, and the references chosen (409 when it is not closed or a Copilot session is running).
          */
         post: operations["archive_activity_projects__project__activities__activity__archive_post"];
@@ -2574,7 +2655,7 @@ export interface paths {
         put?: never;
         /**
          * Generate Repository Map
-         * @description «🗺 Genera mappa dei repository» (plan 27): context/repository.md, only its generated part rewritten; indexed.
+         * @description «🗺 Genera mappa dei repository»: context/repository.md, only its generated part rewritten; indexed.
          */
         post: operations["generate_repository_map_projects__project__context_repository_map_post"];
         delete?: never;
@@ -2853,7 +2934,7 @@ export interface paths {
         put?: never;
         /**
          * Run Command
-         * @description «✋ A mano» (plan 25): one command in a repository of the project, if allowed (or granted once);
+         * @description «✋ A mano»: one command in a repository of the project, if allowed (or granted once);
          *     else it becomes a request and nothing runs.
          */
         post: operations["run_command_projects__project__commands_run_post"];
@@ -2879,7 +2960,7 @@ export interface paths {
         /**
          * Publish
          * @description Create or update the page / issue; the task goes «done», the page / issue is a reference linked to it and to the
-         *     next task of its activity in place of the draft, which is deleted (plan 33).
+         *     next task of its activity in place of the draft, which is deleted.
          */
         post: operations["publish_projects__project__agent_tasks__note__publish_post"];
         delete?: never;
@@ -2951,7 +3032,7 @@ export interface components {
     schemas: {
         /**
          * ActivityArchived
-         * @description «🗄 Archivia» (plan 33): the summary note written and what was deleted.
+         * @description «🗄 Archivia»: the summary note written and what was deleted.
          */
         ActivityArchived: {
             /** Note */
@@ -3065,7 +3146,7 @@ export interface components {
         };
         /**
          * ActivityPlan
-         * @description The activity's one plan (plan 18): the tasks created, in order, the
+         * @description The activity's one plan: the tasks created, in order, the
          *     Pianificatore's proposals still waiting for the user, and how the round goes.
          */
         ActivityPlan: {
@@ -3588,7 +3669,7 @@ export interface components {
         };
         /**
          * AutomationPurpose
-         * @description Where the app offers an automation by itself (plan 11), besides the list.
+         * @description Where the app offers an automation by itself, besides the list.
          * @enum {string}
          */
         AutomationPurpose: "" | "prepare";
@@ -3940,7 +4021,7 @@ export interface components {
         };
         /**
          * ConfluenceNode
-         * @description A place a new page can go under (plan 32): a page or a folder.
+         * @description A place a new page can go under: a page or a folder.
          */
         ConfluenceNode: {
             /** Id */
@@ -4091,7 +4172,7 @@ export interface components {
         };
         /**
          * CopilotRepositoryRequest
-         * @description The repository of a session never executed (plan 21).
+         * @description The repository of a session never executed.
          */
         CopilotRepositoryRequest: {
             /**
@@ -4461,7 +4542,7 @@ export interface components {
         EmbeddingModelName: "openai/text-embedding-3-small" | "ollama/nomic-embed-text";
         /**
          * EmbeddingUsage
-         * @description The context index's calls to a remote embedder (plan 31), by model and purpose (``index`` or ``search``).
+         * @description The context index's calls to a remote embedder, by model and purpose (``index`` or ``search``).
          */
         EmbeddingUsage: {
             /** Model */
@@ -4979,7 +5060,7 @@ export interface components {
         };
         /**
          * OperationState
-         * @description «🤖 Automatico» of a development's Pre or Post (plan 25, plan 34).
+         * @description «🤖 Automatico» of a development's Pre or Post.
          * @enum {string}
          */
         OperationState: "queued" | "running" | "failed" | "done";
@@ -5029,7 +5110,7 @@ export interface components {
         };
         /**
          * Phase
-         * @description Pre and Post of a development (plan 34; were the pre_dev and post_dev tasks of plan 22).
+         * @description Pre and Post of a development.
          * @enum {string}
          */
         Phase: "pre" | "post";
@@ -5041,7 +5122,7 @@ export interface components {
         };
         /**
          * PhaseState
-         * @description How a development's Pre or Post finished (plan 34).
+         * @description How a development's Pre or Post finished.
          * @enum {string}
          */
         PhaseState: "done" | "skipped";
@@ -5726,6 +5807,50 @@ export interface components {
             /** Items */
             items?: components["schemas"]["RoadmapItem"][];
         };
+        /**
+         * RoadmapCard
+         * @description A card as the UI writes it.
+         */
+        RoadmapCard: {
+            /** Title */
+            title: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Kind
+             * @default
+             */
+            kind: string;
+            priority?: components["schemas"]["RoadmapPriority"] | null;
+            /**
+             * Owner
+             * @default
+             */
+            owner: string;
+            /** @default todo */
+            status: components["schemas"]["RoadmapStatus"];
+            /**
+             * Feasibility
+             * @default
+             */
+            feasibility: string;
+        };
+        /** RoadmapHeader */
+        RoadmapHeader: {
+            /**
+             * Goal
+             * @default
+             */
+            goal: string;
+            /**
+             * Vision
+             * @default
+             */
+            vision: string;
+        };
         /** RoadmapItem */
         RoadmapItem: {
             /** Title */
@@ -5740,6 +5865,7 @@ export interface components {
              * @default
              */
             kind: string;
+            priority?: components["schemas"]["RoadmapPriority"] | null;
             /**
              * Owner
              * @default
@@ -5752,7 +5878,21 @@ export interface components {
              * @default
              */
             feasibility: string;
+            /**
+             * Id
+             * @default
+             */
+            id: string;
         };
+        /** RoadmapMove */
+        RoadmapMove: {
+            status: components["schemas"]["RoadmapStatus"];
+        };
+        /**
+         * RoadmapPriority
+         * @enum {string}
+         */
+        RoadmapPriority: "high" | "medium" | "low";
         /**
          * RoadmapStatus
          * @enum {string}
@@ -9919,6 +10059,173 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Roadmap"];
+                };
+            };
+        };
+    };
+    save_roadmap_header_roadmap_header_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoadmapHeader"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Roadmap"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_roadmap_item_roadmap_items_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoadmapCard"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Roadmap"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_roadmap_item_roadmap_items__item_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoadmapCard"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Roadmap"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_roadmap_item_roadmap_items__item_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Roadmap"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    move_roadmap_item_roadmap_items__item_id__move_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoadmapMove"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Roadmap"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
