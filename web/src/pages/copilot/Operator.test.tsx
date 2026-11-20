@@ -8,8 +8,7 @@ import { PROJECT_API, projectRoutes } from "../../test/zones";
 import { AutomationTab } from "../automation/AutomationTab";
 
 /** From an agent to an automation: the Operator in the panel (its
- * commands waiting for an ok, «✅ Giusto: fanne un'automation»), the choice of
- * how to prepare in the delegation and the automations with fields. */
+ * commands waiting for an ok, «✅ Giusto: fanne un'automation») and the automations with fields. */
 
 afterEach(() => vi.unstubAllGlobals());
 beforeEach(() => { try { window.localStorage.clear(); } catch { /* no storage */ } });
@@ -32,7 +31,7 @@ const LEARNED = {
   purpose: "prepare", steps: [step("1. git_create_branch", "git_create_branch", { repository: "api", name: "{in:branch}", start_point: "{in:base}" })],
   edges: [{ source: "input", target: "1. git_create_branch", condition: "always", value: "" }],
 };
-const DEV = { test_scope: "all", prepare_automation: true, verify_automation: false, repositories: [], allowed_commands: [], suggested_commands: [],
+const DEV = { test_scope: "all", repositories: [], allowed_commands: [], suggested_commands: [],
               operator_chatbot_id: null };
 const answer = (id: number, content: string, runId: string | null): Message => ({
   id, conversation_id: 3, role: "assistant", content, run_id: runId, created_at: "2026-11-13T10:00:00Z",
@@ -119,7 +118,7 @@ describe("the Operator in the panel", () => {
 
     await waitFor(() => expect(saved).toHaveBeenCalled());
     expect(await saved.mock.results[0].value).toMatchObject({
-      name: "Prepara login", purpose: "prepare", steps: [{ tool: "git_create_branch" }],
+      name: "Prepara login", purpose: "", steps: [{ tool: "git_create_branch" }],
       fields: { api: "repository", "feature/login": "branch", develop: "base" },
     });
     expect(await within(dialog).findByRole("link", { name: "Aprila" })).toHaveAttribute("href", "/projects/acme/automation?id=30");

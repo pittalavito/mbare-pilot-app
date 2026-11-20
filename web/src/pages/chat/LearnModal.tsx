@@ -28,7 +28,6 @@ function LearnModal({ project, messageId, onClose }: { project: string; messageI
   const [kept, setKept] = useState<boolean[]>([]);
   const [fields, setFields] = useState<Record<string, string>>({});
   const [name, setName] = useState("Procedura di Dev (imparata)");
-  const [prepare, setPrepare] = useState(true);
   const [saved, setSaved] = useState<Pipeline>();
   useEffect(() => {
     draft.mutate(messageId, {
@@ -42,7 +41,7 @@ function LearnModal({ project, messageId, onClose }: { project: string; messageI
   const data = draft.data;
   const steps = (data?.steps ?? []).filter((_, index) => kept[index]);
   const submit = () =>
-    save.mutate({ name: name.trim(), description: "", purpose: prepare ? "prepare" : "", steps, fields }, { onSuccess: setSaved });
+    save.mutate({ name: name.trim(), description: "", purpose: "", steps, fields }, { onSuccess: setSaved });
   return (
     <Modal opened onClose={onClose} title="✅ Fanne un'automation" size="xl">
       <Stack gap="sm">
@@ -94,7 +93,6 @@ function LearnModal({ project, messageId, onClose }: { project: string; messageI
               </>
             )}
             <TextInput label="Nome" value={name} onChange={(event) => setName(event.currentTarget.value)} />
-            <Checkbox label="Proponila quando delego a Copilot (preparazione)" checked={prepare} onChange={(event) => setPrepare(event.currentTarget.checked)} />
           </>
         )}
         {save.error && <Alert color="red">{save.error.message}</Alert>}
