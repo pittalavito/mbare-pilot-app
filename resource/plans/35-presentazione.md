@@ -6,6 +6,7 @@ Stato: **da realizzare**.
 Presentare Mbare Pilot in modo eccellente: un **sito** (GitHub Pages) che lo racconta e ne tiene la documentazione, un **README** rifatto e un **flusso live** su un'attività vera.
 
 ## Decisioni prese
+- Una PR sola: presentazione, README, doc nel sito. La pulizia del codice e della doc è il piano 36, in un'altra PR.
 - La pagina sta in `docs/index.html` di questo repo (pubblico), pubblicata da GitHub Pages dal branch `main`, cartella `/docs`. È statica: niente build, niente dipendenze.
 - È **una pagina a sezioni** che scorre, con **solo diagrammi** in SVG dentro la pagina e nessuno screenshot: l'app si fa vedere dal vivo.
 - Sezioni:
@@ -19,10 +20,7 @@ Presentare Mbare Pilot in modo eccellente: un **sito** (GitHub Pages) che lo rac
   8. **Automation**: come funzionano (grafi di step, tool senza LLM), detto chiaro che oggi non le usi.
   9. **Visione**: uno strumento per i colleghi di Aitho, con login e utenti e le PR al progetto aperte dall'app.
 - **Documentazione nel sito**: la cartella `resource/doc` si sposta in `docs/doc` (GitHub Pages serve solo `/docs`). La pagina ha una sezione «Documentazione» con l'indice a sinistra che legge gli md così come sono e li mostra formattati: niente copie, sempre allineata al codice. Da qui in poi la doc si scrive in `docs/doc`.
-- **Doc per package rifatta**: un README per package (`core`, `controller`, `service`, `domain/...`, `models`, `tool`, `config`, definizioni, frontend):
-  - **sincronizzata** col codice di oggi: tolto quello che non c'è più (vecchi task pre/post, automation di sistema, riferimenti ai piani come storia);
-  - **minimizzata**: per ogni package cosa fa, i file principali e le regole, in elenchi brevi. I dettagli restano nelle docstring del codice.
-  - Anche `web/README.md` va accorciato allo stesso modo.
+- La doc si sposta **così com'è**: sincronizzarla e accorciarla è il piano 36, insieme alla pulizia del codice.
 - **README del repo rifatto**: cos'è in tre righe, il link al sito, avvio rapido, struttura del repository, come contribuire (piani, branch, PR, controlli).
 
 ## Scaletta della demo (fuori dal codice)
