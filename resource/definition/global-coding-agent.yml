@@ -1,5 +1,5 @@
 # GitHub Copilot: prompt, checklist e divieti degli agent task delegati. Letto a ogni uso.
-# Un progetto ne sostituisce i campi con project/<progetto>/coding-agent.yml. Campi: resource/doc/definitions.md
+# Un progetto ne sostituisce i campi con project/<progetto>/coding-agent.yml. Campi: docs/doc/definitions.md
 
 ################################
 #### Prompt di preparazione ####

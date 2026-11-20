@@ -17,9 +17,11 @@ Ogni piano descrive **cosa fare**, non com'è fatto oggi; le parti che esistono 
 | 32 | [Dove pubblicare su Confluence](32-dove-pubblicare-confluence.md) | fatto | app | Atlassian |
 | 33 | [Pubblica nel giro, risultati come riferimenti, archivio](33-pubblica-nel-giro-e-archivio.md) | fatto | app | flusso |
 | 34 | [Ricerche salvate e pre/post dentro lo sviluppo](34-ricerche-salvate-e-pre-post-nello-sviluppo.md) | fatto | app | flusso, strumenti |
+| 35 | [Presentazione: pagina GitHub Pages e demo live](35-presentazione.md) | fatto | app | presentazione |
+| 36 | [Pulizia leggera del codice, docstring e doc per package](36-pulizia-codice-e-doc.md) | da realizzare | app | pulizia, documentazione |
 | — | [Backlog](backlog.md) | idee | — | — |
 
-I piani 01-26 sono fatti e sono stati tolti: la storia è nelle PR e nei commit. Il prossimo piano è il 35.
+I piani 01-26 sono fatti e sono stati tolti: la storia è nelle PR e nei commit. Il prossimo piano è il 37.
 
 Stati: **da progettare** (mancano decisioni) → **da realizzare** → **in corso** → **fatto**.
 
@@ -27,7 +29,7 @@ Stati: **da progettare** (mancano decisioni) → **da realizzare** → **in cors
 
 - All'inizio di ogni blocco: una decina di domande a scelta (con idee utili da aggiungere), poi il piano si aggiorna con le decisioni e solo dopo si scrive codice.
 - Un branch per sessione, una PR per blocco, in questo repository.
-- Ogni modifica con test (pytest coverage ≥ 95%, vitest), `uv run ruff check .`, `uv run mypy`, `npx tsc` in `web/`, documentazione in `resource/doc`.
+- Ogni modifica con test (pytest coverage ≥ 95%, vitest), `uv run ruff check .`, `uv run mypy`, `npx tsc` in `web/`, documentazione in `docs/doc`.
 - Se cambia un tipo di chatbot o un prompt di default, si aggiorna `resource/definition/`: all'avvio l'app allinea da sola agenti, chatbot e automation ai file.
 
 ## Il segretario in una riga

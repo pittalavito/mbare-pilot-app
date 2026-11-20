@@ -29,7 +29,7 @@ mbare-pilot-data/
 
 `base-agent.yml` (in `definition/` e in `project/<slug>/`) è previsto ma non ancora implementato.
 
-**Per cominciare**: niente da copiare: i default sono in [resource/definition](../definition/README.md) e un test li tiene validi. `APP_DEFINITIONS` può puntare a un'altra cartella di default.
+**Per cominciare**: niente da copiare: i default sono in [resource/definition](../../resource/definition/README.md) e un test li tiene validi. `APP_DEFINITIONS` può puntare a un'altra cartella di default.
 
 **Versionare**: i default sono nel repo dell'app; la tua `definition/` contiene solo le tue modifiche. `project/<slug>/` (note, file, contesto) sono dati: fuori da git, con un backup.
 

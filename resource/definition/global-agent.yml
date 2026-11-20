@@ -1,5 +1,5 @@
 # Agenti della Libreria (globali): all'avvio si creano quelli che mancano, «Sincronizza da file» li aggiorna.
-# Campi: resource/doc/definitions.md
+# Campi: docs/doc/definitions.md
 
 agents:
 
