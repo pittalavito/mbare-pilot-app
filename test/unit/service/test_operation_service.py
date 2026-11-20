@@ -225,7 +225,7 @@ def test_the_api(stores, project_store, project, tmp_path):  # noqa: F811
 
 def test_the_general_context_api(stores, project_store, project, config):  # noqa: F811
     (config.definitions_root / "context").mkdir(exist_ok=True)
-    (config.definitions_root / "context" / "giro.md").write_text("# Il giro\n\nSi avvia con Avvia.", encoding="utf-8")
+    (config.definitions_root / "context" / "giro.md").write_text("# Il giro\n\nSi avvia con Avvia.", encoding="utf-8", newline="\n")  # the same text on Windows
     with TestClient(create_app(Container(stores=stores))) as http:
         expected = {"name": "giro.md", "title": "Il giro", "content": "# Il giro\n\nSi avvia con Avvia.", "origin": "tuo"}
         assert http.get("/projects/acme/context-general").json() == [expected]
