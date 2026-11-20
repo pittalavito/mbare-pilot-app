@@ -6,7 +6,7 @@ real models or embedders, their keys in .env; the API is not needed.
     python src/evaluation_cli.py wip --model openrouter/google/gemini-3.1-flash-lite [--model ...]
     python src/evaluation_cli.py rag [--embedder hashing] [--embedder openrouter/openai/text-embedding-3-small]
 
-The report (markdown and JSON) goes in <MBARE_PILOT_HOME>/evaluations/; its
+The report (markdown and JSON) goes in local/evaluations/; its
 markdown is printed too."""
 import argparse
 import sys

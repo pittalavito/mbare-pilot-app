@@ -1,7 +1,7 @@
 """Evaluate the context search (RAG) on resource/eval/rag with one or more embedders,
 the same as the button in Admin → Observability → Metriche. Postgres must be
 running (start-docker.py); the API is not needed. The report goes in
-<MBARE_PILOT_HOME>/evaluations/.
+local/evaluations/.
 
     python resource/scripts/eval-rag.py [--embedder hashing] [--embedder openrouter/openai/text-embedding-3-small]
 """

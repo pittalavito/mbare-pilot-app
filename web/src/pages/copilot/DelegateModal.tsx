@@ -109,7 +109,7 @@ export function DelegateModal({ project, task, repository: proposed, opened, onC
         <Group grow align="flex-start">
           <Select
             label="Prompt"
-            description="I file .md di definition/coding-agent/ (e del progetto)"
+            description="I file .md di definition/coding-agents/copilot/prompts/ (e del progetto)"
             data={[{ value: DEFAULT, label: defaultLabel }, ...(status.data?.prompts ?? []).map((name) => ({ value: name, label: name }))]}
             value={prompt}
             onChange={setPrompt}
@@ -159,7 +159,7 @@ function ModelDetail({ option }: { option: CopilotModelOption }) {
       <Stack gap={2}>
         {option.note && <Text size="sm">{option.note}</Text>}
         <Text size="xs" c="dimmed">
-          {option.price ? `Per 1M token: ${tier(option.price)}` : "Prezzo non indicato in global-coding-agent.yml."}
+          {option.price ? `Per 1M token: ${tier(option.price)}` : "Prezzo non indicato in coding-agents/copilot/coding-agent.yml."}
         </Text>
         {option.long_context_price && option.long_context_above !== null && (
           <Text size="xs" c="dimmed">Oltre {option.long_context_above.toLocaleString("it-IT")} token di input: {tier(option.long_context_price)}</Text>

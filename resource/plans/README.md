@@ -21,9 +21,10 @@ Ogni piano descrive **cosa fare**, non com'è fatto oggi; le parti che esistono 
 | 36 | [Pulizia leggera del codice, docstring e doc per package](36-pulizia-codice-e-doc.md) | fatto | app | pulizia, documentazione |
 | 37 | [Niente file del task nei repository, pagina più chiara](37-niente-file-task-nei-repository.md) | fatto | app | copilot, presentazione |
 | 38 | [Bacheca di Mbare Pilot modificabile](38-bacheca-modificabile.md) | fatto | app | bacheca |
+| 39 | [Struttura di resource e cartelle locali](39-struttura-di-resource.md) | fatto | app | struttura |
 | — | [Backlog](backlog.md) | idee | — | — |
 
-I piani 01-26 sono fatti e sono stati tolti: la storia è nelle PR e nei commit. Il prossimo piano è il 39.
+I piani 01-26 sono fatti e sono stati tolti: la storia è nelle PR e nei commit. Il prossimo piano è il 40.
 
 Stati: **da progettare** (mancano decisioni) → **da realizzare** → **in corso** → **fatto**.
 

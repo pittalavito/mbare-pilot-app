@@ -48,10 +48,10 @@ class StructuredAgentService:
         self._runs = runs
 
     def agent(self, name: str, output: str) -> AgentDefinition:
-        """The agent ``name`` (global-agent.yml), which must answer with ``output``."""
+        """The agent ``name`` (agents/agents.yml), which must answer with ``output``."""
         agent = AgentDefinition.from_spec(self._agents.resolve(name))
         if agent.output != output:
-            raise ValidationError(f"L'agente {name} deve avere «output: {output}» in global-agent.yml.")
+            raise ValidationError(f"L'agente {name} deve avere «output: {output}» in agents/agents.yml.")
         return agent
 
     def call(self, agent: AgentDefinition, text: str, tools: list[Tool] | None = None) -> StructuredCall:

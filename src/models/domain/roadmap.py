@@ -1,4 +1,4 @@
-"""The board of Mbare Pilot: the app's future changes, from ``roadmap.yml`` of
+"""The board of Mbare Pilot: the app's future changes, from ``board/roadmap.yml`` of
 the definitions (the data folder's, written by the UI, or the app's)."""
 from enum import StrEnum
 

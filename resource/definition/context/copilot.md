@@ -9,4 +9,4 @@ Si delega un task da fare: sviluppo, analisi, Confluence o Jira (il pre e il pos
 Il primo turno è un piano: Copilot dice cosa farà e l'utente risponde in chat («Ok, parti» o correzioni). Poi esegue; finita l'esecuzione il task è «da verificare». L'utente controlla e conferma (il task è fatto) o rimanda a Copilot con un messaggio.
 
 ## Cosa può fare Copilot
-Legge il task, i riferimenti collegati e il contesto del progetto (via MCP), chiede all'utente quando serve. Alcuni comandi gli sono vietati (in `global-coding-agent.yml`). Costa crediti AI: il riepilogo dell'attività li conta.
+Legge il task, i riferimenti collegati e il contesto del progetto (via MCP), chiede all'utente quando serve. Alcuni comandi gli sono vietati (in `coding-agents/copilot/coding-agent.yml`). Costa crediti AI: il riepilogo dell'attività li conta.

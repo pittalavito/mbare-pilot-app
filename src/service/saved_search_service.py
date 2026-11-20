@@ -2,10 +2,10 @@
 (or a text) and its file filter, chosen from a menu in «🔎 Cerca nel codice»
 and in «Nuovo riferimento» from code.
 
-The defaults are in ``code-searches.yml`` of the definitions (the data
-folder's file wins over the app's, like roadmap.yml); the project's own are in
+The defaults are in ``board/code-searches.yml`` of the definitions (the data
+folder's file wins over the app's, like the roadmap); the project's own are in
 its settings and replace a default with the same name. «✨ Regex» asks the
-agent ``regex`` of global-agent.yml (one structured call, masked like the
+agent ``regex`` of agents/agents.yml (one structured call, masked like the
 other agents) for a regex from a description in words; the answer is checked
 (it compiles, it finds its own example) before the user tries it."""
 import json
@@ -18,6 +18,7 @@ from core.error import NotFoundError, UpstreamError, ValidationError
 from core.observability import LogPrefix, observed
 from domain.agent.outputs import REGEX, REGEX_AGENT
 from domain.masking.preview import masked_text, unmask
+from domain.project.data_paths import SEARCHES_FILE
 from models.domain.agent import RunOrigin
 from models.domain.code_search import RegexAnswer, RegexProposal, SavedSearch, SavedSearchFile, SavedSearchView
 from models.domain.project import Project
@@ -26,7 +27,6 @@ from service.store.definition_store import DefinitionStore
 from service.store.project_store import ProjectStore
 from service.structured_agent_service import StructuredAgentService
 
-SEARCHES_FILE = "code-searches.yml"
 APP, PROJECT = "app", "progetto"
 MAX_DESCRIPTION_CHARS = 1000
 
@@ -40,7 +40,7 @@ class SavedSearchService:
         self._agents = agents
 
     def defaults(self) -> list[SavedSearch]:
-        """The searches of ``code-searches.yml``; none without the file, 400 when it is broken."""
+        """The searches of ``board/code-searches.yml``; none without the file, 400 when it is broken."""
         text = self._definitions.read_definition(SEARCHES_FILE)
         if text is None:
             return []

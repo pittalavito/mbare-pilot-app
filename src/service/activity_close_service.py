@@ -1,7 +1,7 @@
 """Step «Chiudi» of an activity.
 
 - **Proposal** (``propose_learned``): **one call** to the agent ``imparato`` of
-  global-agent.yml (structured answer ``LearnedAnswer``, no tools): the
+  agents/agents.yml (structured answer ``LearnedAnswer``, no tools): the
   activity's title and description, its tasks and the round's summary,
   masked; a few points to remember, in clear, for the user to correct.
 - **Close** (``close``): what was learned goes in the project's context

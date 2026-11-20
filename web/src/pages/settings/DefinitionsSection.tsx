@@ -43,9 +43,9 @@ export function DefinitionsSection({ project }: { project: string }) {
   return (
     <Stack gap="sm">
       <Text size="xs" c="dimmed">
-        Nella cartella dei dati, <code>definition/</code>: <code>global-agent.yml</code> (agenti della Libreria),{" "}
-        <code>global-chat-bots.yml</code> e <code>global-automation.yml</code> (base per ogni progetto) e{" "}
-        <code>project/&lt;progetto&gt;/</code> con <code>agent.yml</code>, <code>chat-bots.yml</code>, <code>automation.yml</code>. Scegli
+        Nella cartella dei dati, <code>definition/</code>: <code>agents/agents.yml</code> (agenti della Libreria),{" "}
+        <code>agents/chatbots.yml</code> e <code>automations/automations.yml</code> (base per ogni progetto) e{" "}
+        <code>project/&lt;progetto&gt;/</code> con gli stessi file. Scegli
         cosa applicare: quello che esiste già (stesso nome) viene aggiornato, <b>il file vince</b> sulle modifiche fatte da qui. Quello
         che non scegli, o che non è nei file, resta com'è.
       </Text>

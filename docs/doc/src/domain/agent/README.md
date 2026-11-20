@@ -36,7 +36,7 @@ with ContextTracing().trace(...) as trace:
 
 ## Agenti di default
 
-Non stanno nel codice: sono quelli di `global-agent.yml` delle [definizioni](../../../definitions.md) (default dell'app in `resource/definition/`), applicati all'avvio.
+Non stanno nel codice: sono quelli di `agents/agents.yml` delle [definizioni](../../../definitions.md) (default dell'app in `resource/definition/`), applicati all'avvio.
 
 ## Mascheramento (`masking.py`)
 

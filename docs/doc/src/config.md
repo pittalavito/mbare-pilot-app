@@ -25,8 +25,9 @@ Valori derivati:
 | `api_url` | `API_URL` | `http://127.0.0.1:8000`: dove risponde il server (lo stesso degli script); Copilot raggiunge il server MCP dell'app su `<API_URL>/api/mcp/`, anche dal worker |
 | `automation_cache_threshold` | `AUTOMATION_CACHE_THRESHOLD` | 0,9: quanto un messaggio deve somigliare (coseno) a una voce della cache delle automation per lanciarne l'automation senza agente |
 | `automation_cache_embedder` | `AUTOMATION_CACHE_EMBEDDER` | `hashing`: l'embedder della cache (oppure `openrouter/<modello>`) |
-| `app_root`, `run_dir`, `logs_dir` | cartella dell'app, `resource/run`, `resource/logs` | file PID e log di API e worker |
-| `evaluations_root`, `eval_data_root` | `<MBARE_PILOT_HOME>/evaluations`, `resource/eval` | i report delle valutazioni e i loro set di prova (Metriche, `resource/scripts/eval-*.py`) |
+| `app_root`, `local_dir` | cartella dell'app, `local/` | `local/` (ignorata da git) tiene quello che vive solo su questo PC |
+| `run_dir`, `logs_dir` | `local/run`, `local/logs` | file PID e log di API e worker |
+| `evaluations_root`, `eval_data_root` | `local/evaluations`, `resource/eval` | i report delle valutazioni e i loro set di prova (Metriche, `resource/scripts/eval-*.py`) |
 | `web_dist` | `web/dist` | il frontend compilato che l'API serve (`core/server.py`) |
 | `project_data_root` | `data_home / "project"` | note, file caricati e contesto dei progetti (`project/<slug>/`) |
 | `definitions_root` | `data_home / "definition"` | agenti, chatbot e automation come YAML (vedi [definitions](../definitions.md)) |

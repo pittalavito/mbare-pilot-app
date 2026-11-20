@@ -435,7 +435,7 @@ function DeletePipeline({ project, pipeline, onDeleted }: { project: string; pip
 }
 
 /** «Esporta YAML»: the saved automation in the definitions' format, to paste under ``automations:`` of
- * global-automation.yml or of the project's automation.yml (then synced). */
+ * automations/automations.yml, global or of the project (then synced). */
 function ExportYaml({ pipeline }: { pipeline: Pipeline }) {
   const exported = useExportAutomationYaml();
   const [opened, setOpened] = useState(false);
@@ -444,7 +444,7 @@ function ExportYaml({ pipeline }: { pipeline: Pipeline }) {
       <Button variant="default" onClick={() => { setOpened(true); exported.mutate(pipeline.id); }}>📄 Esporta YAML</Button>
       <Modal opened={opened} onClose={() => setOpened(false)} title={`YAML di «${pipeline.name}»`} size="xl">
         <Stack gap="sm">
-          <Text size="sm" c="dimmed">Il formato delle definizioni: incollalo in global-automation.yml (o in automation.yml del progetto) e sincronizza. È l'automation salvata, non le modifiche non salvate.</Text>
+          <Text size="sm" c="dimmed">Il formato delle definizioni: incollalo in automations/automations.yml (globale o del progetto) e sincronizza. È l'automation salvata, non le modifiche non salvate.</Text>
           {exported.isPending && <Loader size="sm" />}
           {exported.error && <Alert color="red">{exported.error.message}</Alert>}
           {exported.data && (

@@ -1,5 +1,5 @@
 """An automation as YAML, in the format of the definitions
-(``global-automation.yml``, ``automation.yml``): read (the Architect's
+(``automations/automations.yml``): read (the Architect's
 proposals, «Salva» in the chat), written («Esporta YAML») and turned into
 steps and edges (also by the definitions' sync). Pure functions.
 

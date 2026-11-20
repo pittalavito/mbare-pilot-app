@@ -37,7 +37,7 @@ python resource/scripts/start-docker.py
 python resource/scripts/run-app.py
 ```
 
-**Senza terminali**: installa una volta il launcher. Parte da solo a ogni accesso al PC (in background, senza finestre) e serve una pagina su `LAUNCHER_URL` (default http://127.0.0.1:8090) da salvare nei preferiti del browser. Da lì «Avvia» fa i passi 3 e 4 (accende anche Docker Desktop se è spento) e apre l'app; «Ferma» ferma API e worker, «Ferma anche Docker» anche i container. Log in `resource/logs/launcher.log`; `--remove` toglie l'avvio automatico.
+**Senza terminali**: installa una volta il launcher. Parte da solo a ogni accesso al PC (in background, senza finestre) e serve una pagina su `LAUNCHER_URL` (default http://127.0.0.1:8090) da salvare nei preferiti del browser. Da lì «Avvia» fa i passi 3 e 4 (accende anche Docker Desktop se è spento) e apre l'app; «Ferma» ferma API e worker, «Ferma anche Docker» anche i container. Log in `local/logs/launcher.log`; `--remove` toglie l'avvio automatico.
 
 ```bash
 python resource/scripts/install-launcher.py
@@ -49,7 +49,7 @@ Per sviluppare il frontend con la ricarica a caldo (API e Vite su `WEB_PORT`, [w
 python resource/scripts/run-web.py
 ```
 
-Le definizioni di default (agenti, chatbot, prompt di Copilot, contesto generale) sono in [resource/definition](resource/definition/README.md): non c'è niente da copiare. Quello che cambi va in `<MBARE_PILOT_HOME>/definition/` e vince su quello dell'app. La cartella dei dati (`MBARE_PILOT_HOME`) sta **fuori dal repo**.
+Le definizioni di default (agenti, chatbot, automation, prompt di Copilot e di Claude, template delle bozze, contesto generale, bacheca) sono in [resource/definition](resource/definition/README.md): non c'è niente da copiare. Quello che cambi va in `<MBARE_PILOT_HOME>/definition/` e vince su quello dell'app, con la stessa struttura. La cartella dei dati (`MBARE_PILOT_HOME`) sta **fuori dal repo**; quello che vive solo sul tuo PC (log, PID, backup del DB, report delle valutazioni) sta in `local/`, ignorata da git.
 
 Se lo schema del DB cambia l'app non parte finché non lo ricrei (non ci sono migrazioni):
 
@@ -71,11 +71,12 @@ src/                  backend Python: due processi
 web/                  frontend React + Vite + Mantine (client tipizzato dall'OpenAPI)
 test/                 pytest
 resource/
-  definition/         agenti, chatbot, prompt, contesto generale, ricerche salvate
+  definition/         per tema: agents/, automations/, coding-agents/ (copilot/, claude/), templates/, context/, board/
   scripts/            avvio (anche il launcher nel browser), test, export del DB, valutazioni
   eval/               set di prova delle valutazioni
   plans/              i piani di lavoro
 docs/                 sito GitHub Pages e documentazione per package (docs/doc)
+local/                solo sul tuo PC, ignorata da git: logs/, run/, backups/, evaluations/
 ```
 
 Il codice va in un solo verso: `frontend → /api → controller → service → domain → store`. Dati: **Postgres** con pgvector per quello che l'app definisce e registra, **Redis** per tracce e heartbeat, **file** su disco per note, task, attività e definizioni.
@@ -104,7 +105,7 @@ Il coverage di `src/` deve restare ≥ 95% (`fail_under` in `pyproject.toml`): l
 
 Altri comandi:
 
-- export del DB in `../mbare-pilot-back-up/db/` (anche da **Admin → Backup**):
+- export del DB in `local/backups/db/` (anche da **Admin → Backup**):
 
 ```bash
 python resource/scripts/export-db.py

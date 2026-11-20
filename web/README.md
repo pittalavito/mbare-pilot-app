@@ -20,7 +20,7 @@ python resource/scripts/run-web.py
 
 In entrambi i casi:
 
-- l'output dell'API va in `resource/logs/api.log`; con `API_RELOAD=true` l'API si riavvia da sola quando cambia `src/`;
+- l'output dell'API va in `local/logs/api.log`; con `API_RELOAD=true` l'API si riavvia da sola quando cambia `src/`;
 - la prima volta si installano le dipendenze del frontend;
 - chiuso lo script (Ctrl+C), si ferma quello che ha avviato: l'API e, con lei, il worker che l'API ha avviato.
 

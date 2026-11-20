@@ -131,7 +131,7 @@ def test_the_ok_runs_copilot_in_the_worker_without_commits_and_the_task_is_to_ve
     execution = _turns(tmp_path, session)[-1]
     assert execution["mode"] == "autopilot" and "--allow-all-tools" in execution["args"]
     denied = [execution["args"][i + 1] for i, arg in enumerate(execution["args"]) if arg == "--deny-tool"]
-    assert denied == ["shell(git commit)", "shell(git push)", "shell(git reset)"]  # global-coding-agent.yml of conftest
+    assert denied == ["shell(git commit)", "shell(git push)", "shell(git reset)"]  # coding-agents/copilot/coding-agent.yml of conftest
     assert execution["prompt"] == "Ok, procedi con il piano concordato, senza commit."
     assert service.messages(session.id)[-3].content == "Ho creato copilot.txt. Criteri soddisfatti."
     assert service.run_next() is None  # nothing else queued
@@ -354,9 +354,9 @@ def test_executions_left_running_by_a_dead_worker_fail_at_restart(data, project,
 # --------------------------------------------------- coding-agent definition
 
 def test_the_project_definition_replaces_the_global_fields_and_prompts_can_be_files(data, project, config, tmp_path, stores):
-    folder = config.definitions_root / "project" / "acme"
+    folder = config.definitions_root / "project" / "acme" / "coding-agents" / "copilot"
     folder.mkdir(parents=True)
-    (folder / "piano.md").write_text("Piano su misura con {braces} JSON.\n\nIl task: {task}\n", encoding="utf-8")
+    (folder / "piano.md").write_text("Piano su misura con {braces} JSON.\n\nIl task: {task}\n", encoding="utf-8")  # next to its file
     (folder / "coding-agent.yml").write_text("plan_prompt_file: piano.md\ndenied_tools: []\n", encoding="utf-8")
     service = _service(stores, data)
 
@@ -372,14 +372,14 @@ def test_the_project_definition_replaces_the_global_fields_and_prompts_can_be_fi
 
 def test_delegating_with_a_chosen_prompt_and_model_uses_them_for_every_turn(data, project, config, tmp_path, stores):
     root = config.definitions_root
-    (root / "global-coding-agent.yml").write_text(
-        (root / "global-coding-agent.yml").read_text(encoding="utf-8") + "models: [gpt-5, claude-sonnet-4.5]\n", encoding="utf-8")
-    (root / "coding-agent").mkdir()
-    (root / "coding-agent" / "refactor.md").write_text("Solo refactoring.\n{task}", encoding="utf-8")
-    (root / "coding-agent" / "bug.md").write_text("Trova il bug.\n{task}", encoding="utf-8")
-    (root / "coding-agent" / "note.txt").write_text("non è un prompt", encoding="utf-8")
-    (root / "project" / "acme" / "coding-agent").mkdir(parents=True)
-    (root / "project" / "acme" / "coding-agent" / "bug.md").write_text("Bug, a modo di acme.\n{task}", encoding="utf-8")
+    (root / "coding-agents/copilot/coding-agent.yml").write_text(
+        (root / "coding-agents/copilot/coding-agent.yml").read_text(encoding="utf-8") + "models: [gpt-5, claude-sonnet-4.5]\n", encoding="utf-8")
+    (root / "coding-agents" / "copilot" / "prompts").mkdir()
+    (root / "coding-agents" / "copilot" / "prompts" / "refactor.md").write_text("Solo refactoring.\n{task}", encoding="utf-8")
+    (root / "coding-agents" / "copilot" / "prompts" / "bug.md").write_text("Trova il bug.\n{task}", encoding="utf-8")
+    (root / "coding-agents" / "copilot" / "prompts" / "note.txt").write_text("non è un prompt", encoding="utf-8")
+    (root / "project" / "acme" / "coding-agents" / "copilot" / "prompts").mkdir(parents=True)
+    (root / "project" / "acme" / "coding-agents" / "copilot" / "prompts" / "bug.md").write_text("Bug, a modo di acme.\n{task}", encoding="utf-8")
     service = _service(stores, data)
 
     assert list(service.coding_agent("acme").prompts) == ["bug", "refactor"]
@@ -416,10 +416,10 @@ def test_a_task_not_refined_yet_can_be_delegated_with_a_warning(data, project, t
 
 def test_the_task_type_picks_the_planning_prompt_unless_one_is_chosen(data, project, config, tmp_path, stores):
     root = config.definitions_root
-    (root / "coding-agent").mkdir()
-    (root / "coding-agent" / "analisi.md").write_text("Solo analisi, non cambiare il codice.\n{task}", encoding="utf-8")
-    (root / "coding-agent" / "bug.md").write_text("Trova il bug.\n{task}", encoding="utf-8")
-    path = root / "global-coding-agent.yml"
+    (root / "coding-agents" / "copilot" / "prompts").mkdir()
+    (root / "coding-agents" / "copilot" / "prompts" / "analisi.md").write_text("Solo analisi, non cambiare il codice.\n{task}", encoding="utf-8")
+    (root / "coding-agents" / "copilot" / "prompts" / "bug.md").write_text("Trova il bug.\n{task}", encoding="utf-8")
+    path = root / "coding-agents/copilot/coding-agent.yml"
     path.write_text(path.read_text(encoding="utf-8") + "type_prompts:\n  analysis: analisi\n  development: ''\n", encoding="utf-8")
     service = _service(stores, data)
     assert service.coding_agent().type_prompts == {TaskType.ANALYSIS: "analisi", TaskType.DEVELOPMENT: ""}
@@ -439,14 +439,14 @@ def test_the_task_type_picks_the_planning_prompt_unless_one_is_chosen(data, proj
 
 
 def test_task_checklists_per_type_and_the_project_replaces_them(data, project, config, stores):
-    path = config.definitions_root / "global-coding-agent.yml"
+    path = config.definitions_root / "coding-agents/copilot/coding-agent.yml"
     path.write_text(path.read_text(encoding="utf-8") + "task_checklists:\n  development: [repository, criteri]\n  jira: [chiave]\n",
                     encoding="utf-8")
     service = _service(stores, data)
     assert coding_agent.task_checklist(service.coding_agent(), TaskType.DEVELOPMENT) == ["repository", "criteri"]
     assert coding_agent.task_checklist(service.coding_agent(), TaskType.ANALYSIS) == []  # none written
 
-    project_file = config.definitions_root / "project" / "acme" / "coding-agent.yml"
+    project_file = config.definitions_root / "project" / "acme" / "coding-agents/copilot/coding-agent.yml"
     project_file.parent.mkdir(parents=True)
     project_file.write_text("task_checklists:\n  analysis: [domanda]\n", encoding="utf-8")
     assert service.coding_agent("acme").task_checklists == {TaskType.ANALYSIS: ["domanda"]}  # the whole field replaced
@@ -456,7 +456,7 @@ def test_task_checklists_per_type_and_the_project_replaces_them(data, project, c
 
 
 def test_type_prompts_must_name_existing_prompts(data, project, config, stores):
-    path = config.definitions_root / "global-coding-agent.yml"
+    path = config.definitions_root / "coding-agents/copilot/coding-agent.yml"
     path.write_text(path.read_text(encoding="utf-8") + "type_prompts:\n  analysis: manca\n", encoding="utf-8")
     assert "type_prompts: prompt non trovati: manca" in _service(stores, data).coding_agent_or_error()[1]
 
@@ -465,14 +465,14 @@ def test_type_prompts_must_name_existing_prompts(data, project, config, stores):
 
 
 def test_a_prompt_file_without_the_task_placeholder_is_an_error(data, project, config, stores):
-    (config.definitions_root / "coding-agent").mkdir()
-    (config.definitions_root / "coding-agent" / "rotto.md").write_text("Niente segnaposto", encoding="utf-8")
+    (config.definitions_root / "coding-agents" / "copilot" / "prompts").mkdir()
+    (config.definitions_root / "coding-agents" / "copilot" / "prompts" / "rotto.md").write_text("Niente segnaposto", encoding="utf-8")
 
-    assert "coding-agent/rotto.md deve contenere {task}" in _service(stores, data).coding_agent_or_error()[1]
+    assert "coding-agents/copilot/prompts/rotto.md deve contenere {task}" in _service(stores, data).coding_agent_or_error()[1]
 
 
 @pytest.mark.parametrize("text, error", [
-    (None, "Manca definition/global-coding-agent.yml"),
+    (None, "Manca definition/coding-agents/copilot/coding-agent.yml"),
     ("plan_prompt: senza segnaposto\nexecute_prompt: vai\ndenied_tools: []\n", "deve contenere {task}"),
     ("plan_prompt: '{task_folder}'\nexecute_prompt: vai\ndenied_tools: []\n", "deve contenere {task}"),  # the old placeholder
     ("plan_prompt: '{task}'\nexecute_prompt: vai\ndenied_tools: []\nreferences_prompt: 'in {task}'\n", "references_prompt: Extra inputs"),
@@ -483,7 +483,7 @@ def test_a_prompt_file_without_the_task_placeholder_is_an_error(data, project, c
     ("plan_prompt: [rotto\n", "YAML non valido"),
 ])
 def test_a_missing_or_broken_global_definition_stops_copilot(data, project, config, text, error, stores):
-    path = config.definitions_root / "global-coding-agent.yml"
+    path = config.definitions_root / "coding-agents/copilot/coding-agent.yml"
     path.unlink()
     if text is not None:
         path.write_text(text, encoding="utf-8")
@@ -498,11 +498,11 @@ def test_an_execution_fails_when_the_definition_broke_after_the_ok(data, project
     service = _service(stores, data)
     session = service.start("acme", _task(data), "api")
     service.approve(session.id)
-    (config.definitions_root / "global-coding-agent.yml").unlink()
+    (config.definitions_root / "coding-agents/copilot/coding-agent.yml").unlink()
 
     session = service.run_next()
 
-    assert session.status == CopilotSessionStatus.FAILED and "Manca definition/global-coding-agent.yml" in session.error
+    assert session.status == CopilotSessionStatus.FAILED and "Manca definition/coding-agents/copilot/coding-agent.yml" in session.error
 
 
 # -------------------------------------------------------------------- client
@@ -526,8 +526,8 @@ def test_the_client_reports_a_missing_cli_and_reads_the_last_message(tmp_path, m
 # --------------------------------------------------------------------- usage
 
 def test_each_turn_records_what_it_used_out_of_the_session_totals(data, project, config, stores):
-    (config.definitions_root / "global-coding-agent.yml").write_text(
-        (config.definitions_root / "global-coding-agent.yml").read_text(encoding="utf-8") + "models: [gpt-5]\n", encoding="utf-8")
+    (config.definitions_root / "coding-agents/copilot/coding-agent.yml").write_text(
+        (config.definitions_root / "coding-agents/copilot/coding-agent.yml").read_text(encoding="utf-8") + "models: [gpt-5]\n", encoding="utf-8")
     service = _service(stores, data)
     session = service.start("acme", _task(data), "api", model="gpt-5")
     service.send(session.id, "ok")
@@ -594,7 +594,7 @@ def test_the_usage_file_is_read_as_copilot_writes_it(tmp_path):
 
 
 def test_models_come_with_their_price_cheapest_first_and_what_they_cost_so_far(data, project, config, stores):
-    path = config.definitions_root / "global-coding-agent.yml"
+    path = config.definitions_root / "coding-agents/copilot/coding-agent.yml"
     path.write_text(path.read_text(encoding="utf-8") + """models:
   - auto
   - {name: caro, input: 4, cached_input: 0.2, cache_write: 5, output: 20, note: per i task difficili}
@@ -623,7 +623,7 @@ def test_models_come_with_their_price_cheapest_first_and_what_they_cost_so_far(d
     ("[{name: x, output: 1, input: 1, long_context: {input: 2, cached_input: 0, output: 3}}]", "above"),
 ])
 def test_a_wrong_model_price_is_an_error(data, project, config, models, error, stores):
-    path = config.definitions_root / "global-coding-agent.yml"
+    path = config.definitions_root / "coding-agents/copilot/coding-agent.yml"
     path.write_text(path.read_text(encoding="utf-8") + f"models: {models}\n", encoding="utf-8")
 
     assert error in _service(stores, data).coding_agent_or_error()[1]

@@ -8,12 +8,12 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError as PydanticValidationError
 
 from config import Config
-from controller.dev_mcp_server import build_dev_mcp_server
+from controller.dev_mcp_server import build_dev_mcp_server, set_instructions
 from controller.mcp_server import build_mcp_server, mcp_app
 from controller.router import router as api_router
 from core.container import Container
 from core.error import AppError, ConflictError, NotFoundError, UpstreamError, ValidationError
-from core.observability import configure_logging
+from core.observability import LogPrefix, configure_logging, log_warning
 
 _STATUS: dict[type[AppError], int] = {
     NotFoundError: 404,
@@ -35,6 +35,10 @@ def create_app(container: Container | None = None) -> FastAPI:
         if container is None:
             configure_logging(Config.get().app_log_level)
         app.state.container = container or Container()
+        try:
+            set_instructions(dev_mcp, app.state.container.tool_request_service.instructions())
+        except AppError as exc:
+            log_warning(LogPrefix.TOOL_REQUEST_SERVICE, "%s", exc)
         async with mcp.session_manager.run(), dev_mcp.session_manager.run():  # the MCP servers (/mcp, /mcp-dev) need their task groups
             yield
 

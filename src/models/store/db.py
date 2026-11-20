@@ -328,7 +328,7 @@ class CopilotSessionTable(SQLModel, table=True):
     """A task without code delegated without a repository: Copilot works in copilot/<task>/ of the project's data."""
     copilot_session_id: str = Field(unique=True)
     prompt: str = ""
-    """The planning prompt chosen (a coding-agent/<name>.md); ``""`` = the default."""
+    """The planning prompt chosen (a coding-agents/copilot/prompts/<name>.md); ``""`` = the default."""
     model: str = ""
     """Copilot's model for every turn; ``""`` = COPILOT_MODEL or Copilot's default."""
     status: str = Field(index=True)

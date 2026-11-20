@@ -1,7 +1,7 @@
 """The plan of an activity and its round: steps «Pianifica» and «Lavora».
 
 1. **Propose** («✨ Proponi i task»): **one call** to the agent ``pianificatore``
-   of global-agent.yml with a **structured answer** (``PlanAnswer``), no tools,
+   of agents/agents.yml with a **structured answer** (``PlanAnswer``), no tools,
    few tokens: the activity's title, description and items not done and
    without a task (numbered), the titles of its references, the project's
    repositories, the task types, the project's development rules

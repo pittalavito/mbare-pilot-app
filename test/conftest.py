@@ -35,7 +35,7 @@ HELLO_AGENT = """agents:
     tools: [hello_world]
     system_prompt: Sei un assistente. Usa i tool a disposizione quando servono.
 """
-"""The example agent the tests build on, as the data folder's global-agent.yml
+"""The example agent the tests build on, as the data folder's agents/agents.yml
 has it: a Container creates it at startup, as in the app."""
 
 CODING_AGENT = """plan_prompt: |
@@ -44,10 +44,12 @@ CODING_AGENT = """plan_prompt: |
 execute_prompt: Ok, procedi con il piano concordato, senza commit.
 denied_tools: ["shell(git commit)", "shell(git push)", "shell(git reset)"]
 """
-"""Copilot's prompts and denied tools (global-coding-agent.yml): required to use Copilot."""
-EXAMPLE_AGENTS = Path(__file__).parents[1] / "resource" / "definition" / "global-agent.yml"
+"""Copilot's prompts and denied tools (coding-agents/copilot/coding-agent.yml): required to use Copilot."""
+CLAUDE_INSTRUCTIONS = "Lavora le richieste di tool: scrivi il tool con i test, apri la PR, segna la richiesta fatta.\n"
+"""What Claude Code is told on the dev MCP server (coding-agents/claude/tool-requests.md)."""
+EXAMPLE_AGENTS = Path(__file__).parents[1] / "resource" / "definition" / "agents" / "agents.yml"
 """The agents of the Library: hello and the agents with a structured answer (wip, pianificatore, bozza-attivita)."""
-EXAMPLE_CHATBOTS = Path(__file__).parents[1] / "resource" / "definition" / "global-chat-bots.yml"
+EXAMPLE_CHATBOTS = Path(__file__).parents[1] / "resource" / "definition" / "agents" / "chatbots.yml"
 """The chatbots every project gets (the code creates none): the example file, as a new installation has it."""
 
 
@@ -75,9 +77,11 @@ def config(tmp_path):
         rag_embedder="hashing",  # the context index never calls a real embedder in the tests
         app_definitions=str(tmp_path / "no-app-definitions"),  # only the tests' own files; the app's are tested on their own
     )
-    test_config.definitions_root.mkdir(parents=True)
-    (test_config.definitions_root / "global-agent.yml").write_text(HELLO_AGENT, encoding="utf-8")
-    (test_config.definitions_root / "global-coding-agent.yml").write_text(CODING_AGENT, encoding="utf-8")
+    for folder in ("agents", "automations", "coding-agents/copilot", "coding-agents/claude", "templates", "board"):
+        (test_config.definitions_root / folder).mkdir(parents=True)
+    (test_config.definitions_root / "agents/agents.yml").write_text(HELLO_AGENT, encoding="utf-8")
+    (test_config.definitions_root / "coding-agents/copilot/coding-agent.yml").write_text(CODING_AGENT, encoding="utf-8")
+    (test_config.definitions_root / "coding-agents/claude/tool-requests.md").write_text(CLAUDE_INSTRUCTIONS, encoding="utf-8")
     Config.set(test_config)
     yield test_config
     Config.set(None)
@@ -85,14 +89,14 @@ def config(tmp_path):
 
 @pytest.fixture
 def default_chatbots(config):
-    """The example global-chat-bots.yml and global-agent.yml in the data folder: a Container (or a new project)
+    """The example agents/chatbots.yml and agents/agents.yml in the data folder: a Container (or a new project)
     creates their chatbots and agents (the structured ones too), as a new installation."""
-    (config.definitions_root / "global-chat-bots.yml").write_text(EXAMPLE_CHATBOTS.read_text(encoding="utf-8"), encoding="utf-8")
-    (config.definitions_root / "global-agent.yml").write_text(EXAMPLE_AGENTS.read_text(encoding="utf-8"), encoding="utf-8")
+    (config.definitions_root / "agents/chatbots.yml").write_text(EXAMPLE_CHATBOTS.read_text(encoding="utf-8"), encoding="utf-8")
+    (config.definitions_root / "agents/agents.yml").write_text(EXAMPLE_AGENTS.read_text(encoding="utf-8"), encoding="utf-8")
 
 
 def seed_structured_agents(service: AgentConfigService) -> None:
-    """The agents of the example global-agent.yml with an ``output``, as a Container creates them."""
+    """The agents of the example agents/agents.yml with an ``output``, as a Container creates them."""
     for raw in yaml.safe_load(EXAMPLE_AGENTS.read_text(encoding="utf-8"))["agents"]:
         spec = AgentFile.model_validate(raw)
         if not spec.output or any(config.name == spec.name for config in service.list_configs()):
@@ -217,7 +221,7 @@ def definition_store(stores):
 def agent_config_service(project_store, agent_store, catalog_store):
     """AgentConfigService on the in-memory stores with the tool catalog and the
     example agent the tests build on: global role ``hello``, prompt v1, agent
-    ``hello`` with ``hello_world`` (in the app it comes from global-agent.yml)."""
+    ``hello`` with ``hello_world`` (in the app it comes from agents/agents.yml)."""
     service = AgentConfigService(project_store, agent_store, catalog_store)
     service.sync_tools()
     if agent_store.get_config("hello") is None:  # a Container may have created it already

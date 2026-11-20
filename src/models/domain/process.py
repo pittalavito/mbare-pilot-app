@@ -8,7 +8,7 @@ from models.domain.worker import WorkerStatus
 
 
 class ProcessName(StrEnum):
-    """Processes with a log in ``resource/logs/<name>.log``."""
+    """Processes with a log in ``local/logs/<name>.log``."""
     API = "api"
     WORKER = "worker"
 

@@ -31,8 +31,8 @@ def test_masked_keeps_empty_secrets_empty_and_plain_values():
     assert masked["redis_dashboard_port"] == 8083
 
 
-def test_backup_folder_defaults_next_to_the_project(config, tmp_path):
+def test_backup_folder_defaults_to_local(config, tmp_path):
     project_root = Path(config_module.__file__).resolve().parents[1]  # src/config.py → the project folder
-    assert config.backup_path == project_root.parent / "mbare-pilot-back-up"
+    assert config.backup_path == project_root / "local" / "backups"
     assert config.model_copy(update={"backup_dir": str(tmp_path)}).backup_path == tmp_path
 

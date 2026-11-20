@@ -82,4 +82,4 @@ def test_a_process_without_a_log_has_empty_logs(service):
 
 def test_the_processes_live_in_the_app_folder(config):
     assert (config.app_root / config.worker_script).is_file()
-    assert (config.run_dir, config.logs_dir) == (config.app_root / "resource" / "run", config.app_root / "resource" / "logs")
+    assert (config.run_dir, config.logs_dir) == (config.app_root / "local" / "run", config.app_root / "local" / "logs")

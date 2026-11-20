@@ -1,10 +1,10 @@
 """Definitions as files: agents, chatbots and automations written as YAML
 under ``<MBARE_PILOT_HOME>/definition/`` (layout in domain/project/data_paths.py):
-``agent.yml`` / ``global-agent.yml`` hold a list ``agents:`` of ``AgentFile``,
-``automation.yml`` / ``global-automation.yml`` a list ``automations:`` of
-``AutomationFile``, ``chat-bots.yml`` / ``global-chat-bots.yml`` a list
+``agents/agents.yml`` holds a list ``agents:`` of ``AgentFile``,
+``automations/automations.yml`` a list ``automations:`` of
+``AutomationFile``, ``agents/chatbots.yml`` a list
 ``chatbots:`` of ``ChatbotFile``,
-``coding-agent.yml`` / ``global-coding-agent.yml`` one ``CodingAgentFile``
+``coding-agents/copilot/coding-agent.yml`` one ``CodingAgentFile``
 (read by CopilotService at every use, never synced).
 
 DefinitionService validates them and applies them on request ("sync"): what
@@ -31,7 +31,7 @@ class _File(BaseModel):
 
 class AgentFile(_File):
     """An element of ``agents:``: an agent of the project (or of the Library, in
-    global-agent.yml). Its role is created when missing, in the same scope; a
+    agents/agents.yml). Its role is created when missing, in the same scope; a
     changed ``system_prompt`` becomes the role's next prompt version."""
     name: Name
     description: str = ""
@@ -101,7 +101,7 @@ class ModelFile(ModelPriceFile):
 
 
 class CodingAgentFile(_File):
-    """``global-coding-agent.yml`` (and ``project/<slug>/coding-agent.yml``,
+    """``coding-agents/copilot/coding-agent.yml`` (and ``project/<slug>/coding-agents/copilot/coding-agent.yml``,
     whose fields replace the global ones): what the app tells Copilot.
     ``plan_prompt`` is the first planning turn (``{task}`` = the
     task's note, read from the MCP server), ``execute_prompt`` the turn that starts the execution,
@@ -115,7 +115,7 @@ class CodingAgentFile(_File):
     denied_tools: list[Prompt] | None = None
     type_prompts: dict[TaskType, str] | None = None
     """The planning prompt of each task type when delegating without choosing
-    one: type → name of a ``coding-agent/<name>.md`` (``""`` = ``plan_prompt``)."""
+    one: type → name of a ``coding-agents/copilot/prompts/<name>.md`` (``""`` = ``plan_prompt``)."""
     task_checklists: dict[TaskType, list[Prompt]] | None = None
     """What a refined task of each type should have (type → points): the
     Refiner gets the one of the task it is refining."""
@@ -238,7 +238,7 @@ class SyncOutcome(StrEnum):
 class SyncItem(BaseModel):
     kind: DefinitionKind
     file: str
-    """Relative to ``definition/``, e.g. ``project/acme/agent.yml``."""
+    """Relative to ``definition/``, e.g. ``project/acme/agents/agents.yml``."""
     name: str | None = None
     """What the element defines; None when the file could not be read."""
     outcome: SyncOutcome

@@ -5,7 +5,7 @@ the browser, without terminals. It serves launcher.html on LAUNCHER_URL
 "Avvia" does what the README does by hand: Docker (Postgres and Redis, starting
 Docker Desktop when it is off), the frontend build when it is missing or old,
 then the API on API_URL. "Ferma" stops the API (and the worker it started);
-"Ferma Docker" stops the containers too. Its log is resource/logs/launcher.log.
+"Ferma Docker" stops the containers too. Its log is local/logs/launcher.log.
 
 It runs with the .venv python (it reuses api_process and python-dotenv), in the
 background: install-launcher.py makes it start by itself when you log in.
@@ -31,7 +31,7 @@ from utils import get_project_root, load_env
 
 ROOT = get_project_root()
 HERE = Path(__file__).resolve().parent
-LOG = ROOT / "resource" / "logs" / "launcher.log"
+LOG = ROOT / "local" / "logs" / "launcher.log"
 COMPOSE = ["compose", "--env-file", ".env", "-f", "resource/docker/docker-compose.yml"]
 NO_WINDOW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
 DOCKER_DESKTOP_TIMEOUT = 180.0
@@ -142,7 +142,7 @@ class Launcher:
         api = start_api(ROOT, url)
         if not wait_healthy(url, api):
             stop(api)
-            raise RuntimeError("L'API non risponde: guarda resource/logs/api.log.")
+            raise RuntimeError("L'API non risponde: guarda local/logs/api.log.")
         self.api = api
         self._say(f"Mbare Pilot attivo su {url}.")
 

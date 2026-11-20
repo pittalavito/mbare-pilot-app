@@ -137,9 +137,9 @@ describe("SettingsTab", () => {
     mockApi({
       "GET /projects/acme": PROJECT,
       "GET /projects/acme/definitions": [
-        { kind: "agent", file: "global-agent.yml", name: "hello", state: "new", message: "" },
+        { kind: "agent", file: "agents/agents.yml", name: "hello", state: "new", message: "" },
         { kind: "chatbot", file: "global-chat-bot.yml", name: "Bot", state: "exists", message: "" },
-        { kind: "automation", file: "project/acme/automation.yml", name: null, state: "error", message: "steps: campo obbligatorio" },
+        { kind: "automation", file: "project/acme/automations/automations.yml", name: null, state: "error", message: "steps: campo obbligatorio" },
       ],
       "POST /projects/acme/definitions/sync": synced,
     });
@@ -148,7 +148,7 @@ describe("SettingsTab", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Definizioni da file/ }));
     expect(await screen.findByText("steps: campo obbligatorio")).toBeInTheDocument();
     expect(screen.getByText("esiste: il file vince")).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: "Sincronizza project/acme/automation.yml" })).toBeDisabled(); // broken: not choosable
+    expect(screen.getByRole("checkbox", { name: "Sincronizza project/acme/automations/automations.yml" })).toBeDisabled(); // broken: not choosable
     expect(screen.getByRole("button", { name: /Sincronizza selezionati \(0\)/ })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Sincronizza Bot" }));
@@ -162,7 +162,7 @@ describe("SettingsTab", () => {
     mockApi({
       "GET /projects/acme": PROJECT,
       "GET /projects/acme/definitions": [
-        { kind: "agent", file: "global-agent.yml", name: "hello", state: "new", message: "" },
+        { kind: "agent", file: "agents/agents.yml", name: "hello", state: "new", message: "" },
         { kind: "automation", file: "a.yml", name: "Rotta", state: "error", message: "no" },
         { kind: "automation", file: "a.yml", name: "Buona", state: "new", message: "" },
       ],

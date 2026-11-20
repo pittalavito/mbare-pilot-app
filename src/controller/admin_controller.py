@@ -49,7 +49,7 @@ def run_transcript(run_id: str, service: RunService = Depends(run_service)) -> R
 
 @router.get("/roadmap")
 def roadmap(service: RoadmapService = Depends(roadmap_service)) -> Roadmap:
-    """«🚀 Mbare Pilot»: the app's future changes, from roadmap.yml of the definitions."""
+    """«🚀 Mbare Pilot»: the app's future changes, from board/roadmap.yml of the definitions."""
     return service.roadmap()
 
 
