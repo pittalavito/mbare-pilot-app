@@ -64,7 +64,7 @@ python resource/scripts/export-db.py
 Valutazioni con i modelli veri sui set di prova di `resource/eval/` (anche da **Admin → Observability → Metriche**); il report, markdown e JSON, va in `<MBARE_PILOT_HOME>/evaluations/`:
 
 ```bash
-python resource/scripts/eval-wip.py --model openrouter/google/gemini-3.1-flash-lite-preview
+python resource/scripts/eval-wip.py --model openrouter/google/gemini-3.1-flash-lite
 ```
 
 ```bash
