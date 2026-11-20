@@ -6,6 +6,7 @@ Stato: **da realizzare**.
 
 1. Cercare nel codice i propri commenti (come i vecchi todoMbarePilot) con le **proprie regex**, senza doverle scrivere ogni volta, e farsi aiutare a scriverle.
 2. Pre e post sviluppo non più task a parte ma **passi del task di sviluppo**.
+3. In «📎 Parto da riferimenti» poter scrivere **una descrizione** prima di «✨ Proponi».
 
 ## Decisioni prese
 
@@ -21,7 +22,12 @@ Stato: **da realizzare**.
 - Un'opzione del giro in Lavora, come l'ok automatico al piano di Copilot: **«Salta da solo Pre e Post vuoti»** (senza comandi né automation).
 - Il Pianificatore non propone più task pre/post: scrive Pre e Post dentro ogni sviluppo.
 
+### Descrizione prima di «✨ Proponi»
+- In «➕ Nuova attività» → «📎 Parto da riferimenti», sopra «✨ Proponi», un campo **«Cosa vuoi fare»** (testo libero, facoltativo).
+- Va al Segretario (`bozza-attivita`) insieme ai titoli dei riferimenti e del contesto: è l'intenzione principale da cui proporre titolo, descrizione e voci della todo.
+- «✨ Proponi» si accende anche con la sola descrizione, senza riferimenti.
+
 ## Test e documentazione
-- pytest: ricerche salvate (default, progetto, sovrascrittura), agente della regex, riferimento da una ricerca salvata; passi Pre e Post dello sviluppo (automatico, a mano, salta, salto automatico dei vuoti), Pianificatore senza task pre/post.
-- vitest: menu delle ricerche, «⭐ Salva ricerca», «✨ Regex», «Nuovo riferimento» da codice; riga dello sviluppo con Pre e Post.
-- Doc `service`, `controller`, `definitions.md`, `web/README.md`; definizioni: prompt del Pianificatore, agente della regex, ricerche di default, contesto generale (`pre-post-sviluppo.md`).
+- pytest: ricerche salvate (default, progetto, sovrascrittura), agente della regex, riferimento da una ricerca salvata; passi Pre e Post dello sviluppo (automatico, a mano, salta, salto automatico dei vuoti), Pianificatore senza task pre/post; bozza dell'attività con la descrizione (anche da sola).
+- vitest: menu delle ricerche, «⭐ Salva ricerca», «✨ Regex», «Nuovo riferimento» da codice; riga dello sviluppo con Pre e Post; campo «Cosa vuoi fare» e «✨ Proponi» con la sola descrizione.
+- Doc `service`, `controller`, `definitions.md`, `web/README.md`; definizioni: prompt del Pianificatore, prompt di `bozza-attivita`, agente della regex, ricerche di default, contesto generale (`pre-post-sviluppo.md`).
