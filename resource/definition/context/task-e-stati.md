@@ -9,7 +9,7 @@ Un agent task è una nota del progetto (`agent-task-<titolo>.md`) che descrive u
 - **jira**: la rifinitura di una issue Jira. Copilot scrive la bozza in una nota.
 
 ## Campi di un task
-Titolo, tipo, obiettivo, contesto, criteri di accettazione (una checklist), vincoli, riferimenti collegati. Uno sviluppo ha in più il **pre** (prima della delega: branch, aggiornamento, build) e il **post** (dopo la conferma: pulizia della cartella `mbare-pilot/<task>/`, test, commit se le regole lo dicono), ognuno con passi a parole, comandi (uno per riga) e un'automation del progetto; mai Copilot. Uno sviluppo può dire quali test lanciare (tutti o solo quelli toccati).
+Titolo, tipo, obiettivo, contesto, criteri di accettazione (una checklist), vincoli, riferimenti collegati. Uno sviluppo ha in più il **pre** (prima della delega: branch, aggiornamento, build) e il **post** (dopo la conferma: test, pulizia, commit se le regole lo dicono), ognuno con passi a parole, comandi (uno per riga) e un'automation del progetto; mai Copilot. Uno sviluppo può dire quali test lanciare (tutti o solo quelli toccati).
 
 ## Stati
 - **creato**: appena scritto, ancora da rifinire.

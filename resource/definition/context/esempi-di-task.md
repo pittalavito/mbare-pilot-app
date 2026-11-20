@@ -30,5 +30,5 @@ Un esempio per tipo: obiettivo chiaro, criteri verificabili, vincoli espliciti. 
 - **Comandi**: `git fetch --all --prune`, `git checkout -b feature/otp-login`, `mvn -B clean install`.
 
 ## Esempio di post di uno sviluppo
-- **Passi**: togli la cartella del task per Copilot; lancia i test toccati; commit e push li fa l'utente.
-- **Comandi**: `rm -rf mbare-pilot/agent-task-aggiungi-l-otp-al-login`; poi i test con `run_tests` oppure `mvn -B test`.
+- **Passi**: lancia i test toccati; controlla `git status`; commit e push li fa l'utente.
+- **Comandi**: `mvn -B test`, `git status` (oppure i test con `run_tests`).

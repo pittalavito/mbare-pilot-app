@@ -19,9 +19,10 @@ Ogni piano descrive **cosa fare**, non com'è fatto oggi; le parti che esistono 
 | 34 | [Ricerche salvate e pre/post dentro lo sviluppo](34-ricerche-salvate-e-pre-post-nello-sviluppo.md) | fatto | app | flusso, strumenti |
 | 35 | [Presentazione: pagina GitHub Pages e demo live](35-presentazione.md) | fatto | app | presentazione |
 | 36 | [Pulizia leggera del codice, docstring e doc per package](36-pulizia-codice-e-doc.md) | da realizzare | app | pulizia, documentazione |
+| 37 | [Niente file del task nei repository, pagina più chiara](37-niente-file-task-nei-repository.md) | fatto | app | copilot, presentazione |
 | — | [Backlog](backlog.md) | idee | — | — |
 
-I piani 01-26 sono fatti e sono stati tolti: la storia è nelle PR e nei commit. Il prossimo piano è il 37.
+I piani 01-26 sono fatti e sono stati tolti: la storia è nelle PR e nei commit. Il prossimo piano è il 38.
 
 Stati: **da progettare** (mancano decisioni) → **da realizzare** → **in corso** → **fatto**.
 

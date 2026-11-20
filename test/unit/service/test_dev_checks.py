@@ -11,7 +11,7 @@ from core.container import Container
 from models.domain.copilot import CopilotMessageRole, CopilotSessionStatus
 from models.domain.dev import TestScope
 from models.domain.note import AgentTask, TaskStatus
-from unit.service.test_copilot_service import _service, _task, _task_dir, data, project  # noqa: F401 (fixtures)
+from unit.service.test_copilot_service import _service, _task, data, project  # noqa: F401 (fixtures)
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
 
@@ -25,7 +25,7 @@ def test_after_copilot_nothing_runs_by_itself(project, data, stores):  # noqa: F
 
     assert session.status is CopilotSessionStatus.DONE and data.agent_task("acme", note).status is TaskStatus.TO_VERIFY
     assert not any("Verifica" in message.content for message in service.messages(session.id) if message.role is CopilotMessageRole.EVENT)
-    assert (_task_dir(project, note) / "task.md").is_file()  # the post development task cleans it, not the app
+    assert not (project / "api" / "mbare-pilot").exists()  # plan 37: nothing in the repository
 
 
 def test_the_task_scope_wins_over_the_project_default(project, data, pipeline_store):  # noqa: F811

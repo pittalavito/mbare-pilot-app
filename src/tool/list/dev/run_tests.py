@@ -14,7 +14,6 @@ from pydantic import BaseModel, Field
 from core.error import ConflictError, ValidationError
 from domain.dev import tests
 from domain.dev.inputs import ROOT, parse_verify
-from domain.project import task_folder
 from models.domain.dev import TestKind, TestScope
 from models.domain.git import GitChangeKind
 from models.domain.masking import MaskRepositoryName
@@ -46,7 +45,7 @@ def run(context: ToolContext, params: Params) -> Result:
     selectors: list[str] = []
     if scope is TestScope.TOUCHED:
         changed = [change.path for change in context.git.status(project, repository).changes
-                   if change.kind is not GitChangeKind.DELETED and not task_folder.is_task_path(change.path)]
+                   if change.kind is not GitChangeKind.DELETED]
         selectors = tests.touched_tests(kind, changed, context.git.files(project, repository))
         if not selectors:
             return Result(text="Test: nessun test toccato dalle modifiche, non lanciati.", repository=name)

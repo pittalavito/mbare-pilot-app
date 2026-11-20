@@ -1,6 +1,6 @@
 # Pre e post di uno sviluppo
 
-Ogni task di sviluppo ha due passi in più, fuori da Copilot: il **pre** (prima della delega: branch, aggiornamento, build) e il **post** (dopo la conferma finale: pulizia della cartella `mbare-pilot/<task>/`, test, commit se le regole lo dicono). Non ci sono più task pre o post sviluppo a parte. I passi di uno sviluppo nel giro sono: Pre → Delega → Piano di Copilot → Esecuzione → Conferma finale → Post.
+Ogni task di sviluppo ha due passi in più, fuori da Copilot: il **pre** (prima della delega: branch, aggiornamento, build) e il **post** (dopo la conferma finale: test, pulizia, commit se le regole lo dicono). Non ci sono più task pre o post sviluppo a parte. I passi di uno sviluppo nel giro sono: Pre → Delega → Piano di Copilot → Esecuzione → Conferma finale → Post.
 
 ## Cosa contengono
 Pre e post hanno ognuno:

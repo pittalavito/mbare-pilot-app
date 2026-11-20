@@ -1,10 +1,9 @@
 """A fake GitHub Copilot CLI for the tests: answers ``copilot -p`` like the
 real one (JSONL with ``assistant.message`` and ``result``), remembers the turns
 of each ``--session-id`` (in ``$FAKE_COPILOT_STATE``) and records the
-arguments it got. What it does depends on the task: the session's first
-prompt and, as the real one would read it, the ``task.md`` of the
-``mbare-pilot/<task>`` folder that prompt names (relative to the working
-directory):
+arguments it got. What it does depends on the task: the words in the name of
+the task the session's first prompt names (``agent-task-<title>.md``, plan 37:
+nothing is written in the repository), whatever their case:
 
 - default: plan turns answer with a question; the execution writes ``copilot.txt``;
 - ``COMMIT``: the execution also commits (a broken rule, for the HEAD check);
@@ -106,10 +105,9 @@ def _call(server: dict, tool: str, arguments: dict):
 
 
 def _task(first_prompt: str) -> str:
-    """The first prompt plus the task file it points to, when there is one."""
-    match = re.search(r"mbare-pilot/[\w.-]+", first_prompt)
-    task_file = Path(match.group(0)) / "task.md" if match else None
-    return first_prompt + ("\n" + task_file.read_text(encoding="utf-8") if task_file and task_file.is_file() else "")
+    """The words of the task's title, from its note's name in the first prompt, upper case."""
+    match = re.search(r"agent-task-([\w-]+)", first_prompt)
+    return match.group(1).upper() if match else ""
 
 
 def _answer(text: str, premium_requests: int, exit_code: int = 0) -> None:

@@ -247,6 +247,7 @@ footer .wrap { display: flex; justify-content: space-between; gap: 14px; flex-wr
       <a href="#soluzione" class="hide-sm" data-home>Soluzione</a>
       <a href="#architettura" class="hide-sm" data-home>Architettura</a>
       <a href="#agenti" class="hide-sm" data-home>Agenti</a>
+      <a href="#insieme" class="hide-sm" data-home>Come funziona</a>
       <a href="#doc/README.md" id="nav-docs">Documentazione</a>
       <a href="https://github.com/pittalavito/mbare-pilot-app" rel="noopener">GitHub</a>
       <button class="theme-btn" id="theme" aria-label="Cambia tema" title="Cambia tema">◐</button>
@@ -524,6 +525,82 @@ footer .wrap { display: flex; justify-content: space-between; gap: 14px; flex-wr
   </div>
 </section>
 
+<!-- ------------------------------------------------------------ insieme -->
+<section class="block" id="insieme">
+  <div class="wrap">
+    <p class="eyebrow">Come lavorano insieme</p>
+    <h2>Agenti, tool, automation e Claude Code: un ciclo che migliora da solo</h2>
+    <p class="lead">
+      Tutto quello che un agente sa fare passa da un <b>registro unico di tool</b>. Quello che funziona in chat diventa
+      un'automation; quello che manca lo scrive Claude Code, con i test e una PR.
+    </p>
+    <div class="diagram mt" role="img" aria-label="Ciclo: agenti e tool, Dev, automation, Architetto, richiesta di tool, Claude Code, PR, catalogo">
+      <svg viewBox="0 0 1140 330" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10z" class="d-arrow-a"/></marker></defs>
+        <rect x="430" y="120" width="280" height="96" rx="16" class="d-ok"/>
+        <text x="570" y="152" text-anchor="middle" class="d-t">Registro dei tool</text>
+        <text x="570" y="174" text-anchor="middle" class="d-s">git, Maven, test, comandi, note, Jira,</text>
+        <text x="570" y="192" text-anchor="middle" class="d-s">Confluence, ricerca nel codice, contesto</text>
+        <rect x="20" y="30" width="250" height="84" rx="14" class="d-accent"/>
+        <text x="145" y="62" text-anchor="middle" class="d-t">Agenti e chatbot</text>
+        <text x="145" y="84" text-anchor="middle" class="d-s">ognuno con i tool che gli servono</text>
+        <path d="M270 90 C350 100 380 140 426 152" class="d-line-a" marker-end="url(#ar4)"/>
+        <rect x="20" y="214" width="250" height="84" rx="14" class="d-accent"/>
+        <text x="145" y="246" text-anchor="middle" class="d-t">Dev in chat</text>
+        <text x="145" y="268" text-anchor="middle" class="d-s">una procedura fatta bene…</text>
+        <path d="M270 256 H386" class="d-line-a" marker-end="url(#ar4)"/>
+        <text x="330" y="246" text-anchor="middle" class="d-s">«fanne</text>
+        <text x="330" y="282" text-anchor="middle" class="d-s">un'automation»</text>
+        <rect x="390" y="248" width="360" height="62" rx="14" class="d-box"/>
+        <text x="570" y="274" text-anchor="middle" class="d-t">Automation</text>
+        <text x="570" y="294" text-anchor="middle" class="d-s">step tool senza LLM, step agente solo se serve</text>
+        <path d="M570 248 V220" class="d-line-a" marker-end="url(#ar4)"/>
+        <rect x="870" y="30" width="250" height="84" rx="14" class="d-accent"/>
+        <text x="995" y="62" text-anchor="middle" class="d-t">Architetto</text>
+        <text x="995" y="84" text-anchor="middle" class="d-s">progetta le automation in chat</text>
+        <path d="M870 90 C790 100 760 140 714 152" class="d-line-a" marker-end="url(#ar4)"/>
+        <text x="1005" y="142" class="d-s">manca un tool?</text>
+        <path d="M995 114 V160" class="d-line-a" marker-end="url(#ar4)"/>
+        <rect x="870" y="164" width="250" height="56" rx="14" class="d-human"/>
+        <text x="995" y="190" text-anchor="middle" class="d-t">Richiesta di tool</text>
+        <text x="995" y="208" text-anchor="middle" class="d-s" style="fill:var(--human)">✋ con il tuo ok</text>
+        <path d="M995 220 V244" class="d-line-a" marker-end="url(#ar4)"/>
+        <rect x="870" y="248" width="250" height="62" rx="14" class="d-ext"/>
+        <text x="995" y="274" text-anchor="middle" class="d-t">Claude Code</text>
+        <text x="995" y="294" text-anchor="middle" class="d-s">MCP dev → tool + test → PR</text>
+        <path d="M870 270 C800 250 760 220 714 200" class="d-line-a" marker-end="url(#ar4)"/>
+        <text x="800" y="268" text-anchor="middle" class="d-s">dopo il merge</text>
+      </svg>
+    </div>
+    <div class="grid g4 mt">
+      <div class="card"><div class="ico">🧰</div><h3>Un registro solo</h3><p>Lo stesso tool lo usano gli agenti in chat e gli step delle automation: si scrive una volta, si prova da Admin → Tool.</p></div>
+      <div class="card"><div class="ico">✅</div><h3>Dalla chat all'automation</h3><p>Sotto una risposta di Dev, «Giusto: fanne un'automation» tiene le azioni, chiede i campi da parametrizzare e la salva.</p></div>
+      <div class="card"><div class="ico">🏗️</div><h3>L'Architetto</h3><p>Progetta l'automation con i tool che ci sono, la valida, la mostra come grafo e la esporta in YAML.</p></div>
+      <div class="card"><div class="ico">🤝</div><h3>Claude Code</h3><p>Lavora le richieste di tool dal server MCP dev: scrive tool e test, apre la PR. Unita la PR, il tool è nel catalogo.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------ configurabile -->
+<section class="block" id="configurabile">
+  <div class="wrap">
+    <p class="eyebrow">Tutto configurabile</p>
+    <h2>Niente è scritto nel codice: si cambia dai file o dalla UI</h2>
+    <p class="lead">
+      Agenti, chatbot, prompt, modelli e regole sono <b>definizioni</b>: YAML e markdown versionati con l'app, che chiunque
+      può sostituire nella sua cartella dati o nel singolo progetto. E anche l'agente più semplice si crea dalla UI, in un minuto.
+    </p>
+    <div class="grid g3 mt">
+      <div class="card"><div class="ico">🧱</div><h3>Tre livelli</h3><p>Default dell'app → la tua cartella dati → il progetto. Vince il più vicino, per nome; all'avvio l'app allinea tutto da sola e ogni elemento mostra da dove viene.</p></div>
+      <div class="card"><div class="ico">✨</div><h3>Agenti dalla UI</h3><p>Nella Libreria un agente è un ruolo, un prompt versionato, un modello e i tool che scegli. Un chatbot nuovo per il progetto si crea e si prova subito in chat.</p></div>
+      <div class="card"><div class="ico">📝</div><h3>Prompt versionati</h3><p>Cambiare un prompt crea la versione dopo; le run registrano quale versione hanno usato. «Torna al default» rimette quello dell'app.</p></div>
+      <div class="card"><div class="ico">🧠</div><h3>Modelli</h3><p>Catalogo in Admin → Modelli, con i prezzi: OpenRouter, OpenAI, Ollama. Ogni agente sceglie il suo; Copilot ha i suoi modelli e prompt per tipo di task.</p></div>
+      <div class="card"><div class="ico">📐</div><h3>Regole del progetto</h3><p>Regole di sviluppo per pre e post, convenzioni, glossario, decisioni: documenti di contesto che il Pianificatore e gli agenti cercano da soli.</p></div>
+      <div class="card"><div class="ico">⚙️</div><h3>E il resto</h3><p>Comandi permessi, mappa del masking, ricerche salvate nel codice, tipi di task e checklist, template delle bozze, cosa mostra ogni zona.</p></div>
+    </div>
+  </div>
+</section>
+
 <!-- ------------------------------------------------------------ osservabilità -->
 <section class="block" id="osservabilita">
   <div class="wrap">
@@ -582,7 +659,7 @@ corretto, come da specifica <mark class="al">TERMINE_1</mark>.</pre>
     <p class="lead">
       Un'automation è un grafo di step che il worker esegue: step <b>tool</b> (deterministici, costo zero) e step
       <b>agente</b> quando serve ragionare. L'Architetto le progetta in chat e si esportano in YAML.
-      Il motore è pronto e testato; nel flusso di oggi il lavoro ripetitivo lo fanno i comandi del pre e del post.
+      Il motore è pronto e testato (vedi <a href="#insieme">come lavorano insieme</a>); nel flusso di oggi il lavoro ripetitivo lo fanno i comandi del pre e del post.
     </p>
     <div class="diagram mt" role="img" aria-label="Esempio di automation: stato git, aggiorna i branch, build, salva nota">
       <svg viewBox="0 0 1100 150" xmlns="http://www.w3.org/2000/svg">
@@ -595,6 +672,45 @@ corretto, come da specifica <mark class="al">TERMINE_1</mark>.</pre>
         <path d="M796 75 H860" class="d-line" marker-end="url(#ar3)"/>
         <rect x="864" y="40" width="216" height="70" rx="12" class="d-box"/><text x="972" y="70" text-anchor="middle" class="d-t">salva nota</text><text x="972" y="92" text-anchor="middle" class="d-s">tool · nel progetto</text>
       </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------ launcher -->
+<section class="block" id="launcher">
+  <div class="wrap">
+    <p class="eyebrow">Launcher</p>
+    <h2>Si avvia da una pagina del browser, senza terminali</h2>
+    <div class="grid g2 mt" style="align-items:center">
+      <div>
+        <p class="lead" style="margin-top:0">
+          Un piccolo server parte da solo all'accesso al PC, in background. Serve una pagina da tenere nei preferiti: un clic
+          e l'app è pronta.
+        </p>
+        <ul class="steps-list" style="color:var(--muted);padding-left:18px;margin:16px 0 0">
+          <li><b style="color:var(--text)">Avvia</b>: accende Docker Desktop se è spento, Postgres e Redis, compila il frontend se serve, avvia l'API e apre l'app.</li>
+          <li><b style="color:var(--text)">Ferma</b>: ferma API e worker. <b style="color:var(--text)">Ferma anche Docker</b>: anche i container.</li>
+          <li>Si installa una volta con <code>install-launcher.py</code>; log in <code>resource/logs/launcher.log</code>.</li>
+        </ul>
+      </div>
+      <div class="diagram" role="img" aria-label="La pagina del launcher con i pulsanti Avvia, Ferma e Ferma anche Docker" style="padding:0;overflow:hidden">
+        <svg viewBox="0 0 520 250" xmlns="http://www.w3.org/2000/svg" style="min-width:0">
+          <rect x="0" y="0" width="520" height="36" class="d-box" style="stroke:none"/>
+          <circle cx="20" cy="18" r="6" fill="#ff5f57"/><circle cx="40" cy="18" r="6" fill="#febc2e"/><circle cx="60" cy="18" r="6" fill="#28c840"/>
+          <rect x="90" y="9" width="340" height="18" rx="9" class="d-ext" style="stroke-dasharray:none"/>
+          <text x="104" y="22" class="d-s">127.0.0.1:8090</text>
+          <text x="36" y="84" class="d-t" style="font-size:20px">Mbare Pilot</text>
+          <circle cx="42" cy="114" r="6" style="fill:var(--ok)"/>
+          <text x="56" y="119" class="d-s">Docker ok · API accesa su 127.0.0.1:8000</text>
+          <rect x="36" y="146" width="96" height="40" rx="10" style="fill:var(--accent)"/>
+          <text x="84" y="171" text-anchor="middle" class="d-t" style="fill:#fff">Avvia</text>
+          <rect x="144" y="146" width="96" height="40" rx="10" class="d-box"/>
+          <text x="192" y="171" text-anchor="middle" class="d-t">Ferma</text>
+          <rect x="252" y="146" width="176" height="40" rx="10" class="d-box"/>
+          <text x="340" y="171" text-anchor="middle" class="d-t">Ferma anche Docker</text>
+          <text x="36" y="222" class="d-s">Apri l'app →</text>
+        </svg>
+      </div>
     </div>
   </div>
 </section>
@@ -613,6 +729,54 @@ corretto, come da specifica <mark class="al">TERMINE_1</mark>.</pre>
       <div class="card"><div class="ico">🔁</div><h3>Contribuire dall'app</h3><p>Bug e idee aperti dall'app stessa, affidati a un agente, con la PR aperta al progetto comune.</p></div>
       <div class="card"><div class="ico">🧭</div><h3>Bacheca dell'app</h3><p>Le attività su Mbare Pilot si gestiscono con gli stessi strumenti dei progetti.</p></div>
       <div class="card"><div class="ico">🔗</div><h3>Più integrazioni</h3><p>Bitbucket, Jenkins e Dynatrace come ultimi passi di un'attività: fattibilità già verificata.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------ costruito -->
+<section class="block" id="costruito">
+  <div class="wrap">
+    <p class="eyebrow">Come è stato costruito</p>
+    <h2>Con Claude Code, una PR alla volta, senza mai vedere i dati del cliente</h2>
+    <p class="lead">
+      L'app è stata sviluppata con <b>Claude Code</b>, in un ambiente isolato nel cloud: ogni blocco di lavoro è un piano,
+      una PR su GitHub e una CI verde. Io decido cosa fare e controllo; Claude scrive codice, test e documentazione.
+    </p>
+    <div class="steps mt">
+      <div class="card step">
+        <h3>Domande e piano</h3>
+        <ul>
+          <li>Racconto il bisogno; Claude fa le domande, una alla volta, con opzioni</li>
+          <li>Scrive il piano in <code>resource/plans</code>: decisioni, test, documentazione</li>
+        </ul>
+      </div>
+      <div class="card step">
+        <h3>«vai»</h3>
+        <ul>
+          <li>Solo dopo il mio «vai» si scrive codice</li>
+          <li>Ogni cambio con i suoi test, in un container isolato, mai sul mio PC</li>
+        </ul>
+      </div>
+      <div class="card step">
+        <h3>PR e CI</h3>
+        <ul>
+          <li>Una PR per blocco, con cosa cambia e cosa fare dopo il merge</li>
+          <li>GitHub Actions: pytest su Windows (coverage ≥ 95%), Vitest, ruff, mypy</li>
+          <li>Claude segue la PR e sistema la CI se si rompe</li>
+        </ul>
+      </div>
+      <div class="card step">
+        <h3>Merge e prova</h3>
+        <ul>
+          <li>Il merge lo faccio io, dopo aver letto il codice</li>
+          <li>Provo l'app sul lavoro vero e torno con il prossimo bisogno</li>
+        </ul>
+      </div>
+    </div>
+    <div class="grid g3 mt">
+      <div class="card"><div class="ico">🔒</div><h3>Il cliente resta fuori</h3><p>Claude ha visto solo questo repository. Il progetto del cliente su cui ho sperimentato non è mai entrato nell'ambiente di sviluppo: i problemi li ho raccontati io, a parole.</p></div>
+      <div class="card"><div class="ico">🧪</div><h3>Test in isolamento</h3><p>Postgres, Redis, Copilot e Atlassian finti o di prova nei test: niente crediti AI spesi, niente servizi veri toccati. Il CLI di Copilot vero non parte mai nei test.</p></div>
+      <div class="card"><div class="ico">📈</div><h3>I numeri</h3><p>Oltre 35 piani e 60 PR, più di 1000 test Python e 160 test del frontend, coverage del backend al 98%.</p></div>
     </div>
   </div>
 </section>

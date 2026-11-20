@@ -6,7 +6,6 @@ Le regole sui file di un progetto: dove stanno i suoi dati, come si chiamano not
 src/domain/project/
   data_paths.py       percorsi e nomi dei dati del progetto (funzioni pure, niente disco)
   note_templates.py   i template delle note tipizzate: markdown da e verso i campi
-  task_folder.py      il task e i suoi riferimenti come file nel repository, per Copilot (mbare-pilot/<task>/)
   code_search.py      la ricerca libera nel codice: pattern, glob dei file, righe trovate e il riferimento che diventano (vedi CodeSearchService)
   folder_browser.py   FolderBrowser: navigare e creare cartelle, solo dentro PROJECT_ROOTS
   coding_agent.py     prompt e divieti di Copilot dai file di definition/ (vedi definitions.md)
@@ -19,7 +18,7 @@ Un progetto ha **due posti** distinti:
 | | Dove | Chi lo gestisce |
 |---|---|---|
 | **Codice** | la sua cartella sul PC (`root_path`), scelta con «Apri cartella» o creata con «Crea da zero» | `FolderBrowser` |
-| **Dati** (note, file caricati, contesto) | `<MBARE_PILOT_HOME>/project/<slug>/{notes,files,context}`, fuori dal codice. La cartella del task per Copilot sta invece nel repository: `mbare-pilot/<nome del task>/` (`task_folder.py`) | `data_paths` + `ProjectDataService` |
+| **Dati** (note, file caricati, contesto) | `<MBARE_PILOT_HOME>/project/<slug>/{notes,files,context}`, fuori dal codice. Nei repository l'app non scrive niente (piano 37). | `data_paths` + `ProjectDataService` |
 | **Definizioni** (agenti, chatbot, automation in YAML) | `<MBARE_PILOT_HOME>/definition/` (globali e `project/<slug>/`) | `data_paths` + `DefinitionService`, vedi [definitions](../../../definitions.md) |
 
 ## Dati del progetto (`data_paths.py`)

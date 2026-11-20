@@ -5,9 +5,9 @@ The planning prompts to choose from when delegating are the ``<name>.md`` of
 ``definition/coding-agent/`` and ``definition/project/<slug>/coding-agent/``
 (the project's win by name); ``type_prompts`` picks one per task type when
 the user does not choose; ``task_checklists`` say, per task type, what a
-refined task should have (the Refiner checks it). Every planning prompt says where the task is with
-``{task_folder}``: the task and its references are files in the repository
-(domain/project/task_folder.py), not text of the prompt. The drafts' templates
+refined task should have (the Refiner checks it). Every planning prompt names the task with
+``{task}`` (plan 37): Copilot reads it and its references through the app's MCP
+server, nothing is written in the repository. The drafts' templates
 (blocco 10) are ``coding-agent/templates/<type>.md`` (``confluence.md``,
 ``jira.md``; the project's win by name): a prompt puts the template of the
 task's type where it writes ``{template}``.
@@ -25,7 +25,7 @@ from models.domain.copilot import CodingAgentSettings, CopilotModel, CopilotPric
 from models.domain.definitions import CodingAgentFile, ModelFile
 from models.domain.note import TaskType
 
-TASK_FOLDER_PLACEHOLDER = "{task_folder}"
+TASK_PLACEHOLDER = "{task}"
 TEMPLATE_PLACEHOLDER = "{template}"
 TEMPLATES_DIR = "templates"
 _PROMPTS = ("plan_prompt", "execute_prompt")
@@ -66,13 +66,12 @@ def task_prompt(settings: CodingAgentSettings, task_type: TaskType, prompt: str 
     return prompt.strip() or settings.type_prompts.get(task_type, "")
 
 
-def plan_prompt(settings: CodingAgentSettings, task_folder: str, prompt: str = "", task_type: TaskType | None = None) -> str:
-    """The first planning turn, ``{task_folder}`` = where the task is in the
-    repository (other braces stay as they are); ``prompt`` = one of
-    ``settings.prompts``, ``""`` = ``plan_prompt``."""
+def plan_prompt(settings: CodingAgentSettings, task: str, prompt: str = "", task_type: TaskType | None = None) -> str:
+    """The first planning turn, ``{task}`` = the task's note (other braces stay as
+    they are); ``prompt`` = one of ``settings.prompts``, ``""`` = ``plan_prompt``."""
     if prompt and prompt not in settings.prompts:
         raise ValidationError(f"Prompt non trovato: {prompt}. Disponibili: {', '.join(settings.prompts) or 'nessuno'}.")
-    text = (settings.prompts[prompt] if prompt else settings.plan_prompt).replace(TASK_FOLDER_PLACEHOLDER, task_folder)
+    text = (settings.prompts[prompt] if prompt else settings.plan_prompt).replace(TASK_PLACEHOLDER, task)
     template = settings.templates.get(task_type, "") if task_type is not None else ""
     return text.replace(TEMPLATE_PLACEHOLDER, template or "(nessun template: scegli tu le sezioni)")
 
@@ -173,8 +172,8 @@ def _text(files: DefinitionFiles, path: str) -> str:
 
 
 def _check_placeholder(where: str, prompt: str) -> None:
-    if TASK_FOLDER_PLACEHOLDER not in prompt:
-        raise ValidationError(f"{where} deve contenere {TASK_FOLDER_PLACEHOLDER}: è la cartella con il task e i suoi riferimenti.")
+    if TASK_PLACEHOLDER not in prompt:
+        raise ValidationError(f"{where} deve contenere {TASK_PLACEHOLDER}: è il nome del task che Copilot legge dal server MCP.")
 
 
 def _yaml(path: str, text: str) -> dict | None:

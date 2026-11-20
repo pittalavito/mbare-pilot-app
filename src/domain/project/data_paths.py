@@ -14,11 +14,9 @@ naming rules for notes and uploaded files. Pure functions: no filesystem here.
                                      code-reference-<title>.md, context-reference-<title>.md, else generic
       files/                         uploaded files
       context/                       the project's context: read_context, the RAG later
+      copilot/<task>/                Copilot's working folder for a task delegated without a repository
 
-In the repository Copilot works on (not in the data home):
-
-    mbare-pilot/<task note>/         the agent task (task.md) and its linked references,
-                                     rebuilt by the app before every Copilot turn"""
+Nothing is written in the repositories Copilot works on (plan 37)."""
 import re
 from pathlib import PurePath
 
@@ -30,11 +28,6 @@ FILES_DIR = "files"
 CONTEXT_DIR = "context"
 COPILOT_DIR = "copilot"
 """Copilot's working folders for the tasks delegated without a repository (plan 21)."""
-"""Markdown files about the project, written by hand (tool read_context)."""
-REPO_TASKS_DIR = "mbare-pilot"
-"""In the repository Copilot works on: ``mbare-pilot/<task note>/`` holds the
-agent task and its linked references as files (domain/project/task_folder.py)."""
-TASK_FILE = "task.md"
 NOTE_SUFFIX = ".md"
 NOTE_PREFIXES = {
     NoteType.AGENT_TASK: "agent-task-",
