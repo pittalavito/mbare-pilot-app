@@ -9,7 +9,7 @@ import type { AgentTask } from "../../api/projectData";
 import { useAgentPanel } from "../project/AgentPanel";
 import { devRequest } from "./devRequest";
 
-/** Plans 25 and 34: a development's Pre and Post, done without an agent when they can.
+/** A development's Pre and Post, done without an agent when they can.
  * «🤖 Automatico» runs the commands, then the automation (the worker; first
  * error = stop), or asks Dev when there are neither; «✋ A mano» opens the
  * dashboard under the row: the commands one by one, the automation, the git

@@ -1,4 +1,4 @@
-"""«📎 Da riferimenti» (plan 16): a new activity proposed by the secretary from titles."""
+"""«📎 Da riferimenti»: a new activity proposed by the secretary from titles."""
 from pydantic import BaseModel, Field
 
 

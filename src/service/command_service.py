@@ -1,11 +1,11 @@
-"""The commands the Operator may run (plan 11), per project: an allowed list
+"""The commands the Operator may run, per project: an allowed list
 written in Progetto → Impostazioni (the detected install and test commands are
 offered), and nothing else. A command outside the list is not run: it becomes
 a request the user answers in the agent panel, «Sempre» (added to the list)
 or «Solo stavolta» (a grant used up by the next run of that command).
 
 ``run`` executes in a folder of the project (a repository or not: ``git init``
-works there too, plan 25), without a shell, and gives
+works there too), without a shell, and gives
 back only the exit code and the last lines of the output (few tokens)."""
 import os
 import shutil
@@ -96,7 +96,7 @@ class CommandService:
 
     def pending(self, project_name: str, repository: str, commands: list[str]) -> list[str]:
         """Of ``commands``, the ones neither allowed nor granted once: each becomes a request
-        the user answers («Sempre», «Solo stavolta», «No») before they are run (plan 25)."""
+        the user answers («Sempre», «Solo stavolta», «No») before they are run."""
         project = self._project(project_name)
         missing = [command for command in dict.fromkeys(normalize(item) for item in commands)
                    if command and command not in project.allowed_commands and command not in project.command_grants]

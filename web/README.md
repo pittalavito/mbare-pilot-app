@@ -48,7 +48,17 @@ Il **worker** si avvia e si ferma dall'intestazione della pagina (lo gestisce l'
 
 ## Zone del progetto
 
-Un progetto ha tre zone (piano 13): **📋 Lavoro** (`/work`, dove si apre: WIP, attività e i loro task, «Tutti i task», con «📌 Oggi» in cima; la scheda aperta di default resta Attività), **⚙️ Automation** (`/automation`) e **🗂️ Progetto** (`/project`: note, riferimenti, file, contesto, git, Atlassian, impostazioni). In Lavoro e Automation, a destra, il **pannello dell'agente** (`project/AgentPanel.tsx`): Segretario sull'attività (una conversazione per attività), Refiner su un task non delegato, Copilot su un task delegato, Architetto in Automation; il menu cambia agente a mano (anche i chatbot personalizzati) finché non apri altro; si nasconde (ricordato nel browser) ed è un cassetto sugli schermi stretti. Una pagina chiede qualcosa al suo agente con `useAgentPanel().ask(testo)`. **L'Operatore** (piano 11) si sceglie dal menu, o arriva da «Fallo fare all'Operatore» nella delega (`ask(testo, "operator")`, che mostra anche il pannello nascosto): sopra la sua chat i comandi che chiede di lanciare («Sempre», «Solo stavolta», «No»), sotto ogni risposta con una run «✅ Giusto: fanne un'automation» (`chat/LearnModal.tsx`: azioni da tenere, campi da correggere, salva). **Le attività** (piano 18): «➕ Nuova attività» apre una finestra con due strade (`data/NewActivityModal.tsx`): «✍️ Scrivo io» (titolo e descrizione) e «📎 Parto da riferimenti» (`data/ActivityFromReferences.tsx`: riferimenti, Jira, Confluence, contesto e, sopra «✨ Proponi», «Cosa vuoi fare», che basta anche da solo, piano 34; l'agente propone titolo, descrizione e voci). Un'attività si apre **a step** (`work/ActivityPage.tsx`): barra in cima 1. Descrivi → 2. Pianifica → 3. Lavora → 4. Chiudi (lo step in `?step=`, altrimenti da dove è l'attività; «Avanti» in fondo), stato in testata che segue gli step. **Descrivi**: titolo, descrizione, voci, riferimenti (il Segretario in chat). **Pianifica**: «✨ Proponi i task» (o «Proponi altri task») e «➕ Task» a mano, righe compatte (dettagli a richiesta, ▲▼, ✕), «Crea N task» (nascono da fare), «Scarta le proposte». **Lavora**: avviso «Il worker è fermo» con «Avvia il worker», «▶️ Avvia»/«⏸ Pausa», l'ok automatico al piano di Copilot e «Salta da solo pre e post vuoti» (piano 34); ogni task è una riga con i passi, **«Apri»** (la scheda del task, con `?from=` l'attività: in cima alla scheda «← Torna all'attività» riporta qui con il task selezionato) e il pulsante di quello che tocca a te (delega a mano, rispondi o leggi la risposta, rimanda a Copilot, riprova la delega, «✅ Controlla e conferma»); uno **sviluppo** ha i passi Pre → Delega → Piano → Esecuzione → Conferma → Post (piano 34); il **pre** e il **post** non vanno a Copilot (`work/Operation.tsx`): «🤖 Automatico» lancia senza agente i comandi e poi l'automation (prima chiede l'ok ai comandi non permessi: «Sempre», «Solo stavolta», «No»; l'esito sotto la riga), o, se non ce ne sono, apre Dev con la richiesta pronta (`work/devRequest.ts`); «✋ A mano» apre la dashboard sotto la riga: i passi, i comandi uno per uno (modificabili, «▶️» e output), l'automation da lanciare, «🌿 Stato git», «💬 Dev in chat» e «✅ Fatto»; «⏭ Salta» quando non c'è niente da fare. Cliccando la riga (`?task=`) il pannello a destra mostra la chat di Copilot di quel task. In **Pianifica** ogni sviluppo ha anche il suo **Pre** e il suo **Post**, ognuno con **passi**, **comandi** (uno per riga) e **automation**. **Chiudi**: riepilogo, «✨ Proponi cosa ho imparato» (un punto per riga, «Tema: testo»), «✅ Chiudi attività» (avvisa se resta qualcosa aperto; ogni punto va in cima al suo tema in `context/imparato.md`, piano 27), «↩ Riapri». In «📌 Oggi», «Chiudi →» apre l'attività allo step Chiudi. Nella **finestra di delega** un task senza codice (analisi, Confluence, Jira) parte da «Nessun repository» (Copilot lavora nei dati del progetto), a meno che il piano non ne proponga uno; nella chat di una sessione mai eseguita «🔀 Cambia repository» (piano 21: la chat resta, il task si sposta). Niente preparazione nella delega (è il pre dello sviluppo). Nella **scheda del task** uno sviluppo ha le sezioni «Pre» e «Post» (passi, comandi, automation) e la scelta dei test di `run_tests`. In **Progetto → Contesto** «📐 Regole di sviluppo (modello)» crea `sviluppo.md`, le regole che il Pianificatore segue per il pre e il post degli sviluppi; «📏 Convenzioni», «📖 Glossario», «🧭 Decisioni» (modello) creano gli altri documenti pronti e «🗺 Genera mappa dei repository» scrive `repository.md` (piano 27); sotto, «Generale (da definizioni)» mostra in sola lettura il contesto generale per gli agenti (piano 26), e la ricerca di prova dice per ogni pezzo se viene dal progetto o dal generale. Nei dettagli di un chatbot (piano 28) si cambiano modello e system prompt: un chatbot dei file salvato qui va nella cartella dati (badge «tuo»), «↩ Torna al default» rimette quello dell'app; in Impostazioni → Definizioni da file ogni elemento ha il badge dell'origine (app, tuo, progetto). Sotto ogni risposta in chat e nel dettaglio di una run (Admin → Osservabilità) «🔍 Cosa ha visto il modello» apre `components/TranscriptModal.tsx` (piano 29): system prompt, input e storia, chiamate ai tool, risposta, in sezioni a fisarmonica con «Copia»; l'interruttore «🎭 Mascherato / 👁 In chiaro» cambia tutto insieme, gli alias evidenziati nella versione mascherata. La voce «🚀 Mbare Pilot» del menu (`roadmap/RoadmapPage.tsx`, piano 30) mostra le attività future dell'app: traguardo «🎯 Demo datapizza» con quante ne mancano, cosa diventerà la dashboard e una bacheca a colonne (Da fare, In corso, Fatto) con tipo, esecutore previsto e fattibilità; le attività vengono da `roadmap.yml` delle definizioni. Nella finestra «📤 Pubblica» una pagina Confluence nuova si mette dove vuoi (`data/PlacePicker.tsx`, piano 32): albero dello spazio con pagine e cartelle (i figli si caricano aprendo un ramo), ricerca per titolo e link incollato; si parte dalla destinazione del task («Spazio Confluence», «Pubblica sotto» nella scheda del task) o dall'ultima posizione usata nel progetto. Nella lista delle note le bozze hanno il badge «📄 Bozza Confluence» o «🎫 Bozza Jira». Piano 33: un task Confluence o Jira con la bozza salvata ha «📤 Pubblica» nella riga di Lavora e nella chat di Copilot (finestra con «✏️ Modifica» di titolo e testo; dopo, la bozza si cancella e la pagina va al task dopo); in Pianifica ogni proposta mostra i riferimenti dell'attività che porta con sé, con ✕ per toglierli; il tipo del task è un menu a tendina con una riga di spiegazione; allo step Chiudi di un'attività chiusa «🗄 Archivia» (scegli i riferimenti da cancellare) e in Lavoro la scheda «🗄 Archivio» (`work/Archive.tsx`) con le note riassunto. Un'automation con campi li chiede quando la esegui. Nell'editor «➕ Tool (codice)»: scegli il tool e compili gli argomenti nel form (`components/ToolArgsFields.tsx`, lo stesso di **Admin → Tool**, dove un tool si prova da solo su un progetto: `admin/ToolTrial.tsx`). Un link `?note=` porta alla zona della nota: attività, agent task e WIP in Lavoro, il resto in Progetto (`project/noteZone.ts`; gli agenti scrivono i link già così, anche quello della chat di Copilot, che apre il suo task). Niente reindirizzamenti dei link di prima (piano 17).
+- **📋 Lavoro** (`/work`, dove si apre il progetto): «📌 Oggi», nota WIP, attività, «Tutti i task», «🗄 Archivio». Un'attività si apre a step (`work/ActivityPage.tsx`):
+  - **Descrivi**: titolo, descrizione, voci, riferimenti; nasce da «✍️ Scrivo io» o da «📎 Parto da riferimenti» (con «Cosa vuoi fare»).
+  - **Pianifica**: «✨ Proponi i task» e task a mano; ogni sviluppo ha il suo Pre e il suo Post (passi, comandi, automation).
+  - **Lavora**: il giro («▶️ Avvia», ok automatico al piano di Copilot, «Salta da solo pre e post vuoti»); per ogni task i passi e l'azione che tocca a te. Pre e Post (`work/Operation.tsx`): «🤖 Automatico», «✋ A mano» (comandi, automation, stato git, Dev, «✅ Fatto»), «⏭ Salta». Bozze Confluence e Jira: «📤 Pubblica».
+  - **Chiudi**: riepilogo, «✨ Proponi cosa ho imparato», chiudi, riapri, archivia.
+- **⚙️ Automation** (`/automation`): esecuzione, storico, editor del grafo, YAML.
+- **🗂️ Progetto** (`/project`): note, riferimenti (anche da Jira, Confluence e «🔎 Da codice»), file, contesto, git («🔎 Cerca nel codice» con ricerche salvate e «✨ Regex»), Atlassian, impostazioni.
+
+A destra, il **pannello dell'agente** (`project/AgentPanel.tsx`): Segretario sull'attività, Refiner su un task non delegato, Copilot su un task delegato, Architetto in Automation, Dev a richiesta. Una pagina chiede qualcosa al suo agente con `useAgentPanel().ask(testo)`. Sotto ogni risposta «🔍 Cosa ha visto il modello» (`components/TranscriptModal.tsx`). Un link `?note=` porta la nota nella sua zona (`project/noteZone.ts`).
+
+Fuori dai progetti: **Libreria** (agenti, ruoli, prompt, tool), **Admin** (servizi, osservabilità, metriche, modelli, backup, tool, richieste di tool), **🚀 Mbare Pilot** (la bacheca, `roadmap/RoadmapPage.tsx`).
 
 ## Struttura
 
@@ -58,48 +68,27 @@ src/
   api/
     schema.d.ts       GENERATO da `npm run gen:api`: i tipi di ogni endpoint (non modificare)
     client.ts         `api` (client tipizzato), `unwrap` (dati o ApiError col messaggio del backend)
-    projects.ts       hook dei progetti e delle cartelle (useProjects, useProject, useOpenFolder, ...)
-    automation.ts     hook delle automation e delle esecuzioni (con polling)
-    chat.ts           hook di chatbot (solo lettura), conversazioni, messaggi e cache delle automation
-    catalog.ts        cataloghi condivisi dagli editor: modelli, tool (e i loro argomenti, la prova da Admin), agenti
-    projectData.ts    note (anche agent task e attività), file del progetto (upload col contenuto grezzo, download da link)
-    git.ts            repository, log e stato (mutation: git gira solo sui pulsanti)
-    atlassian.ts      impostazioni del sito, issue Jira, pagine Confluence, preferiti
-    masking.ts        valori mascherati e sincronizzazione delle definizioni YAML
-    agents.ts         agenti, ruoli e versioni dei prompt, per scope (Libreria o progetto)
-    admin.ts          config, observability (run, tool call, trace), catalogo modelli, backup del DB
-    copilot.ts        sessioni Copilot, chat, ok e annullamento, uso per sessione e per Observability
-    copilot.ts        sessioni Copilot: delega, chat di preparazione, ok, annullamento (polling durante l'esecuzione)
-  app/
-    router.tsx        le rotte
-    Layout.tsx        cornice: header, sezioni a sinistra
-    BackendStatus.tsx stato dell'API, avvio e arresto del worker
-    LogsDrawer.tsx    log di API e worker, aggiornati ogni 2 secondi
-    theme.ts          tema Mantine
+    <area>.ts         gli hook di un'area: projects, projectData, plan, today, wip, copilot, publish, dev, git,
+                      savedSearches, context, atlassian, masking, chat, agents, catalog, automation, admin,
+                      metrics, worker, toolRequests, roadmap
+  app/                router, Layout (header e sezioni), stato dell'API e del worker, log, tema
+  components/         FolderPicker, ModelSelect, ConfirmButton, Markdown, ToolArgsFields, TranscriptModal, agents/
   pages/
-    projects/         lista dei progetti, «Apri cartella» e «Crea da zero»
-    project/          pagina del progetto: intestazione, zone (una rotta per zona) e pannello dell'agente (AgentPanel); ProjectZone = zona «Progetto» (note, riferimenti, file, contesto, git, Atlassian, impostazioni; sezione in ?tab=); noteZone.ts = in che zona sta una nota
-    work/             zona «Lavoro», dove si apre il progetto: «📌 Oggi», WIP, attività a step (ActivityPage: Descrivi, Pianifica, Lavora, Chiudi; un agent task nato da un'attività si apre dentro di lei, con «← attività»), «Tutti i task»; ?note= dice cosa è aperto
-    data/             i pezzi di Lavoro e Progetto: note markdown (modifica/anteprima, Ctrl+S), WIP, attività e agent task (form dei template, con i riferimenti collegati: ReferencesSection), riferimenti, file; DataSettings sceglie cosa mostra la zona Progetto
-    git/              sezione Git di Progetto: commit con filtri e file modificati; «🔎 Cerca nel codice» (CodeSearch: testo o regex, filtri file e repository, risultati per file, «Salva come riferimento» con «Collega a un task»); SavedSearches (piano 34): il menu «⭐ Ricerche salvate», «⭐ Salva ricerca», «✨ Regex» (un agente propone la regex da una frase), l'elenco in Progetto → Impostazioni e la scheda «🔎 Da codice» di «Nuovo riferimento»
-    atlassian/        sezione Atlassian di Progetto: Jira, Confluence, preferiti; «📎 Crea riferimento» copia issue e pagine nei riferimenti (CopyToReference)
-    library/          pagina Libreria: agenti globali (la stessa sezione Agenti) e catalogo dei tool
-    admin/            pagina Admin: servizi (con «🤖 Tool di Copilot»: i tool dell'app e quelli vietati nell'esecuzione), observability (agent run, tool call, Copilot), modelli, backup, tool, richieste di tool (ToolRequests: le richieste dell'Architetto per Claude Code, il token e il comando per collegarlo, «Scarta»; tab in ?tab=)
-    settings/         sezione Impostazioni di Progetto: generale, Atlassian, mascheramento, definizioni, agenti, rimozione
-    copilot/          Copilot: SessionView (la chat di una sessione: domande, «Ok, parti», esecuzione dal vivo, file cambiati, nel pannello del task delegato), modale «Delega a Copilot» (dal form del task, senza preparazione), DevSettingsModal (Progetto → Impostazioni)
-    chat/             ConversationView (la conversazione con un chatbot: messaggi in markdown, proposte dell'Architetto, «Metti in cache» se il chatbot ha la cache), ChatbotDetails (dove si cambia solo il modello), AutomationProposal
-    automation/       tab Automation (esecuzione e storico), editor del grafo (React Flow) e graphDraft (la bozza, funzioni pure)
-  format.ts           dimensioni dei file e date nel formato italiano
-  components/
-    FolderPicker.tsx  selettore delle cartelle del PC tramite l'API (/folders, dentro PROJECT_ROOTS)
-    ModelSelect.tsx   scelta del modello di un agente, segnalando quelli senza chiave del provider
-    ConfirmButton.tsx pulsante rosso con conferma in un popover, per le azioni irreversibili
-    Markdown.tsx      markdown con la tipografia dell'app
-    agents/           sezione Agenti (agenti, prompt, ruoli) per scope: Impostazioni del progetto e Libreria; nella finestra dell'agente anche la «Risposta strutturata» (output: wip, plan, draft)
+    projects/         lista dei progetti, «Apri cartella», «Crea da zero»
+    project/          pagina del progetto, zone, pannello dell'agente
+    work/             zona Lavoro: Oggi, attività a step, pre e post, archivio
+    data/             note, WIP, attività e agent task, riferimenti, contesto, pubblicazione
+    git/              commit, «🔎 Cerca nel codice», ricerche salvate
+    copilot/          chat di una sessione, delega, impostazioni dei test, Dev
+    chat/             conversazioni con i chatbot, dettagli del chatbot, «fanne un'automation»
+    automation/       automation: esecuzione, storico, editor del grafo
+    atlassian/        Jira, Confluence, preferiti
+    settings/         impostazioni del progetto
+    library/, admin/, roadmap/
   test/
-    setup.ts          jest-dom, pulizia tra i test, matchMedia e ResizeObserver per jsdom
-    render.tsx        `mockApi` (API finta: "METODO /percorso" -> risposta) e `renderPage` (pagina con i provider e il router)
-    zones.tsx         `zoneRoutes()`: le zone Lavoro e Progetto e i link di prima, come le monta il router
+    setup.ts          jest-dom, pulizia tra i test, matchMedia e ResizeObserver, attesa dei findBy a 3 s
+    render.tsx        `mockApi` (API finta: "METODO /percorso" -> risposta) e `renderPage`
+    zones.tsx         le zone come le monta il router
 ```
 
 ## Convenzioni

@@ -176,7 +176,7 @@ def test_storage_to_markdown_empty():
     assert storage_to_markdown("") == ""
 
 
-# ------------------------------------------------------- places (plan 32)
+# ------------------------------------------------------- places
 
 def test_root_pages_children_of_pages_and_folders_and_a_folder():
     seen = []

@@ -5,7 +5,7 @@ import { type CodeQuery, useCodeSearch, useSaveCodeSearch } from "../../api/proj
 import { type SavedSearch, useDeleteSavedSearch, useProposeRegex, useSaveSavedSearch, useSavedSearches } from "../../api/savedSearches";
 import { ConfirmButton } from "../../components/ConfirmButton";
 
-/** Saved searches in the code (plan 34, «regex parlanti»): the menu that fills a
+/** Saved searches in the code («regex parlanti»): the menu that fills a
  * search, «⭐ Salva ricerca», «✨ Regex» (an agent proposes the regex from words),
  * the list in the project's settings and «🔎 Da codice» in «Nuovo riferimento». */
 

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useSaveActivity } from "../../api/projectData";
 import { FromReferences } from "./ActivityFromReferences";
 
-/** «➕ Nuova attività» (plan 18): two ways. «✍️ Scrivo io»: title and
+/** «➕ Nuova attività»: two ways. «✍️ Scrivo io»: title and
  * description (items and references come at the step «Descrivi»).
  * «📎 Parto da riferimenti»: the agent proposes title, description and items
  * from the titles of the chosen references and context pieces. */

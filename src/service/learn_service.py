@@ -1,4 +1,4 @@
-"""From an Operator's run to an automation (plan 11), without an LLM: the
+"""From an Operator's run to an automation, without an LLM: the
 successful calls of the Operator's tools, in order, become ``tool`` steps with
 the real values (the trace has the aliases the agent saw: unmasked here). The
 values that change from a time to the next (branch, base, task) are proposed as

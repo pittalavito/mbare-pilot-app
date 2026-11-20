@@ -1,4 +1,4 @@
-"""The definition files in two layers (plan 28): the app's defaults
+"""The definition files in two layers: the app's defaults
 (``resource/definition``, versioned with the code) and the user's
 (``<data_home>/definition``): what the user changes and the projects' files.
 A file of the user's layer wins over the app's at the same path; the YAML

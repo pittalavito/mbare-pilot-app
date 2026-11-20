@@ -1,4 +1,4 @@
-"""Saved searches in the code (plan 34, «regex parlanti»): a name for a regex
+"""Saved searches in the code («regex parlanti»): a name for a regex
 (or a text) and its file filter, chosen from a menu in «🔎 Cerca nel codice»
 and in «Nuovo riferimento» from code.
 

@@ -1,4 +1,4 @@
-"""The app's MCP server for **Claude Code** (plan 20), mounted in the API at
+"""The app's MCP server for **Claude Code**, mounted in the API at
 ``/mcp-dev``: the requests of tools the Architetto wrote, for Claude Code on the
 user's PC working on a clone of mbare-pilot-app (it writes the tool, opens the
 PR, marks the request done). Separate from Copilot's server (``/mcp``).

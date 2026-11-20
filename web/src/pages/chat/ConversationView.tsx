@@ -16,7 +16,7 @@ export function ConversationView({ chatbot, conversationId, onOpen: open, height
   context?: string;
   /** A message to put in the box (not sent): a new ``id`` puts it again. */
   draft?: { text: string; id: number };
-  /** The answers that used tools can become automations (the Operator, plan 11). */
+  /** The answers that used tools can become automations (the Operator). */
   learnable?: boolean;
   /** The note open next to the chat: sent with every message (not saved in it). */
   openNote?: string;
@@ -43,7 +43,7 @@ export function ConversationView({ chatbot, conversationId, onOpen: open, height
   }, [draft?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const list = current === undefined ? [] : (messages.data ?? []);
-  const hasCache = !!chatbot.automation_cache; // none since the automation chatbot became the Architect (blocco 05): the cache stays in the code
+  const hasCache = !!chatbot.automation_cache; // none since the automation chatbot became the Architect: the cache stays in the code
   const automations = hasCache ? (pipelines.data ?? []).filter((pipeline) => pipeline.active && pipeline.steps.length) : [];
   const cacheByMessage = new Map(hasCache ? (cache.data ?? []).flatMap((entry) => (entry.message_id === null ? [] : [[entry.message_id, entry]])) : []);
 

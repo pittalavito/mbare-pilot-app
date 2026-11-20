@@ -21,15 +21,15 @@ import { PublishButton } from "../data/PublishModal";
 import { ReferencesSection } from "../data/ReferencesSection";
 import { type DevPhase, EMPTY_PHASE, OperationButtons, OperationOutput, PrePostFields } from "./Operation";
 
-/** An activity in steps (plan 18): 1. Descrivi → 2. Pianifica → 3. Lavora →
+/** An activity in steps: 1. Descrivi → 2. Pianifica → 3. Lavora →
  * 4. Chiudi. The step is in ``?step=`` (the bar goes back to one done,
  * «Avanti» goes on); without it, it comes from where the activity is. The
  * status follows the steps (to do, in progress once tasks exist, done when
  * closed): it is never chosen by hand. A task's row in «Lavora» is picked with
  * ``?task=``: the agent panel shows its Copilot chat; «Apri» opens the task
  * (``?from=`` the activity: «← Torna all'attività»). Pre/post development
- * tasks (plan 22) never go to Copilot: «🤖 Automatico» (commands and automation without an agent, else Dev) or «✋ A mano»
- * (the dashboard under the row), plan 25. */
+ * tasks never go to Copilot: «🤖 Automatico» (commands and automation without an agent, else Dev) or «✋ A mano»
+ * (the dashboard under the row). */
 
 export type StepKey = "describe" | "plan" | "work" | "close";
 const STEPS: { key: StepKey; label: string; hint: string }[] = [
@@ -43,7 +43,7 @@ const TYPES = [
   { value: "development", label: "Sviluppo" }, { value: "analysis", label: "Analisi" },
   { value: "confluence", label: "Confluence" }, { value: "jira", label: "Jira" },
 ];
-/** A development has its Pre and Post (plan 34). */
+/** A development has its Pre and Post. */
 const hasPhases = (type: string) => type === "development";
 const cleanPhase = (phase: DevPhase): DevPhase => ({
   steps: phase.steps.filter((text) => text.trim()), commands: phase.commands.filter((text) => text.trim()), automation: phase.automation,
@@ -185,7 +185,7 @@ function Describe({ project, activity, onNext }: { project: string; activity: Ac
 
 type Draft = { key: string; id: number | null; title: string; type: PlanChoice["type"]; repository: string; items: number[]; itemTexts: string[];
   isNew: boolean; reason: string; objective: string; criteria: string[]; pre: DevPhase; post: DevPhase;
-  /** The activity's references to link (plan 33); null = all of them. */
+  /** The activity's references to link; null = all of them. */
   references: string[] | null };
 
 const fromPlan = (plan: ActivityPlan | null | undefined): Draft[] => (plan?.proposals ?? []).map((proposal) => ({
@@ -570,7 +570,7 @@ function Close({ project, activity, path, onBack }: { project: string; activity:
 }
 
 
-/** «🗄 Archivia» (plan 33): a summary note stays, the activity, its tasks, answers, drafts, plan and Copilot sessions go;
+/** «🗄 Archivia»: a summary note stays, the activity, its tasks, answers, drafts, plan and Copilot sessions go;
  * the references are deleted only when chosen. */
 function ArchiveSection({ project, activity }: { project: string; activity: Activity }) {
   const tasks = useAgentTasks(project);

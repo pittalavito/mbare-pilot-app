@@ -1,4 +1,4 @@
-"""From an agent's run to an automation (plan 11): the draft the app makes of
+"""From an agent's run to an automation: the draft the app makes of
 what the Operator did, without an LLM, and what the user saves of it."""
 from typing import Any
 

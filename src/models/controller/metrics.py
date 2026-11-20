@@ -14,7 +14,7 @@ class MetricsResponse(BaseModel):
     """In AI credits, not euros: apart from the agents."""
     wip: WipMetrics
     embedding: list[EmbeddingUsage] = []
-    """The RAG's calls to a remote embedder (plan 31), with an estimated cost."""
+    """The RAG's calls to a remote embedder, with an estimated cost."""
 
     @classmethod
     def from_metrics(cls, metrics: Metrics) -> "MetricsResponse":

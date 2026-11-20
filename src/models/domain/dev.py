@@ -1,4 +1,4 @@
-"""Development around Copilot (blocco 09, plan 22): the tests' settings and
+"""Development around Copilot: the tests' settings and
 the repositories to get ready (the dev tools' inputs)."""
 from enum import StrEnum
 

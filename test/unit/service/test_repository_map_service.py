@@ -1,4 +1,4 @@
-"""Plan 27: the map of the repositories in context/repository.md, written from
+"""The map of the repositories in context/repository.md, written from
 their files and git (no LLM); generating it again keeps the user's notes."""
 import shutil
 import subprocess

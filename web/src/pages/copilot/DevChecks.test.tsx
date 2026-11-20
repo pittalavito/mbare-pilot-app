@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mockApi, renderPage } from "../../test/render";
 import { PROJECT_API, projectRoutes } from "../../test/zones";
 
-/** Blocco 09 and plan 34: the tests' settings, a development's
+/** The tests' settings, a development's
  * choice of tests (run_tests, Dev) and a task to verify sent back. */
 
 afterEach(() => vi.unstubAllGlobals());

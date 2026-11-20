@@ -2,7 +2,7 @@
 real one (JSONL with ``assistant.message`` and ``result``), remembers the turns
 of each ``--session-id`` (in ``$FAKE_COPILOT_STATE``) and records the
 arguments it got. What it does depends on the task: the words in the name of
-the task the session's first prompt names (``agent-task-<title>.md``, plan 37:
+the task the session's first prompt names (``agent-task-<title>.md``:
 nothing is written in the repository), whatever their case:
 
 - default: plan turns answer with a question; the execution writes ``copilot.txt``;

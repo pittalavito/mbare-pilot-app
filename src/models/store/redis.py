@@ -15,7 +15,7 @@ class AgentTraceRecord(BaseModel):
     generations: list[GenerationRecord] = Field(default_factory=list)
     project_name: str | None = None
     transcript: ModelTranscript | None = None
-    """The masked exchange with the model (plan 29)."""
+    """The masked exchange with the model."""
 
 
 class WorkerHeartbeatRecord(BaseModel):

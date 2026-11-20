@@ -59,7 +59,7 @@ export function MessageItem({ chatbotId, message, reply, entry, automations, lea
   );
 }
 
-/** «🔍 Cosa ha visto il modello» under an answer (plan 29). */
+/** «🔍 Cosa ha visto il modello» under an answer. */
 function SeenByModel({ runId }: { runId: string }) {
   const [open, setOpen] = useState(false);
   return (

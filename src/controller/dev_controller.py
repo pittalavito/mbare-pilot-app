@@ -1,6 +1,6 @@
-"""The tests' settings (blocco 09) and the Operator's commands (plan 11), under
+"""The tests' settings and the Operator's commands, under
 /projects/{project}: the tests' settings, the allowed commands, the project's
-Operator (Dev), the commands waiting for the user's ok and one command run by hand («✋ A mano», plan 25)."""
+Operator (Dev), the commands waiting for the user's ok and one command run by hand («✋ A mano»)."""
 from fastapi import APIRouter, Depends, Response, status
 from pydantic import BaseModel
 
@@ -86,7 +86,7 @@ def answer_command_request(project: str, answer: CommandAnswer, commands: Comman
 
 @router.post("/commands/run")
 def run_command(project: str, request: CommandRunRequest, commands: CommandService = Depends(command_service)) -> CommandRunResponse:
-    """«✋ A mano» (plan 25): one command in a repository of the project, if allowed (or granted once);
+    """«✋ A mano»: one command in a repository of the project, if allowed (or granted once);
     else it becomes a request and nothing runs."""
     outcome = commands.run(project, request.repository, request.command)
     return CommandRunResponse(allowed=outcome.allowed, exit_code=outcome.exit_code, output=outcome.output)

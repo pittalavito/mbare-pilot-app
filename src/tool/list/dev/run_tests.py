@@ -1,4 +1,4 @@
-"""run_tests («Verifica sviluppo»): the tests of the repository
+"""run_tests (a development's Post): the tests of the repository
 Copilot worked on, all of them or only the ones its changes touched
 (domain/dev/tests.py). ``target`` is ``<repository> <task> [all|touched]``
 (domain/dev/inputs.py): in the automation, the run input.
@@ -65,6 +65,6 @@ def run(context: ToolContext, params: Params) -> Result:
 RUN_TESTS = params_tool(
     "run_tests",
     "Runs the tests of a repository (all, or only the ones the changes touched); fails with the lines that say what failed "
-    "(the second step of «Verifica sviluppo»).",
+    "(useful after a development).",
     Params, run, writes=True,
 )

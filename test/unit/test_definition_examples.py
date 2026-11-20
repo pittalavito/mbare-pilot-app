@@ -1,4 +1,4 @@
-"""The app's default definitions (resource/definition/, plan 28) stay valid
+"""The app's default definitions (resource/definition/) stay valid
 with the same rules the app applies, and the data folder overrides them:
 by name in the global YAML lists, by path for the other files."""
 import yaml

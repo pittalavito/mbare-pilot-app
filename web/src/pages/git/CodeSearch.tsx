@@ -10,7 +10,7 @@ type Match = CodeSearchResult["matches"][number];
 
 /** «🔎 Cerca nel codice»: a free search in the files git knows of the project's
  * repositories (plain text, or a regex), results grouped by file; the search can
- * be saved as a code reference and linked to a task. Plan 34: a saved search
+ * be saved as a code reference and linked to a task. A saved search
  * fills it («⭐ Ricerche salvate»), «⭐ Salva ricerca» names it in the project,
  * «✨ Regex» asks an agent for the regex from words. */
 export function CodeSearch({ project }: { project: string }) {

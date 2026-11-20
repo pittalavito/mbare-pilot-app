@@ -10,7 +10,6 @@ export type Agent = components["schemas"]["AgentResponse"];
 export type AgentCreateRequest = components["schemas"]["AgentCreateRequest"];
 export type AgentUpdateRequest = components["schemas"]["AgentUpdateRequest"];
 export type Role = components["schemas"]["RoleResponse"];
-export type Prompt = components["schemas"]["PromptResponse"];
 export type Scope = string | null;
 
 const query = (scope: Scope, includeGlobal = false) => (scope === null ? {} : { project: scope, include_global: includeGlobal });

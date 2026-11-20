@@ -1,5 +1,5 @@
 """Definitions as files (models/domain/definitions.py): agents, chatbots and
-automations written as YAML, in two layers (plan 28): the app's defaults
+automations written as YAML, in two layers: the app's defaults
 (``resource/definition``) and the user's (``<MBARE_PILOT_HOME>/definition/``).
 In the global files the user's elements win **by name** over the app's (the
 user's ``global-chat-bots.yml`` may hold just the Refiner changed); the

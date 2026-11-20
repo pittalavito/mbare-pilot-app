@@ -38,7 +38,7 @@ class ConfluenceClient:
         return [self._to_node(raw, "page") for raw in self._http.paginate_cursor(path, {"status": "current", "depth": "root"}, limit)]
 
     def children(self, node_id: str, kind: str = "page", limit: int = 250) -> list[ConfluenceNode]:
-        """The pages and folders right under a page or a folder (plan 32); whiteboards and the rest are left out."""
+        """The pages and folders right under a page or a folder; whiteboards and the rest are left out."""
         path = f"/wiki/api/v2/{'folders' if kind == 'folder' else 'pages'}/{node_id}/direct-children"
         return [self._to_node(raw, raw.get("type", "page")) for raw in self._http.paginate_cursor(path, {}, limit)
                 if raw.get("type", "page") in PLACES]

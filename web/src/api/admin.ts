@@ -6,9 +6,7 @@ import type { components } from "./schema";
 /** The Admin page: app config, observability (agent runs, tool calls, traces), model catalog, DB backups. */
 
 export type RunSummary = components["schemas"]["RunSummaryResponse"];
-export type ToolCall = components["schemas"]["ToolCallResponse"];
 export type CatalogModel = components["schemas"]["CatalogModelBody"];
-export type Backup = components["schemas"]["BackupResponse"];
 
 export function useConfig() {
   return useQuery({ queryKey: ["admin", "config"], queryFn: () => unwrap(api.GET("/admin/config")) });
@@ -25,7 +23,7 @@ export function useToolCalls() {
 /** The verbatim trace of a run, kept in Redis (it may have expired). */
 export type RunTranscript = components["schemas"]["RunTranscript"];
 
-/** «🔍 Cosa ha visto il modello» (plan 29): the run's exchange with the model, masked and in clear. */
+/** «🔍 Cosa ha visto il modello»: the run's exchange with the model, masked and in clear. */
 export function useRunTranscript(runId: string | undefined) {
   return useQuery({
     queryKey: ["observability", "transcript", runId],

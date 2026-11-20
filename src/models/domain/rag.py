@@ -16,7 +16,7 @@ class RagSource(StrEnum):
     CONTEXT = "context"
     """A ``.md`` of the project's ``context/`` folder."""
     GENERAL = "general"
-    """A ``.md`` of the definitions' ``context/`` folder: how the app works, the same for every project (plan 26)."""
+    """A ``.md`` of the definitions' ``context/`` folder: how the app works, the same for every project."""
 
 
 class RagPiece(BaseModel):
@@ -57,4 +57,4 @@ class RagIndexState(BaseModel):
     """The embedder the project's index uses (``""`` = none can be built: why in ``error``)."""
     error: str | None = None
     general: int = 0
-    """Of ``documents``, the general ones (the definitions' context, plan 26)."""
+    """Of ``documents``, the general ones (the definitions' context)."""

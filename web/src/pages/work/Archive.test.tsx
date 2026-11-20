@@ -7,7 +7,7 @@ import { PROJECT_API, projectRoutes } from "../../test/zones";
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe("«🗄 Archivio» (plan 33)", () => {
+describe("«🗄 Archivio»", () => {
   it("lists the archived activities and shows their summary", async () => {
     mockApi({
       ...PROJECT_API,

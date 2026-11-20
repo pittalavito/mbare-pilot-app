@@ -1,4 +1,4 @@
-"""run_command (the Operator, plan 11): runs one of the project's allowed
+"""run_command (the Operator): runs one of the project's allowed
 commands in a repository of the project (e.g. ``mvn -B clean install``). A
 command outside the list is not run: the user is asked in the agent panel and
 the agent must stop and wait. A failing command (exit code not 0) comes back

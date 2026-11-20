@@ -1,4 +1,4 @@
-"""An activity's steps «Pianifica», «Lavora» and «Chiudi» (plan 18), under
+"""An activity's steps «Pianifica», «Lavora» and «Chiudi», under
 /projects/{project}: the Pianificatore's proposals (one call), creating the
 tasks (no LLM), the round of the tasks and its settings, and the closing
 (what was learned goes in context/imparato.md)."""
@@ -33,7 +33,7 @@ class StepRequest(BaseModel):
 class PhaseRequest(BaseModel):
     task: str
     phase: Phase
-    """``pre`` or ``post`` of the development (plan 34)."""
+    """``pre`` or ``post`` of the development."""
 
 
 class AutoResponse(BaseModel):
@@ -44,7 +44,7 @@ class AutoResponse(BaseModel):
 
 class ArchiveRequest(BaseModel):
     delete_references: list[str] = []
-    """The references to delete with it (plan 33); the others stay."""
+    """The references to delete with it; the others stay."""
 
 
 class CloseRequest(BaseModel):
@@ -96,19 +96,19 @@ def retry_step(project: str, activity: str, request: StepRequest, service: PlanS
 
 @router.post("/activities/{activity}/plan/done")
 def mark_done(project: str, activity: str, request: PhaseRequest, service: PlanService = Depends(plan_service)) -> ActivityPlan:
-    """«✅ Fatto» on a development's Pre or Post (plan 34): done by hand or by Dev, the round goes on."""
+    """«✅ Fatto» on a development's Pre or Post: done by hand or by Dev, the round goes on."""
     return service.mark_done(project, activity, request.task, request.phase)
 
 
 @router.post("/activities/{activity}/plan/skip")
 def skip_phase(project: str, activity: str, request: PhaseRequest, service: PlanService = Depends(plan_service)) -> ActivityPlan:
-    """«⏭ Salta» on a development's Pre or Post (plan 34): nothing to do this time, the round goes on."""
+    """«⏭ Salta» on a development's Pre or Post: nothing to do this time, the round goes on."""
     return service.skip(project, activity, request.task, request.phase)
 
 
 @router.post("/activities/{activity}/plan/auto")
 def start_auto(project: str, activity: str, request: PhaseRequest, service: OperationService = Depends(operation_service)) -> AutoResponse:
-    """«🤖 Automatico» on a development's Pre or Post (plan 25, plan 34): its commands, then its automation, run by the
+    """«🤖 Automatico» on a development's Pre or Post: its commands, then its automation, run by the
     worker; commands not allowed come back first, nothing started."""
     plan, pending = service.start(project, activity, request.task, request.phase)
     return AutoResponse(plan=plan, pending_commands=pending)
@@ -130,7 +130,7 @@ def close_activity(project: str, activity: str, request: CloseRequest,
 @router.post("/activities/{activity}/archive")
 def archive_activity(project: str, activity: str, request: ArchiveRequest,
                      service: ActivityCloseService = Depends(activity_close_service)) -> ActivityArchived:
-    """«🗄 Archivia» (plan 33): a summary note archivio-<attività>.md; the activity, its tasks, answers, drafts, plan and
+    """«🗄 Archivia»: a summary note archivio-<attività>.md; the activity, its tasks, answers, drafts, plan and
     Copilot sessions deleted, and the references chosen (409 when it is not closed or a Copilot session is running)."""
     return service.archive(project, activity, request.delete_references)
 

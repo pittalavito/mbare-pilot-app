@@ -55,7 +55,7 @@ class ProjectTable(SQLModel, table=True):
     test_scope: str = Field(default="all", sa_column_kwargs={"server_default": "all"})
     test_commands: dict[str, str] | None = Field(default=None, sa_type=JSON)
     allowed_commands: list[str] | None = Field(default=None, sa_type=JSON)
-    """The commands the Operator may run (plan 11); NULL = none."""
+    """The commands the Operator may run; NULL = none."""
     command_requests: list[dict] | None = Field(default=None, sa_type=JSON)
     """Commands the Operator asked for, waiting for the user's ok ({repository, command})."""
     command_grants: list[str] | None = Field(default=None, sa_type=JSON)
@@ -63,7 +63,7 @@ class ProjectTable(SQLModel, table=True):
     operator_chatbot_id: int | None = None
     """The Operator of the preparation before Copilot; NULL = the project's first one."""
     code_searches: list[dict] | None = Field(default=None, sa_type=JSON)
-    """The project's saved searches (plan 34: {name, query, regex, files, description}); NULL = none."""
+    """The project's saved searches ({name, query, regex, files, description}); NULL = none."""
 
 
 class ProjectAtlassianTable(SQLModel, table=True):
@@ -228,7 +228,7 @@ class PipelineTable(SQLModel, table=True):
     description: str = ""
     active: bool = True
     fields: list[str] | None = Field(default=None, sa_type=JSON)
-    """The named values of a run (plan 11); NULL = none."""
+    """The named values of a run; NULL = none."""
     purpose: str = Field(default="", sa_column_kwargs={"server_default": ""})
     """AutomationPurpose value: where the app offers it by itself (``prepare``)."""
     created_at: datetime = _timestamp()
@@ -255,7 +255,7 @@ class PipelineStepTable(SQLModel, table=True):
     agent_config_name: str | None = None
     """Plain column, no FK: a deleted Library agent makes the step fail with a clear error."""
     tool_name: str | None = None
-    """A ``tool`` step's tool (plan 11)."""
+    """A ``tool`` step's tool."""
     params: dict = Field(default_factory=dict, sa_type=JSON)
     position_x: float = 0.0
     position_y: float = 0.0
@@ -371,7 +371,7 @@ class WipRunTable(SQLModel, table=True):
 
 
 class ActivityPlanTable(SQLModel, table=True):
-    """The plan of an activity (one per activity, plan 18): tasks, proposals waiting,
+    """The plan of an activity (one per activity): tasks, proposals waiting,
     how the round goes; the Pianificatore's latest call is the agent run with ``run_id``."""
     __tablename__ = "activity_plan"
 
@@ -388,7 +388,7 @@ class ActivityPlanTable(SQLModel, table=True):
     approved: list[str] | None = Field(default=None, sa_type=JSON)
     operations: dict | None = Field(default=None, sa_type=JSON)
     phases: dict | None = Field(default=None, sa_type=JSON)
-    """Pre and Post of the developments (plan 34): ``<task>|pre`` → done or skipped."""
+    """Pre and Post of the developments: ``<task>|pre`` → done or skipped."""
     auto_skip_empty: bool = False
     created_at: datetime = _timestamp()
     updated_at: datetime = _timestamp()
@@ -552,7 +552,7 @@ class ChatModelTable(SQLModel, table=True):
 
 
 class ToolRequestTable(SQLModel, table=True):
-    """Requests of tools for Claude Code (plan 20): of the whole app, not of a project (no FK: the project can go)."""
+    """Requests of tools for Claude Code: of the whole app, not of a project (no FK: the project can go)."""
     __tablename__ = "tool_request"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -579,7 +579,7 @@ class DevAccessTable(SQLModel, table=True):
 
 
 class EmbeddingUsageTable(SQLModel, table=True):
-    """One call to a remote embedder (plan 31): the context index (``index``) or a search (``search``)."""
+    """One call to a remote embedder: the context index (``index``) or a search (``search``)."""
     __tablename__ = "embedding_usage"
 
     id: int | None = Field(default=None, primary_key=True)

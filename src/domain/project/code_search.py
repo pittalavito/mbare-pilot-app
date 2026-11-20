@@ -1,4 +1,4 @@
-"""A free search in the code (plan 23): the query as a pattern, the matches of
+"""A free search in the code: the query as a pattern, the matches of
 one file's text, the glob filter and the code reference a search becomes.
 Pure functions: no filesystem here."""
 import fnmatch

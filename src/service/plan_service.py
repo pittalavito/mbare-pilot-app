@@ -1,12 +1,12 @@
-"""The plan of an activity and its round (plan 18): steps «Pianifica» and «Lavora».
+"""The plan of an activity and its round: steps «Pianifica» and «Lavora».
 
 1. **Propose** («✨ Proponi i task»): **one call** to the agent ``pianificatore``
    of global-agent.yml with a **structured answer** (``PlanAnswer``), no tools,
    few tokens: the activity's title, description and items not done and
    without a task (numbered), the titles of its references, the project's
    repositories, the task types, the project's development rules
-   (``context/sviluppo.md``, plan 22) and the 3 nearest pieces of the context
-   index. Each development comes with its **Pre** and **Post** (plan 34:
+   (``context/sviluppo.md``) and the 3 nearest pieces of the context
+   index. Each development comes with its **Pre** and **Post** (
    steps, commands, automation) inside it. Masked like «Elabora WIP»; the
    proposals come back in clear. A proposal on items that do not exist loses
    them; one without items is «new». The activity has **one plan**: the
@@ -18,9 +18,9 @@
    goes «in progress».
 3. **Path** (no LLM): for each task its steps, derived from the task's status
    and its latest Copilot session: delegation, Copilot's plan, execution, final
-   confirmation (developments, between their Pre and Post: plan 34), or
+   confirmation (developments, between their Pre and Post), or
    Copilot's answer (the types that do not change the code). Pre and Post are
-   never Copilot's: «🤖 Automatico» (plan 25), by hand or by Dev, then «Fatto»; or «Salta».
+   never Copilot's: «🤖 Automatico», by hand or by Dev, then «Fatto»; or «Salta».
    The steps waiting for the user are the control points. A development is
    finished when it is done and its Post is done or skipped.
 4. **Round** (the worker, no LLM of its own): started with «▶️ Avvia», stopped
@@ -140,7 +140,7 @@ class PlanService:
             "run_id": run_id, "proposals": proposals, "cost_eur": round(plan.cost_eur + call.telemetry.total_tokens.cost_eur, 6)}))
 
     def _tools(self, project_name: str, names: list[str], entries) -> list[Tool]:
-        """The Pianificatore's tools (``search_context``, plan 26) when its YAML has them and the project has an index;
+        """The Pianificatore's tools (``search_context``) when its YAML has them and the project has an index;
         what they give back is masked like its input."""
         if self._rag is None or "search_context" not in names:
             return []
@@ -273,7 +273,7 @@ class PlanService:
     def _steps(self, plan: ActivityPlan, planned: PlanTask, task: AgentTask, session: CopilotSession | None) -> list[PathStep]:
         done = task.status is TaskStatus.DONE
         steps: list[tuple[StepKey, StepState, str]] = []
-        if task.type.phases:  # plan 34: Pre, before the delegation (passed by when the task was delegated without it)
+        if task.type.phases:  # Pre, before the delegation (passed by when the task was delegated without it)
             steps.append(_phase_step(plan, planned.task, Phase.PRE, passed=bool(session) or done, ready=True))
         error = plan.errors.get(step_id(planned.task, StepKey.DELEGATE), "")
         if error:
@@ -286,7 +286,7 @@ class PlanService:
             answer = StepState.DONE if done or drafted else StepState.YOU if status is CopilotSessionStatus.PLANNING else (
                 StepState.FAILED if status in (CopilotSessionStatus.FAILED, CopilotSessionStatus.CANCELLED) else StepState.TODO)
             steps.append((StepKey.ANSWER, answer, ""))
-            if task.type.publishes:  # plan 33: the draft, then «📤 Pubblica»
+            if task.type.publishes:  # The draft, then «📤 Pubblica»
                 steps.append((StepKey.PUBLISH, StepState.DONE if done else StepState.YOU if drafted else StepState.TODO, ""))
             return _path_steps(steps)
         if status is None:
@@ -301,7 +301,7 @@ class PlanService:
         steps.append((StepKey.EXECUTION, execution, session.error or "" if session else ""))
         final = StepState.DONE if done else StepState.YOU if task.status is TaskStatus.TO_VERIFY else StepState.TODO
         steps.append((StepKey.FINAL, final, ""))
-        if task.type.phases:  # plan 34: Post, after the final confirmation
+        if task.type.phases:  # Post, after the final confirmation
             steps.append(_phase_step(plan, planned.task, Phase.POST, passed=False, ready=done))
         return _path_steps(steps)
 
@@ -396,7 +396,7 @@ class PlanService:
 
     def _delegate(self, plan: ActivityPlan, current: PathTask) -> None:
         """Delegation with Copilot's default prompt and model; a failure is the step's error.
-        A task without code and without a repository goes without one (Copilot in the project's data, plan 21)."""
+        A task without code and without a repository goes without one (Copilot in the project's data)."""
         assert self._copilot is not None
         try:
             self._copilot.start(plan.project_name, current.task, current.repository,
@@ -406,7 +406,7 @@ class PlanService:
 
     def pass_on(self, project_name: str, task: str, name: str, replacing: str = "") -> list[str]:
         """What a task produced (``name``: its note, the page or issue published) linked to the **next** task of each plan
-        that holds it (plan 33), in place of ``replacing`` (the draft, once published) when given. The tasks changed."""
+        that holds it, in place of ``replacing`` (the draft, once published) when given. The tasks changed."""
         changed = []
         for plan in self._plans.latest_per_activity(project_name):
             order = [item.task for item in plan.tasks]
@@ -427,7 +427,7 @@ class PlanService:
 
     def set_task_repository(self, project_name: str, task: str, repository: str) -> None:
         """The task's repository in the plans that hold it (the delegation's repository
-        changed, plan 21)."""
+        changed)."""
         name = note_file_name(task)
         for plan in self._plans.latest_per_activity(project_name):
             if any(note_file_name(planned.task) == name and planned.repository != repository for planned in plan.tasks):

@@ -94,7 +94,7 @@ class AgentService:
         return ToolErrorResponse(error="") if result is None else _Text(text=str(result))
 
     def _with_catalog(self, definition: AgentDefinition, project_name: str | None, session) -> AgentDefinition:
-        """With ``search_context``: the titles of the context documents at the end of the prompt (plan 27), masked."""
+        """With ``search_context``: the titles of the context documents at the end of the prompt, masked."""
         if not project_name or self._rag_service is None or "search_context" not in definition.tool_names:
             return definition
         try:

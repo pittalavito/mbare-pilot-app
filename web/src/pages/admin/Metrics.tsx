@@ -9,7 +9,7 @@ import { Markdown } from "../../components/Markdown";
 import { count, credits, localTime } from "../../format";
 
 /** Admin → Observability → Metriche: what the agents cost and how long they
- * take (average and p95) by who, Copilot apart (AI credits, not euros), the RAG's embedding calls (plan 31), how
+ * take (average and p95) by who, Copilot apart (AI credits, not euros), the RAG's embedding calls, how
  * «Elabora WIP»'s proposals were received, and the evaluations on the data
  * sets (queued for the worker; the same reports as resource/scripts). */
 

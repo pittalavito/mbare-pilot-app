@@ -65,10 +65,6 @@ class ChatbotStore:
         """A chatbot's cache entries, oldest first."""
         return [Adapter.to_automation_cache_entry(row) for row in self._cache_entries.list_for_chatbot(chatbot_id)]
 
-    def get_automation_cache_entry(self, entry_id: int) -> AutomationCacheEntry | None:
-        row = self._cache_entries.get(entry_id)
-        return Adapter.to_automation_cache_entry(row) if row else None
-
     def save_automation_cache_entry(self, entry: AutomationCacheEntry) -> AutomationCacheEntry:
         return Adapter.to_automation_cache_entry(self._cache_entries.save(Factory.to_automation_cache_row(entry)))
 

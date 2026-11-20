@@ -1,4 +1,4 @@
-"""The board of Mbare Pilot (plan 30): the app's future activities, from
+"""The board of Mbare Pilot: the app's future activities, from
 ``roadmap.yml`` of the definitions (the app's, or the data folder's)."""
 from enum import StrEnum
 

@@ -16,11 +16,11 @@ class CopilotSessionRequest(BaseModel):
     model: str = ""
     """One of the status' ``models``; ``""`` = the default."""
     no_repository: bool = False
-    """No repository (only a task without code): Copilot works in the project's data (plan 21); ``repository`` is ignored."""
+    """No repository (only a task without code): Copilot works in the project's data; ``repository`` is ignored."""
 
 
 class CopilotRepositoryRequest(BaseModel):
-    """The repository of a session never executed (plan 21)."""
+    """The repository of a session never executed."""
     repository: str = ""
     """Folder of the repository inside the project (``""`` = the project folder)."""
     no_repository: bool = False
@@ -43,7 +43,7 @@ class CopilotSessionResponse(BaseModel):
     task_note: str
     repository: str
     no_repository: bool
-    """Copilot works in the project's data, not in a repository (plan 21)."""
+    """Copilot works in the project's data, not in a repository."""
     prompt: str
     """The planning prompt chosen; ``""`` = the default."""
     model: str

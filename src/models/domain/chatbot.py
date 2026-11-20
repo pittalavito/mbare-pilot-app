@@ -17,7 +17,7 @@ def _utc_now() -> datetime:
 
 class ChatbotKind(StrEnum):
     AUTOMATION = "automation"
-    """The Architect (blocco 05): designs the project's automations with the
+    """The Architect: designs the project's automations with the
     user, reading functions, agents and automations from its tools and
     validating the YAML in the code; the user saves a proposal with a click
     in the chat. Only tools of KIND_TOOLS; it does not launch automations."""
@@ -33,7 +33,7 @@ class ChatbotKind(StrEnum):
     there from created): reads it with its type's checklist, writes its fields
     and makes it todo with the user's ok; it searches the code (a few short lines, masked)."""
     OPERATOR = "operator"
-    """The Operator (plan 11): does procedures on the project's repositories for
+    """The Operator: does procedures on the project's repositories for
     one stack (the default is Java: Maven, Spring Boot), with safe git (no commit,
     no push), the project's allowed commands and the POMs. What it did right
     becomes an automation of ``tool`` steps with a click (no LLM the times after).
@@ -106,7 +106,7 @@ class Conversation(BaseModel):
     title: str = ""
     """From the first message; empty until then."""
     context: str = ""
-    """What it is about in the UI (plan 13b): the note it belongs to (an activity for
+    """What it is about in the UI: the note it belongs to (an activity for
     the Secretary, an agent task for the Refiner), ``""`` = none. The agent panel
     reopens a context's latest conversation."""
     created_at: datetime = Field(default_factory=_utc_now)

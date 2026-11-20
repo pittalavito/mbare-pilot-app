@@ -1,402 +1,97 @@
 # `src/service`
 
-I servizi applicativi: le regole dell'app (validazioni, permessi tra progetti, versioni, coda) sopra gli store e i client di [`domain`](../domain/README.md). Controller e worker parlano solo con i service.
+Le regole dell'app. Un servizio riceve gli store e gli altri servizi dal `Container` (`core/container.py`), non li costruisce mai. I controller chiamano i servizi; i servizi chiamano `domain/` e gli store. Gli errori sono quelli di `core/error.py`: il controller li trasforma in status HTTP.
 
-```
-src/service/
-  store/                    gli store per aggregato: unica porta verso Postgres, Redis e file
-  run_service.py            osservabilità: run, tool call e trace (Admin → Osservabilità)
-  model_service.py          catalogo dei modelli LLM (Admin → Modelli)
-  chat_service.py           client LLM per modello, in cache
-  agent_config_service.py   ruoli, prompt versionati, catalogo tool, agenti
-  agent_service.py          esegue un agente e registra la run
-  git_service.py            git sui repository di un progetto
-  project_data_service.py   note e file di un progetto
-  pipeline_service.py       automation: definizioni, coda, worker attivi
-  pipeline_runner.py        esegue le run in coda (lo usa il worker)
-  project_service.py        progetti: apri cartella, crea da zero, modifica, rimuovi
-  chatbot_service.py        chatbot di un progetto, conversazioni e messaggi
-  automation_cache_service.py     cache delle automation: messaggio simile → automation, senza agente (oggi nessun chatbot la usa)
-  atlassian_service.py      sito Jira + Confluence di un progetto
-  backup_service.py         export del DB in SQL nella cartella di backup
-  masking_service.py        mascheramento dei dati sensibili verso i modelli
-  copilot_service.py        agent task delegati a GitHub Copilot CLI: chat di preparazione, esecuzione nel worker
-  wip_service.py            «Elabora WIP»: anteprima mascherata, una chiamata strutturata, proposte applicate senza LLM
-  plan_service.py           il piano di un'attività e il suo giro (step Pianifica e Lavora, piano 18)
-  tool_request_service.py   le richieste di tool per Claude Code e il token del suo server MCP (piano 20)
-  activity_close_service.py lo step Chiudi: l'agente imparato e context/imparato.md
-  rag_service.py            contesto del progetto (RAG): indicizzazione mascherata, ricerca ibrida con le fonti
-  metrics_service.py        pagina Metriche: costo e latenza per chi, Copilot a parte, accettazione di Elabora WIP
-  evaluation_service.py     valutazioni sui set di prova (Elabora WIP, RAG): report, coda del worker
-  today_service.py          «📌 Oggi»: chi aspetta, voci scadute e in scadenza, attività da chiudere; Spunta e Rimanda
-  dev_checks_service.py     impostazioni dei test (run_tests) e l'Operatore del progetto; niente più automatico attorno a Copilot (piano 22)
-  command_service.py        i comandi permessi dell'Operatore: elenco, richieste da approvare, esecuzione
-  learn_service.py          da una risposta dell'Operatore a un'automation di step tool (senza LLM)
-```
+## Store (`service/store/`)
 
-Chi crea i service e li collega tra loro è il [Container](../core/README.md) (`core/container.py`): ogni service riceve nel costruttore **gli store e i service che usa, e solo quelli**. Così la firma dice cosa legge e scrive.
+Uno store per aggregato, costruiti una volta in `stores.py` sugli stessi backend. Fuori dallo store escono solo modelli di dominio: le righe e i record restano dentro (mapper in `domain/store/*/`).
 
-## Gli store (`service/store/`)
+| Store | Cosa tiene | Backend |
+|---|---|---|
+| `ProjectStore` | progetti e loro impostazioni | Postgres |
+| `AgentStore` | ruoli, prompt versionati, agenti della Libreria | Postgres |
+| `CatalogStore` | modelli (con prezzi) e tool | Postgres |
+| `ChatbotStore` | chatbot, conversazioni, messaggi, cache delle automation | Postgres |
+| `PipelineStore` | automation, step, archi, run | Postgres |
+| `CopilotStore` | sessioni di Copilot, messaggi, turni (anche la coda del worker) | Postgres |
+| `PlanStore` | piano di ogni attività | Postgres |
+| `RagStore` | indice del contesto (documenti e pezzi, pgvector) | Postgres |
+| `RunStore` | run degli agenti: fatti in Postgres, trace in Redis | Postgres + Redis |
+| `EvaluationStore`, `WipStore`, `EmbeddingUsageStore`, `ToolRequestStore`, `AtlassianStore` | valutazioni, Elabora WIP, costi degli embedding, richieste di tool, sito Atlassian (token cifrato) | Postgres |
+| `MaskStore`, `WorkerStore` | mappe del masking, heartbeat dei worker | Redis |
+| `ProjectFileStore`, `DefinitionStore` | file dei progetti; definizioni a due livelli (app e cartella dati) | file |
 
-La persistenza è divisa per **aggregato**: uno store per gruppo di dati che vive e muore insieme. Ogni store crea i suoi repository e parla solo in **modelli di dominio**, convertendo con l'`Adapter`/`Factory` del suo aggregato (`domain/store/db/<aggregato>_mapper.py`, `domain/store/redis/<x>_mapper.py`). Fuori da uno store non circolano righe né record.
+## Progetti e dati
 
-| Store | Cosa tiene | Backend | Chi lo usa |
-|---|---|---|---|
-| `RunStore` | run degli agenti: fatti (token, costi, tool call) e trace | Postgres + Redis | `AgentService` (scrive), `RunService` (legge) |
-| `CatalogStore` | modelli LLM con i prezzi (`price_list`), modelli in uso, catalogo dei tool | Postgres | `ModelService`, `AgentConfigService`, `AgentService`, `ChatbotService`, `PipelineService` (`require_usable_model`) |
-| `AgentStore` | ruoli, versioni dei prompt, agenti della Libreria e di progetto | Postgres | `AgentConfigService`, `DefinitionService`, `PipelineService` |
-| `ProjectStore` | progetti | Postgres | quasi tutti: chi tocca i dati di un progetto controlla che esista |
-| `ChatbotStore` | chatbot, conversazioni, messaggi, cache delle automation | Postgres | `ChatbotService`, `AutomationCacheService` |
-| `PipelineStore` | automation (step, collegamenti) e run (step delle run); tiene l'engine per `transaction` | Postgres | `PipelineService`, `PipelineRunner` |
-| `CopilotStore` | sessioni, messaggi e turni di Copilot (anche la coda del worker) | Postgres | `CopilotService` |
-| `EvaluationStore` | le valutazioni lanciate dalla pagina Metriche (anche la coda del worker) | Postgres | `EvaluationService` |
-| `RagStore` | l'indice del contesto (`document`, `chunk` con gli embedding pgvector) | Postgres | `RagService` |
-| `WipStore` | le «Elabora WIP» (`wip_run`): modello, versione del prompt, proposte e cosa ne ha fatto l'utente | Postgres | `WipService` |
-| `AtlassianStore` | sito e preferiti Atlassian; cifra e decifra il token con `SecretBox` | Postgres | `AtlassianService` |
-| `WorkerStore` | heartbeat dei worker (con TTL) | Redis | `PipelineService` |
-| `MaskStore` | mappe di mascheramento | Redis | `MaskingService`, `ProjectService` (rimozione) |
-| `ProjectFileStore` | file dei progetti (`<data_home>/project`) | file | `ProjectDataService` |
-| `DefinitionStore` | file delle definizioni (`<data_home>/definition`); rispetta `coding_agent.DefinitionFiles` | file | `DefinitionService`, `CopilotService` |
+- **`ProjectService`**: apre una cartella esistente o ne crea una nuova (sempre dentro `PROJECT_ROOTS`), elenca, aggiorna, rimuove. Un progetto nuovo riceve i chatbot di default.
+- **`ProjectDataService`**: i dati del progetto fuori dal codice, in `<MBARE_PILOT_HOME>/project/<slug>/`: note (anche tipate: attività, agent task, riferimenti), file caricati, contesto, cartelle di lavoro di Copilot senza repository. Collega task, voci e riferimenti; spunta una voce quando il suo task diventa fatto.
+- **`GitService`**: git in sola lettura sulla cartella del progetto o su un repository dentro.
+- **`CodeSearchService`**: ricerca libera nei file che git conosce (salta binari, file grandi, non UTF-8); salva una ricerca come riferimento codice.
+- **`SavedSearchService`**: ricerche salvate. Default in `code-searches.yml`, quelle del progetto in `Project.code_searches`; «✨ Regex» chiama l'agente `regex`.
+- **`RepositoryMapService`**: «🗺 Genera mappa dei repository» in `context/repository.md`.
 
-`Stores` (`store/stores.py`) li costruisce tutti una volta, sullo stesso engine e client Redis. Lo usano solo il Container e i test: nessun service riceve `Stores`.
+## Agenti e chatbot
 
-I metodi che attraversano più aggregati stanno dove sta la domanda: `CatalogStore.model_keys_in_use` legge agenti, chatbot e step ma risponde «quali modelli non si possono eliminare»; i prezzi (`price_list`) per i costi delle run li legge `AgentService` dal catalogo.
+- **`AgentConfigService`**: ruoli, prompt versionati, catalogo dei tool, agenti. Valida ogni scrittura (ruolo esistente, prompt del ruolo, tool implementati).
+- **`AgentService`**: esegue un agente con i suoi tool, il masking e il tracing; registra la run.
+- **`StructuredAgentService`**: agenti con risposta strutturata (`output:`), una chiamata con lo schema di `STRUCTURED_OUTPUTS`; con tool, pochi passi.
+- **`ChatbotService`**: i chatbot del progetto, ognuno con il suo agente, conversazioni e messaggi.
+- **`AutomationCacheService`**: «questa richiesta → quella automation»; un messaggio abbastanza simile lancia l'automation senza LLM.
+- **`ModelService`**: catalogo dei modelli (Admin → Modelli); `require_usable_model` è il controllo che usano tutti.
+- **`DefinitionService`**: agenti, chatbot e automation dai file YAML, a due livelli (app e cartella dati, vince per nome il secondo); allineamento all'avvio e «Sincronizza da file». Vedi [definizioni](../../definitions.md).
+- **`MaskingService`**: mappa del masking per progetto (repository, persone, email, termini) e anteprima di un testo mascherato.
 
-**Nuovo store**: un modulo in `service/store/`, il mapper accanto ai repository del suo aggregato, l'attributo in `Stores`, la fixture in `test/conftest.py`, e il Container che lo passa ai service che lo usano.
+## Attività
 
-## `RunService`
-
-L'osservabilità di Admin: elenco delle run e delle tool call (dalla più recente) e trace di una run (`NotFoundError` se manca o è scaduta). Solo lettura: le run le scrive `AgentService` quando finiscono. I controller non usano mai uno store direttamente.
-
-## Il motore delle automation
-
-```
-UI «Esegui» ──► PipelineService.enqueue ──► pipeline_run (queued)
-                                                │
-worker ──► PipelineRunner.run_next ──► claim (running) ──► step dopo step ──► done / failed
-                                                         ├─ AGENT          → AgentService.run_definition
-                                                         ├─ AGENT_CONFIG   → AgentService.run
-                                                         └─ TOOL           → tool/ (senza LLM, lo stesso registro degli agenti)
-```
-
-- **Automation a grafo**: gli step sono i **nodi**, i **collegamenti** dicono quale output entra in quale step e a quale condizione. Ogni grafo parte dal nodo `input` (l'input della run). Un collegamento ha una condizione sul testo dell'output di partenza: `always`, `contains` / `not_contains` (testo, senza maiuscole), `matches` (regex), `otherwise` (nessuna delle altre condizioni dello stesso nodo). Le regole stanno in `domain/pipeline/graph.py`: nomi unici e diversi da `input`, niente cicli, ogni step raggiungibile da `input`, al massimo un `otherwise` per nodo e solo accanto a condizioni sul testo, `{nodo:Nome}` solo per uno step che precede. Un'automation salvata **senza collegamenti** è la catena dei suoi step, nell'ordine.
-- **`PipelineService`**: crea e modifica le automation validando ogni step e il grafo (modello usabile, tool esistenti, agente della Libreria o del progetto, tool che uno step può usare e argomenti che ha), mette le run in coda, cancella lo storico, riceve l'heartbeat dei worker (`heartbeat`, `workers`, `worker_stopped`).
-- **`PipelineRunner`**: prende la run più vecchia in coda e percorre il grafo in ordine topologico, **uno step alla volta**. Quando uno step finisce si valutano i suoi collegamenti in uscita: `contains` / `not_contains` (testo, senza maiuscole), `matches` (regex), `otherwise` (se nessuna condizione sul testo è passata), `always`. Uno step gira se almeno un collegamento in ingresso è passato; altrimenti è registrato come **saltato** (`skipped`), e così a cascata. Il suo `{input}` è l'output dell'unico ingresso passato, o tutti gli ingressi passati uniti come `## <step>` + output; `{nodo:Nome}` è l'output di quello step (vuoto se saltato). L'output della run è quello degli ultimi step eseguiti (uniti allo stesso modo se più d'uno). Il primo step che fallisce fa fallire la run. All'avvio del worker segna come fallite le run rimaste a metà (`fail_interrupted`).
-
-### Automation in YAML
-
-`PipelineService.check_yaml(progetto, testo)`, `save_yaml`, `export_yaml(id)`: un'automation scritta nel **formato delle definizioni** (`domain/pipeline/yaml_format.py`: i campi dell'automation, o `automations:` con un solo elemento), lo stesso che usa la sincronizzazione (`steps_and_edges`).
-
-- **`check_yaml`**: la valida con le stesse regole del salvataggio (`_validate`: tool degli step e argomenti, agenti, modelli, tool, grafo), **senza salvare**; restituisce l'automation come sarebbe (collegamenti mancanti = la catena) e quella del progetto con lo stesso nome che sostituirebbe. YAML, campi o regole sbagliati: `ValidationError` con il motivo.
-- **`save_yaml`**: crea, o aggiorna quella con lo stesso nome (gli step tengono il loro id). Lo usa «Salva» della proposta dell'Architetto in chat.
-- **`export_yaml`**: «📄 Esporta YAML» dell'editor: l'automation salvata nel formato di `global-automation.yml` (solo i campi diversi dal default), da incollare nelle definizioni. Rileggere l'esportato dà la stessa automation.
-
-## Agenti
-
-- **`AgentConfigService`**: ruoli, versioni dei prompt (immutabili; ruoli e versioni si disattivano, non si cancellano), catalogo dei tool sincronizzato dal codice, agenti globali o di progetto. `blocked_reason` dice perché un agente non può partire (ruolo o prompt disattivati, modello non usabile, tool non più implementati).
-- **`AgentService`**: costruisce l'agente (client da `ChatService`, tool con il `ToolContext` della run), lo esegue dentro il tracing di datapizza e salva la run in `RunStore`: fatti in Postgres, trace in Redis. Riceve **sempre** `PipelineService`, `MaskingService`, `ProjectDataService` e `CopilotService`: se un tool può usarli in una run lo decide il tool (`ToolContext.require_*`, origine della run), non un argomento mancante. Un progetto senza mappa di mascheramento resta com'è.
-- **`ModelService`**: il catalogo dei modelli e quelli in uso (`keys_in_use`, per Admin → Modelli); `require_usable_model(catalog, key)` è il controllo che ogni service fa prima di salvare o eseguire un agente.
-
-## Chatbot
-
-**`ChatbotService`**: i chatbot di un progetto, **più d'uno**. Ognuno ha il **suo agente**, configurato nel chatbot stesso (system prompt, modello, max steps, tool) e separato dagli agenti della Libreria.
-
-- **Chatbot di ogni progetto**: il codice non ne crea. `DefinitionService.seed_default_chatbots` crea quelli dei file (`global-chat-bots.yml`, poi il `chat-bots.yml` del progetto) che un progetto non ha, per nome: all'avvio (`Container._seed_defaults`) e alla creazione di un progetto (`ProjectService`). Solo creati, mai aggiornati; un errore (es. modello non nel catalogo, file rotto) va nel log, non ferma l'app; senza file nessun chatbot. La UI non crea né elimina chatbot e ne cambia solo il modello: vengono dalle [definizioni](../../definitions.md).
-
-- **Tipo** (`kind`): `automation` è l'**Architetto** (blocco 05): progetta con l'utente le automation del progetto; i suoi tool, scritti nel file, sono solo tra quelli del tipo (`KIND_TOOLS`: `list_tools`, `list_agents`, `list_automations`, `read_automation`, `validate_automation`, `request_tool`); il codice non li impone, li controlla (`Chatbot.tools_not_allowed`: un tool di un altro tipo è un errore, al salvataggio e alla sincronizzazione). Non lancia automation e non ha la cache. Propone un'automation in un blocco di codice `automation`: la chat la mostra con il grafo e «Salva» ([sotto](#automation-in-yaml)), e la salva solo il clic dell'utente. I chatbot salvati con i nomi di prima (`list_functions`, `create_function_task`) all'avvio prendono quelli nuovi (`Container._one_registry`). `secretary` (che ha anche il `wip_prompt` di [Elabora WIP](#elabora-wip)) aiuta con le note: attività (legge, crea, ne cambia descrizione e stato, aggiunge voci e spunta), stato degli agent task e agent task nuovi (in rifinitura), tool fissi anche lui (`list_activities`, `read_activity`, `create_activity`, `update_activity`, `list_agent_tasks`, `list_references`, `create_agent_task`), niente cache; dei riferimenti vede solo i titoli. `refiner` rifinisce gli agent task: tool fissi (`search_code`, `read_agent_task`, `update_agent_task`, `finish_refinement`, `search_context`), niente cache; lavora solo sul task aperto accanto alla chat e solo mentre è «in rifinitura» (ce lo porta l'utente con un pulsante), con la checklist del suo tipo, e lo porta a «da fare» con l'ok dell'utente; cerca nel codice con poche righe corte e mascherate, non salva; nella UI è l'agente del pannello quando il task aperto non è delegato. `operator` è l'**Operatore** ([sotto](#da-agente-ad-automation-piano-11)): tool fissi (git sicuro, `run_command`, `maven_parent_alignment`, `run_tests`, `search_code`, `save_code_search`), niente cache. `custom` (il default): i tool li scegli tu, niente cache. Altri tipi (es. Copilot, contesto) si aggiungono a `ChatbotKind` e `KIND_TOOLS`.
-
-- **Creare e modificare**: modello usabile, tool disponibili, nome unico nel progetto (senza distinguere maiuscole e minuscole). Se cambia il system prompt, sale `prompt_version`, così ogni run dice quale prompt ha risposto.
-- **Cambiare solo il modello** (`set_model`, dalla UI): il resto resta com'è, compresa la versione del prompt; il modello deve essere del catalogo e attivo. Una sincronizzazione delle definizioni che contiene il chatbot rimette il modello del file.
-- **Conversazioni**: dalla più recente; eliminarne una elimina i suoi messaggi.
-- **`send(conversazione, testo)`**: salva il messaggio dell'utente, esegue l'agente del chatbot con la conversazione precedente come memoria, **sul progetto del chatbot** (i tool git lavorano lì), e salva la risposta. Il primo messaggio diventa il titolo della conversazione (max 60 caratteri).
-- **Se l'agente non risponde** (errore del modello, tool, modello disattivato…) la risposta è un messaggio di tipo `error`: si vede in chat ma non viene rimandato all'agente nei turni successivi.
-- **Run registrate** come `chatbot/<nome>`, con ruolo `chatbot` e la versione del prompt: si trovano in Admin → Observability.
-
-- **Nota aperta** (`send(..., open_note)`, `open_note` di `POST /conversations/{id}/messages`): la nota aperta accanto alla chat (il pannello del Refiner manda il task aperto nell'editor). L'agente la riceve in testa al messaggio (`with_open_note`) e i suoi tool nel contesto (`ToolContext.open_note`: quelli del Refiner lavorano solo su quella); nella conversazione resta il messaggio come l'hai scritto, e la cache non la usa.
-
-### Cache delle automation: `AutomationCacheService`
-
-Dei chatbot dei tipi in `CACHE_KINDS` (`Chatbot.has_automation_cache`; l'API lo dice in `automation_cache`): **oggi nessuno**, da quando il chatbot automation è diventato l'Architetto (blocco 05). La cache resta nel codice per chi lancerà le automation dalla chat (backlog); negli altri non si consulta e non si può aggiungere una voce. Si chiama così perché altri tipi potranno avere cache diverse.
-
-L'utente mette in cache un **suo** messaggio scegliendo un'automation del progetto e un input fisso (`add(messaggio, automation, input)`). Da lì, `send` confronta ogni messaggio con le voci del chatbot: se uno è abbastanza simile (`AUTOMATION_CACHE_THRESHOLD`, coseno 0..1, default 0,9) lancia **direttamente** l'automation, **senza l'agente** (niente LLM né token), e risponde `⚡ Ho lanciato l'automation X (id N).`. L'automation poi gira nel worker con i suoi step e tool, come sempre.
-
-- **Similarità**: coseno degli embedding (`domain/client/embedding`), calcolato in Python sulle voci del chatbot (sono poche). L'embedder si sceglie con `AUTOMATION_CACHE_EMBEDDER`:
-  - `hashing`: finto, stesse parole (senza maiuscole, accenti, articoli e preposizioni) = simili, sinonimi no;
-  - `openrouter/<modello>` (es. `openrouter/openai/text-embedding-3-small`): un modello vero via OpenRouter, con `OPENROUTER_API_KEY`. Il testo esce dal PC, quindi viene **mascherato** con la mappa del progetto prima di partire, come per un LLM; senza `MaskingService` il servizio non si crea.
-- **Stessi valori**: una voce è candidata solo se il messaggio nomina gli stessi valori sensibili, cioè gli stessi alias una volta mascherato (`REPO_7`, `PERSONA_2`, ...; `aliases_in` in `domain/masking/masker.py`). Serve perché un embedding trova «stato git di REPO_3» più vicino a «stato git di REPO_7» di qualunque sua riformulazione (misurato: 0,955 contro 0,67-0,73), e l'input della voce è fisso: senza la regola lancerebbe l'automation per il repository sbagliato. Vale anche al contrario: un messaggio con un valore che la voce non ha (o senza quello che la voce ha) va all'agente. Gli alias si calcolano con la mappa attuale, quindi una voce segue anche i valori aggiunti dopo. Senza `MaskingService` la regola non si applica.
-- **Cambio di embedder**: una voce fatta con un altro embedder viene ricalcolata dal suo testo al primo confronto e salvata. La cache resta valida.
-- **Log**: ogni confronto scrive nel log dell'API le similarità migliori (fino a 3), la soglia e la decisione, es. `Cache chatbot 1 · «git status di REPO_7» · voce 3=0.812, voce 5=0.955 (altri valori), voce 1=0.401 · soglia 0.80 → voce 3, lancio l'automation`. Il messaggio nel log è mascherato; «(altri valori)» segna le voci escluse dalla regola dei valori. Servono a scegliere `AUTOMATION_CACHE_THRESHOLD`: con un embedder vero le frasi equivalenti hanno similarità più basse di 1, quindi la soglia va tarata guardando i log.
-- **Se l'embedding fallisce** (rete, chiave scaduta): la cache non viene consultata, risponde l'agente, e il log lo dice.
-- **`!` all'inizio** del messaggio: salta la cache, risponde l'agente (in cache il messaggio va senza `!`).
-- **Input fisso**: è lo stesso per ogni messaggio simile; le richieste con parametri che cambiano non vanno in cache.
-- **Regole**: solo messaggi dell'utente, solo automation del progetto del chatbot, un messaggio una volta sola. La voce resta anche se si elimina la conversazione (il riferimento al messaggio diventa vuoto); se ne va con il chatbot o con l'automation.
-- **Se l'automation non parte** (disattivata, senza step…) la risposta è un messaggio `error` che inizia con ⚡.
-- **`hits`**: quante volte la voce ha risposto.
-
-## Processi
-
-**`ProcessService`**: il worker come processo che l'API avvia e ferma (il frontend nel browser non può avviare processi), e i log di API e worker.
-
-- **Stato**: `running` se l'ha avviato l'app (file PID in `resource/run/worker.pid`), `external` se non l'ha avviato l'app ma un worker manda il suo heartbeat (da un terminale), `stopped` altrimenti.
-- **Avvio**: con `WORKER_SCRIPT`, staccato dall'API (sopravvive ai suoi riavvii) e con il `.env` letto al momento; un worker avviato altrove non viene duplicato (409).
-- `domain/process/manager.py`: `ProcessManager` (file PID con l'ora d'avvio, così un PID riusato non inganna; stop di tutto l'albero dei processi).
+- **`ActivityDraftService`**: «📎 Parto da riferimenti». Una chiamata all'agente `bozza-attivita` con «Cosa vuoi fare» e i soli titoli scelti; non crea niente.
+- **`WipService`**: «Elabora WIP», dal testo nuovo della nota WIP le proposte per le attività (agente `wip`).
+- **`PlanService`**: il piano e il giro.
+  - **Proposta**: il Pianificatore (agente `pianificatore`, con `search_context`) propone i task per le voci scoperte, ogni sviluppo con pre e post (passi, comandi, automation) secondo `context/sviluppo.md`.
+  - **Creazione**: le proposte scelte diventano agent task «da fare», collegati a voci e attività.
+  - **Percorso**: per ogni task i passi, ricavati dallo stato del task, dalla sessione di Copilot e dal piano. Sviluppo: Pre → Delega → Piano di Copilot → Esecuzione → Conferma → Post. Analisi, Confluence, Jira: Delega → Risposta (→ Pubblica).
+  - **Giro** (`advance_all`, nel worker): parte con «▶️ Avvia». Al task corrente delega a Copilot, dà l'ok al piano con `auto_approve`, salta pre e post vuoti con `auto_skip_empty`. Si ferma dove serve l'utente; il task corrente è il primo non finito.
+  - **Comandi**: pausa, opzioni (cambiano solo quelle mandate), riprova la delega, «Fatto» e «Salta» su pre e post, `pass_on` (il risultato di un task va al successivo).
+- **`OperationService`**: «🤖 Automatico» di pre e post: i comandi (solo quelli permessi), poi l'automation, nel worker; il primo errore ferma.
+- **`ActivityCloseService`**: step Chiudi (l'agente `imparato` propone cosa ricordare, in `context/imparato.md`), riapri, archivia (nota riassunto, via attività, task, bozze, piano, sessioni).
+- **`TodayService`**: «📌 Oggi», senza LLM.
 
 ## Copilot
 
-**`CopilotService`**: un agent task delegato a GitHub Copilot CLI ([client](../domain/client/copilot/README.md)) su un repository del progetto. Una sessione (`copilot_session`, messaggi in `copilot_message`) vive in due fasi, sempre sulla **stessa sessione di Copilot**:
-
-1. **Preparazione** (`planning`, nell'API, mentre l'utente aspetta). `start(progetto, nota del task, repository)` manda il primo turno: il markdown del task e la richiesta di leggere il codice, fare domande e proporre un piano, senza modificare niente. Poi `send(id, testo)`: un turno per messaggio, in modalità piano (sola lettura, la blocca il CLI).
-2. **Esecuzione** (nel worker), solo per un task di **sviluppo**. `approve(id)` mette la sessione in coda (`queued`), segnalando come avviso i file già modificati nel repository. Il worker (`run_next`) riprende la conversazione in autopilot, senza commit.
-
-**Tipi che lavorano solo in piano** (analisi, doc Confluence, task Jira: `TaskType.plan_only`): Copilot non cambia mai il codice. La sessione resta in preparazione, `approve` e `send_back` rispondono 409, e il primo messaggio della chat lo spiega. Alla delega un task «da fare» passa «in corso». **`save_as_note(id)`** salva l'ultima risposta di Copilot in una nota generica (`analisi-<task>.md` per un'analisi, `bozza-<task>.md` per Confluence e Jira; `output_note_name`), con il titolo `# Analisi: …` / `# Bozza: …`; la collega al task (`## Riferimenti`, una volta sola) e porta il task a «fatto». Salvare di nuovo riscrive la nota. Serve una risposta di Copilot e nessuna esecuzione in corso.
-
-**Senza repository** (piano 21, solo per i task senza codice): `start(..., no_repository=True)` non usa nessun repository (`repository` ignorato; un task di sviluppo: 400). Copilot lavora in una cartella dei dati del progetto, `copilot/<task>/` (`ProjectDataService.copilot_folder`): niente git, niente coda per repository, niente Verifica sviluppo. La sessione ha `no_repository`. La cartella si toglie con `save_as_note`, `delete` e `delete_task_sessions` (`delete_copilot_folder`). Nel giro di un'attività un task senza codice e senza repository nel piano parte così.
-
-**Cambio repository** (`change_repository(id, repository, no_repository)`): il repository scelto per sbaglio, finché la sessione non è mai stata eseguita (in preparazione e `head_before` vuoto; dopo: 409). la chat resta (stessa sessione di Copilot, che dal messaggio dopo lavora lì) con l'evento «🔀 Repository cambiato». Verso e da «Nessun repository» solo per un task senza codice; lo stesso repository di prima: 400. Il controller aggiorna anche il repository del task nel piano della sua attività (`PlanService.set_task_repository`).
-
-- **HEAD prima e dopo**: se è cambiato (un commit malgrado i divieti), la sessione lo dice (`head_moved`) e non annulla niente: decide l'utente.
-- **File cambiati**: il `git status` del repository a fine esecuzione.
-- **Una esecuzione alla volta per repository**: le altre aspettano in coda (`claim_next` salta i repository occupati); la preparazione intanto si può fare.
-- **Annullamento** (`cancel`): una sessione in coda non parte; una in esecuzione la ferma il worker, che legge `cancel_requested` ogni pochi secondi. Timeout: `COPILOT_EXECUTION_TIMEOUT_MINUTES` (esecuzione), `COPILOT_PLANNING_TIMEOUT_MINUTES` (un turno di preparazione).
-- **Verifiche dello sviluppo**: con `prepare` la delega prepara prima i repository, a fine esecuzione di uno sviluppo parte la verifica ([sotto](#verifiche-dello-sviluppo-devchecksservice-blocco-09)).
-- **Il task segue**: in corso durante l'esecuzione, **da verificare** se va a buon fine (l'ultimo messaggio della chat lo dice), da fare altrimenti. L'esito resta nella sessione, non nella nota. «Fatto» lo mette l'utente («Conferma» nel form del task: solo lo stato, commit e push restano suoi).
-- **Rimanda a Copilot** (`send_back(id, testo)`): un task «da verificare» che ha bisogno di altro lavoro. Il testo diventa il turno che avvia una nuova esecuzione della **stessa sessione** (Copilot ricorda piano e modifiche): si salva in `next_prompt`, la sessione va in coda come dopo un ok, e `run_next` usa `next_prompt` al posto di `execute_prompt` (poi lo svuota). Rifiutato (409) se il task non è «da verificare», se la sessione è già in coda o in esecuzione, o se il task lavora solo in piano; testo vuoto: 400.
-- **Task non ancora pronto** (creato o in rifinitura): si delega comunque, ma il primo messaggio della chat è un avviso (`not_refined_warning`); `delegate_task` lo restituisce in `warning`, perché il chatbot lo dica.
-- **Prompt del tipo**: senza un prompt scelto, `start` usa quello del tipo del task (`type_prompts`), altrimenti `plan_prompt`; la sessione salva il nome del prompt usato davvero.
-- Dopo un'esecuzione la chat può continuare (si torna in preparazione) e un nuovo ok fa partire un'altra esecuzione. `fail_interrupted()` all'avvio del worker chiude le esecuzioni rimaste a metà.
-- Niente mascheramento: Copilot legge comunque il codice del repository.
-- **Prompt e divieti**: dal coding agent della cartella dei dati (`global-coding-agent.yml`, con l'override `project/<slug>/coding-agent.yml`; [definizioni](../../definitions.md#coding-agent-global-coding-agentyml-coding-agentyml)), letto da `coding_agent(progetto)` a ogni `start` e a ogni avvio dell'esecuzione. Se manca o è rotto: `start` dà errore, un'esecuzione già in coda fallisce con il motivo. `coding_agent_or_error(progetto)` lo dice a `GET /copilot/status?project=`, insieme ai prompt e ai modelli tra cui scegliere.
-- **Sessioni e task**: una sessione tiene solo il nome della nota del task (`task_note`, senza chiave esterna). Cancellare il task non la cancella: resta, e la sua chat funziona ancora (dal link della sessione, o via API). `delete_task_sessions(progetto, task)` cancella tutte le sessioni di un task con i loro messaggi, nessuna se una è in coda o in esecuzione (409). La UI la propone quando elimini il task. Cancellare il progetto le cancella a cascata. Non c'è scadenza; l'uso dei turni (`copilot_turn`) resta sempre, e così la sessione di Copilot in `~/.copilot`.
-- **Uso per turno** (observability): dopo ogni turno `_record_usage` salva una riga in `copilot_turn` con progetto, task, fase (`plan` o `execute`), modello, esito, durata e l'uso del turno. Il CLI riporta i totali della sessione: l'uso del turno è quanto sono cresciuti rispetto alla somma dei turni già registrati (se un totale cala, Copilot ha ricominciato a contare e vale tutto). Un turno fermato prima di scrivere il file registra zero, e il turno dopo recupera la differenza. Best effort: un errore qui non ferma la sessione. Le righe restano anche dopo aver cancellato la sessione. Letture: `session_turns(id)`, `recent_turns(limit, progetto)`, `usage_by_model(giorni, progetto)`.
-- **Costi**: Copilot fattura in crediti AI (richieste premium sul piano legacy), non a token × prezzo: niente EUR, niente catalogo Modelli.
-- **Modelli tra cui scegliere**: `model_options(definizione)` li ordina dal più economico (input + output; senza prezzo in fondo) e affianca a ognuno quanto ha usato finora in tutti i progetti (`copilot_usage_by_model`), per la media dei crediti per turno.
-- **Il server MCP dell'app** ([controller](../controller/README.md#server-mcp-per-copilot)): ogni sessione ha il suo **token** (`mcp_token`, creato da `start`, sparisce con la sessione) e ogni turno dà a Copilot il server e il token (`McpAccess`, `--additional-mcp-config`). Prima di ogni turno (`start`, `send`, `run_next`) il servizio controlla che il server risponda (`mcp_unreachable`: un ping JSON-RPC su `<API_URL>/api/mcp/`); se no, `UpstreamError` (un'esecuzione fallisce con il motivo) e la sessione nuova non si salva. I tool chiamano questi metodi:
-  - `mcp_task(token)`: il task con tutti i campi e la checklist del suo tipo; `mcp_links(token)`, `mcp_link(token, nome)`: i riferimenti collegati (`ProjectDataService.task_links`, `task_link_text`). Un token sconosciuto è un `ValidationError`.
-  - `ask_user(token, domanda)`: **solo in esecuzione**. La domanda diventa un messaggio `question` della chat e il tool aspetta il primo messaggio dell'utente dopo di lei (legge il DB ogni `poll_seconds`), fino a `COPILOT_ASK_USER_TIMEOUT_MINUTES` (poi: «decidi tu», e un evento in chat) o all'annullamento. In preparazione risponde a Copilot di chiedere nella risposta. **`answer(id, testo)`** (`POST /copilot-sessions/{id}/answer`) è la risposta dalla chat: solo con una domanda in attesa (`pending_question`), altrimenti 409.
-  - `finish(token, riassunto)`: solo in esecuzione; il riassunto va in chat (`🏁 …`) e uno **sviluppo** passa subito a «da verificare». Se Copilot non lo chiama vale la fine del turno, come prima.
-- **Niente file nel repository** (piano 37): il prompt nomina il task (`{task}`, il nome della nota) e Copilot lo legge con i suoi riferimenti dal server MCP. Copilot non riceve altre cartelle (`--add-dir` è solo il repository).
-- **Prompt e modello scelti**: `start(progetto, task, repository, prompt, model)`. `prompt` è uno dei `coding-agent/<nome>.md` (`""` = `plan_prompt`) e serve solo per il primo turno. `model` è uno dei `models:` (`""` = `COPILOT_MODEL`) e vale per ogni turno, esecuzione compresa. Entrambi restano salvati nella sessione; un valore fuori elenco è un errore.
-- **Costruzione**: il Container chiama `CopilotService.from_config(...)`, che crea il `CopilotClient` e i timeout dalle impostazioni `COPILOT_*`. Dipende da `GitService` per la cartella del repository (controllata), l'HEAD prima e dopo e il `git status`; da `ProjectDataService` per il task e il suo stato.
-
-### Impostazioni dei test: `DevChecksService` (blocco 09)
-
-Prima e dopo Copilot **non parte niente da solo** (piano 22): le automation «Prepara sviluppo» e «Verifica sviluppo» non ci sono più. Il lavoro sui repository (branch, build, test, commit) sono il **pre** e il **post di ogni sviluppo** (piano 34; prima erano task a parte), che fa **Dev** (con `run_tests`, git, `run_command`) o l'utente a mano.
-
-**Pre e post senza agenti** (piani 25 e 34, `OperationService`): il pre e il post di uno sviluppo (`AgentTask.pre`, `AgentTask.post`: `DevPhase` con passi, **comandi** e un'**automation** del progetto; sezioni «## Pre» e «## Post» della nota) li propone il Pianificatore (riceve l'elenco delle automation avviabili; una che non c'è si scarta). `start` («🤖 Automatico», `POST …/plan/auto` con `{task, phase}`) controlla i comandi con la lista dei permessi (`CommandService.pending`: quelli fuori diventano richieste e tornano in `pending_commands`, niente parte), verifica che l'automation esista e mette in coda l'esecuzione in `ActivityPlan.operations["<task>|pre"]` (o `|post`; il post solo dopo la conferma finale). Il worker (`run_next`) lancia i comandi uno dopo l'altro nel repository del task, poi accoda l'automation (input: il repository) e ne segue l'esito: **primo errore = stop** (`failed`, l'errore sul passo Pre o Post), tutto ok = il passo è **fatto** (`ActivityPlan.phases`) e il giro va avanti; l'output resta in `operations[…].output`. Senza comandi né automation l'automatico è Dev (lo apre la UI).
-
-- **Impostazioni** (`settings`, `save_settings`; Progetto → Impostazioni → Verifiche dello sviluppo): per ogni repository lo strumento e il comando rilevati, e quello scritto al suo posto (`Project.test_commands`, JSON); il default `test_scope`. `run_tests` li usa (con `AgentTask.tests` del task, se c'è).
-- L'Operatore del progetto (`operator_chatbot_id`, `save_operator`): Dev, quello del pre e del post degli sviluppi.
-
-### Da agente ad automation (piano 11)
-
-Un agente fa una procedura con i suoi tool; se ha fatto giusto, con un clic la sequenza delle sue azioni diventa un'automation **senza LLM**: i token si pagano solo per insegnare.
-
-- **L'Operatore** (`ChatbotKind.OPERATOR`, «Dev» in `global-chat-bots.yml`): i tool ammessi sono `KIND_TOOLS[OPERATOR]`; uno step `tool` può chiamare tutti i tool tranne quelli solo-chat (`step_tools()`). Pochi tool, pochi passi, prompt breve.
-- **Comandi permessi** (`CommandService`): `run_command` lancia solo i comandi di `Project.allowed_commands` (confronto esatto, spazi normalizzati), senza shell, in una cartella del progetto (un repository o no: anche `git init`, piano 25; mai fuori dal progetto), e dà all'agente solo il codice d'uscita e le ultime 30 righe. Un comando fuori elenco **non parte**: diventa una richiesta (`Project.command_requests`) che l'utente vede nel pannello: «Sempre» lo aggiunge all'elenco, «Solo stavolta» dà un permesso che la prossima esecuzione consuma (`command_grants`), «No» la toglie. `suggested` propone i comandi rilevati (install e test) di ogni repository.
-- **Step `tool`** (`StepKind.TOOL`, `PipelineRunner._run_tool`): il tool costruito con un `ToolContext` senza masking, chiamato con gli argomenti dello step (`{in:campo}` compilati da `Pipeline.run_fields`); un `error` nella risposta fa fallire lo step. Un'automation con `fields` riceve un oggetto JSON con i campi.
-- **Promozione** (`LearnService`): `draft(messaggio)` legge la traccia della run della risposta (Redis: scade, e allora 404 con «La traccia di questa risposta è scaduta»), tiene le chiamate riuscite dei tool degli step (né eccezioni né `error` nel risultato), smaschera gli argomenti (l'agente vedeva gli alias) e propone i campi: `branch`/`name` → `branch`, `start_point` → `base`, la nota della conversazione → `task`; i tool che leggono soltanto sono segnati da togliere. `save(progetto, richiesta)` crea l'automation: uno step per chiamata tenuta, i valori scelti come campi sostituiti da `{in:campo}`, `purpose` `prepare` per proporla alla delega.
-
-### Pubblicare una bozza: `PublishService` (blocco 10)
-
-«📤 Pubblica su Confluence/Jira» di un task **Doc Confluence** o **Task Jira** la cui risposta di Copilot è stata salvata come bozza (`bozza-<task>.md`, con i template di `coding-agent/templates/`). Solo al clic dell'utente.
-
-- **`preview(progetto, task)`** (non cambia niente): il tipo, se **crea** o **aggiorna**, il titolo (la riga `# Bozza: …` della nota, senza `Bozza:`) e il corpo come sarà pubblicato, gli alias rimessi ai valori veri (`REPO_1 → …`, dalla mappa del progetto). Per un aggiornamento anche il testo attuale della pagina o della issue (Markdown), per il confronto nella finestra; per una creazione lo spazio e il progetto Jira predefiniti.
-- **Cosa aggiorna**: la pagina o la issue che il task collega come riferimento di contesto copiato da Atlassian (`source` `confluence` / `jira` e il link); se non ce n'è, crea una pagina nuova (spazio, pagina padre) o una issue nuova (progetto, tipo; titolo = titolo della bozza). Di una issue esistente cambia **solo la descrizione**; di una pagina titolo e testo (nuova versione).
-- **Formato**: `domain/atlassian/publish_format.py` converte il Markdown in storage format (Confluence) o in ADF (Jira): titoli, paragrafi, elenchi puntati e numerati (le checkbox diventano punti, i livelli si appiattiscono), blocchi di codice, tabelle GFM, citazioni, righe; grassetto, corsivo, codice e link. Il resto resta testo.
-- **Dopo**: il task va a «fatto» (e le sue voci si spuntano, blocco 08); la pagina o issue nuova è copiata come riferimento di contesto collegato al task (`reference_from_page` / `reference_from_issue`), quella aggiornata riceve nel suo riferimento il testo pubblicato. Se Atlassian rifiuta (403) non cambia niente.
-- Errori: un task di un altro tipo (400), la bozza che manca (404, «salva prima la risposta di Copilot come nota») o vuota (400).
-
-## Definizioni da file
-
-**`DefinitionService.sync(progetto)`**: applica a un progetto i file YAML di `definition/`: agenti globali e del progetto, il chatbot del progetto (o quello globale), le automation del progetto più quelle globali che non ridefinisce. Cerca per nome; il file vince sulle modifiche da UI, quello che non è nei file resta. Usa gli stessi servizi (e quindi le stesse validazioni) della UI; un file con errori viene saltato e segnalato. Formato e regole in [definitions](../../definitions.md).
-
-## Atlassian
-
-**`AtlassianService`**: un sito Jira + Confluence **per progetto** (tabella `project_atlassian`), sopra i [client Atlassian](../domain/client/atlassian/README.md). Testato con risposte finte, non ancora su un sito vero.
-
-- **Impostazioni**: URL del sito (`https://…`), email, API token, progetto Jira e spazio Confluence predefiniti (facoltativi). Il token è salvato **cifrato** con `SecretBox`; un token vuoto al salvataggio tiene quello già salvato. Se la chiave di cifratura cambia, il token non si legge più e il progetto risulta non configurato.
-- **`site(progetto)`** → `AtlassianSite`: il punto unico per usare Jira e Confluence di quel progetto (`check_connection`, issue, ricerca JQL, spazi, pagine, ricerca testo). Viene ricostruito quando cambiano le impostazioni. Senza configurazione: `ValidationError` che dice dove impostarla.
-- **Cercare per il «Nuovo riferimento»**: `find_issues(testo, progetto Jira)` riconosce una chiave (`NAV-7`, anche in un link incollato `…/browse/NAV-7` o `…?selectedIssue=NAV-7`) e apre quella issue; altrimenti cerca il testo in titolo e descrizione (JQL `text ~ "…"`, virgolette protette) nel progetto indicato o, senza, ovunque. `search_pages` riconosce il link incollato di una pagina Confluence (`…/pages/<id>/…`, `pageId=<id>`) e restituisce quella pagina. Nella UI sono le schede «Jira» e «Confluence» della finestra «Nuovo riferimento» (solo con Atlassian configurato): ricerca nel progetto o spazio predefinito, casella «cerca ovunque», anteprima, poi «Copia e collega».
-- **Copia nei riferimenti** (`reference_from_issue`, `reference_from_page`): l'issue (titolo `CHIAVE · sommario`, poi tipo, stato, priorità, assegnatario, la descrizione e le **sotto-issue e issue collegate**, con stato e relazione) o la pagina (titolo e testo) diventa un **riferimento di contesto** con `source` `jira` o `confluence` e il link all'originale, collegato agli agent task e alle attività scelti (`ProjectDataService.import_reference`). Ricopiarla **aggiorna** il riferimento (stesso link) invece di duplicarlo; se il nome è preso da un riferimento con un altro link: 409.
-- **Preferiti** (`list_favorites`, `add_favorite`, `remove_favorite`): issue Jira e pagine Confluence salvate come preferite **per progetto** (tabella `atlassian_favorite`), con chiave o id, titolo e link come erano al salvataggio: elencarli non chiama Atlassian. Aggiungere un preferito che c'è già restituisce quello salvato. Ogni preferito ricorda il **sito** a cui appartiene: salvando le impostazioni con un sito diverso, i preferiti degli altri siti vengono cancellati (stesso sito = restano, anche dopo aver rimosso e rimesso le impostazioni). Spariscono anche insieme al progetto.
-- **Scrivere** (blocco 10): `issue_types`, `create_issue`, `update_issue_description`, `create_page` (nello spazio indicato o predefinito, sotto una pagina padre facoltativa), `update_page`. Li usa solo `PublishService`.
-- **Input validati prima di ogni richiesta**: chiavi di progetto (`PROJ`), di issue (`PROJ-123`) e di spazio, id di pagina, JQL e testo non vuoti. Le chiavi omesse usano i predefiniti del progetto.
-
-## Mascheramento
-
-**`MaskingService`**: i valori sensibili di un progetto (nomi dei repository, persone, email, altri termini) non arrivano mai al modello: al loro posto riceve un **alias** stabile (`REPO_1`, `PERSONA_2`, `EMAIL_1`, `TERMINE_3`), e nella risposta l'alias torna il valore vero.
-
-- **Mappa per progetto, permanente**, su Redis (keyspace `mask`). Un valore ha sempre lo stesso alias; un alias tolto non viene mai riusato. Rimuovere il progetto cancella la sua mappa.
-- **Come si riempie**:
-  - **repository del progetto**: all'inizio di ogni run di un progetto vengono registrati tutti (gli stessi del tab Git), quindi sono mascherati già dal primo messaggio;
-  - **dagli step tool delle automation**: i campi marcati nel risultato del tool, registrati da `PipelineRunner` (`register_declared`) prima degli step agente che seguono;
-  - **dagli output dei tool**: i campi marcati come sensibili nel modello di output (`MaskRepositoryName`, `MaskPersonName`, `MaskEmailAddress`, ...) vengono registrati da `AgentMask`; i tool non registrano nulla;
-  - **a mano**: da **Impostazioni → Mascheramento dei dati**, per persone, clienti, altri termini. Minimo 3 caratteri.
-- **Dove si applica**: tutto il mascheramento sta in **`AgentMask`** (`domain/agent/masking.py`), che `AgentService` usa per ogni run (chat, automation e chatbot, solo con una sessione quando la run è di un progetto):
-  - la domanda e la cronologia della conversazione sono **mascherate** prima di arrivare al modello (`input`, `history`);
-  - i tool ricevono gli argomenti **smascherati** (lavorano sui valori veri) e il loro output, serializzato, esce **mascherato** (`wrap`);
-  - la risposta è **smascherata** prima di essere salvata e mostrata (`answer`).
-- **Chi ci lavora**: i servizi non conoscono la sessione. `MaskingService` tiene la mappa, `MaskSession` la usa in una run; il resto del codice passa da `AgentMask`.
-- **Regole**: maiuscole e minuscole indifferenti, solo parole intere (`api` non tocca `rapid`), i valori più lunghi vincono su quelli che contengono.
-- **Testo libero scritto dall'utente** (la nota WIP): oltre alla mappa, `mask{termine}` aggiunge il termine alla mappa, e il **riconoscimento automatico** (`domain/masking/preview.py`: email, URL, indirizzi IP, token e chiavi) maschera solo per quella chiamata, con alias propri (`MAIL_1`, `URL_1`, `IP_1`, `CHIAVE_1`) che non entrano nella mappa. Vedi [Elabora WIP](#elabora-wip).
-- **Cosa resta in chiaro**: la run salvata ha input e output veri; il trace in Redis (tool call e chiamate del modello) contiene invece quello che il modello ha visto, cioè gli alias. Un valore che non è un repository e che il modello vede prima che qualcuno lo registri passa in chiaro: per i nomi noti in anticipo (persone, clienti), aggiungili a mano.
-
-## Contesto (RAG)
-
-**`RagService`**: l'indice del contesto di un progetto, quello che gli agenti cercano (`search_context`) invece di leggere tutto.
-
-- **Contesto generale** (piano 26): i `.md` di `definition/context/` (come funziona l'app, uguale per tutti i progetti) entrano nell'indice di **ogni progetto**, col suo embedder, come `general/<nome>.md` (`RagSource.GENERAL`). `index_general` li indicizza quando cambiano (stesso `content_hash` = niente embedding) e toglie quelli spariti; lo chiamano `search` (prima di cercare; un errore non ferma la ricerca) e `reindex`. Ogni risultato ha `origin` («progetto» o «generale»); a parità di punteggio vince il progetto. `search(..., general=False)` cerca solo nel progetto: è quello che riceve **Copilot** (MCP). `state` conta anche i documenti generali (`general`).
-- **Elenco nel prompt** (piano 27): agli agenti con `search_context` (chatbot e Pianificatore) l'app aggiunge in fondo al system prompt i titoli dei documenti del progetto e di quelli generali (`RagService.catalog`, mascherato), così sanno cosa cercare; Copilot no.
-- **Mappa dei repository** (piano 27, `RepositoryMapService`, `domain/project/repository_map.py`): «🗺 Genera mappa dei repository» scrive `context/repository.md` dai file e da git, senza LLM: per repository build e test rilevati, nome (artifactId, pacchetto npm, distribuzione Python), chi usa chi tra i repository del progetto, branch corrente e principali (`main`, `master`, `develop`), e l'ordine di build (prima chi è usato). Solo la parte tra i due segni è dell'app: rigenerarla la riscrive e lascia le note scritte attorno; poi indicizza il documento.
-- **Chi cerca**: `search_context` ce l'hanno Refiner, Dev, Segretario e Architetto; il **Pianificatore** lo usa come agente strutturato con tool (`StructuredAgentService.call(..., tools)`: qualche passo di ricerca, poi la risposta nello schema; i risultati mascherati come il suo input).
-
-- **Cosa entra**: i documenti `.md` della cartella `context/` del progetto (sotto-scheda «📚 Contesto»: architettura, convenzioni, decisioni, runbook, glossario) e **basta**: niente attività (quello che un'attività ha insegnato va in `context/imparato.md` (per tema, piano 27) allo step Chiudi), niente codice, niente note generiche, niente WIP.
-- **Pezzi** (`domain/rag/chunking.py`): un pezzo per sezione `##`; una sezione oltre `MAX_WORDS` (300) si divide per paragrafi, un paragrafo troppo lungo per frasi e poi per parole. I pezzi sono `Chunk` di datapizza; nei metadati portano il titolo del documento e la sezione, che la ricerca restituisce per citarli.
-- **Mascheramento prima dell'embedding**: se l'embedder non è locale (`Embedder.local`), ogni pezzo passa dalla mappa del progetto e dal riconoscimento automatico (`domain/masking/preview.py`) prima di uscire dal PC; anche la domanda della ricerca. Il testo salvato resta in chiaro: è quello che legge chi cerca.
-- **Indicizzazione**: `index_context(progetto, nome)`, `reindex(progetto)` per tutto (toglie quello che non esiste più). Un documento che non è cambiato (`content_hash` del testo e dell'embedder) non si rimanda all'embedder. Partono da soli al salvataggio di un documento di contesto, anche `imparato.md` alla chiusura di un'attività (`index_quietly`: un errore dell'embedder non fa fallire il salvataggio, lo dice la risposta) e con «🔄 Reindicizza tutto».
-- **Ricerca** (`search(progetto, domanda, limit=5)`): coseno tra la domanda e ogni pezzo fatto con lo stesso embedder, più un bonus (`KEYWORD_BONUS`, 0,15 × la quota di parole della domanda presenti nel pezzo: nomi tecnici, sigle). Il punteggio si calcola in Python sui pezzi del progetto (una cartella di contesto è piccola): uguale su Postgres e sul SQLite dei test.
-- **L'embedder** del progetto (`embedder`): `RAG_EMBEDDER` se c'è (`hashing`: quello finto, gratis e offline), altrimenti il suo `embedding_model` via OpenRouter (`openai/text-embedding-3-small` → `openrouter/openai/text-embedding-3-small`); `ollama/…` non è ancora supportato. `state(progetto)` dice documenti, pezzi, embedder e perché non si può costruire.
-- **Il RAG «con memoria»**: il Refiner ha la conversazione e scrive lui la domanda di ricerca a partire da quella.
-- **Set di prova**: `resource/eval/rag/` (un contesto finto, 16 domande riformulate con la sezione attesa e 4 senza risposta): lo misura la [valutazione](#metriche-e-valutazioni).
-
-## Metriche e valutazioni
-
-**`MetricsService`** (Admin → Observability → 📊 Metriche, `GET /observability/metrics?days=&project=`): sul periodo scelto (7 o 30 giorni, tutto) e per un progetto o tutti.
-
-- **Per chi**: le run raggruppate per `config_name` (un chatbot, un agente della Libreria, `wip`, `pianificatore`…): chiamate, errori, token, costo in euro, latenza **media e p95** (rango più vicino), modelli usati. Calcolate in Python sulle righe del periodo, uguali su Postgres e SQLite.
-- **Copilot** a parte (`usage_by_model`): turni, crediti AI, token. Si paga in crediti, non in euro: non si somma agli agenti.
-- **Elabora WIP**: dalle righe di `wip_run`, quante proposte sono state accettate così com'erano, corrette, scartate, saltate, e il **tasso di accettazione** (accettate sulle proposte decise, cioè delle elaborazioni applicate o annullate).
-
-**`EvaluationService`**: le valutazioni sui set di prova di `resource/eval/`, con i modelli veri (costano: fuori dai test automatici, che usano un modello e un embedder finti).
-
-- **Elabora WIP** (`run_wip(modelli, prompt)`): l'agente `wip` (il suo prompt, o `prompt` se scritto) con ogni modello; ogni caso passa dalla stessa strada dell'app (`model_input`, mascheramento, `StructuredAgentService.call`, `to_proposals`) con ogni modello scelto. Le proposte si giudicano **con regole nel codice** (`domain/evaluation/scoring.py`): stesso tipo, stessa attività, stessa voce o testo simile (almeno metà delle parole attese, per radice). Per modello: giuste, attese, proposte, precisione, richiamo, costo (prezzi del catalogo), latenza media, errori, e il dettaglio per caso.
-- **RAG** (`run_rag(embedder)`): il contesto del set diviso e calcolato in memoria (come `RagService`, niente nel DB) con ogni embedder (`hashing`, `openrouter/<modello>`); ogni domanda cercata **con e senza** il bonus delle parole (`score`): hit@1, hit@5, MRR sulle domande con risposta, il miglior punteggio medio su quelle senza (deve restare sotto quello delle altre).
-- **Report**: `<nome>.md` (per una persona, per lo speech) e `<nome>.json` in `<MBARE_PILOT_HOME>/evaluations/` (`wip-20261110-143000`…). `reports()`, `report(nome, md|json)`.
-- **Da dove si lanciano**: dalla pagina (`POST /observability/evaluations`: `enqueue`, poi il **worker** la prende con `run_next` dopo automation e Copilot; lo stato in `evaluation_run`) o da terminale (`resource/scripts/eval-wip.py`, `eval-rag.py` → `src/evaluation_cli.py`, che le esegue subito). Una valutazione fallita resta con il motivo e il worker va avanti.
-
-## Oggi
-
-**`TodayService`** (il pannello «📌 Oggi» in cima alla sotto-scheda 📋 Attività, `GET /projects/{p}/today`, e il tool `today` del segretario): calcolato nel codice, senza LLM, sul progetto aperto.
-
-- **Aspettano te**: gli agent task creati, in rifinitura o da verificare (in quest'ordine); le sessioni Copilot che aspettano: in preparazione con l'ultimo messaggio (eventi esclusi) di Copilot (`answer`), in esecuzione con una domanda di `ask_user` senza risposta (`question`), dalla più recente. Una sessione di un task che non c'è più non conta. In cima, i piani del Pianificatore da confermare (`plan`, con il nome dell'attività).
-- **Scadute** / **In scadenza**: le voci non fatte con una scadenza passata / entro `due_soon_days` giorni da oggi (oggi compreso), delle attività non fatte, per data. I giorni sono un'impostazione del progetto (`Project.due_soon_days`, default 3, da 0 a 60; Progetto → 🔧 Impostazioni).
-- **Da chiudere**: le attività non fatte con tutte le voci fatte (almeno una).
-- **Azioni su una voce**: `check_item` (✅ Spunta) e `set_due` (📅 Rimanda), per numero **e testo**: se la voce è cambiata nel frattempo è un `ConflictError` (ricarica), un numero che non c'è un `ValidationError`, una voce già fatta un conflitto. «Da chiudere» apre l'attività allo step Chiudi (`?step=close`).
-- Restano fuori (backlog): attività ferme da giorni, testo nuovo nella WIP, urgenti.
-
-## Richieste di tool per Claude Code (piano 20)
-
-**`ToolRequestService`**: un tool che manca va scritto nel codice di mbare-pilot-app, non nel repository di un progetto. L'Architetto, dopo l'ok dell'utente, scrive una **richiesta** (tool `request_tool`): titolo, obiettivo, criteri, progetto, automation e attività da cui nasce; le richieste sono dell'app intera (tabella `tool_request`, `ToolRequestStore`). Stati: aperta, in lavorazione, fatta (con il link alla PR, obbligatorio), scartata (con il motivo, obbligatorio). Claude Code le legge e le aggiorna dal suo server MCP (`/mcp-dev`); `automation_yaml` gli dà l'automation che chiede il tool. **Token**: `new_token` ne genera uno (il vecchio smette di funzionare) e ne tiene solo l'hash (tabella `dev_access`); `check_token` lo controlla a ogni chiamata del server. Dopo, niente di automatico: unita la PR e riavviata l'app, il tool è nel catalogo.
-
-## Agenti con risposta strutturata (piano 17)
-
-**`StructuredAgentService`**: gli agenti della Libreria con `output:` ([definizioni](../../definitions.md#agenti-agentyml-global-agentyml)). `agent(nome, output)` prende l'agente (errore se manca o se ha un altro `output`); `call(agente, testo)` fa **una chiamata** `structured_response` con lo schema di `STRUCTURED_OUTPUTS`, senza tool, dentro il tracing (un errore finisce in `error`, non come eccezione); `save(...)` la registra come run con nome dell'agente, versione del prompt e modello. WipService, PlanService e ActivityDraftService preparano e mascherano l'input, chiamano l'agente per nome e registrano la run con quello che ne hanno fatto (in chiaro). Le valutazioni provano il prompt dell'agente `wip` (o uno scritto per la prova) con i modelli scelti.
-
-## Attività a step: Pianifica, Lavora, Chiudi (piano 18)
-
-Un'attività ha **un piano** (`ActivityPlan`, tabella `activity_plan`): i task creati, in ordine, le proposte del Pianificatore che aspettano, come va il giro. Lo stato dell'attività segue gli step: «in corso» quando nascono i task, «fatta» alla chiusura.
-
-**`PlanService`** (Pianifica e Lavora):
-
-- **Proposta** (`propose`, «✨ Proponi i task»): **una chiamata** all'agente `pianificatore` (risposta strutturata `PlanAnswer`, senza tool). Il modello riceve titolo e descrizione dell'attività, i **titoli dei suoi riferimenti** (quelli spariti si saltano), le voci non fatte e **senza task** (numerate), i nomi dei repository, i tipi di task, le **regole di sviluppo** del progetto (`context/sviluppo.md`, fino a 4000 caratteri; senza: pre e post generici) e i **3 pezzi** più vicini dell'indice del contesto (se l'indice non risponde, niente contesto). Mascherato come Elabora WIP (i repository entrano nella mappa); le proposte tornano in chiaro: voci che non ci sono si tolgono (un task senza voci è «nuovo»), un repository fuori progetto si svuota, il pre e il post restano solo agli sviluppi. Il Pianificatore scrive **dentro ogni sviluppo il pre e il post** (piano 34: passi, comandi git, maven o altri, automation) secondo le regole. Le proposte vanno nel piano **accanto ai task già creati** (chiesta di nuovo, «Proponi altri task», guarda solo le voci ancora scoperte); il costo si somma. La chiamata è una run (origine `plan`).
-- **Creazione** (`confirm`, «Crea i task»): le proposte scelte, corrette, e i **task scritti a mano** (`id` vuoto, con le voci che coprono), nell'ordine dato, diventano agent task **«da fare»** (niente conferma uno per uno) con obiettivo, criteri e, per gli sviluppi, pre e post, collegati alle loro voci (se il testo è ancora quello e la voce è libera) e all'attività; un task «nuovo» prima aggiunge la sua voce in fondo. Si aggiungono ai task del piano e le proposte si svuotano. Una proposta che non c'è più è un conflitto (409). **Scarta** (`dismiss`): le proposte si tolgono, i task restano.
-- **Percorso** (`path`): per ogni task i passi, ricavati dallo stato del task e dalla sua ultima sessione Copilot: **pre**, delega, piano di Copilot, esecuzione, conferma finale, **post** (sviluppo, piano 34); delega e risposta di Copilot (analisi, Confluence, Jira); bozza e pubblica (Confluence, Jira). Pre e post: fatti o saltati come dice `ActivityPlan.phases`, in corso o falliti come dice l'automatico, altrimenti `you` (il post dopo la conferma finale); un task delegato senza passare dal pre ha il pre saltato. `you` = tocca all'utente. Il primo task non **finito** è quello corrente (uno sviluppo è finito quando è fatto e il suo post è fatto o saltato). Quando non ne resta nessuno, il **riepilogo** composto dal codice (task, file cambiati, costo del Pianificatore e crediti AI di Copilot).
-- **Il giro** (`advance_all` nel worker): parte con **«▶️ Avvia»** (`set_paused(False)`; un piano nuovo è in pausa) e si ferma con «⏸ Pausa». Al task corrente (uno tornato in rifinitura aspetta): **delega** con prompt e modello predefiniti di Copilot (un task senza codice e senza repository parte senza repository, piano 21); con `auto_approve` dà l'ok al piano di Copilot appena ha risposto, una volta per task. Il **pre e il post** di uno sviluppo non vanno mai a Copilot: il giro aspetta **«✅ Fatto»** (`mark_done`) o **«⏭ Salta»** (`skip`; 400 per un task che non è uno sviluppo, 409 con l'automatico che gira); con `auto_skip_empty` salta da solo quelli senza comandi né automation. Prima e dopo Copilot non parte niente da solo. Un errore della delega resta sul passo (`errors`) e il giro si ferma lì. Il giro lo muove il **worker**: fermo il worker, il giro non parte (lo step Lavora lo dice).
-- **Comandi** (`set_paused`, `set_options`, `retry`, `mark_done`): Avvia/Pausa (409 senza task); ok automatico e salto dei pre e post vuoti (`PlanOptions`: cambiano solo le opzioni mandate); **riprova** la delega (al prossimo giro); «Fatto» e «Salta» sul pre o sul post. `set_task_repository` segue il repository cambiato della delega (piano 21).
-
-**`ActivityCloseService`** (Chiudi):
-
-- **Proposta** (`propose_learned`, «✨ Proponi cosa ho imparato»): **una chiamata** all'agente `imparato` (risposta strutturata `LearnedAnswer`: pochi punti), che legge titolo, descrizione, task e riepilogo, mascherati. La chiamata è una run (origine `learned`).
-- **Chiusura** (`close`): quello che hai imparato (un punto per riga) va **in cima a `context/imparato.md`**, il documento di contesto unico del progetto: una sezione `## <titolo> · <data>` con i punti, le più recenti in cima, nessun link all'attività (si può cancellare). Il documento si reindicizza (Pianificatore, Refiner, Copilot e i chatbot con `search_context` lo trovano). Niente scritto = il documento non si tocca. L'attività diventa «fatta» e il suo giro si ferma.
-- **Riapertura** (`reopen`): l'attività torna «in corso»; la sezione già scritta resta (il documento è un diario: si corregge a mano dalla sezione Contesto).
-
-## Nuova attività da riferimenti (piano 16)
-
-**`ActivityDraftService`** (`propose`, `POST /projects/{p}/activities/draft`): **una chiamata** all'agente `bozza-attivita` (risposta strutturata `DraftAnswer`: titolo, descrizione, voci), senza tool. Legge «**Cosa voglio fare**» (piano 34: l'intenzione dell'utente, fino a 2000 caratteri, prima di tutto; basta anche da sola) e **solo i titoli**: dei riferimenti scelti (note del progetto, anche appena copiate da Jira o Confluence; una nota che non è un riferimento è un errore) e dei pezzi del contesto scelti (solo testo per la proposta, non diventano riferimenti); al massimo 30 per tipo, 200 caratteri l'uno. Mascherato come Elabora WIP. Niente scritto né scelto è un errore (400), il modello che non risponde un 502. La chiamata è una run (origine `draft`). Non crea niente: la UI crea l'attività con `POST /activities`, con i riferimenti collegati.
-
-## Elabora WIP
-
-**`WipService`**: la nota WIP di un progetto (`wip.md`, testo libero scritto di getto) trasformata in proposte per le attività con **una sola chiamata** all'agente `wip`, con **risposta strutturata** (`WipAnswer`, `models/domain/wip.py`), poi applicate **senza LLM**: niente conversazione, niente tool, una lettura e una proposta.
-
-- **Il segno** (`domain/project/wip.py`): applicando le proposte l'app scrive `—— elaborato il 05/11 14:30 ——` dopo il testo elaborato. La volta dopo è nuovo solo il testo sotto l'ultimo segno; quello sopra resta come diario. Il testo nuovo si divide in paragrafi (righe vuote); oltre **2.000 parole** (`WORD_LIMIT`) l'anteprima avvisa e si possono elaborare solo i primi paragrafi: il segno va dopo di loro.
-- **`state(progetto)`**: la nota (`""` se non c'è ancora) e le parole del testo nuovo.
-- **`preview(progetto, paragrafi)`** (senza LLM): il testo **esattamente** come lo riceverà il modello, mascherato, con la posizione di ogni alias e la sua origine (mappa, `mask{}`, riconoscimento automatico): la data di oggi, le **attività aperte** (nome, titolo, voci non fatte con il loro numero) e il testo nuovo della WIP. I `mask{termine}` entrano nella mappa adesso (almeno 3 caratteri, su una riga; uno più corto è un errore). Niente esce senza essere passato da qui: la UI la mostra sempre prima dell'invio.
-- **`process(progetto, paragrafi)`**: lo stesso testo, mascherato di nuovo allo stesso modo, all'agente `wip` (prompt e modello da `global-agent.yml`). Il modello può proporre solo: attività nuova, voce da aggiungere, voce da spuntare, priorità o scadenza di una voce; ogni proposta riporta la frase da cui nasce. Le proposte tornano **in chiaro** (alias della mappa e temporanei rimessi a posto); quelle su un'attività o una voce che non è nell'elenco mandato al modello si scartano. La chiamata si registra come **run** (origine `wip`, agente `wip`: token, costo, latenza, in Osservabilità) e come `WipRun` (modello, versione del prompt, proposte, testo elaborato). Se il modello non risponde: `UpstreamError` (502) e la run fallita resta registrata.
-- **`apply(progetto, run_id, scelte)`** (senza LLM): le proposte scelte, come le ha corrette l'utente, nell'ordine. Una su un'attività o una voce cambiata nel frattempo (voce già fatta, cambiata o sparita, attività cancellata, nome già preso) si **salta** e lo dice l'esito. Poi il segno nella nota, e il `WipRun` registra accettate, corrette (`edited`), scartate e saltate. Nessuna scelta: errore, niente segno. Rifiutato (409) se le proposte sono già applicate o annullate, o se il testo nuovo della WIP non comincia più con quello elaborato.
-- **`dismiss(progetto, run_id)`**: l'utente chiude le proposte senza applicarne nessuna («Annulla», la ✕ della finestra, «Chiudi» quando non ce ne sono). Il `WipRun` si segna annullato (`dismissed_at`) con **tutte le proposte scartate**, così le metriche contano anche le elaborazioni rifiutate; niente segno, la WIP resta da elaborare. Rifiutato (409) se già applicate o annullate.
-- **Set di prova**: `resource/eval/wip/` (11 casi) ha WIP finte con i valori sensibili e le proposte attese; i test controllano che nessun valore sensibile arrivi al modello (con un client finto) e che l'anteprima sia proprio il testo inviato.
-
-## Backup
-
-**`BackupService`**: esporta tutto il DB Postgres come file SQL (`pg_dump` eseguito nel container Postgres con `docker exec`, quindi niente da installare sul PC) in `<BACKUP_DIR>/db/mbare-pilot-db-<data>-<ora>.sql`. `BACKUP_DIR` vuoto = la cartella `mbare-pilot-back-up` accanto al progetto.
-
-- **Da UI**: Admin → Backup («Esporta il DB», elenco degli export, download).
-- **Da terminale**: `python resource/scripts/export-db.py` (serve Postgres acceso, non l'API).
-- **Ripristino**: il dump ha `--clean --if-exists`, quindi si può caricare su un DB esistente: `psql -U app -d app -f <file>.sql` (es. con `docker exec -i mbare-pilot-app-postgres psql -U app -d app < <file>.sql`).
-- Il token Atlassian nel dump è **cifrato**: per usarlo dopo un ripristino serve la stessa `MBARE_PILOT_SECRET_KEY`.
-- Non usa il Container: lo costruisce lo script direttamente dalla `Config`.
-
-## Progetti
-
-**`ProjectService`**: ogni percorso passa da `FolderBrowser`, quindi resta dentro `PROJECT_ROOTS`. Un progetto nuovo riceve i chatbot di default (`DefinitionService.seed_default_chatbots`).
-
-| Metodo | Cosa fa |
-|---|---|
-| `open_folder(nome, descrizione, cartella)` | registra una cartella che esiste già |
-| `create_from_scratch(nome, descrizione, cartella_padre, nome_cartella)` | crea la cartella e registra il progetto; se il salvataggio fallisce, la cartella appena creata viene tolta |
-| `update(nome, descrizione, embedding_model)` | le impostazioni modificabili; nome, origine e cartella restano fissi |
-| `remove(nome)` | cancella il progetto dal DB, a cascata; la cartella del codice e quella dei dati restano sul disco |
-| `folder_exists(progetto)` | la cartella c'è ancora? (la UI avvisa se è sparita) |
-
-Un progetto nuovo viene rifiutato se il nome contiene `/` o `\` (finisce negli URL dell'API), se esiste già, se il suo slug coincide con quello di un altro progetto (le cartelle dei dati si chiamerebbero uguali) o se la cartella è già un altro progetto.
-
-## Dati e git del progetto
-
-- **`GitService`**: trova i repository nella cartella del progetto (fino a 2 livelli), senza mai uscire dalla cartella. Legge log, status, diff, branch e stash; cambia i repository solo con operazioni che non perdono niente: fetch, pull in fast-forward, stash e stash apply, checkout e nuovo branch (rifiutati se rischiano le modifiche locali), add + commit, push mai forzato, `pull_all_by_branch` (tutti i repository su un branch, saltando quelli che non si possono toccare) e `pull_repository_by_branch` (lo stesso per un solo repository). `unpushed_changes` (sola lettura): i commit di HEAD che nessun branch remoto ha e le righe che aggiungono ai file di un pathspec, contro ogni commit di confine (dopo un merge di un branch remoto restano solo le righe davvero nuove).
-- **`MavenService`**: legge il `pom.xml` alla radice di ogni repository del progetto, dalla cartella di lavoro (il branch su cui è ogni repository, modifiche non committate comprese), e lo confronta con la versione di un POM parent del progetto (`parent_alignment`): indicato per `artifactId` o riconosciuto (il repository che gli altri nominano più spesso come `<parent>`); le proprietà dei microservizi si scelgono con un nome o un modello con `*`. Solo lettura; trova repository e cartelle con `GitService`, quindi non esce dalla cartella del progetto. La lettura del POM, senza I/O, è in `domain/maven/pom.py`: namespace ignorato, `groupId` e `version` ereditati dal parent, `${...}` risolti con le proprietà del POM stesso, `project.version` e `project.parent.version`; quello che il POM non definisce (es. una proprietà di un parent remoto) resta com'è. Le regole di ogni comando sono nella [documentazione dei tool](../tool/README.md).
-  - **`new_code_coverage`**: la coverage JaCoCo delle righe non ancora pushate (`GitService.unpushed_changes`, solo `src/main/java`) per repository, dopo `parent_alignment` come cancello: `mvn` gira solo dove l'allineamento al parent è confermato (il parent stesso, le librerie sulla sua versione, i microservizi con le proprietà giuste); gli altri sono `NOT_ALIGNED` o `NOT_VERIFIABLE` con il motivo. Con il [client Maven](../domain/client/maven/README.md) scrive il `jacoco.xml` che manca o è più vecchio del `jacoco.exec` (l'unica scrittura del service, sotto `target/`), poi lo legge con `domain/maven/jacoco.py`. Esito per repository in `CoverageCheck` (`models/domain/maven.py`), testo nel tool [`coverage_new_code`](../tool/README.md#i-tool-delle-automation-piano-15-erano-le-funzioni).
-- **`ProjectDataService`**: note e file del progetto in `ProjectFileStore`, con i nomi validati da `domain/project/data_paths`.
-  - **Task e voci**: `save_agent_task` è l'unico punto in cui cambia lo stato di un task (UI, Copilot, Refiner, segretario): arrivando a «fatto» spunta le voci nate da lui (`→ agent-task-….md`), lasciandolo le despunta, e restituisce le voci toccate. `create_task_from_item` crea il task da una voce, `link_item` collega un task a una voce; cancellare il task toglie la freccia. Dettagli in [domain/project](../domain/project/README.md#note-tipizzate-note_templatespy).
-
-### Cerca nel codice: `CodeSearchService`
-
-Piano 23, al posto dei commenti `todoMbarePilot` (tolti).
-
-- **`search(progetto, CodeQuery, limit, chars)`**: per ogni repository del progetto (o quello di `repository`, 404 se non c'è) legge i file che git conosce (`git ls-files --cached --others --exclude-standard`: `.gitignore` vale). Salta i file oltre `MAX_FILE_BYTES` (1 MB), i binari (byte NUL all'inizio) e quelli non UTF-8. `query` è testo semplice o, con `regex`, un'espressione regolare (400 se non valida); `files` un glob (senza `/` vale anche sul solo nome del file). Restituisce le righe (`path` relativo al progetto, `line`, `text` ripulito e tagliato a `chars`), al massimo `limit`, con `total`, `files` e `truncated` (`CodeSearchResult`). Funzioni pure in `domain/project/code_search.py`.
-- **`save(progetto, CodeQuery, titolo, link_to)`**: scrive la ricerca (fino a `SAVED_MATCHES`, 500 righe) come riferimento codice `code-reference-<titolo>.md` (titolo vuoto = il testo cercato; `Fonte: search`, la ricerca in `source_url`): data, ricerca usata e righe `` `file:riga` → riga ``. **Uno per titolo**: risalvato si riscrive e i collegamenti restano; uno con quel nome scritto a mano non si tocca (`ConflictError`). `link_to` lo collega ai task (o attività) indicati.
-- **API**: `POST /projects/{p}/code-search` e `POST /projects/{p}/code-search/reference` ([controller](../controller/README.md)); nella UI Progetto → Git, «🔎 Cerca nel codice». Per gli agenti i tool [`search_code` e `save_code_search`](../tool/README.md#codice-search_code-e-save_code_search-piano-23).
-
-### Ricerche salvate: `SavedSearchService`
-
-Piano 34, le «regex parlanti»: una ricerca con un nome (`SavedSearch`: `name`, `query`, `regex`, `files`, `description`).
-
-- **`defaults()`**: quelle di `code-searches.yml` delle definizioni (della cartella dati se c'è, altrimenti dell'app; nessuna senza file, 400 se il file è rotto).
-- **`searches(progetto)`**: i default nell'ordine del file (con la versione del progetto dove ne ha una, `origin: progetto`), poi le altre del progetto (`Project.code_searches`).
-- **`save(progetto, ricerca, replacing)`**: nel progetto, per nome (stesso nome = riscritta, `replacing` = rinominata); 400 per una regex non valida. **`delete(progetto, nome)`**: via la ricerca del progetto (404 se non ne ha una con quel nome); un default che sostituiva torna.
-- **`propose_regex(progetto, descrizione)`** («✨ Regex»): **una chiamata** all'agente `regex` (risposta strutturata `RegexAnswer`: `regex`, `explanation`, `example`), mascherata come gli altri; la proposta torna con `valid` (la regex si compila) ed `example_matches` (trova il suo esempio). 400 senza descrizione, 502 se il modello non risponde o non dà una regex. La chiamata è una run (origine `regex`).
+**`CopilotService`**: agent task delegati a GitHub Copilot CLI.
+
+- **Preparazione**: chat a turni in modalità piano. Il primo turno è il prompt del coding agent con `{task}`; Copilot legge task e riferimenti dal server MCP dell'app (`read_task`, `list_references`, `read_reference`, `search_context`). Nel repository l'app non scrive niente.
+- **Esecuzione**: con «Ok, parti» va in coda; il worker la esegue (una per repository), poi il task passa a «da verificare» (conferma o rimanda a Copilot). Copilot non fa mai commit.
+- **Task senza codice** (analisi, Confluence, Jira): niente esecuzione; «Salva come nota» scrive `analisi-<task>.md` o la bozza `bozza-confluence-…`/`bozza-jira-…`.
+- **Senza repository**: un task senza codice può lavorare in una cartella dei dati del progetto. Il repository si può cambiare finché la sessione non è mai stata eseguita.
+- Ogni turno registra crediti AI e token (Osservabilità).
+
+Collegati:
+- **`PublishService`**: «📤 Pubblica» di una bozza su Confluence o Jira, con anteprima; poi il task è fatto e la bozza si cancella.
+- **`CommandService`**: i comandi permessi del progetto; un comando fuori lista diventa una richiesta («Sempre», «Solo stavolta», «No»).
+- **`DevChecksService`**: impostazioni dei test per repository (comando, ambito) e l'Operatore del progetto.
+- **`MavenService`**: allineamento dei `pom.xml` a un parent e coverage JaCoCo del codice nuovo.
+
+## Automation
+
+- **`PipelineService`**: automation come grafi di step (agente, agente della Libreria, tool) con archi condizionati, validate al salvataggio; anche in YAML (`domain/pipeline/yaml_format.py`). `enqueue` mette una run in coda.
+- **`PipelineRunner`**: il worker esegue una run alla volta, step dopo step in ordine topologico.
+- **`LearnService`**: da una run dell'Operatore a un'automation, senza LLM («✅ Giusto: fanne un'automation»).
+- **`ToolRequestService`**: richieste di tool che l'Architetto scrive e Claude Code lavora dal server MCP dev.
+
+## Contesto e Atlassian
+
+- **`RagService`**: indice del contesto per progetto (pgvector): i documenti di `context/`, le attività chiuse e il contesto generale delle definizioni (`general/<nome>.md`). Si reindicizza quando un documento cambia; a parità di punteggio vince il progetto.
+- **`AtlassianService`**: sito Jira e Confluence del progetto. Issue, pagine, cartelle, ricerche, preferiti, copia come riferimento, scelta di dove pubblicare.
+
+## Osservabilità e amministrazione
+
+- **`RunService`**: run degli agenti, tool chiamati, trace e «🔍 Cosa ha visto il modello» (mascherato e in chiaro).
+- **`MetricsService`**: pagina Metriche: costi e tempi per agente e modello, Copilot, embedding.
+- **`EvaluationService`**: valutazioni (Elabora WIP, RAG) sui set di `resource/eval`, nel worker o da terminale.
+- **`ProcessService`**: il worker avviato e fermato dall'API, i log.
+- **`BackupService`**: export del DB in `<BACKUP_DIR>/db/`.
+- **`RoadmapService`**: la bacheca da `roadmap.yml`.
 
 ## Test
 
-In `test/unit/service/`: `store/test_run_store`, `store/test_pipeline_store` (transazioni, numero di query), `test_run_service`, `test_model_service`, `test_agent_config_service`, `test_agent_scope` (globali e di progetto), `test_activation` (disattivazioni), `test_agent_service`, `test_git_service`, `test_pipeline` (definizioni, coda, esecuzione, heartbeat), `test_function_steps`, `test_pipeline_graph` (grafo salvato ed eseguito: rami, unioni, step saltati), `test_project_service`, `test_project_data_service`, `test_chatbot_service`, `test_automation_cache_service` (cache: lancio senza agente, `!`, soglia, embedder, cosa si può mettere in cache), `test_atlassian_service`, `test_backup_service`, `test_masking` (mascheratore, mappa su Redis, giro completo in una run). Gli agenti sono finti (`FakeAgent`), il DB è SQLite in memoria e Redis è fakeredis: le fixture stanno in `test/conftest.py`, una per store (`project_store`, `pipeline_store`, …, tutte da `stores`), quelle dei service più usati (`git_service`, `project_data_service`, `masking_service`, `pipeline_service`, `agent_config_service`) e `make_agent_service`, che costruisce un `AgentService` completo come il Container e prende i service che il test vuole guidare (es. un `ChatService` con un client finto).
-
-
-## Cosa vede il modello (piano 29)
-
-Ogni run di un agente (chatbot e agenti con risposta strutturata) salva nel trace (Redis) la **trascrizione mascherata** (`ModelTranscript`): il system prompt come l'ha ricevuto il modello, la storia della conversazione e l'input mascherati, la risposta grezza (per gli strutturati il JSON); le chiamate ai tool sono già nel trace, con argomenti e risultati come li ha visti il modello. `RunService.transcript(run_id)` la restituisce in due versioni (`RunTranscript`): `masked` così com'è e `clear` con la mappa del progetto rimessa in chiaro (input e risposta sono quelli in chiaro della run; i JSON indentati), più gli alias da evidenziare. Una run registrata prima del piano 29 non ha la trascrizione (404).
-
-
-## Costi dell'embedding (piano 31)
-
-`RagService._embed` usa `Embedder.embed_with_usage`: l'embedder remoto (OpenRouter) restituisce anche i token contati dal provider, quello locale (`hashing`) 0. Le chiamate con token si registrano in `embedding_usage` (`EmbeddingUsageStore`: progetto, modello, scopo `index` o `search`, token, costo stimato da `EMBEDDING_EUR_PER_1M`; un modello sconosciuto costa 0). `MetricsService` le somma per modello e scopo (`Metrics.embedding`) con gli stessi filtri di periodo e progetto; la pagina Metriche le mostra in «Embedding del RAG (costo stimato)».
-
-
-## Dove pubblicare su Confluence (piano 32)
-
-`AtlassianSite.places(space, parent_id, kind)` dà le pagine in cima allo spazio (`depth=root`) o le pagine e le **cartelle** sotto una pagina o una cartella (`direct-children` di Confluence v2; lavagne e altro esclusi), caricate ramo per ramo; `search_places` cerca pagine e cartelle per titolo (CQL `type in (page, folder)`); `place_from_link` legge un link di pagina (`/pages/<id>`, `pageId=`), di cartella (`/folder/<id>`) o un id. Una pagina nuova si crea sotto una pagina o una cartella (`parentId`). Un task Confluence può avere la sua destinazione (`publish_space`, `publish_parent`: righe «Spazio Confluence:» e «Pubblica sotto:» della nota, scritte anche dal Refiner): l'anteprima la risolve (`parent_id`, `parent_title`, `parent_kind`, o `parent_error`) e la finestra la propone per prima, altrimenti l'ultima posizione usata nel progetto (ricordata nel browser). Le bozze hanno il tipo nel nome: `bozza-confluence-<task>.md`, `bozza-jira-<task>.md`.
-
-
-## Pubblica nel giro, risultati come riferimenti, archivio (piano 33)
-
-- **Pubblica nel giro**: un task Confluence o Jira ha i passi Delega → Risposta → **Pubblica** (`StepKey.PUBLISH`). Salvare la risposta di Copilot come bozza lo porta a «da verificare» (non più «fatto»): il passo «Pubblica» tocca all'utente, che pubblica dalla riga in Lavora o dalla chat di Copilot, con titolo e testo modificabili (`PublishRequest.title`, `body`). Dopo la pubblicazione il task è fatto e la **bozza si cancella**.
-- **Il risultato passa al task dopo** (`PlanService.pass_on`): la nota di un'analisi o la bozza salvata, e poi la pagina o issue pubblicata (al posto della bozza), si collegano al task successivo di ogni piano che contiene il task. In Pianifica una proposta può non portare tutti i riferimenti dell'attività (`PlanChoice.references`); nella scheda del task si tolgono come sempre.
-- **Archivio** (`ActivityCloseService.archive`): un'attività chiusa diventa la nota `archivio-<attività>.md` (descrizione, voci, task con esito e i link a pagine e issue); si cancellano attività, task, risposte e bozze, il piano e le sessioni di Copilot dei task (prima si controlla che nessuna giri) e i riferimenti scelti. Le note `archivio-` stanno in Lavoro → «🗄 Archivio».
+`test/unit/service/` e `test/unit/api/`, con i fake di `test/fakes.py` (modelli strutturati) e `test/fake_copilot.py` (Copilot CLI). Il Copilot vero non parte mai nei test.

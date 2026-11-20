@@ -1,4 +1,4 @@
-"""«Pubblica su Confluence/Jira» of a task's draft (blocco 10), under
+"""«Pubblica su Confluence/Jira» of a task's draft, under
 /projects/{project}/agent-tasks/{note}/publish: the preview (target, text,
 comparison, unmasked aliases), then the publication on the user's click."""
 from fastapi import APIRouter, Depends
@@ -20,7 +20,7 @@ class PublishRequest(BaseModel):
     issue_type: str = ""
     title: str = ""
     body: str = ""
-    """The draft as edited in the window (plan 33); empty = the draft as saved."""
+    """The draft as edited in the window; empty = the draft as saved."""
 
 
 @router.get("/publish")
@@ -33,7 +33,7 @@ def preview(project: str, note: str, service: PublishService = Depends(publish_s
 def publish(project: str, note: str, request: PublishRequest, service: PublishService = Depends(publish_service),
             plans: PlanService = Depends(plan_service)) -> PublishResult:
     """Create or update the page / issue; the task goes «done», the page / issue is a reference linked to it and to the
-    next task of its activity in place of the draft, which is deleted (plan 33)."""
+    next task of its activity in place of the draft, which is deleted."""
     result = service.publish(project, note, **request.model_dump())
     plans.pass_on(project, note, result.reference, replacing=result.draft)
     return result

@@ -1,13 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api, unwrap } from "./client";
-import type { components } from "./schema";
 
 /** The Metriche page: the numbers (cost and latency per agent, Copilot apart,
  * the WIP acceptance) and the evaluations (queued for the worker, their reports). */
 
-export type Metrics = components["schemas"]["MetricsResponse"];
-export type EvaluationRun = components["schemas"]["EvaluationRun"];
 
 const keys = {
   metrics: (days: number | null, project: string | null) => ["observability", "metrics", days, project] as const,

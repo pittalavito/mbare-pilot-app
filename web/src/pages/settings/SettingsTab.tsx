@@ -171,12 +171,12 @@ function Remove({ name }: { name: string }) {
   );
 }
 
-/** «Prepara sviluppo» and «Verifica sviluppo» around Copilot: the tests' commands and the default scope (in a window, as before). */
+/** The tests of the developments (run_tests in the Post): the commands and the default scope, in a window. */
 function DevChecks({ project }: { project: string }) {
   const [opened, setOpened] = useState(false);
   return (
     <Stack gap="xs" align="flex-start">
-      <Text size="sm" c="dimmed">I comandi dei test per repository e quali test lancia la «Verifica sviluppo» dopo Copilot.</Text>
+      <Text size="sm" c="dimmed">I comandi dei test per repository e quali test lancia run_tests nel post degli sviluppi.</Text>
       <Button variant="light" onClick={() => setOpened(true)}>⚙️ Verifiche dello sviluppo</Button>
       <DevSettingsModal project={project} opened={opened} onClose={() => setOpened(false)} />
     </Stack>

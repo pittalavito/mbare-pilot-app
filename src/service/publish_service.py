@@ -1,4 +1,4 @@
-"""«Pubblica su Confluence/Jira» (blocco 10): the draft of a Confluence or
+"""«Pubblica su Confluence/Jira»: the draft of a Confluence or
 Jira task (``bozza-confluence-<task>.md`` / ``bozza-jira-<task>.md``, saved from Copilot's answer) published with
 the project's Atlassian site, only when the user confirms.
 
@@ -7,13 +7,13 @@ the project's Atlassian site, only when the user confirms.
   a page gets the draft's title and body, an issue only its description.
   Otherwise a **new** page (space and parent page or folder) or issue (Jira project and
   issue type) is created; the defaults are the project's, the task's destination
-  («Spazio Confluence», «Pubblica sotto», plan 32) wins.
+  («Spazio Confluence», «Pubblica sotto») wins.
 - **Format**: the draft's Markdown becomes storage format or ADF
   (domain/atlassian/publish_format.py); a ``# title`` on its first line is
   the title (``Bozza: `` dropped).
 - **Masking**: aliases (``REPO_1``) go back to the real values before
   publishing; the preview says which.
-- **After**: the task is «done» (its items get checked, blocco 08) and the
+- **After**: the task is «done» (its items get checked) and the
   page or issue is a context reference linked to the task (a new one is
   copied from Atlassian; the linked one gets the published text).
 
@@ -62,7 +62,7 @@ class PublishService:
 
     def publish(self, project_name: str, task_note: str, *, space_key: str = "", parent_id: str = "", project_key: str = "",
                 issue_type: str = "", title: str = "", body: str = "") -> PublishResult:
-        """``title`` and ``body``: the draft as edited in the window (plan 33), aliases put back too. The draft is deleted after."""
+        """``title`` and ``body``: the draft as edited in the window, aliases put back too. The draft is deleted after."""
         preview = self.preview(project_name, task_note)
         if title.strip() or body.strip():
             session = self._masking.session(project_name)
@@ -87,12 +87,12 @@ class PublishService:
         task = self._data.agent_task(project_name, task_note)
         if task.status != TaskStatus.DONE:
             self._data.save_agent_task(project_name, task_note, task.model_copy(update={"status": TaskStatus.DONE}))
-        self._data.delete_note(project_name, preview.draft)  # plan 33: the reference takes its place
+        self._data.delete_note(project_name, preview.draft)  # The reference takes its place
         return PublishResult(kind=preview.kind, mode=preview.mode, url=url, reference=reference, draft=preview.draft)
 
     # --------------------------------------------------------------- helpers
     def _destination(self, project_name: str, task_note: str, kind: PublishKind, site) -> dict[str, str]:
-        """The task's own space and parent for a new page (plan 32), resolved; nothing for an issue or a task without them."""
+        """The task's own space and parent for a new page, resolved; nothing for an issue or a task without them."""
         if kind is not PublishKind.CONFLUENCE:
             return {}
         task = self._data.agent_task(project_name, task_note)

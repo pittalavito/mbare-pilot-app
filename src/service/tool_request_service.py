@@ -1,4 +1,4 @@
-"""Requests of tools for Claude Code (plan 20). A tool that is missing belongs
+"""Requests of tools for Claude Code. A tool that is missing belongs
 to the code of mbare-pilot-app, not to a project's repository: the Architetto
 writes a **request** (tool ``request_tool``, after the user's ok), of the whole
 app; Claude Code on the user's PC, in a clone of mbare-pilot-app, reads the

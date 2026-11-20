@@ -340,11 +340,11 @@ class ProjectDataService:
         return self._projects.save(project.model_copy(update={"due_soon_days": days})).due_soon_days
 
     def test_scope(self, project_name: str) -> TestScope:
-        """«Verifica sviluppo»: the project's default (a task can change it)."""
+        """``run_tests``: the project's default scope (a task can change it)."""
         return self._projects.get(self._project(project_name)).test_scope
 
     def test_commands(self, project_name: str) -> dict[str, str]:
-        """«Verifica sviluppo»: the tests' commands written per repository (folder → command)."""
+        """``run_tests``: the tests' commands written per repository (folder → command)."""
         return dict(self._projects.get(self._project(project_name)).test_commands)
 
     def test_command(self, project_name: str, repository: str) -> str:
@@ -358,7 +358,7 @@ class ProjectDataService:
         self._projects.save(project.model_copy(update={"test_scope": scope, "test_commands": cleaned}))
 
     def operator_chatbot_id(self, project_name: str) -> int | None:
-        """The Operator of the preparation before Copilot (plan 11); None = the project's first one."""
+        """The Operator of the preparation before Copilot; None = the project's first one."""
         return self._projects.get(self._project(project_name)).operator_chatbot_id
 
     def save_operator_chatbot_id(self, project_name: str, chatbot_id: int | None) -> None:
@@ -410,7 +410,7 @@ class ProjectDataService:
     # --------------------------------------------------------------- copilot
     def copilot_folder(self, project_name: str, task_note: str) -> Path:
         """Copilot's working folder for a task delegated without a repository
-        (``copilot/<task>/`` in the project's data, plan 21), created when missing."""
+        (``copilot/<task>/`` in the project's data), created when missing."""
         return self._files.folder(self._id(project_name, COPILOT_DIR, note_file_name(task_note).removesuffix(NOTE_SUFFIX)))
 
     def delete_copilot_folder(self, project_name: str, task_note: str) -> bool:

@@ -1,5 +1,5 @@
-"""Blocco 09: the tools of «Prepara sviluppo» (git_check_clean,
-git_checkout_branches) and «Verifica sviluppo» (run_tests)
+"""The tools for a development's Pre (git_check_clean,
+git_checkout_branches) and Post (run_tests)
 on real repositories (needs ``git``): a bare "origin" and the project "Shop"
 with the clones ``api`` and ``lib``."""
 import shutil

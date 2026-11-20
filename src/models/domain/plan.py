@@ -1,6 +1,5 @@
-"""«▶️ Lavora attività» (plan 12a): the Pianificatore's plan of an activity
-(the agent tasks to create, in order; each development with its Pre and Post,
-plan 34) and the path of each task, the steps the app derives from the task,
+"""«▶️ Lavora attività»: the Pianificatore's plan of an activity
+(the agent tasks to create, in order; each development with its Pre and Post) and the path of each task, the steps the app derives from the task,
 its Copilot session and the plan."""
 from datetime import datetime, timezone
 from enum import StrEnum
@@ -53,7 +52,7 @@ class PlanProposal(PlannedTask):
 
 
 class OperationState(StrEnum):
-    """«🤖 Automatico» of a development's Pre or Post (plan 25, plan 34)."""
+    """«🤖 Automatico» of a development's Pre or Post."""
     QUEUED = "queued"
     RUNNING = "running"
     FAILED = "failed"
@@ -72,7 +71,7 @@ class OperationRun(BaseModel):
 
 
 class PhaseState(StrEnum):
-    """How a development's Pre or Post finished (plan 34)."""
+    """How a development's Pre or Post finished."""
     DONE = "done"
     SKIPPED = "skipped"
 
@@ -91,7 +90,7 @@ class PlanTask(BaseModel):
 
 
 class ActivityPlan(BaseModel):
-    """The activity's one plan (plan 18): the tasks created, in order, the
+    """The activity's one plan: the tasks created, in order, the
     Pianificatore's proposals still waiting for the user, and how the round goes."""
     id: int | None = None
     project_name: str
@@ -114,11 +113,11 @@ class ActivityPlan(BaseModel):
     approved: list[str] = []
     """The tasks whose plan the round approved by itself (once each)."""
     operations: dict[str, OperationRun] = {}
-    """«🤖 Automatico» of the developments' Pre and Post, by ``<task>|pre`` or ``<task>|post`` (plan 25, plan 34)."""
+    """«🤖 Automatico» of the developments' Pre and Post, by ``<task>|pre`` or ``<task>|post``."""
     phases: dict[str, PhaseState] = {}
-    """The Pre and Post finished, by ``<task>|pre`` or ``<task>|post``: done or skipped (plan 34)."""
+    """The Pre and Post finished, by ``<task>|pre`` or ``<task>|post``: done or skipped."""
     auto_skip_empty: bool = False
-    """The round skips by itself the Pre and Post without commands nor automation (plan 34)."""
+    """The round skips by itself the Pre and Post without commands nor automation."""
     created_at: datetime = Field(default_factory=_utc_now)
     updated_at: datetime = Field(default_factory=_utc_now)
 
@@ -135,11 +134,11 @@ class PlanChoice(BaseModel):
     objective: str = ""
     criteria: list[str] = []
     pre: DevPhase = DevPhase()
-    """A development's Pre (plan 34)."""
+    """A development's Pre."""
     post: DevPhase = DevPhase()
-    """A development's Post (plan 34)."""
+    """A development's Post."""
     references: list[str] | None = None
-    """The references to link (plan 33: the ones not needed taken off); None = all the activity's."""
+    """The references to link (the ones not needed taken off); None = all the activity's."""
 
 
 class StepState(StrEnum):
@@ -154,7 +153,7 @@ class StepState(StrEnum):
 
 class StepKey(StrEnum):
     PRE = "pre"
-    """A development's Pre (plan 34): «🤖 Automatico» (commands and automation, or Dev) or by hand, then «Fatto»; or «Salta»."""
+    """A development's Pre: «🤖 Automatico» (commands and automation, or Dev) or by hand, then «Fatto»; or «Salta»."""
     DELEGATE = "delegate"
     """The delegation to Copilot (its first planning turn)."""
     COPILOT_PLAN = "copilot_plan"
@@ -165,9 +164,9 @@ class StepKey(StrEnum):
     FINAL = "final"
     """«Conferma finale» of the changes: the task becomes done."""
     POST = "post"
-    """A development's Post (plan 34), after the final confirmation: like Pre."""
+    """A development's Post, after the final confirmation: like Pre."""
     PUBLISH = "publish"
-    """A Confluence or Jira task (plan 33): the draft saved, «📤 Pubblica» (the draft editable); then it is done."""
+    """A Confluence or Jira task: the draft saved, «📤 Pubblica» (the draft editable); then it is done."""
 
 
 STEP_LABELS: dict[StepKey, str] = {

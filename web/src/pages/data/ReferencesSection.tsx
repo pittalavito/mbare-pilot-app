@@ -120,7 +120,7 @@ export function ReferenceSummary({ reference }: { reference: Reference }) {
 }
 
 /** Create (no ``reference``) or edit a reference; deleting it unlinks it everywhere. A new one
- * can also come from a search in the code (plan 34, «🔎 Da codice») or, with Atlassian, from Jira or Confluence. */
+ * can also come from a search in the code («🔎 Da codice») or, with Atlassian, from Jira or Confluence. */
 export function ReferenceModal({ project, reference, opened, onClose, onCreated, onDeleted, createLabel = "Crea e collega" }: {
   project: string; reference?: Reference; opened: boolean; onClose: () => void;
   /** The create button: «Crea e collega» from a task, «Crea» where nothing links it. */

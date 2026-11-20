@@ -1,8 +1,7 @@
-"""The tests' settings of a project (blocco 09): the command detected for each
+"""The tests' settings of a project: the command detected for each
 repository, the one written in its place and the default scope (``run_tests``
-reads them), and the Operator chosen for the project. The automations around
-Copilot («Prepara sviluppo», «Verifica sviluppo») are gone (plan 22): that
-work is a development's Pre and Post (plan 34), done automatically, by Dev or by hand."""
+reads them), and the Operator chosen for the project. The work around Copilot
+is a development's Pre and Post, done automatically, by Dev or by hand."""
 from domain.dev import tests
 from models.domain.dev import DevSettings, RepositoryTests, TestScope
 from service.git_service import GitService

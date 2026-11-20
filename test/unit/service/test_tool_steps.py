@@ -1,4 +1,4 @@
-"""Tool steps of the automations (the functions of before are tools, plan 15): the
+"""Tool steps of the automations (the functions of before are tools): the
 registry, validation on save, and execution by the runner (real git repository
 in a tmp dir, fake agents)."""
 import shutil

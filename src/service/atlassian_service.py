@@ -23,7 +23,6 @@ from models.domain.atlassian import (
     ConfluenceSpace,
     FavoriteKind,
     JiraIssue,
-    JiraProject,
 )
 from models.domain.note import NoteType, Reference
 from service.project_data_service import ProjectDataService
@@ -218,9 +217,6 @@ class AtlassianSite:
         return self._jira.myself()
 
     # ---------------------------------------------------------------- Jira
-    def list_jira_projects(self, query: str | None = None, limit: int = 100) -> list[JiraProject]:
-        return self._jira.list_projects(query=query or None, limit=limit)
-
     def search_issues(self, jql: str, limit: int = 50) -> list[JiraIssue]:
         if not jql.strip():
             raise ValidationError("La query JQL è vuota.")
@@ -301,7 +297,7 @@ class AtlassianSite:
         return self._confluence.list_pages(space.id, limit=limit)
 
     def places(self, space_key: str | None = None, parent_id: str = "", kind: str = "page") -> list[ConfluenceNode]:
-        """Where a new page can go (plan 32): the space's top pages, or the pages and folders under ``parent_id``."""
+        """Where a new page can go: the space's top pages, or the pages and folders under ``parent_id``."""
         if parent_id.strip():
             if not parent_id.strip().isdigit():
                 raise ValidationError(f"Id non valido: {parent_id!r}")

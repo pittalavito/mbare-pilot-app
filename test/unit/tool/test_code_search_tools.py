@@ -1,4 +1,4 @@
-"""Plan 23: search_code (Refiner, Dev) gives a few short masked lines;
+"""Search_code (Refiner, Dev) gives a few short masked lines;
 save_code_search (only Dev) writes the reference linked to the task."""
 import json
 import shutil

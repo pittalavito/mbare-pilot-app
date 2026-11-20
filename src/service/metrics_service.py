@@ -2,7 +2,7 @@
 they take, grouped by who (the run's config_name: a chatbot, a Library agent,
 ``wip/<secretary>``...), Copilot's usage apart (AI credits, not euros), and
 the acceptance of «Elabora WIP»'s proposals, and the RAG's embedding calls
-(plan 31: tokens and an estimated cost by model, indexing and searches). Computed in Python over the
+(tokens and an estimated cost by model, indexing and searches). Computed in Python over the
 period's rows (average and p95 alike on Postgres and SQLite)."""
 import math
 from collections import defaultdict

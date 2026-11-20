@@ -5,7 +5,7 @@ import { type ToolTry, useToolSpecs, useTryTool } from "../../api/catalog";
 import { useProjects } from "../../api/projects";
 import { ToolArgsFields } from "../../components/ToolArgsFields";
 
-/** Admin → Tool (plan 15): one tool of the registry tried by hand on a project,
+/** Admin → Tool: one tool of the registry tried by hand on a project,
  * with its arguments, no LLM and no run recorded. The result as an agent sees it
  * (JSON) and as an automation step outputs it (text). A tool that changes
  * something asks first. */

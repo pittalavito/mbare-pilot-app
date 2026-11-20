@@ -1,4 +1,4 @@
-"""Blocco 10: a Confluence or Jira task's draft published with the project's
+"""A Confluence or Jira task's draft published with the project's
 Atlassian site (a fake one: httpx.MockTransport), through the API, and the
 Markdown → storage / ADF conversion."""
 import json
@@ -47,7 +47,7 @@ class FakeAtlassian:
             if request.method == "PUT":
                 return httpx.Response(200, json={**self.page, "title": body["title"], "version": body["version"]})
             return httpx.Response(200, json={**self.page, "id": path.rsplit("/", 1)[-1]})
-        if path == "/wiki/api/v2/spaces/9/pages":  # plan 32: the space's top pages
+        if path == "/wiki/api/v2/spaces/9/pages":  # The space's top pages
             return httpx.Response(200, json={"results": [{"id": "1", "title": "Home"}]})
         if path == "/wiki/api/v2/pages/1/direct-children":
             return httpx.Response(200, json={"results": [{"id": "3", "title": "Rilasci", "type": "folder"}]})
@@ -138,7 +138,7 @@ def test_jira_new_issue_and_linked_issue(app):
 
     reference = result["reference"]  # the new issue, copied and linked: publishing again updates it
     draft = f"bozza-jira-{task.removeprefix('agent-task-')}"
-    assert result["draft"] == draft and not container.project_data_service.note_exists("acme", draft)  # plan 33: the draft is gone
+    assert result["draft"] == draft and not container.project_data_service.note_exists("acme", draft)  # The draft is gone
     container.project_data_service.save_note("acme", draft, DRAFT)  # a new draft
     fake.calls.clear()
     preview = client.get(f"/projects/acme/agent-tasks/{task}/publish").json()
@@ -188,7 +188,7 @@ def test_markdown_to_storage_and_adf():
     assert split_title("## Non è un titolo\ncorpo", "x") == ("x", "## Non è un titolo\ncorpo")
 
 
-# ------------------------------------------------------------- where (plan 32)
+# ------------------------------------------------------------- where
 
 def test_places_tree_search_and_link(app):
     client, _, _ = app
@@ -224,7 +224,7 @@ def test_the_task_destination_is_offered_and_a_page_goes_under_a_folder(app):
 
 
 def test_the_window_edits_are_published_and_the_reference_goes_to_the_next_task(app):
-    """Plan 33: the draft as edited, then the published page in place of the draft on the next task of the plan."""
+    """The draft as edited, then the published page in place of the draft on the next task of the plan."""
     client, container, fake = app
     activity = container.project_data_service.create_activity("acme", Activity(title="Doc"))
     container.plan_service.confirm("acme", activity, [PlanChoice(title="Pagina", type=TaskType.CONFLUENCE), PlanChoice(title="Dopo", type=TaskType.JIRA)])

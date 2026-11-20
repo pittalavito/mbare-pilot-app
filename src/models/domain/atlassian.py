@@ -84,7 +84,7 @@ class ConfluencePage(BaseModel):
 
 
 class ConfluenceNode(BaseModel):
-    """A place a new page can go under (plan 32): a page or a folder."""
+    """A place a new page can go under: a page or a folder."""
     id: str
     title: str
     kind: str = "page"

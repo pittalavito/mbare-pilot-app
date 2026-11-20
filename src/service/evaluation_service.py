@@ -128,7 +128,7 @@ class EvaluationService:
         documents = [(f"context/{path.name}", path) for path in sorted((self._data / "rag" / "context").glob("*.md"))]
         questions = json.loads((self._data / "rag" / "questions.json").read_text(encoding="utf-8"))
         general = self._data / "rag" / "general-questions.json"
-        if general.is_file():  # plan 27: what the agents ask of the general context (the example definitions')
+        if general.is_file():  # What the agents ask of the general context (the example definitions')
             defaults = Config.get().default_definitions_root / "context"
             documents += [(f"general/{path.name}", path) for path in sorted(defaults.glob("*.md"))]
             questions += json.loads(general.read_text(encoding="utf-8"))

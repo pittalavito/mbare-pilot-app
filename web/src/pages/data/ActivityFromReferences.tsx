@@ -5,10 +5,9 @@ import { useSearchContext } from "../../api/context";
 import { useDraftActivity, useReferences, useSaveActivity } from "../../api/projectData";
 import { ConfluenceImport, JiraImport } from "./AtlassianImport";
 
-/** «📎 Parto da riferimenti», the second way of «➕ Nuova attività» (plans 16
- * and 18): choose references of the project (also copied from Jira or
+/** «📎 Parto da riferimenti», the second way of «➕ Nuova attività»: choose references of the project (also copied from Jira or
  * Confluence, they become references) and pieces of the context index (only
- * their titles, for the proposal), plus «Cosa vuoi fare» (plan 34, enough
+ * their titles, for the proposal), plus «Cosa vuoi fare» (enough
  * alone); the agent ``bozza-attivita`` proposes title,
  * description and todo items in one call; the user corrects them and creates
  * the activity, with the references linked. */

@@ -1,4 +1,4 @@
-"""The calls to a remote embedder (plan 31): tokens and cost, for the Metriche page."""
+"""The calls to a remote embedder: tokens and cost, for the Metriche page."""
 from datetime import datetime, timezone
 
 from sqlalchemy.engine import Engine

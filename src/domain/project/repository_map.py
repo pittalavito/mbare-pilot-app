@@ -1,4 +1,4 @@
-"""The map of a project's repositories (plan 27), written into the context
+"""The map of a project's repositories, written into the context
 document ``context/repository.md`` with no LLM: per repository its build
 tool and commands, what it uses of the others (Maven artifacts, npm
 packages, Python distributions of the project) and its branches, plus the

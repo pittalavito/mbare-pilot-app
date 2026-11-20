@@ -161,7 +161,7 @@ def test_an_empty_index_finds_nothing(rag):
     assert rag.search("acme", "qualsiasi cosa") == []
 
 
-# ------------------------------------------------------------ general context (plan 26)
+# ------------------------------------------------------------ general context
 
 @pytest.fixture
 def general(project_store, project_data_service, masking_service, rag_store, tmp_path) -> RagService:
@@ -206,7 +206,7 @@ def test_a_broken_general_index_does_not_stop_the_search(general, data, monkeypa
 
 
 def test_the_catalog_lists_the_titles_for_the_prompt(general, data, rag):
-    """Plan 27: the titles of the project's and the general documents, for the agents with search_context."""
+    """The titles of the project's and the general documents, for the agents with search_context."""
     data.save_context("acme", "arch.md", "# Architettura\n\nFastAPI.")
     assert general.catalog("acme").endswith("- Progetto: Architettura\n- Generale (come funziona l'app): Il giro")
     assert rag.catalog("acme") == "\n\nDocumenti di contesto che puoi cercare con search_context:\n- Progetto: Architettura"
@@ -230,7 +230,7 @@ def test_the_agents_with_search_context_get_the_catalog_masked(make_agent_servic
     assert service._with_catalog(definition, None, None) == definition
 
 
-# ------------------------------------------------------------ embedding usage (plan 31)
+# ------------------------------------------------------------ embedding usage
 
 class CountingEmbedder(RemoteEmbedder):
     """A remote embedder that says how many tokens each call used."""

@@ -8,7 +8,7 @@ import { mockApi, renderPage } from "../../test/render";
 import { PROJECT_API, projectRoutes } from "../../test/zones";
 import { noteOfLink } from "./AgentPanel";
 
-/** Plan 13b: the agent panel at the right of «Lavoro» and «Automation», with
+/** The agent panel at the right of «Lavoro» and «Automation», with
  * the agent of what is open (Segretario, Refiner, Copilot, Architetto), what was
  * the Chat tab (conversations, details, cache controls) and the Copilot tab. */
 

@@ -1,6 +1,6 @@
-"""Plan 18, the step «Chiudi»: the agent ``imparato`` proposes what to remember
+"""The step «Chiudi»: the agent ``imparato`` proposes what to remember
 (one structured call, fake model, a theme per point); closing writes each
-point at the top of its theme in context/imparato.md (plan 27, indexed) and
+point at the top of its theme in context/imparato.md (indexed) and
 makes the activity done; reopening keeps it."""
 from datetime import date
 
@@ -107,7 +107,7 @@ def test_the_date_of_the_section(container, activity):
 
 
 def test_archiving_leaves_a_summary_and_deletes_what_was_chosen(client, container, activity):
-    """Plan 33: «🗄 Archivia» a closed activity."""
+    """«🗄 Archivia» a closed activity."""
     data = container.project_data_service
     base = f"/projects/acme/activities/{activity}"
     keep = data.create_reference("acme", NoteType.CONTEXT_REFERENCE, Reference(title="Resta", content="x"))

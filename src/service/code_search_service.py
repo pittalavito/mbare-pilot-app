@@ -1,4 +1,4 @@
-"""A free search in a project's code (plan 23), for the user (Progetto → Git,
+"""A free search in a project's code, for the user (Progetto → Git,
 «🔎 Cerca nel codice») and for the agents (tools ``search_code`` and, for Dev,
 ``save_code_search``).
 

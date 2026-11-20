@@ -6,7 +6,7 @@ import { RoadmapPage } from "./RoadmapPage";
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe("«🚀 Mbare Pilot» (plan 30)", () => {
+describe("«🚀 Mbare Pilot»", () => {
   it("shows the goal, the vision and the board by status", async () => {
     mockApi({
       "GET /roadmap": {

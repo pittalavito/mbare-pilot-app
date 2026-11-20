@@ -1,4 +1,4 @@
-"""«🗺 Genera mappa dei repository» (plan 27): the project's repositories
+"""«🗺 Genera mappa dei repository»: the project's repositories
 read from their files and git (domain/project/repository_map.py), written
 into ``context/repository.md`` (only the generated part changes) and indexed
 for the agents' ``search_context``."""

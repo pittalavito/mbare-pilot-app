@@ -1,4 +1,4 @@
-"""Plan 23: the free search in the project's code and its code reference."""
+"""The free search in the project's code and its code reference."""
 import shutil
 import subprocess
 from datetime import datetime

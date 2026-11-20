@@ -6,10 +6,8 @@ import type { components } from "./schema";
 export type Pipeline = components["schemas"]["PipelineResponse"];
 export type PipelineRequest = components["schemas"]["PipelineRequest"];
 export type Step = components["schemas"]["StepBody"];
-export type StepAgent = components["schemas"]["StepAgentBody"];
 export type Edge = components["schemas"]["EdgeBody"];
 export type Run = components["schemas"]["RunResponse"];
-export type StepRun = components["schemas"]["StepRunResponse"];
 
 export const automationKeys = {
   pipelines: (project: string) => ["projects", project, "pipelines"] as const,
@@ -77,7 +75,6 @@ export function useDeletePipeline(project: string) {
 
 // -------------------------------------------------------------------- YAML
 
-export type AutomationCheck = components["schemas"]["AutomationYamlCheckResponse"];
 
 /** An automation in YAML (the Architect's proposal) validated as a save would; nothing saved. */
 export function useCheckAutomationYaml(project: string, yaml: string) {
@@ -104,11 +101,10 @@ export function useExportAutomationYaml() {
   });
 }
 
-export type LearnDraft = components["schemas"]["LearnDraft"];
 export type LearnedStep = components["schemas"]["LearnedStep"];
 export type LearnRequest = components["schemas"]["LearnRequest"];
 
-/** «✅ Giusto: fanne un'automation» (plan 11): what the agent did right in an answer (404 once its trace expired). */
+/** «✅ Giusto: fanne un'automation»: what the agent did right in an answer (404 once its trace expired). */
 export function useLearnDraft() {
   return useMutation({
     mutationFn: (messageId: number) => unwrap(api.GET("/messages/{message_id}/learn-draft", { params: { path: { message_id: messageId } } })),

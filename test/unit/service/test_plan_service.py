@@ -1,9 +1,8 @@
-"""Plan 18, the steps «Pianifica» and «Lavora»: the Pianificatore (one
+"""The steps «Pianifica» and «Lavora»: the Pianificatore (one
 structured call, fake model) proposes tasks for the items still uncovered,
 creating makes them «to do» (also tasks written by hand), the path derives
 each task's steps from its status and its Copilot session, the round
-started with «Avvia» delegates and approves; a development's Pre and Post
-(plan 34) wait for «Fatto» or «Salta», or are skipped by themselves when empty
+started with «Avvia» delegates and approves; a development's Pre and Post wait for «Fatto» or «Salta», or are skipped by themselves when empty
 and asked."""
 import shutil
 from types import SimpleNamespace
@@ -537,12 +536,12 @@ def test_the_delegations_repository_follows_into_the_plan(service, activity, sto
 
 
 def test_the_pianificatore_searches_the_context_before_answering(service, client, activity):
-    """Plan 26: its YAML gives it search_context; what the search gives back is masked like its input."""
+    """Its YAML gives it search_context; what the search gives back is masked like its input."""
     client.tool_calls = [("search_context", {"question": "come funziona il login su api"})]
     plan = service.propose("acme", activity)
 
     assert client.calls[0]["tools"] == ["search_context"] and len(client.calls) == 2
-    assert client.calls[0]["system_prompt"].endswith("- Progetto: Architettura")  # plan 27: what there is to search
+    assert client.calls[0]["system_prompt"].endswith("- Progetto: Architettura")  # What there is to search
     assert "Architettura" in client.tool_results[0] and "Il login" in client.tool_results[0]
     assert [proposal.title for proposal in plan.proposals][:1] == ["Aggiorna la libreria"]
 
@@ -558,7 +557,7 @@ def test_without_an_index_the_pianificatore_has_no_tools(service, client, activi
 
 
 def test_the_pianificatore_run_keeps_what_the_model_saw(service, activity, run_store, masking_service):
-    """Plan 29: a structured agent's run has its transcript too (masked input, the answer as JSON)."""
+    """A structured agent's run has its transcript too (masked input, the answer as JSON)."""
     from service.run_service import RunService
     plan = service.propose("acme", activity)
     transcript = RunService(run_store, masking_service).transcript(plan.run_id)

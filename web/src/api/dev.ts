@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "./client";
 import type { components } from "./schema";
 
-/** The tests' settings (blocco 09, read by ``run_tests``), the project's
+/** The tests' settings (read by ``run_tests``), the project's
  * Operator and the branches of a repository. */
 
 export type DevSettings = components["schemas"]["DevSettingsResponse"];
@@ -29,18 +29,9 @@ export function useSaveDevSettings(project: string) {
   });
 }
 
-/** The current branch and the local and remote ones of a repository (``""`` = the project folder). */
-export function useBranches(project: string, path: string | null) {
-  return useQuery({
-    queryKey: ["projects", project, "git", "branches", path],
-    queryFn: () => unwrap(api.GET("/projects/{project}/git/branches", { params: { path: { project }, query: { path: path ?? "" } } })),
-    enabled: path !== null,
-  });
-}
 
-export type CommandRequest = components["schemas"]["CommandRequest"];
 
-/** The commands the Operator asked for (plan 11), waiting for an answer: refreshed while the panel is open. */
+/** The commands the Operator asked for, waiting for an answer: refreshed while the panel is open. */
 export function useCommandRequests(project: string, enabled = true) {
   return useQuery({
     queryKey: ["projects", project, "command-requests"],
@@ -63,7 +54,7 @@ export function useAnswerCommand(project: string) {
   });
 }
 
-/** «✋ A mano» (plan 25): one command in a repository of the project; ``allowed`` false = a request to answer, nothing ran. */
+/** «✋ A mano»: one command in a repository of the project; ``allowed`` false = a request to answer, nothing ran. */
 export function useRunCommand(project: string) {
   const queryClient = useQueryClient();
   return useMutation({

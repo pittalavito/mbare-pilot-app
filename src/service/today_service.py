@@ -4,7 +4,7 @@
 - **waiting**: agent tasks created, in refinement or to verify; Copilot
   sessions waiting for the user (planning: Copilot's message is the last one;
   running: a question of ``ask_user`` without an answer); the Pianificatore's
-  plans of activities waiting to be confirmed (plan 12a);
+  plans of activities waiting to be confirmed;
 - **overdue** / **due_soon**: items not done whose due date is past / within
   the project's ``due_soon_days`` (default 3), of activities not done;
 - **to_close**: activities whose items are all done, not done themselves.

@@ -4,8 +4,7 @@
 **What is indexed**: the documents of the project's ``context/`` folder
 (what an activity taught goes in ``context/imparato.md`` when it is closed)
 and, in every project's index with its embedder, the **general context**:
-the ``.md`` of the definitions' ``context/`` folder, how the app works
-(plan 26), as ``general/<name>.md``. The general documents are (re)indexed
+the ``.md`` of the definitions' ``context/`` folder, how the app works, as ``general/<name>.md``. The general documents are (re)indexed
 when a search or «Reindicizza» finds them changed (same ``content_hash`` =
 nothing to embed); a project's piece wins over a general one at equal score.
 
@@ -51,7 +50,7 @@ from service.store.rag_store import RagStore
 
 LIMIT = 5
 EMBEDDING_EUR_PER_1M = {"openai/text-embedding-3-small": 0.02, "openai/text-embedding-3-large": 0.12}
-"""About what OpenRouter asks per million tokens (plan 31: an estimate, as the chat models' catalog; an unknown model costs 0)."""
+"""About what OpenRouter asks per million tokens (an estimate, as the chat models' catalog; an unknown model costs 0)."""
 GENERAL_DIR = "context"
 """The general context, in the definitions (``<data_home>/definition/context/*.md``)."""
 GENERAL_PREFIX = "general/"
@@ -107,7 +106,7 @@ class RagService:
 
     def catalog(self, project_name: str) -> str:
         """The titles of the context documents (the project's, then the general ones), for the end of the system prompt
-        of the agents with ``search_context`` (plan 27): they know what there is to search. ``""`` when there is none."""
+        of the agents with ``search_context``: they know what there is to search. ``""`` when there is none."""
         mine = []
         for item in self._data.list_context(project_name):
             try:
@@ -207,7 +206,7 @@ class RagService:
         return True
 
     def _embed(self, project_name: str, embedder: Embedder, text: str, purpose: str) -> list[float]:
-        """The vector; a remote embedder's tokens and cost recorded for the Metriche page (plan 31)."""
+        """The vector; a remote embedder's tokens and cost recorded for the Metriche page."""
         vector, tokens = embedder.embed_with_usage(text)
         if tokens and self._usage is not None:
             model = embedder.name.removeprefix("openrouter/")

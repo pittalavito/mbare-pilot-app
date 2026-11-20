@@ -1,4 +1,4 @@
-"""The tests of a repository for the «Verifica sviluppo»: which tool (from the
+"""The tests of a repository for ``run_tests``: which tool (from the
 files at its root), the default command, the tests «touched» by a change and
 the failures read back from the output. Pure functions: no filesystem, no
 processes (function/list/run_tests.py runs them).
@@ -57,7 +57,7 @@ def default_command(kind: TestKind, root_files: set[str], windows: bool = os.nam
 
 def install_command(kind: TestKind, root_files: set[str], windows: bool = os.name == "nt") -> str:
     """The clean install of a repository, offered as an allowed command of the
-    Operator (plan 11); ``""`` when the tool is unknown."""
+    Operator; ``""`` when the tool is unknown."""
     if kind is TestKind.MAVEN:
         return default_command(kind, root_files, windows).replace(" test", " clean install")
     if kind is TestKind.PYTHON:

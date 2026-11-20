@@ -1,4 +1,4 @@
-"""Admin → «Richieste di tool» (plan 20): the requests of tools the Architetto
+"""Admin → «Richieste di tool»: the requests of tools the Architetto
 wrote for Claude Code, the token of Claude Code's MCP server (with the command
 to add it) and dismissing a request by hand."""
 from fastapi import APIRouter, Depends

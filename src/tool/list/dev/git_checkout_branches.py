@@ -1,4 +1,4 @@
-"""git_checkout_branches («Prepara sviluppo»): every repository of
+"""git_checkout_branches (a development's Pre): every repository of
 ``targets`` on its branch, up to date. For each line ``<repository>
 <branch> [<base>]`` (domain/dev/inputs.py), after a fetch:
 
@@ -69,7 +69,7 @@ def _prepare(context: ToolContext, project: str, target: PrepareTarget) -> str:
 
 GIT_CHECKOUT_BRANCHES = params_tool(
     "git_checkout_branches",
-    "Puts each given repository on its branch (created from the base when missing) and updates it in fast-forward (the second "
-    "step of «Prepara sviluppo»).",
+    "Puts each given repository on its branch (created from the base when missing) and updates it in fast-forward (useful "
+    "before a development).",
     Params, run, writes=True,
 )

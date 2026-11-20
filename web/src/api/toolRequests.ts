@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "./client";
 import type { components } from "./schema";
 
-/** Admin → «Richieste di tool» (plan 20): the tools the Architetto asked for,
+/** Admin → «Richieste di tool»: the tools the Architetto asked for,
  * worked by Claude Code through its MCP server (/mcp-dev, with a token). */
 
 export type ToolRequest = components["schemas"]["ToolRequest"];

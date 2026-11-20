@@ -1,4 +1,4 @@
-"""«🤖 Automatico» of a development's Pre or Post (plan 25, plan 34): its
+"""«🤖 Automatico» of a development's Pre or Post: its
 commands, one after the other in the task's repository, then its automation,
 without an agent. ``start`` (the user's click) checks the commands against the
 project's allowed list (the others become requests to answer first) and

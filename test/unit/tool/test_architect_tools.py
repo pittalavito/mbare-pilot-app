@@ -1,4 +1,4 @@
-"""Blocco 05: the Architect's tools: tools and agents, the project's
+"""The Architect's tools: tools and agents, the project's
 automations in YAML, the validation of a proposal (nothing saved) and the
 agent task for a missing tool. Only in a chatbot's run of a project."""
 import pytest

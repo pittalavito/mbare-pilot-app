@@ -12,7 +12,7 @@ const BOT = {
   model: "openai/gpt-4o", max_steps: 12, tool_names: ["git_status"], automation_cache: false, origin: "tuo",
 } as Chatbot;
 
-describe("ChatbotDetails (plan 28)", () => {
+describe("ChatbotDetails", () => {
   it("saves the prompt and goes back to the app's default", async () => {
     const saved = vi.fn(async (request: Request) => ({ ...BOT, ...(await request.json()) }));
     const reverted = vi.fn(() => ({ ...BOT, origin: "app" }));

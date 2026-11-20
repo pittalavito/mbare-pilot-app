@@ -101,7 +101,7 @@ STATUS_LABELS = {
 TYPE_LABELS = {TaskType.DEVELOPMENT: "sviluppo", TaskType.ANALYSIS: "analisi", TaskType.CONFLUENCE: "doc confluence", TaskType.JIRA: "task jira"}
 NOTE_PREFIXES_BY_TYPE = {TaskType.ANALYSIS: "analisi-", TaskType.CONFLUENCE: "bozza-confluence-", TaskType.JIRA: "bozza-jira-"}
 """The generic note where Copilot's answer to a plan-only task is saved (``analisi-<task>.md``, ``bozza-confluence-<task>.md``,
-``bozza-jira-<task>.md``: plan 32, the kind in the name)."""
+``bozza-jira-<task>.md``: the kind in the name)."""
 PRIORITY_LABELS = {TodoPriority.HIGH: "alta", TodoPriority.MEDIUM: "media", TodoPriority.LOW: "bassa"}
 ACTIVITY_STATUS_LABELS = {ActivityStatus.TODO: "da fare", ActivityStatus.IN_PROGRESS: "in corso", ActivityStatus.DONE: "fatta"}
 
@@ -111,7 +111,7 @@ _TESTS = "Test:"
 _SECTIONS = {"objective": "Obiettivo", "context": "Contesto", "criteria": "Criteri di accettazione", "constraints": "Vincoli"}
 _REFERENCES = "Riferimenti"
 _PHASES = {Phase.PRE: "Pre", Phase.POST: "Post"}
-"""A development's Pre and Post (plan 34), each a section only when it has something: ``Automation: <name>``,
+"""A development's Pre and Post, each a section only when it has something: ``Automation: <name>``,
 then one bullet per step and one bullet in backticks per command."""
 _AUTOMATION = "Automation:"
 _PUBLISH_SPACE = "Spazio Confluence:"
