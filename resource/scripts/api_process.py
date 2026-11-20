@@ -36,7 +36,8 @@ def start_api(root: Path, url: str) -> subprocess.Popen:
         return subprocess.Popen(
             command, cwd=root, stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
             env={**os.environ, "PYTHONUNBUFFERED": "1"},
-            **({} if sys.platform == "win32" else {"start_new_session": True}),
+            # Windows: no console window (its output is in the log), also when started by the launcher
+            **({"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {"start_new_session": True}),
         )
 
 
