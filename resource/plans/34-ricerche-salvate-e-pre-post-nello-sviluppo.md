@@ -1,6 +1,6 @@
 # Ricerche salvate e pre/post dentro lo sviluppo
 
-Stato: **da realizzare**.
+Stato: **fatto**.
 
 ## Obiettivo
 
@@ -26,6 +26,12 @@ Stato: **da realizzare**.
 - In «➕ Nuova attività» → «📎 Parto da riferimenti», sopra «✨ Proponi», un campo **«Cosa vuoi fare»** (testo libero, facoltativo).
 - Va al Segretario (`bozza-attivita`) insieme ai titoli dei riferimenti e del contesto: è l'intenzione principale da cui proporre titolo, descrizione e voci della todo.
 - «✨ Proponi» si accende anche con la sola descrizione, senza riferimenti.
+
+## Come è fatto
+- Ricerche salvate: `code-searches.yml` nelle definizioni, `Project.code_searches` per progetto, `SavedSearchService`, `GET/PUT/DELETE /code-search/saved`, `POST /code-search/regex` (agente `regex`); UI in `web/src/pages/git/SavedSearches.tsx`.
+- Pre e Post: `AgentTask.pre` e `AgentTask.post` (`DevPhase`), sezioni «## Pre» e «## Post» della nota; nel piano `phases` (`<task>|pre` → fatto o saltato), `operations` per fase e `auto_skip_empty`; `POST …/plan/done`, `…/skip`, `…/auto` con `{task, phase}`.
+- La conferma finale rende il task «fatto» come prima; il giro passa al task dopo quando anche il Post è fatto o saltato. Un task delegato senza passare dal Pre ha il Pre saltato.
+- Il database va ricreato (colonne nuove in `project` e `activity_plan`).
 
 ## Test e documentazione
 - pytest: ricerche salvate (default, progetto, sovrascrittura), agente della regex, riferimento da una ricerca salvata; passi Pre e Post dello sviluppo (automatico, a mano, salta, salto automatico dei vuoti), Pianificatore senza task pre/post; bozza dell'attività con la descrizione (anche da sola).

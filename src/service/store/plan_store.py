@@ -9,7 +9,8 @@ from models.store.db import ActivityPlanTable
 
 def _plan(row: ActivityPlanTable) -> ActivityPlan:
     data = row.model_dump()
-    data.update(errors=data["errors"] or {}, approved=data["approved"] or [], operations=data["operations"] or {})
+    data.update(errors=data["errors"] or {}, approved=data["approved"] or [], operations=data["operations"] or {},
+                phases=data["phases"] or {})
     plan = ActivityPlan.model_validate(data)
     plan.created_at, plan.updated_at = as_utc(plan.created_at), as_utc(plan.updated_at)
     return plan

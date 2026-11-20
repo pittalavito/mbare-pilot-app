@@ -1,35 +1,41 @@
 """«▶️ Lavora attività» (plan 12a): the Pianificatore's plan of an activity
-(the agent tasks to create, in order, with the pre/post development tasks
-around each development, plan 22) and the path of each task, the steps the
-app derives from the task and its Copilot session."""
+(the agent tasks to create, in order; each development with its Pre and Post,
+plan 34) and the path of each task, the steps the app derives from the task,
+its Copilot session and the plan."""
 from datetime import datetime, timezone
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
-from models.domain.note import TaskType
+from models.domain.note import DevPhase, Phase, TaskType
 
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+class PlannedPhase(BaseModel):
+    """A development's Pre or Post as the model proposes it."""
+    steps: list[str] = Field(default_factory=list, description="I passi da fare a parole, uno per voce.")
+    commands: list[str] = Field(default_factory=list, description="I comandi shell da lanciare nel repository, sicuri e ripetibili, "
+                                                                  "uno per voce (es. mvn -B clean install); vuoto se non servono.")
+    automation: str = Field(default="", description="Il nome di un'automation del progetto da lanciare dopo i comandi, una dell'elenco; "
+                                                    "vuoto se non serve.")
+
+
 class PlannedTask(BaseModel):
     """One task as the model proposes it (structured answer)."""
     title: str = Field(description="Titolo breve del task, all'imperativo.")
-    type: TaskType = Field(description="pre_dev (prima di uno sviluppo), development (cambia il codice), post_dev (dopo uno sviluppo), "
-                                       "analysis, confluence oppure jira.")
+    type: TaskType = Field(description="development (cambia il codice), analysis, confluence oppure jira.")
     repository: str = Field("", description="Il repository dove si lavora, uno dell'elenco; vuoto se non serve.")
     items: list[int] = Field(default_factory=list, description="I numeri delle voci da cui nasce; vuoto per un task nuovo.")
     reason: str = Field("", description="Perché questo task, in una riga.")
     objective: str = Field("", description="Obiettivo: cosa deve ottenere, in una o due frasi.")
     criteria: list[str] = Field(default_factory=list, description="Criteri di accettazione, brevi e verificabili.")
-    steps: list[str] = Field(default_factory=list, description="Solo per pre_dev e post_dev: i passi da fare a parole, uno per riga; "
-                                                               "vuoto per gli altri tipi.")
-    commands: list[str] = Field(default_factory=list, description="Solo per pre_dev e post_dev: i comandi shell da lanciare nel repository, "
-                                                                  "uno per voce (es. mvn -B clean install); vuoto per gli altri tipi.")
-    automation: str = Field("", description="Solo per pre_dev e post_dev: il nome di un'automation del progetto da lanciare dopo i comandi, "
-                                            "una dell'elenco; vuoto se non serve.")
+    pre: PlannedPhase = Field(default_factory=PlannedPhase, description="Solo per development: cosa fare prima di delegare "
+                                                                         "(branch, aggiornamento, build); vuoto per gli altri tipi.")
+    post: PlannedPhase = Field(default_factory=PlannedPhase, description="Solo per development: cosa fare dopo lo sviluppo "
+                                                                          "(pulizia, test, commit); vuoto per gli altri tipi.")
 
 
 class PlanAnswer(BaseModel):
@@ -47,7 +53,7 @@ class PlanProposal(PlannedTask):
 
 
 class OperationState(StrEnum):
-    """«🤖 Automatico» of a pre/post development task (plan 25)."""
+    """«🤖 Automatico» of a development's Pre or Post (plan 25, plan 34)."""
     QUEUED = "queued"
     RUNNING = "running"
     FAILED = "failed"
@@ -55,7 +61,7 @@ class OperationState(StrEnum):
 
 
 class OperationRun(BaseModel):
-    """The commands, then the automation, of a pre/post development task, run by the worker without an agent."""
+    """The commands, then the automation, of a development's Pre or Post, run by the worker without an agent."""
     state: OperationState = OperationState.QUEUED
     output: str = ""
     """Each command (``$ command``) with the last lines of its output, then the automation's."""
@@ -63,6 +69,17 @@ class OperationRun(BaseModel):
     """Why it stopped (the command that failed, the automation's error)."""
     pipeline_run_id: int | None = None
     """The automation's run, once queued."""
+
+
+class PhaseState(StrEnum):
+    """How a development's Pre or Post finished (plan 34)."""
+    DONE = "done"
+    SKIPPED = "skipped"
+
+
+def phase_id(task: str, phase: Phase) -> str:
+    """The key of a development's Pre or Post in the plan's ``operations`` and ``phases``."""
+    return f"{task}|{phase.value}"
 
 
 class PlanTask(BaseModel):
@@ -97,7 +114,11 @@ class ActivityPlan(BaseModel):
     approved: list[str] = []
     """The tasks whose plan the round approved by itself (once each)."""
     operations: dict[str, OperationRun] = {}
-    """«🤖 Automatico» of the pre/post development tasks, by task (plan 25)."""
+    """«🤖 Automatico» of the developments' Pre and Post, by ``<task>|pre`` or ``<task>|post`` (plan 25, plan 34)."""
+    phases: dict[str, PhaseState] = {}
+    """The Pre and Post finished, by ``<task>|pre`` or ``<task>|post``: done or skipped (plan 34)."""
+    auto_skip_empty: bool = False
+    """The round skips by itself the Pre and Post without commands nor automation (plan 34)."""
     created_at: datetime = Field(default_factory=_utc_now)
     updated_at: datetime = Field(default_factory=_utc_now)
 
@@ -113,12 +134,10 @@ class PlanChoice(BaseModel):
     repository: str = ""
     objective: str = ""
     criteria: list[str] = []
-    steps: list[str] = []
-    """The suggested steps of a pre/post development task."""
-    commands: list[str] = []
-    """The commands of a pre/post development task."""
-    automation: str = ""
-    """The automation of a pre/post development task."""
+    pre: DevPhase = DevPhase()
+    """A development's Pre (plan 34)."""
+    post: DevPhase = DevPhase()
+    """A development's Post (plan 34)."""
     references: list[str] | None = None
     """The references to link (plan 33: the ones not needed taken off); None = all the activity's."""
 
@@ -134,6 +153,8 @@ class StepState(StrEnum):
 
 
 class StepKey(StrEnum):
+    PRE = "pre"
+    """A development's Pre (plan 34): «🤖 Automatico» (commands and automation, or Dev) or by hand, then «Fatto»; or «Salta»."""
     DELEGATE = "delegate"
     """The delegation to Copilot (its first planning turn)."""
     COPILOT_PLAN = "copilot_plan"
@@ -143,22 +164,25 @@ class StepKey(StrEnum):
     """Copilot's answer, saved as a note (the types that do not change the code)."""
     FINAL = "final"
     """«Conferma finale» of the changes: the task becomes done."""
-    OPERATION = "operation"
-    """A pre/post development task (plan 22): «🤖 Automatico» (commands and automation, or Dev) or by hand, then «Fatto»."""
+    POST = "post"
+    """A development's Post (plan 34), after the final confirmation: like Pre."""
     PUBLISH = "publish"
     """A Confluence or Jira task (plan 33): the draft saved, «📤 Pubblica» (the draft editable); then it is done."""
 
 
 STEP_LABELS: dict[StepKey, str] = {
+    StepKey.PRE: "Pre",
     StepKey.DELEGATE: "Delega a Copilot",
     StepKey.COPILOT_PLAN: "Piano di Copilot",
     StepKey.EXECUTION: "Esecuzione",
     StepKey.ANSWER: "Risposta di Copilot",
     StepKey.FINAL: "Conferma finale",
-    StepKey.OPERATION: "Automatico o a mano",
+    StepKey.POST: "Post",
     StepKey.PUBLISH: "Pubblica",
 }
 
+
+PHASE_STEPS: dict[Phase, StepKey] = {Phase.PRE: StepKey.PRE, Phase.POST: StepKey.POST}
 
 RETRYABLE: set[StepKey] = {StepKey.DELEGATE}
 """The failed steps the user can run again."""
@@ -198,5 +222,7 @@ class ActivityPath(BaseModel):
 
 
 class PlanOptions(BaseModel):
-    """How the round goes: the automatic ok to Copilot's plan."""
+    """How the round goes: the automatic ok to Copilot's plan, the empty Pre and Post skipped by themselves.
+    Only the options sent change."""
     auto_approve: bool = False
+    auto_skip_empty: bool = False

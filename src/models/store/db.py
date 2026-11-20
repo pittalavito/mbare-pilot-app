@@ -387,6 +387,9 @@ class ActivityPlanTable(SQLModel, table=True):
     auto_approve: bool = False
     approved: list[str] | None = Field(default=None, sa_type=JSON)
     operations: dict | None = Field(default=None, sa_type=JSON)
+    phases: dict | None = Field(default=None, sa_type=JSON)
+    """Pre and Post of the developments (plan 34): ``<task>|pre`` → done or skipped."""
+    auto_skip_empty: bool = False
     created_at: datetime = _timestamp()
     updated_at: datetime = _timestamp()
 

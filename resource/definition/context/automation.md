@@ -1,6 +1,6 @@
 # Automation
 
-Un'automation è un grafo di step che il worker esegue: si salva nel progetto e si lancia a mano, da un task pre/post sviluppo o da un chatbot.
+Un'automation è un grafo di step che il worker esegue: si salva nel progetto e si lancia a mano, dal pre o dal post di uno sviluppo o da un chatbot.
 
 ## Step
 - **tool**: un tool dell'app con i suoi argomenti, senza LLM (es. `git_status`, `save_note`).

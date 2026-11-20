@@ -93,24 +93,38 @@ export function useRetryStep(project: string, activity: string) {
   });
 }
 
-/** «✅ Fatto» on a pre/post development task (plan 22): done by Dev or by hand, the round goes on. */
+/** A development's Pre or Post (plan 34). */
+export type Phase = "pre" | "post";
+export type PhaseBody = { task: string; phase: Phase };
+
+/** «✅ Fatto» on a development's Pre or Post (plan 34): done by hand or by Dev, the round goes on. */
 export function useMarkDone(project: string, activity: string) {
   const refresh = useRefresh(project, activity);
   return useMutation({
-    mutationFn: (task: string) =>
-      unwrap(api.POST("/projects/{project}/activities/{activity}/plan/done", { params: { path: { project, activity } }, body: { task } })),
+    mutationFn: (body: PhaseBody) =>
+      unwrap(api.POST("/projects/{project}/activities/{activity}/plan/done", { params: { path: { project, activity } }, body })),
     onSuccess: refresh,
   });
 }
 
-/** «🤖 Automatico» on a pre/post development task (plan 25): its commands, then its automation, run by the worker;
+/** «⏭ Salta» on a development's Pre or Post (plan 34): nothing to do this time. */
+export function useSkipPhase(project: string, activity: string) {
+  const refresh = useRefresh(project, activity);
+  return useMutation({
+    mutationFn: (body: PhaseBody) =>
+      unwrap(api.POST("/projects/{project}/activities/{activity}/plan/skip", { params: { path: { project, activity } }, body })),
+    onSuccess: refresh,
+  });
+}
+
+/** «🤖 Automatico» on a development's Pre or Post (plan 25, plan 34): its commands, then its automation, run by the worker;
  * ``pending_commands`` = commands not allowed, nothing started (answer them, then again). */
 export function useStartAuto(project: string, activity: string) {
   const refresh = useRefresh(project, activity);
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (task: string) =>
-      unwrap(api.POST("/projects/{project}/activities/{activity}/plan/auto", { params: { path: { project, activity } }, body: { task } })),
+    mutationFn: (body: PhaseBody) =>
+      unwrap(api.POST("/projects/{project}/activities/{activity}/plan/auto", { params: { path: { project, activity } }, body })),
     onSuccess: () => {
       refresh();
       queryClient.invalidateQueries({ queryKey: ["projects", project, "command-requests"] });
@@ -122,12 +136,12 @@ export type OperationRun = components["schemas"]["OperationRun"];
 
 export type PlanOptions = components["schemas"]["PlanOptions"];
 
-/** The automatic ok to Copilot's plan. */
+/** The automatic ok to Copilot's plan, the empty Pre and Post skipped by the round (only the options sent change). */
 export function useSetPlanOptions(project: string, activity: string) {
   const refresh = useRefresh(project, activity);
   return useMutation({
-    mutationFn: (body: PlanOptions) =>
-      unwrap(api.POST("/projects/{project}/activities/{activity}/plan/options", { params: { path: { project, activity } }, body })),
+    mutationFn: (body: Partial<PlanOptions>) =>
+      unwrap(api.POST("/projects/{project}/activities/{activity}/plan/options", { params: { path: { project, activity } }, body: body as PlanOptions })),
     onSuccess: refresh,
   });
 }

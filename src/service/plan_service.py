@@ -6,26 +6,29 @@
    without a task (numbered), the titles of its references, the project's
    repositories, the task types, the project's development rules
    (``context/sviluppo.md``, plan 22) and the 3 nearest pieces of the context
-   index. Around each development it proposes a **pre** and a **post
-   development** task with their steps. Masked like «Elabora WIP»; the
+   index. Each development comes with its **Pre** and **Post** (plan 34:
+   steps, commands, automation) inside it. Masked like «Elabora WIP»; the
    proposals come back in clear. A proposal on items that do not exist loses
    them; one without items is «new». The activity has **one plan**: the
    proposals wait in it next to the tasks already created.
 2. **Create** (no LLM): the chosen proposals, as corrected, and the tasks
    written by hand, in the given order, become agent tasks **«to do»** with
-   objective, criteria and steps, linked to their items (a new one gets its
+   objective, criteria, Pre and Post, linked to their items (a new one gets its
    item first) and to the activity, appended to the plan's tasks. The activity
    goes «in progress».
 3. **Path** (no LLM): for each task its steps, derived from the task's status
    and its latest Copilot session: delegation, Copilot's plan, execution, final
-   confirmation (developments), or Copilot's answer (the types that do not
-   change the code), or «Automatico o a mano» (pre/post development: never Copilot; plan 25).
-   The steps waiting for the user are the control points.
+   confirmation (developments, between their Pre and Post: plan 34), or
+   Copilot's answer (the types that do not change the code). Pre and Post are
+   never Copilot's: «🤖 Automatico» (plan 25), by hand or by Dev, then «Fatto»; or «Salta».
+   The steps waiting for the user are the control points. A development is
+   finished when it is done and its Post is done or skipped.
 4. **Round** (the worker, no LLM of its own): started with «▶️ Avvia», stopped
    with «⏸ Pausa». At the current task (a task moved back to refinement waits)
    it delegates with Copilot's defaults and gives the ok to Copilot's plan only
-   with ``auto_approve``. A pre/post development task waits for «✅ Fatto»
-   (``mark_done``). Nothing runs by itself before or after Copilot (plan 22).
+   with ``auto_approve``. Pre and Post wait for «✅ Fatto» (``mark_done``) or
+   «⏭ Salta» (``skip``); with ``auto_skip_empty`` the round skips the ones without
+   commands nor automation. Nothing runs by itself before or after Copilot.
 5. Once no task is left, the **summary** composed by the code (step «Chiudi»)."""
 import copy
 import json
@@ -41,8 +44,9 @@ from domain.project.data_paths import note_file_name
 from models.domain.agent import RunOrigin
 from models.domain.copilot import CopilotSession, CopilotSessionStatus
 from models.domain.masking import MaskCategory
-from models.domain.note import Activity, ActivityStatus, AgentTask, ChecklistItem, TaskStatus, TaskType, TodoItem
+from models.domain.note import Activity, ActivityStatus, AgentTask, ChecklistItem, DevPhase, Phase, TaskStatus, TaskType, TodoItem
 from models.domain.plan import (
+    PHASE_STEPS,
     RETRYABLE,
     STEP_LABELS,
     ActivityPath,
@@ -50,13 +54,16 @@ from models.domain.plan import (
     OperationState,
     PathStep,
     PathTask,
+    PhaseState,
     PlanAnswer,
     PlanChoice,
+    PlannedPhase,
     PlanOptions,
     PlanProposal,
     PlanTask,
     StepKey,
     StepState,
+    phase_id,
     step_id,
 )
 from service.copilot_service import CopilotService, output_note_name
@@ -74,14 +81,12 @@ CONTEXT_PIECES = 3
 """How many pieces of the context index the Pianificatore reads."""
 _PIECE_CHARS = 500
 RULES_DOCUMENT = "sviluppo.md"
-"""The project's development rules (context/sviluppo.md): what to do before and after each development."""
+"""The project's development rules (context/sviluppo.md): what to do in each development's Pre and Post."""
 _RULES_CHARS = 4000
-TYPE_WORDS = {TaskType.DEVELOPMENT: "sviluppo", TaskType.ANALYSIS: "analisi", TaskType.CONFLUENCE: "Confluence", TaskType.JIRA: "Jira",
-              TaskType.PRE_DEV: "pre sviluppo", TaskType.POST_DEV: "post sviluppo"}
-_TYPES = ("pre_dev (prima di uno sviluppo: branch, aggiornamento, build), development (cambia il codice), post_dev (dopo uno sviluppo: "
-          "pulizia della cartella mbare-pilot/<task>/, test, commit), analysis (analisi del codice), confluence (pagina Confluence), jira (issue Jira)")
-_DEFAULT_RULES = ("Nessuna regola scritta: prima di ogni sviluppo un pre_dev (branch feature/<task> dal branch corrente, aggiornato, build), "
-                  "dopo ogni sviluppo un post_dev (togli la cartella mbare-pilot/<task>/, lancia i test).")
+TYPE_WORDS = {TaskType.DEVELOPMENT: "sviluppo", TaskType.ANALYSIS: "analisi", TaskType.CONFLUENCE: "Confluence", TaskType.JIRA: "Jira"}
+_TYPES = ("development (cambia il codice, con pre e post), analysis (analisi del codice), confluence (pagina Confluence), jira (issue Jira)")
+_DEFAULT_RULES = ("Nessuna regola scritta: nel pre di ogni sviluppo branch feature/<task> dal branch corrente, aggiornato, build; "
+                  "nel post togli la cartella mbare-pilot/<task>/ e lancia i test.")
 
 
 class PlanService:
@@ -152,7 +157,7 @@ class PlanService:
         return [wrapped]
 
     def _automations(self, project_name: str) -> dict[str, str]:
-        """The project's automations that can be started, name → description (the Pianificatore picks one for a pre/post task)."""
+        """The project's automations that can be started, name → description (the Pianificatore picks one for a Pre or Post)."""
         if self._pipelines is None:
             return {}
         return {pipeline.name: pipeline.description for pipeline in self._pipelines.runnable_pipelines(project_name)}
@@ -205,7 +210,7 @@ class PlanService:
                 title=choice.title.strip(), status=TaskStatus.TODO, type=choice.type, objective=choice.objective.strip(), context=context,
                 criteria=[ChecklistItem(text=text.strip()) for text in choice.criteria if text.strip()],
                 references=activity.references if choice.references is None else [name for name in choice.references if name in activity.references],
-                **_operation_fields(choice)))
+                **_phase_fields(choice)))
             for number in items:
                 self._data.link_item(project_name, plan.activity, number, task)
             self._data.link_agent_task(project_name, plan.activity, task)
@@ -254,7 +259,7 @@ class PlanService:
         sessions = self._copilot.sessions(plan.project_name) if self._copilot else []
         result = [self._path_task(plan, planned, tasks.get(planned.task), next((item for item in sessions if item.task_note == planned.task), None))
                   for planned in plan.tasks]
-        current = next((item for item in result if item.status not in (TaskStatus.DONE.value, "missing")), None)
+        current = next((item for item in result if not _finished(item)), None)
         if current is not None:
             current.current = True
         return result
@@ -267,12 +272,9 @@ class PlanService:
 
     def _steps(self, plan: ActivityPlan, planned: PlanTask, task: AgentTask, session: CopilotSession | None) -> list[PathStep]:
         done = task.status is TaskStatus.DONE
-        if task.type.operations:  # «🤖 Automatico» or by hand, then «Fatto»
-            run = plan.operations.get(planned.task)
-            state = StepState.DONE if done else {OperationState.QUEUED: StepState.RUNNING, OperationState.RUNNING: StepState.RUNNING,
-                                                  OperationState.FAILED: StepState.FAILED}.get(run.state, StepState.YOU) if run else StepState.YOU
-            return _path_steps([(StepKey.OPERATION, state, run.error if run and state is StepState.FAILED else "")])
         steps: list[tuple[StepKey, StepState, str]] = []
+        if task.type.phases:  # plan 34: Pre, before the delegation (passed by when the task was delegated without it)
+            steps.append(_phase_step(plan, planned.task, Phase.PRE, passed=bool(session) or done, ready=True))
         error = plan.errors.get(step_id(planned.task, StepKey.DELEGATE), "")
         if error:
             steps.append((StepKey.DELEGATE, StepState.FAILED, error))
@@ -299,6 +301,8 @@ class PlanService:
         steps.append((StepKey.EXECUTION, execution, session.error or "" if session else ""))
         final = StepState.DONE if done else StepState.YOU if task.status is TaskStatus.TO_VERIFY else StepState.TODO
         steps.append((StepKey.FINAL, final, ""))
+        if task.type.phases:  # plan 34: Post, after the final confirmation
+            steps.append(_phase_step(plan, planned.task, Phase.POST, passed=False, ready=done))
         return _path_steps(steps)
 
     # ------------------------------------------------------------- controls
@@ -307,8 +311,8 @@ class PlanService:
         return self._plans.save(self._with_tasks(project_name, activity_name).model_copy(update={"paused": paused}))
 
     def set_options(self, project_name: str, activity_name: str, options: PlanOptions) -> ActivityPlan:
-        """How the round goes: the automatic ok to Copilot's plan."""
-        return self._plans.save(self.plan(project_name, activity_name).model_copy(update=options.model_dump()))
+        """How the round goes: the automatic ok to Copilot's plan, the empty Pre and Post skipped (only the options sent)."""
+        return self._plans.save(self.plan(project_name, activity_name).model_copy(update=options.model_dump(exclude_unset=True)))
 
     def retry(self, project_name: str, activity_name: str, task: str, step: StepKey) -> ActivityPlan:
         """Run a failed delegation again, at the round's next turn."""
@@ -316,15 +320,22 @@ class PlanService:
         key = step_id(task, step)
         return self._plans.save(plan.model_copy(update={"errors": {item: text for item, text in plan.errors.items() if item != key}}))
 
-    def mark_done(self, project_name: str, activity_name: str, task: str) -> ActivityPlan:
-        """«✅ Fatto» on a pre/post development task: done by Dev or by hand, the round goes on."""
-        plan = self._step_of(project_name, activity_name, task, StepKey.OPERATION, {StepKey.OPERATION}, "chiudere")
-        current = self._data.agent_task(project_name, task)
-        if not current.type.operations:
-            raise ValidationError("«Fatto» vale solo per un task pre o post sviluppo: gli altri li chiude il loro passo.")
-        if current.status is not TaskStatus.DONE:
-            self._data.save_agent_task(project_name, task, current.model_copy(update={"status": TaskStatus.DONE}))
-        return plan
+    def mark_done(self, project_name: str, activity_name: str, task: str, phase: Phase) -> ActivityPlan:
+        """«✅ Fatto» on a development's Pre or Post: done by hand or by Dev, the round goes on."""
+        return self._finish_phase(project_name, activity_name, task, phase, PhaseState.DONE)
+
+    def skip(self, project_name: str, activity_name: str, task: str, phase: Phase) -> ActivityPlan:
+        """«⏭ Salta» on a development's Pre or Post: nothing to do this time."""
+        return self._finish_phase(project_name, activity_name, task, phase, PhaseState.SKIPPED)
+
+    def _finish_phase(self, project_name: str, activity_name: str, task: str, phase: Phase, state: PhaseState) -> ActivityPlan:
+        plan = self._step_of(project_name, activity_name, task, PHASE_STEPS[phase], set(PHASE_STEPS.values()), "chiudere")
+        if not self._data.agent_task(project_name, task).type.phases:
+            raise ValidationError("Pre e Post ci sono solo nei task di sviluppo.")
+        run = plan.operations.get(phase_id(task, phase))
+        if run and run.state in (OperationState.QUEUED, OperationState.RUNNING):
+            raise ConflictError("L'automatico sta girando: aspetta che finisca.")
+        return self._plans.save(plan.model_copy(update={"phases": {**plan.phases, phase_id(task, phase): state}}))
 
     def _with_tasks(self, project_name: str, activity_name: str) -> ActivityPlan:
         plan = self._plans.latest(project_name, note_file_name(activity_name))
@@ -352,14 +363,20 @@ class PlanService:
         return moved
 
     def advance(self, plan: ActivityPlan) -> int:
-        """At the current task: delegate it and give the ok to Copilot's plan (with ``auto_approve``).
-        1 when it did something; the rest waits for the user (a pre/post development task: «Fatto»)."""
+        """At the current task: skip an empty Pre or Post (with ``auto_skip_empty``), delegate it and give the ok to
+        Copilot's plan (with ``auto_approve``). 1 when it did something; the rest waits for the user (Pre and Post: «Fatto»)."""
         if plan.paused or not plan.tasks or self._copilot is None:
             return 0
         current = next((item for item in self._tasks(plan) if item.current), None)
         if current is None or not TaskStatus(current.status).is_refined:
             return 0
         states = {step.key: step.state for step in current.steps}
+        for phase, key in PHASE_STEPS.items():
+            if states.get(key) is StepState.YOU:
+                if plan.auto_skip_empty and self._phase(plan.project_name, current.task, phase).empty:
+                    self._plans.save(plan.model_copy(update={"phases": {**plan.phases, phase_id(current.task, phase): PhaseState.SKIPPED}}))
+                    return 1
+                return 0
         if states.get(StepKey.DELEGATE) is StepState.TODO:
             self._delegate(plan, current)
             return 1
@@ -372,6 +389,10 @@ class PlanService:
             self._plans.save(plan.model_copy(update={"approved": [*plan.approved, current.task]}))
             return 1
         return 0
+
+    def _phase(self, project_name: str, task: str, phase: Phase) -> DevPhase:
+        current = self._data.agent_task(project_name, task)
+        return current.pre if phase is Phase.PRE else current.post
 
     def _delegate(self, plan: ActivityPlan, current: PathTask) -> None:
         """Delegation with Copilot's default prompt and model; a failure is the step's error.
@@ -443,12 +464,39 @@ def _path_steps(steps: list[tuple[StepKey, StepState, str]]) -> list[PathStep]:
     return [PathStep(key=key, label=STEP_LABELS[key], state=state, detail=detail) for key, state, detail in steps]
 
 
-def _operation_fields(choice: PlanChoice) -> dict:
-    """Steps, commands and automation: only a pre/post development task has them."""
-    if not choice.type.operations:
-        return {}
+def _finished(task: PathTask) -> bool:
+    """Done (a development also past its Post) or deleted: the round goes past it."""
+    return task.status == "missing" or (task.status == TaskStatus.DONE.value
+                                        and all(step.state in (StepState.DONE, StepState.SKIPPED) for step in task.steps if step.key is StepKey.POST))
+
+
+def _phase_step(plan: ActivityPlan, task: str, phase: Phase, passed: bool, ready: bool) -> tuple[StepKey, StepState, str]:
+    """A development's Pre or Post: done or skipped as the plan says, «🤖 Automatico» running or failed, waiting for
+    the user once ``ready``; a Pre the task went past without it (``passed``) is skipped."""
+    key = phase_id(task, phase)
+    finished = plan.phases.get(key)
+    if finished is not None:
+        return PHASE_STEPS[phase], StepState.DONE if finished is PhaseState.DONE else StepState.SKIPPED, ""
+    if passed:
+        return PHASE_STEPS[phase], StepState.SKIPPED, ""
+    run = plan.operations.get(key)
+    if run and run.state in (OperationState.QUEUED, OperationState.RUNNING):
+        return PHASE_STEPS[phase], StepState.RUNNING, ""
+    if run and run.state is OperationState.FAILED:
+        return PHASE_STEPS[phase], StepState.FAILED, run.error
+    return PHASE_STEPS[phase], StepState.YOU if ready else StepState.TODO, ""
+
+
+def clean_phase(phase: DevPhase) -> DevPhase:
     clean = lambda values: [value.strip() for value in values if value.strip()]  # noqa: E731
-    return {"steps": clean(choice.steps), "commands": clean(choice.commands), "automation": choice.automation.strip()}
+    return DevPhase(steps=clean(phase.steps), commands=clean(phase.commands), automation=phase.automation.strip())
+
+
+def _phase_fields(choice: PlanChoice) -> dict:
+    """Pre and Post: only a development has them."""
+    if not choice.type.phases:
+        return {}
+    return {"pre": clean_phase(choice.pre), "post": clean_phase(choice.post)}
 
 
 def model_input(activity: Activity, items: dict[int, str], repositories: list[str], context: list[str], references: list[str] | None = None,
@@ -463,8 +511,8 @@ def model_input(activity: Activity, items: dict[int, str], repositories: list[st
     lines += [f"{number}. {text}" for number, text in items.items()] or ["(nessuna)"]
     lines.append("\nRepository: " + (", ".join(path or "(cartella del progetto)" for path in repositories) or "(nessuno)"))
     lines.append(f"Tipi di task: {_TYPES}")
-    lines.append(f"\nRegole di sviluppo del progetto (prima e dopo ogni sviluppo):\n{rules}" if rules else f"\n{_DEFAULT_RULES}")
-    lines.append("\nAutomation del progetto (per pre_dev e post_dev):")
+    lines.append(f"\nRegole di sviluppo del progetto (pre e post di ogni sviluppo):\n{rules}" if rules else f"\n{_DEFAULT_RULES}")
+    lines.append("\nAutomation del progetto (per pre e post):")
     lines += [f"- {name}: {' '.join(description.split())}" if description.strip() else f"- {name}" for name, description in (automations or {}).items()] or [
         "(nessuna)"]
     if context:
@@ -487,8 +535,14 @@ def to_proposals(answer: PlanAnswer, items: dict[int, str], repositories: list[s
             id=len(proposals) + 1, title=title, type=raw.type, repository=repository if repository in repositories else "",
             items=numbers, item_texts=[items[number] for number in numbers], new=not numbers, reason=clear(raw.reason),
             objective=clear(raw.objective), criteria=[clear(text) for text in raw.criteria if text.strip()],
-            steps=[clear(text) for text in raw.steps if text.strip()] if raw.type.operations else [],
-            commands=[clear(text) for text in raw.commands if text.strip()] if raw.type.operations else [],
-            automation=automation if raw.type.operations and (automation := clear(raw.automation)) in (automations or []) else "",
+            pre=_clear_phase(raw.pre, clear, automations) if raw.type.phases else PlannedPhase(),
+            post=_clear_phase(raw.post, clear, automations) if raw.type.phases else PlannedPhase(),
         ))
     return proposals
+
+
+def _clear_phase(raw: PlannedPhase, clear, automations: list[str] | None) -> PlannedPhase:
+    """A Pre or Post in clear; an automation not in the project is left empty."""
+    automation = clear(raw.automation)
+    return PlannedPhase(steps=[clear(text) for text in raw.steps if text.strip()], commands=[clear(text) for text in raw.commands if text.strip()],
+                        automation=automation if automation in (automations or []) else "")

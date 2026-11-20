@@ -19,7 +19,7 @@ class DevSettingsResponse(DevSettings):
     suggested_commands: list[str]
     """The detected install and test commands not allowed yet: offered with a click."""
     operator_chatbot_id: int | None
-    """The project's Operator (Dev, for the pre/post development tasks); None = the project's first one."""
+    """The project's Operator (Dev, for the developments' Pre and Post); None = the project's first one."""
 
 
 class DevSettingsRequest(BaseModel):

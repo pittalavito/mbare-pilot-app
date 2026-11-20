@@ -11,10 +11,11 @@ Le definizioni dell'app, versionate con il codice (piano 28): l'app le legge da 
 | File | Cosa |
 |---|---|
 | `roadmap.yml` | la bacheca «🚀 Mbare Pilot» (piano 30): le attività future dell'app verso la demo |
+| `code-searches.yml` | le ricerche salvate nel codice di ogni progetto (piano 34): TODO, FIXME, Commenti Mbare Pilot |
 | `global-coding-agent.yml` | prompt, divieti e modelli (con i prezzi) di Copilot: **senza questo Copilot non parte** |
 | `coding-agent/bugfix.md` | un prompt di preparazione da scegliere quando deleghi un bug |
 | `coding-agent/analisi.md` | il prompt dei task di tipo analisi (`type_prompts`): Copilot legge e risponde, senza cambiare il codice |
-| `global-agent.yml` | gli agenti della Libreria: l'esempio `hello` e quelli che l'app chiama da sola con risposta strutturata (`wip`, `pianificatore`, `bozza-attivita`) |
+| `global-agent.yml` | gli agenti della Libreria: l'esempio `hello` e quelli che l'app chiama da sola con risposta strutturata (`wip`, `pianificatore`, `bozza-attivita`, `imparato`, `regex`) |
 | `global-chat-bots.yml` | i chatbot di ogni progetto (salvo stesso nome nel progetto): qui quello delle automation |
 | `global-automation.yml` | «Prova git»: stato git di tutti i repository salvato in una nota, poi stop (le altre si rifanno poco alla volta) |
 | `context/*.md` | Il contesto generale per gli agenti (piano 26): come funziona l'app, un file per tema; si cerca con `search_context` in ogni progetto |

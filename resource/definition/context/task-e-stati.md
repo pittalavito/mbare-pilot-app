@@ -3,15 +3,13 @@
 Un agent task è una nota del progetto (`agent-task-<titolo>.md`) che descrive un lavoro da fare. Lo creano l'utente, il Segretario o il Pianificatore.
 
 ## Tipi di task
-- **development**: uno sviluppo che cambia il codice. Lo esegue Copilot.
+- **development**: uno sviluppo che cambia il codice. Lo esegue Copilot, tra il suo pre e il suo post.
 - **analysis**: un'analisi del codice. Copilot risponde con una nota (`analisi-<task>.md`), non cambia il codice.
 - **confluence**: la bozza di una pagina Confluence. Copilot scrive la bozza in una nota (`bozza-<task>.md`).
 - **jira**: la rifinitura di una issue Jira. Copilot scrive la bozza in una nota.
-- **pre_dev** (pre sviluppo): il lavoro sui repository prima di uno sviluppo (branch, aggiornamento, build). Mai Copilot.
-- **post_dev** (post sviluppo): il lavoro dopo uno sviluppo (pulizia della cartella `mbare-pilot/<task>/`, test, commit se le regole lo dicono). Mai Copilot.
 
 ## Campi di un task
-Titolo, tipo, obiettivo, contesto, criteri di accettazione (una checklist), vincoli, riferimenti collegati. I task pre e post sviluppo hanno in più i passi suggeriti (a parole), i comandi (uno per riga) e un'automation del progetto. Un task post sviluppo può dire quali test lanciare (tutti o solo quelli toccati).
+Titolo, tipo, obiettivo, contesto, criteri di accettazione (una checklist), vincoli, riferimenti collegati. Uno sviluppo ha in più il **pre** (prima della delega: branch, aggiornamento, build) e il **post** (dopo la conferma: pulizia della cartella `mbare-pilot/<task>/`, test, commit se le regole lo dicono), ognuno con passi a parole, comandi (uno per riga) e un'automation del progetto; mai Copilot. Uno sviluppo può dire quali test lanciare (tutti o solo quelli toccati).
 
 ## Stati
 - **creato**: appena scritto, ancora da rifinire.

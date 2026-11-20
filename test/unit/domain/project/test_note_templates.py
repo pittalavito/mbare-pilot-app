@@ -6,7 +6,7 @@ import pytest
 
 from domain.project.data_paths import note_type, typed_note_file_name
 from domain.project.note_templates import parse_activity, parse_agent_task, render_activity, render_agent_task
-from models.domain.note import Activity, ActivityStatus, AgentTask, ChecklistItem, NoteType, TaskStatus, TaskType, TodoItem, TodoPriority
+from models.domain.note import Activity, ActivityStatus, AgentTask, ChecklistItem, DevPhase, NoteType, TaskStatus, TaskType, TodoItem, TodoPriority
 
 TASK = AgentTask(
     title="Refactor del login", status=TaskStatus.IN_PROGRESS, objective="Spostare l'auth nel service.\nSenza fretta.",
@@ -57,23 +57,23 @@ def test_the_new_types_and_status_are_written_in_italian():
     assert parse_agent_task("# Storia\n\nTipo: Task Jira\n", "x").type == TaskType.JIRA
 
 
-def test_only_a_development_is_executed_by_copilot():
-    assert [kind for kind in TaskType if not kind.plan_only and not kind.operations] == [TaskType.DEVELOPMENT]
-    assert [kind for kind in TaskType if kind.operations] == [TaskType.PRE_DEV, TaskType.POST_DEV]
+def test_only_a_development_is_executed_by_copilot_and_has_pre_and_post():
+    assert [kind for kind in TaskType if not kind.plan_only] == [TaskType.DEVELOPMENT]
+    assert [kind for kind in TaskType if kind.phases] == [TaskType.DEVELOPMENT]
 
 
-def test_a_pre_development_task_keeps_its_suggested_steps():
-    task = AgentTask(title="Branch", type=TaskType.PRE_DEV, steps=["git checkout -b feature/x", "mvn -B clean install"])
+def test_a_development_keeps_its_pre_and_post():
+    task = AgentTask(title="Login", pre=DevPhase(steps=["Branch dal main"], commands=["git switch -c feature/x"], automation="Prova git"),
+                     post=DevPhase(commands=["mvn -B test", "git status"]))
     text = render_agent_task(task)
-    assert "Tipo: pre sviluppo" in text and "## Passi suggeriti\n- git checkout -b feature/x\n- mvn -B clean install" in text
+    assert "## Pre\nAutomation: Prova git\n- Branch dal main\n- `git switch -c feature/x`\n\n## Post\n- `mvn -B test`\n- `git status`" in text
     assert parse_agent_task(text, "x") == task
 
 
-def test_a_pre_development_task_keeps_its_commands_and_automation():
-    task = AgentTask(title="Build", type=TaskType.POST_DEV, steps=["pulisci"], commands=["mvn -B clean install", "git pull"], automation="Prova git")
-    text = render_agent_task(task)
-    assert "Automation: Prova git" in text and "## Comandi\n- `mvn -B clean install`\n- `git pull`" in text
-    assert parse_agent_task(text, "x") == task
+def test_an_empty_pre_and_post_are_not_written():
+    text = render_agent_task(AgentTask(title="Login"))
+    assert "## Pre" not in text and "## Post" not in text
+    assert DevPhase(steps=["a mano"]).empty and not DevPhase(automation="x").empty
 
 
 def test_a_confluence_task_keeps_where_to_publish():

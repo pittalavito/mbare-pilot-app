@@ -19,7 +19,7 @@ def build(context: ToolContext) -> Tool:
     @tool(name="search_context", description=(
         "Search the context for a question: the project's (architecture, conventions, decisions, runbooks, glossary, lessons "
         "of done activities; origin 'progetto') and how this app works (task types and states, activities and their round, "
-        "Copilot, pre/post development tasks, references, automations, tools; origin 'generale'). The best pieces with their "
+        "Copilot, the developments' pre and post, references, automations, tools; origin 'generale'). The best pieces with their "
         "document and section. Write a specific question; the project's context wins over the general one; cite what you use."
     ))
     def search_context(question: Annotated[str, "What you want to know, in a sentence."]) -> SearchContextResponse | ToolErrorResponse:

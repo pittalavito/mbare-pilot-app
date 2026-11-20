@@ -4,7 +4,7 @@
 Il comando non è nella lista dei permessi del progetto: non è partito ed è diventato una richiesta. Dillo all'utente con il comando esatto; lui risponde «Sempre», «Solo stavolta» o «No» (nel pannello dell'agente o sotto la riga del task). Poi si rilancia. Non provare comandi simili per aggirare il permesso.
 
 ## Comando fallito
-Il comando è partito ed è uscito con un errore. Fermati, riporta le ultime righe dell'output e il codice d'uscita; non rilanciare a caso. L'automatico di un task pre/post si ferma al primo errore: il task resta da fare.
+Il comando è partito ed è uscito con un errore. Fermati, riporta le ultime righe dell'output e il codice d'uscita; non rilanciare a caso. L'automatico del pre o del post si ferma al primo errore: il passo resta da fare.
 
 ## Delega a Copilot fallita
 Il passo «Delega a Copilot» è fallito (repository sbagliato, Copilot non configurato, worker fermo). L'errore è sul passo; si corregge e si preme «🔁 Riprova» o si delega a mano.

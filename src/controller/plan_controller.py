@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from controller.dependencies import activity_close_service, operation_service, plan_service
 from models.domain.activity_close import ActivityArchived, ActivityClosed, LearnedDraft
+from models.domain.note import Phase
 from models.domain.plan import ActivityPath, ActivityPlan, PlanChoice, PlanOptions, StepKey
 from service.activity_close_service import ActivityCloseService
 from service.operation_service import OperationService
@@ -29,8 +30,10 @@ class StepRequest(BaseModel):
     step: StepKey
 
 
-class TaskRequest(BaseModel):
+class PhaseRequest(BaseModel):
     task: str
+    phase: Phase
+    """``pre`` or ``post`` of the development (plan 34)."""
 
 
 class AutoResponse(BaseModel):
@@ -92,16 +95,22 @@ def retry_step(project: str, activity: str, request: StepRequest, service: PlanS
 
 
 @router.post("/activities/{activity}/plan/done")
-def mark_done(project: str, activity: str, request: TaskRequest, service: PlanService = Depends(plan_service)) -> ActivityPlan:
-    """«✅ Fatto» on a pre/post development task (plan 22): done by Dev or by hand, the round goes on."""
-    return service.mark_done(project, activity, request.task)
+def mark_done(project: str, activity: str, request: PhaseRequest, service: PlanService = Depends(plan_service)) -> ActivityPlan:
+    """«✅ Fatto» on a development's Pre or Post (plan 34): done by hand or by Dev, the round goes on."""
+    return service.mark_done(project, activity, request.task, request.phase)
+
+
+@router.post("/activities/{activity}/plan/skip")
+def skip_phase(project: str, activity: str, request: PhaseRequest, service: PlanService = Depends(plan_service)) -> ActivityPlan:
+    """«⏭ Salta» on a development's Pre or Post (plan 34): nothing to do this time, the round goes on."""
+    return service.skip(project, activity, request.task, request.phase)
 
 
 @router.post("/activities/{activity}/plan/auto")
-def start_auto(project: str, activity: str, request: TaskRequest, service: OperationService = Depends(operation_service)) -> AutoResponse:
-    """«🤖 Automatico» on a pre/post development task (plan 25): its commands, then its automation, run by the worker;
-    commands not allowed come back first, nothing started."""
-    plan, pending = service.start(project, activity, request.task)
+def start_auto(project: str, activity: str, request: PhaseRequest, service: OperationService = Depends(operation_service)) -> AutoResponse:
+    """«🤖 Automatico» on a development's Pre or Post (plan 25, plan 34): its commands, then its automation, run by the
+    worker; commands not allowed come back first, nothing started."""
+    plan, pending = service.start(project, activity, request.task, request.phase)
     return AutoResponse(plan=plan, pending_commands=pending)
 
 

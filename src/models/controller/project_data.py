@@ -12,6 +12,7 @@ from models.domain.note import (
     ActivityStatus,
     AgentTask,
     ChecklistItem,
+    DevPhase,
     ItemChange,
     NoteType,
     Reference,
@@ -65,12 +66,10 @@ class AgentTaskBody(BaseModel):
     """The linked reference notes, by name."""
     tests: TestScope | None = None
     """``run_tests``: ``all`` or ``touched`` tests; null = the project's default."""
-    steps: list[str] = []
-    """The suggested steps of a pre/post development task (plan 22)."""
-    commands: list[str] = []
-    """A pre/post development task's commands, one each (plan 25)."""
-    automation: str = ""
-    """A pre/post development task's automation of the project, by name; ``""`` = none."""
+    pre: DevPhase = DevPhase()
+    """A development's Pre (plan 34): steps, commands, automation; before the delegation."""
+    post: DevPhase = DevPhase()
+    """A development's Post (plan 34): after the final confirmation."""
     publish_space: str = ""
     """A Confluence task's space for a new page (plan 32)."""
     publish_parent: str = ""
