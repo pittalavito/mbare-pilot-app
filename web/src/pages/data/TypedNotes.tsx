@@ -1,5 +1,5 @@
 import {
-  Alert, Anchor, Badge, Button, Checkbox, Grid, Group, Loader, Menu, Modal, NavLink, SegmentedControl, Select, Stack, Stepper, Text,
+  Alert, Anchor, Badge, Button, Checkbox, Chip, Grid, Group, Loader, Menu, Modal, NavLink, SegmentedControl, Select, Stack, Stepper, Text,
   TextInput, Textarea, UnstyledButton,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
@@ -43,10 +43,10 @@ export const STATUS = [
  * planning and Copilot's answer is saved as a note (``planOnly``); a development
  * has its Pre and Post, never Copilot's: done in the activity's round. */
 export const TYPES = [
-  { value: "development", label: "Sviluppo", color: "teal", hint: "Copilot cambia il codice" },
-  { value: "analysis", label: "Analisi", color: "orange", hint: "Copilot legge il codice e risponde con una nota" },
-  { value: "confluence", label: "Doc Confluence", color: "blue", hint: "Copilot scrive la bozza, poi la pubblichi" },
-  { value: "jira", label: "Task Jira", color: "grape", hint: "Copilot rifinisce la issue, poi la pubblichi" },
+  { value: "development", label: "Sviluppo", icon: "🛠", color: "teal", hint: "Copilot cambia il codice" },
+  { value: "analysis", label: "Analisi", icon: "🔍", color: "orange", hint: "Copilot legge il codice e risponde con una nota" },
+  { value: "confluence", label: "Doc Confluence", icon: "📄", color: "blue", hint: "Copilot scrive la bozza, poi la pubblichi" },
+  { value: "jira", label: "Task Jira", icon: "🎫", color: "grape", hint: "Copilot rifinisce la issue, poi la pubblichi" },
 ] as const;
 
 /** Copilot only answers (analysis, Confluence, Jira): its answer becomes a note. */
@@ -78,18 +78,18 @@ function AgentTaskList({ project, onSelected, onRefine }: {
       newLabel="Nuovo task"
       intro="Un agent task è un compito per un agente: obiettivo, contesto, criteri di accettazione e vincoli. È una nota agent-task-<titolo>.md."
       toolbar={
-        <SegmentedControl
-          size="xs" fullWidth aria-label="Filtra per tipo"
-          data={[{ value: ALL, label: "Tutti" }, ...TYPES.map(({ value, label }) => ({ value, label }))]}
-          value={type}
-          onChange={setType}
-        />
+        <Chip.Group value={type} onChange={(value) => setType(value as string)}>
+          <Group gap={6} role="radiogroup" aria-label="Filtra per tipo">
+            <Chip size="xs" value={ALL} variant="light">Tutti</Chip>
+            {TYPES.map(({ value, label, icon, color }) => <Chip key={value} size="xs" value={value} variant="light" color={color}>{icon} {label}</Chip>)}
+          </Group>
+        </Chip.Group>
       }
       groups={STATUS.map((status) => ({ key: status.value, label: status.group, color: status.color, collapsed: status.value === "done" }))}
       groupOf={(task) => task.status ?? "created"}
       describe={(task) => {
         const kind = TYPES.find((item) => item.value === task.type) ?? TYPES[0];
-        return <Badge size="xs" variant="outline" color={kind.color}>{kind.label}</Badge>;
+        return <Badge size="xs" variant="light" color={kind.color}>{kind.icon} {kind.label}</Badge>;
       }}
       create={(title, done) => save.mutate({
         body: { title, status: "created", type: type === ALL ? "development" : type as AgentTaskBody["type"], objective: "", context: "", criteria: [], constraints: "", references: [], pre: EMPTY_PHASE, post: EMPTY_PHASE, publish_space: "", publish_parent: "" },
@@ -218,6 +218,7 @@ function TypedNotes<T extends Named>({
           {items && !items.length && <Text size="sm" c="dimmed">Nessuna, per ora.</Text>}
           {groups && groupOf && items?.length ? groups.map((group) => {
             const members = items.filter((item) => groupOf(item) === group.key);
+            if (!members.length) return null; // only the statuses with something in them
             const open = toggled[group.key] ?? (!group.collapsed || members.some((item) => item.name === selected?.name));
             return (
               <Stack key={group.key} gap={0}>
@@ -376,9 +377,10 @@ function StatusPath({ status, planOnly, missing, busy, dirty, onStatus, onRefine
 }) {
   const path = STATUS.filter((item) => !planOnly || item.value !== "to_verify" || status === "to_verify");
   const index = Math.max(0, path.findIndex((item) => item.value === status));
+  const finished = index === path.length - 1; // the last status: every step completed (green), none «current»
   return (
     <Stack gap="xs">
-      <Stepper active={index} size="xs" iconSize={22} allowNextStepsSelect={false} aria-label="Stato del task">
+      <Stepper active={finished ? path.length : index} size="xs" iconSize={22} allowNextStepsSelect={false} aria-label="Stato del task">
         {path.map((item, position) => (
           <Stepper.Step key={item.value} label={item.label} color={position <= index ? path[index].color : undefined} />
         ))}
