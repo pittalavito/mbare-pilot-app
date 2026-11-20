@@ -27,6 +27,8 @@ src/
 
 | Doc | Cosa trovi |
 |---|---|
+| [Bacheca refactoring](bacheca-refactoring.yml) | backlog YAML da riportare nella bacheca di Mbare Pilot, con scope, priorita e criteri per le attivita |
+| [Piano qualita](piano-qualita.md) | piano differito di consolidamento: priorita, interventi e criteri di completamento dall'audit |
 | [definitions](definitions.md) | la cartella dei dati (`definition/`, `files/`); agenti, chatbot e automation come file YAML: formato e sincronizzazione |
 | [web](../../web/README.md) | frontend React + Vite + Mantine: avvio, client tipizzato dall'OpenAPI, struttura, convenzioni |
 | [src/config](src/config.md) | `Config`, valori obbligatori, segreti, `masked()`, aggiungere un'impostazione |

@@ -1,0 +1,152 @@
+# Piano iniziale per la bacheca di Mbare Pilot.
+# Baseline confrontata: commit 9624e77 (10 novembre 2026), checkout disponibile.
+# Prima di iniziare, aggiornare i riscontri se il branch di lavoro e piu recente.
+# Gli owner non specificati nel backlog originale sono assegnati a "tu" per revisione.
+# status: todo | in_progress | done · priority: high | medium | low
+# kind: bug | funzione | refactoring | documentazione | integrazione | uso | progettazione | rag
+# owner: tu | claude | copilot | agente remoto
+
+goal: Refactoring e consolidamento di quello che c'e
+vision: >
+  Le attivita correnti consolidano e rifattorizzano il software esistente.
+  Le nuove funzionalita sono limitate al flusso controllato di aggiornamento
+  dell'applicazione dal repository e alla gestione del worker. La documentazione
+  nel RAG resta differita finche non viene confermata come eccezione a questa vision.
+
+items:
+  - id: sicurezza-cache-automazioni
+    title: Impedire che la cache semantica lanci l'automazione sbagliata
+    description: >
+      Preservare il significato delle negazioni e verificare l'intento prima di
+      accodare azioni con effetti. Aggiungere una regressione che distingua
+      "devi eseguire il deploy" da "non devi eseguire il deploy"; la sola modifica
+      della soglia di similarita non e sufficiente.
+    kind: bug
+    status: todo
+    priority: high
+    owner: tu
+
+  - id: affidabilita-concorrenza-worker
+    title: Rendere affidabili claim, recovery e cancellazione dei lavori
+    description: >
+      Definire ownership/lease dei worker e transizioni atomiche degli stati.
+      Impedire due esecuzioni concorrenti sullo stesso repository, non marcare
+      come interrotte le run ancora possedute da un worker attivo e gestire la
+      race tra claim e cancellazione. Verificare con test concorrenti su PostgreSQL.
+    kind: bug
+    status: todo
+    priority: high
+    owner: tu
+
+  - id: cleanup-e-finalizzazione-esecuzioni
+    title: Garantire cleanup dei processi e chiusura delle esecuzioni
+    description: >
+      Chiudere processi figli, pipe e risorse anche se il polling della
+      cancellazione o l'esecuzione falliscono. Finalizzare o riconciliare ogni
+      run dopo eccezioni inattese, evitando sessioni permanentemente RUNNING.
+      Coprire errori simulati con test di regressione.
+    kind: bug
+    status: todo
+    priority: high
+    owner: tu
+
+  - id: integrita-run-e-mascherature
+    title: Proteggere l'integrita di pipeline e mascherature
+    description: >
+      Impedire che modificare o eliminare uno step durante una run provochi
+      errori di foreign key o lasci run bloccate. Rendere atomica la scrittura
+      delle mascherature Redis e impedire che i pattern di cancellazione di un
+      progetto colpiscano le chiavi di un altro. Verificare i casi su PostgreSQL
+      e Redis reali.
+    kind: bug
+    status: todo
+    priority: high
+    owner: tu
+
+  - id: refactoring-del-codice
+    title: Rimuovere le esclusioni mypy e ridurre le dipendenze circolari
+    description: >
+      Inventariare gli ignore_errors e le dipendenze tra moduli; rimuovere le
+      esclusioni mypy progressivamente, iniziando dai moduli toccati dagli altri
+      task, e spezzare solo i cicli di import effettivamente presenti. "Type
+      check" qui significa esclusioni del type checker: mantenere i controlli
+      runtime che validano input e dati.
+    kind: refactoring
+    status: todo
+    priority: medium
+    owner: claude
+
+  - id: refactoring-di-resource
+    title: Separare template e file di contesto in resource
+    description: >
+      Mappare definizioni, template/prompt e contesto di progetto, poi proporre
+      una struttura distinta e migrare senza perdere compatibilita con i dati
+      esistenti. Aggiornare lettori, inizializzazione, documentazione e test.
+      Non spostare o rinominare i dati utente senza una migrazione verificabile.
+    kind: refactoring
+    status: in_progress
+    priority: medium
+    owner: tu
+
+  - id: libreria-admin-responsabilita
+    title: Chiarire e ridurre le sovrapposizioni tra Libreria e Admin
+    description: >
+      Inventariare pagine, impostazioni e azioni esistenti; definire un criterio
+      coerente per gestione dei contenuti e amministrazione/operativita. Spostare
+      o consolidare solo flussi realmente duplicati, mantenendo URL, permessi e
+      copertura di test.
+    kind: refactoring
+    status: todo
+    priority: medium
+    owner: tu
+
+  - id: aggiornamento-assistito-da-dashboard
+    title: Aggiornare da main e guidare il riavvio del worker
+    description: >
+      Progettare un flusso esplicito dalla dashboard che controlli lo stato del
+      repository e mostri cosa cambiera prima di aggiornare. Consentire solo
+      fast-forward da main con working tree pulito e conferma dell'utente; poi
+      guidare o avviare il riavvio del worker usando il controllo gia presente.
+      Non eseguire comandi shell arbitrari e non dichiarare aggiornata l'API
+      finche il suo processo non e stato riavviato.
+    kind: integrazione
+    status: todo
+    priority: medium
+    owner: tu
+
+  - id: bozze-note-e-errori-caricamento
+    title: Evitare la perdita silenziosa delle bozze e mostrare gli errori note
+    description: >
+      Definire cosa succede alle modifiche non salvate quando si cambia nota o
+      pagina e applicare una scelta esplicita o il recupero della bozza.
+      Correggere inoltre il caricamento iniziale che puo mostrare un loader
+      permanente al posto dell'errore.
+    kind: bug
+    status: todo
+    priority: medium
+    owner: tu
+
+  - id: test-regressione-e-ci
+    title: Portare le regressioni critiche nella suite e nella CI
+    description: >
+      Aggiungere test per concorrenza, cancellazione, recovery, foreign key,
+      atomicita Redis e flussi frontend. Usare PostgreSQL/Redis reali per gli
+      invarianti che SQLite e fakeredis non coprono; mantenere i servizi di test
+      isolati e includere build e typecheck frontend nella CI.
+    kind: integrazione
+    status: todo
+    priority: high
+    owner: tu
+
+  - id: documentazione-nel-rag
+    title: Indicizzare la documentazione nel RAG per gli agenti
+    description: >
+      Attivita differita: nel checkout il tool read_context gia legge il contesto
+      del progetto e lo descrive come sorgente futura per il RAG. Prima di
+      implementare l'indicizzazione dei file Markdown e passarli agli agenti
+      della dashboard, confermare che questa nuova funzionalita sia un'eccezione
+      alla vision del piano, che limita le novita al flusso di aggiornamento.
+    kind: rag
+    status: todo
+    priority: low
+    owner: claude
