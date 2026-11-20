@@ -6,6 +6,7 @@ from typing import Annotated
 from pydantic import BaseModel, Field, StringConstraints
 
 from models.domain.chat import EmbeddingModelName
+from models.domain.code_search import SavedSearch
 from models.domain.dev import TestScope
 from models.domain.note import NoteType
 
@@ -57,6 +58,8 @@ class Project(BaseModel):
     """Commands allowed «Solo stavolta»: each is used up by its next run."""
     operator_chatbot_id: int | None = None
     """The Operator of the preparation before Copilot; None = the project's first one."""
+    code_searches: list[SavedSearch] = []
+    """The project's saved searches (plan 34): they add to the defaults, or replace one with the same name."""
 
 class ProjectDataKind(StrEnum):
     NOTE = "note"

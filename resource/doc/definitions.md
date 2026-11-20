@@ -78,10 +78,11 @@ agents:
 
 - **Ruolo**: deve essere dello stesso ambito dell'agente. Un ruolo con lo stesso nome ma di un altro progetto (o globale, per un agente di progetto) è un errore: scegli un altro nome.
 - **Prompt**: se il testo cambia diventa la **versione successiva** del prompt del ruolo, e l'agente la usa. Le versioni vecchie restano. Testo uguale = nessuna nuova versione.
-- **`output`** (piano 17): la **risposta strutturata**, il nome di uno schema del codice (`STRUCTURED_OUTPUTS` in `domain/agent/outputs.py`); un nome sconosciuto è un errore; omesso = testo. L'app chiama per nome quattro agenti di `global-agent.yml`, ognuno con una chiamata sola e senza tool ([service](src/service/README.md#agenti-con-risposta-strutturata-piano-17)):
+- **`output`** (piano 17): la **risposta strutturata**, il nome di uno schema del codice (`STRUCTURED_OUTPUTS` in `domain/agent/outputs.py`); un nome sconosciuto è un errore; omesso = testo. L'app chiama per nome cinque agenti di `global-agent.yml`, ognuno con una chiamata sola e senza tool ([service](src/service/README.md#agenti-con-risposta-strutturata-piano-17)):
   - `wip` (`output: wip`) per «📥 Elabora WIP»;
   - `pianificatore` (`output: plan`) per lo step Pianifica di un'attività;
-  - `bozza-attivita` (`output: draft`) per «📎 Parto da riferimenti» in «➕ Nuova attività»;
+  - `bozza-attivita` (`output: draft`) per «📎 Parto da riferimenti» in «➕ Nuova attività» (riceve anche «Cosa voglio fare», l'intenzione dell'utente, piano 34);
+  - `regex` (`output: regex`) per «✨ Regex» delle ricerche salvate nel codice (piano 34): regex, spiegazione ed esempio;
   - `imparato` (`output: learned`) per lo step Chiudi: cosa ha insegnato l'attività, per `context/imparato.md`.
 
   Prompt e modello si cambiano qui (o nella Libreria); un agente che manca o con un altro `output` è un errore quando la funzione parte.
@@ -158,7 +159,7 @@ automations:
 
 **Step `tool` e campi**: uno step `tool` chiama un tool del codice con i suoi `args` (niente LLM; tutti tranne quelli solo-chat, elenco e argomenti in [tool](src/tool/README.md#i-tool-delle-automation-piano-15-erano-le-funzioni)); negli `args` (e nell'`input` di ogni step) `{input}` è l'input dello step, `{pipeline_input}` quello della run, `{nodo:Nome}` l'output di uno step prima e `{in:campo}` il valore di un campo di `fields`. `function:` (prima del piano 15) non si accetta più: si scrive `tool:` con `args:`. Un'automation con campi riceve come input un oggetto JSON con i campi (la UI li chiede uno per uno); se ne manca uno l'esecuzione fallisce subito. `purpose: prepare` la offre nella finestra «Delega a Copilot», con i campi compilati dal task (`branch` = `feature/<task>`, `base` = il branch corrente del repository, `task`, `repository`). Di solito non si scrivono a mano: nascono da «✅ Giusto: fanne un'automation» sotto una risposta dell'Operatore, e «Esporta YAML» le porta qui.
 
-**Niente automation di sistema** (piano 22): «Prepara sviluppo» e «Verifica sviluppo» non ci sono più e l'app non lancia niente da sola prima o dopo Copilot. Quel lavoro sono i **task pre e post sviluppo** del piano dell'attività, che partono in automatico senza agente (i loro comandi, poi la loro automation, piano 25) o li fa Dev o l'utente a mano. Il Pianificatore scrive per ognuno passi (`steps`), comandi (`commands`) e un'automation del progetto (`automation`). Le regole che il Pianificatore segue per proporli stanno nel documento di contesto del progetto `context/sviluppo.md` (Progetto → Contesto, «📐 Regole di sviluppo (modello)»).
+**Niente automation di sistema** (piano 22): «Prepara sviluppo» e «Verifica sviluppo» non ci sono più e l'app non lancia niente da sola prima o dopo Copilot. Quel lavoro è il **pre** e il **post** di ogni sviluppo (piano 34), che partono in automatico senza agente (i loro comandi, poi la loro automation, piano 25), li fa Dev o l'utente a mano, o si saltano. Il Pianificatore li scrive dentro ogni sviluppo, ognuno con passi (`steps`), comandi (`commands`) e un'automation del progetto (`automation`). Le regole che il Pianificatore segue per proporli stanno nel documento di contesto del progetto `context/sviluppo.md` (Progetto → Contesto, «📐 Regole di sviluppo (modello)»).
 
 - **Step**: uno solo tra `tool` (con `args`), `agent`, `system_prompt` (con `model`, e facoltativi `tools` e `max_steps`).
 - **Collegamenti**: `if` è `always` (default), `contains`, `not_contains`, `matches` (regex) o `otherwise`; `value` per le prime tre. `from: input` è l'input dell'esecuzione.
@@ -226,10 +227,14 @@ models:                            # facoltativo: i modelli tra cui scegliere qu
 
 ## Contesto generale (`context/`)
 
-Piano 26: i documenti `.md` di `definition/context/` spiegano agli agenti **come funziona l'app** (tipi e stati dei task, attività e giro, Copilot, task pre e post sviluppo, riferimenti e contesto, automation, tool e regole comuni; dal piano 27 anche esempi di task ben fatti, errori comuni, cosa non fare, esempi di automation), così i loro system prompt restano corti: ruolo, regole di sicurezza, formato e «cerca nel contesto prima di chiedere». Sono uguali per tutti i progetti e si indicizzano nel RAG di ognuno (col suo embedder, solo quando cambiano); `search_context` li trova insieme al contesto del progetto, che vince a parità. Copilot non li riceve. Si leggono in Progetto → Contesto, «Generale (da definizioni)», e si cambiano qui. Un titolo `##` per argomento: ogni sezione è un pezzo dell'indice.
+Piano 26: i documenti `.md` di `definition/context/` spiegano agli agenti **come funziona l'app** (tipi e stati dei task, attività e giro, Copilot, pre e post degli sviluppi, riferimenti e contesto, automation, tool e regole comuni; dal piano 27 anche esempi di task ben fatti, errori comuni, cosa non fare, esempi di automation), così i loro system prompt restano corti: ruolo, regole di sicurezza, formato e «cerca nel contesto prima di chiedere». Sono uguali per tutti i progetti e si indicizzano nel RAG di ognuno (col suo embedder, solo quando cambiano); `search_context` li trova insieme al contesto del progetto, che vince a parità. Copilot non li riceve. Si leggono in Progetto → Contesto, «Generale (da definizioni)», e si cambiano qui. Un titolo `##` per argomento: ogni sezione è un pezzo dell'indice.
 
 L'agente `imparato` risponde con punti che hanno un **tema** (`LearnedPoint`: `theme`, `text`): alla chiusura ogni punto va in cima al suo `## tema` di `context/imparato.md` (piano 27). La misura della ricerca sul contesto generale sta in `resource/eval/rag/general-questions.json` (Metriche → valutazione RAG).
 
+
+## Ricerche salvate nel codice (`code-searches.yml`)
+
+Piano 34: le «regex parlanti», ricerche con un nome nel menu di «🔎 Cerca nel codice» e di «Nuovo riferimento» → «🔎 Da codice». Campi: `searches` con `name`, `query` (regex in sintassi Python, cercata riga per riga; testo semplice con `regex: false`), `regex` (default `true`), `files` (glob, vuoto = tutti) e `description`. Il default è in `resource/definition/code-searches.yml` (TODO, FIXME, Commenti Mbare Pilot); un `code-searches.yml` nella cartella dati lo sostituisce (stesso percorso). Ogni progetto aggiunge le sue in Progetto → Impostazioni o con «⭐ Salva ricerca» (colonna `code_searches` del progetto): una con lo stesso nome sostituisce quella dell'app, tolta torna quella dell'app.
 
 ## Bacheca di Mbare Pilot (`roadmap.yml`)
 

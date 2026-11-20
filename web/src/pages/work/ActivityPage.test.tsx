@@ -170,11 +170,11 @@ describe("3. Lavora", () => {
     await waitFor(() => expect(started).toHaveBeenCalled());
   });
 
-  it("a pre development task without commands: «Automatico» readies the request for Dev; «A mano» → «Fatto» closes it", async () => {
+  it("a Pre without commands: «Automatico» readies the request for Dev; «A mano» → «Fatto» closes it", async () => {
     const done = vi.fn(async (request: Request) => ({ ...PLAN, body: await request.json() }));
-    const pre = { ...AGENT_TASK, name: "agent-task-branch.md", title: "Prepara il branch", type: "pre_dev", status: "todo",
-      steps: ["git checkout -b feature/otp"], commands: [], automation: "" };
-    api({ plan: PLAN, summary: "", tasks: [TASK(pre.name, pre.title, [step("operation", "Automatico o a mano", "you")], { type: "pre_dev", current: true })] }, {
+    const pre = { ...AGENT_TASK, name: "agent-task-otp.md", title: "OTP", type: "development", status: "todo",
+      pre: { steps: ["git checkout -b feature/otp"], commands: [], automation: "" }, post: { steps: [], commands: [], automation: "" } };
+    api({ plan: PLAN, summary: "", tasks: [TASK(pre.name, pre.title, [step("pre", "Pre", "you"), step("delegate", "Delega a Copilot", "todo")], { current: true })] }, {
       "GET /projects/acme/agent-tasks": [pre],
       "GET /projects/acme/pipelines": [],
       "POST /projects/acme/activities/attivita-login.md/plan/done": done,
@@ -188,27 +188,48 @@ describe("3. Lavora", () => {
     fireEvent.click(await screen.findByRole("button", { name: "🤖 Automatico" }));
     expect(screen.queryByRole("button", { name: /Delega a mano/ })).not.toBeInTheDocument(); // never Copilot
     await waitFor(() => expect((screen.getByPlaceholderText(/Scrivi a Dev/) as HTMLTextAreaElement).value)
-      .toBe("Fai il task pre sviluppo «Prepara il branch» (agent-task-branch.md) sul repository api.\nPassi:\n- git checkout -b feature/otp\n"
+      .toBe("Fai il pre dello sviluppo «OTP» (agent-task-otp.md) sul repository api.\nPassi:\n- git checkout -b feature/otp\n"
         + "Alla fine dimmi in una riga cosa hai fatto."));
 
     fireEvent.click(screen.getByRole("button", { name: "✋ A mano" }));
     fireEvent.click(await screen.findByRole("button", { name: "✅ Fatto" }));
     await waitFor(() => expect(done).toHaveBeenCalled());
-    expect((await body(done)).body).toEqual({ task: pre.name });
+    expect((await body(done)).body).toEqual({ task: pre.name, phase: "pre" });
+  });
+
+  it("«⏭ Salta» skips the Post; «Salta da solo pre e post vuoti» is an option of the round", async () => {
+    const skipped = vi.fn(async (request: Request) => ({ ...PLAN, body: await request.json() }));
+    const options = vi.fn(async (request: Request) => ({ ...PLAN, body: await request.json() }));
+    const task = { ...AGENT_TASK, type: "development", status: "done", pre: { steps: [], commands: [], automation: "" }, post: { steps: [], commands: [], automation: "" } };
+    api({ plan: PLAN, summary: "", tasks: [TASK(task.name, task.title, [step("final", "Conferma finale", "done"), step("post", "Post", "you")], { current: true })] }, {
+      "GET /projects/acme/agent-tasks": [task],
+      "GET /projects/acme/pipelines": [],
+      "POST /projects/acme/activities/attivita-login.md/plan/skip": skipped,
+      "POST /projects/acme/activities/attivita-login.md/plan/options": options,
+    }, { ...ACTIVITY, status: "in_progress" });
+    renderAt("&step=work");
+
+    fireEvent.click(await screen.findByRole("button", { name: "⏭ Salta" }));
+    await waitFor(() => expect(skipped).toHaveBeenCalled());
+    expect((await body(skipped)).body).toEqual({ task: task.name, phase: "post" });
+    fireEvent.click(screen.getByRole("switch", { name: "Salta da solo pre e post vuoti" }));
+    await waitFor(() => expect(options).toHaveBeenCalled());
+    expect((await body(options)).body).toEqual({ auto_skip_empty: true });
   });
 
   it("«Automatico» with commands asks the ok for the ones not allowed, then starts; the run's state and output show", async () => {
-    const pre = { ...AGENT_TASK, name: "agent-task-build.md", title: "Build", type: "post_dev", status: "todo", steps: [],
-      commands: ["mvn -B clean install"], automation: "" };
+    const pre = { ...AGENT_TASK, name: "agent-task-build.md", title: "Build", type: "development", status: "done", pre: { steps: [], commands: [], automation: "" },
+      post: { steps: [], commands: ["mvn -B clean install"], automation: "" } };
     let calls = 0;
+    const sent: unknown[] = [];
     const auto = vi.fn(async (request: Request) => {
-      await request.json();
+      sent.push(await request.json());
       calls += 1;
       return { plan: PLAN, pending_commands: calls === 1 ? ["mvn -B clean install"] : [] };
     });
     const answered = vi.fn(async (request: Request) => { expect(await request.json()).toEqual({ command: "mvn -B clean install", allow: true, always: false }); return null; });
-    api({ plan: { ...PLAN, operations: { [pre.name]: { state: "failed", output: "$ mvn -B clean install\nBUILD FAILURE", error: "uscito con 1", pipeline_run_id: null } } },
-      summary: "", tasks: [TASK(pre.name, pre.title, [step("operation", "Automatico o a mano", "failed", "uscito con 1")], { type: "post_dev", current: true })] }, {
+    api({ plan: { ...PLAN, operations: { [`${pre.name}|post`]: { state: "failed", output: "$ mvn -B clean install\nBUILD FAILURE", error: "uscito con 1", pipeline_run_id: null } } },
+      summary: "", tasks: [TASK(pre.name, pre.title, [step("post", "Post", "failed", "uscito con 1")], { current: true })] }, {
       "GET /projects/acme/agent-tasks": [pre],
       "GET /projects/acme/pipelines": [],
       "POST /projects/acme/activities/attivita-login.md/plan/auto": auto,
@@ -226,11 +247,12 @@ describe("3. Lavora", () => {
     await waitFor(() => expect(screen.queryByText("Comandi da permettere prima di partire")).not.toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "🤖 Automatico" }));
     await waitFor(() => expect(auto).toHaveBeenCalledTimes(2));
+    expect(sent[0]).toEqual({ task: pre.name, phase: "post" });
   });
 
   it("«A mano»: runs a command, an automation and reads the git status", async () => {
-    const pre = { ...AGENT_TASK, name: "agent-task-build.md", title: "Build", type: "pre_dev", status: "todo", steps: [],
-      commands: ["git pull"], automation: "Prova git" };
+    const pre = { ...AGENT_TASK, name: "agent-task-build.md", title: "Build", type: "development", status: "todo",
+      pre: { steps: [], commands: ["git pull"], automation: "Prova git" }, post: { steps: [], commands: [], automation: "" } };
     const run = vi.fn(async (request: Request) => {
       expect(await request.json()).toEqual({ repository: "api", command: "git pull" });
       return { allowed: true, exit_code: 0, output: "Già aggiornato." };
@@ -239,7 +261,7 @@ describe("3. Lavora", () => {
       expect(await request.json()).toEqual({ input: "api" });
       return { id: 9, pipeline_id: 4, status: "queued", input: "api", output: null, error: null, created_at: "2026-11-18T10:00:00Z", started_at: null, finished_at: null, steps: [] };
     });
-    api({ plan: PLAN, summary: "", tasks: [TASK(pre.name, pre.title, [step("operation", "Automatico o a mano", "you")], { type: "pre_dev", current: true })] }, {
+    api({ plan: PLAN, summary: "", tasks: [TASK(pre.name, pre.title, [step("pre", "Pre", "you")], { current: true })] }, {
       "GET /projects/acme/agent-tasks": [pre],
       "GET /projects/acme/pipelines": [{ id: 4, project_name: "acme", name: "Prova git", description: "", active: true, steps: [], edges: [], fields: [], purpose: "general" }],
       "POST /projects/acme/commands/run": run,

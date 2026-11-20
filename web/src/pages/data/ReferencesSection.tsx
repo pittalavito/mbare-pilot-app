@@ -11,6 +11,7 @@ import { size } from "../../format";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { useAtlassianConfigured } from "../../api/projects";
 import { JiraImport, ConfluenceImport } from "./AtlassianImport";
+import { FromCodeSearch } from "../git/SavedSearches";
 
 /** The code and context references of an agent task or an activity. A
  * reference is a note of its own (``code-reference-<title>.md``...) linked by
@@ -118,7 +119,8 @@ export function ReferenceSummary({ reference }: { reference: Reference }) {
   );
 }
 
-/** Create (no ``reference``) or edit a reference; deleting it unlinks it everywhere. */
+/** Create (no ``reference``) or edit a reference; deleting it unlinks it everywhere. A new one
+ * can also come from a search in the code (plan 34, «🔎 Da codice») or, with Atlassian, from Jira or Confluence. */
 export function ReferenceModal({ project, reference, opened, onClose, onCreated, onDeleted, createLabel = "Crea e collega" }: {
   project: string; reference?: Reference; opened: boolean; onClose: () => void;
   /** The create button: «Crea e collega» from a task, «Crea» where nothing links it. */
@@ -199,16 +201,18 @@ export function ReferenceModal({ project, reference, opened, onClose, onCreated,
 
   return (
     <Modal opened={opened} onClose={onClose} title={reference ? `Riferimento: ${reference.title}` : "Nuovo riferimento"} size="lg">
-      {reference || !atlassian ? manual : (
+      {reference ? manual : (
         <Tabs defaultValue="manual" keepMounted={false}>
           <Tabs.List mb="sm">
             <Tabs.Tab value="manual">✍️ A mano</Tabs.Tab>
-            <Tabs.Tab value="jira">Jira</Tabs.Tab>
-            <Tabs.Tab value="confluence">Confluence</Tabs.Tab>
+            <Tabs.Tab value="code">🔎 Da codice</Tabs.Tab>
+            {atlassian && <Tabs.Tab value="jira">Jira</Tabs.Tab>}
+            {atlassian && <Tabs.Tab value="confluence">Confluence</Tabs.Tab>}
           </Tabs.List>
           <Tabs.Panel value="manual">{manual}</Tabs.Panel>
-          <Tabs.Panel value="jira"><JiraImport project={project} copyLabel={copyLabel} onCopied={imported} /></Tabs.Panel>
-          <Tabs.Panel value="confluence"><ConfluenceImport project={project} copyLabel={copyLabel} onCopied={imported} /></Tabs.Panel>
+          <Tabs.Panel value="code"><FromCodeSearch project={project} createLabel={createLabel} onCreated={imported} /></Tabs.Panel>
+          {atlassian && <Tabs.Panel value="jira"><JiraImport project={project} copyLabel={copyLabel} onCopied={imported} /></Tabs.Panel>}
+          {atlassian && <Tabs.Panel value="confluence"><ConfluenceImport project={project} copyLabel={copyLabel} onCopied={imported} /></Tabs.Panel>}
         </Tabs>
       )}
     </Modal>

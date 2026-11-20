@@ -37,3 +37,44 @@ class CodeSearchSaved(BaseModel):
     """The code reference written (``code-reference-<title>.md``)."""
     created: bool
     total: int
+
+
+class SavedSearch(BaseModel):
+    """A search with a name (plan 34, «regex parlanti»): defaults in ``code-searches.yml``
+    of the definitions, the project's own in its settings (by name, the project's win)."""
+    name: str = Field(min_length=1, max_length=80)
+    query: str = Field(min_length=1)
+    regex: bool = True
+    files: str = ""
+    """Only the files matching this glob; ``""`` = all."""
+    description: str = ""
+    """What it finds, in words."""
+
+
+class SavedSearchView(SavedSearch):
+    origin: str = "app"
+    """``app`` (the definitions), ``progetto`` (written in the project; it may replace a default)."""
+
+
+class SavedSearchFile(BaseModel):
+    """``code-searches.yml`` of the definitions."""
+    searches: list[SavedSearch] = []
+
+
+class RegexAnswer(BaseModel):
+    """The structured answer of the agent ``regex`` («✨ Regex»)."""
+    regex: str = ""
+    """A Python regular expression."""
+    explanation: str = ""
+    """What it matches, in one or two sentences."""
+    example: str = ""
+    """A line of code it matches."""
+
+
+class RegexProposal(RegexAnswer):
+    valid: bool = True
+    """The regex compiles."""
+    example_matches: bool = False
+    """The regex finds something in its example."""
+    run_id: str
+    cost_eur: float = 0.0

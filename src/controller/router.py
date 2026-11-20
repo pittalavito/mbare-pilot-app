@@ -24,6 +24,7 @@ from controller.project_controller import router as project_router
 from controller.project_data_controller import router as project_data_router
 from controller.publish_controller import router as publish_router
 from controller.role_controller import router as role_router
+from controller.saved_search_controller import router as saved_search_router
 from controller.today_controller import router as today_router
 from controller.tool_request_controller import router as tool_request_router
 from controller.wip_controller import router as wip_router
@@ -55,6 +56,7 @@ router.include_router(copilot_router)
 router.include_router(wip_router)
 router.include_router(plan_router)
 router.include_router(activity_draft_router)
+router.include_router(saved_search_router)
 router.include_router(context_router)
 router.include_router(metrics_router)
 router.include_router(today_router)

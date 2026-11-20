@@ -1,0 +1,14 @@
+# Ricerche salvate nel codice (piano 34): nel menu di «🔎 Cerca nel codice» e di «Nuovo riferimento» da codice.
+# Ogni progetto aggiunge le sue in Impostazioni (o con «⭐ Salva ricerca»); una con lo stesso nome sostituisce questa.
+# Campi: name, query (regex in sintassi Python, o testo con regex: false), regex, files (glob, vuoto = tutti), description.
+
+searches:
+  - name: TODO
+    query: '\bTODO\b'
+    description: I TODO lasciati nel codice
+  - name: FIXME
+    query: '\b(FIXME|XXX|HACK)\b'
+    description: Le cose da sistemare segnate nel codice
+  - name: Commenti Mbare Pilot
+    query: '(?i)(//|#|/\*|\*|<!--)\s*@?(todo)?mbare[-_ ]?pilot\b'
+    description: I commenti per Mbare Pilot, es. «// mbare-pilot fare il login» o «# todoMbarePilot»

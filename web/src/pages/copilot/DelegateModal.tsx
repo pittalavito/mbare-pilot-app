@@ -9,8 +9,6 @@ import { useAgentTasks } from "../../api/projectData";
 
 /** Analysis, Confluence, Jira: no code to change, they can go without a repository (plan 21). */
 export const withoutCode = (type?: string) => type === "analysis" || type === "confluence" || type === "jira";
-/** Pre/post development (plan 22): never Copilot, Dev or by hand. */
-export const isOperations = (type?: string) => type === "pre_dev" || type === "post_dev";
 /** The Select's value for "the default" (the API's ``""``). */
 const DEFAULT = "__default__";
 const fromSelect = (value: string | null) => (value === null || value === DEFAULT ? "" : value);
@@ -91,7 +89,7 @@ export function DelegateModal({ project, task, repository: proposed, opened, onC
             label="Agent task"
             placeholder={tasks.data && !tasks.data.length ? "Nessun agent task: crealo da un'attività in Lavoro" : "Scegli il task"}
             searchable
-            data={(tasks.data ?? []).filter((item) => !isOperations(item.type)).map((item) => ({ value: item.name, label: item.title }))}
+            data={(tasks.data ?? []).map((item) => ({ value: item.name, label: item.title }))}
             value={chosenTask}
             onChange={setChosenTask}
           />

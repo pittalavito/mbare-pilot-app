@@ -2309,9 +2309,29 @@ export interface paths {
         put?: never;
         /**
          * Mark Done
-         * @description «✅ Fatto» on a pre/post development task (plan 22): done by Dev or by hand, the round goes on.
+         * @description «✅ Fatto» on a development's Pre or Post (plan 34): done by hand or by Dev, the round goes on.
          */
         post: operations["mark_done_projects__project__activities__activity__plan_done_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/activities/{activity}/plan/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Skip Phase
+         * @description «⏭ Salta» on a development's Pre or Post (plan 34): nothing to do this time, the round goes on.
+         */
+        post: operations["skip_phase_projects__project__activities__activity__plan_skip_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2329,8 +2349,8 @@ export interface paths {
         put?: never;
         /**
          * Start Auto
-         * @description «🤖 Automatico» on a pre/post development task (plan 25): its commands, then its automation, run by the worker;
-         *     commands not allowed come back first, nothing started.
+         * @description «🤖 Automatico» on a development's Pre or Post (plan 25, plan 34): its commands, then its automation, run by the
+         *     worker; commands not allowed come back first, nothing started.
          */
         post: operations["start_auto_projects__project__activities__activity__plan_auto_post"];
         delete?: never;
@@ -2431,9 +2451,73 @@ export interface paths {
         put?: never;
         /**
          * Draft Activity
-         * @description One call to the secretary's model: title, description and todo items (400 with nothing chosen, 502 when the model fails).
+         * @description One call to the secretary's model: title, description and todo items (400 with nothing written or chosen, 502 when the model fails).
          */
         post: operations["draft_activity_projects__project__activities_draft_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/code-search/saved": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Saved
+         * @description The defaults (``origin: app``) and the project's own (``origin: progetto``, they replace a default with the same name).
+         */
+        get: operations["list_saved_projects__project__code_search_saved_get"];
+        /**
+         * Save Saved
+         * @description The search in the project, by name (400 for a broken regex); the list after.
+         */
+        put: operations["save_saved_projects__project__code_search_saved_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/code-search/saved/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Saved
+         * @description The project's search removed (404 when it has none with that name); a default it replaced comes back.
+         */
+        delete: operations["delete_saved_projects__project__code_search_saved__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project}/code-search/regex": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Propose Regex
+         * @description «✨ Regex»: one call to the agent ``regex`` (400 without a description, 502 when the model fails).
+         */
+        post: operations["propose_regex_projects__project__code_search_regex_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2956,6 +3040,11 @@ export interface components {
              * @default []
              */
             context: string[];
+            /**
+             * Description
+             * @default
+             */
+            description: string;
         };
         /**
          * ActivityPath
@@ -3035,6 +3124,18 @@ export interface components {
             operations: {
                 [key: string]: components["schemas"]["OperationRun"];
             };
+            /**
+             * Phases
+             * @default {}
+             */
+            phases: {
+                [key: string]: components["schemas"]["PhaseState"];
+            };
+            /**
+             * Auto Skip Empty
+             * @default false
+             */
+            auto_skip_empty: boolean;
             /**
              * Created At
              * Format: date-time
@@ -3202,20 +3303,21 @@ export interface components {
             references: string[];
             tests?: components["schemas"]["TestScope"] | null;
             /**
-             * Steps
-             * @default []
+             * @default {
+             *       "steps": [],
+             *       "commands": [],
+             *       "automation": ""
+             *     }
              */
-            steps: string[];
+            pre: components["schemas"]["DevPhase"];
             /**
-             * Commands
-             * @default []
+             * @default {
+             *       "steps": [],
+             *       "commands": [],
+             *       "automation": ""
+             *     }
              */
-            commands: string[];
-            /**
-             * Automation
-             * @default
-             */
-            automation: string;
+            post: components["schemas"]["DevPhase"];
             /**
              * Publish Space
              * @default
@@ -3262,20 +3364,21 @@ export interface components {
             references: string[];
             tests?: components["schemas"]["TestScope"] | null;
             /**
-             * Steps
-             * @default []
+             * @default {
+             *       "steps": [],
+             *       "commands": [],
+             *       "automation": ""
+             *     }
              */
-            steps: string[];
+            pre: components["schemas"]["DevPhase"];
             /**
-             * Commands
-             * @default []
+             * @default {
+             *       "steps": [],
+             *       "commands": [],
+             *       "automation": ""
+             *     }
              */
-            commands: string[];
-            /**
-             * Automation
-             * @default
-             */
-            automation: string;
+            post: components["schemas"]["DevPhase"];
             /**
              * Publish Space
              * @default
@@ -3324,20 +3427,21 @@ export interface components {
             references: string[];
             tests?: components["schemas"]["TestScope"] | null;
             /**
-             * Steps
-             * @default []
+             * @default {
+             *       "steps": [],
+             *       "commands": [],
+             *       "automation": ""
+             *     }
              */
-            steps: string[];
+            pre: components["schemas"]["DevPhase"];
             /**
-             * Commands
-             * @default []
+             * @default {
+             *       "steps": [],
+             *       "commands": [],
+             *       "automation": ""
+             *     }
              */
-            commands: string[];
-            /**
-             * Automation
-             * @default
-             */
-            automation: string;
+            post: components["schemas"]["DevPhase"];
             /**
              * Publish Space
              * @default
@@ -4258,6 +4362,27 @@ export interface components {
          * @enum {string}
          */
         DefinitionKind: "agent" | "chatbot" | "automation";
+        /**
+         * DevPhase
+         * @description What to do in a Pre or a Post: done without an agent when it can («🤖 Automatico»), by hand or by Dev.
+         */
+        DevPhase: {
+            /**
+             * Steps
+             * @default []
+             */
+            steps: string[];
+            /**
+             * Commands
+             * @default []
+             */
+            commands: string[];
+            /**
+             * Automation
+             * @default
+             */
+            automation: string;
+        };
         /** DevSettingsRequest */
         DevSettingsRequest: {
             /** @default all */
@@ -4834,7 +4959,7 @@ export interface components {
         };
         /**
          * OperationRun
-         * @description The commands, then the automation, of a pre/post development task, run by the worker without an agent.
+         * @description The commands, then the automation, of a development's Pre or Post, run by the worker without an agent.
          */
         OperationRun: {
             /** @default queued */
@@ -4854,7 +4979,7 @@ export interface components {
         };
         /**
          * OperationState
-         * @description «🤖 Automatico» of a pre/post development task (plan 25).
+         * @description «🤖 Automatico» of a development's Pre or Post (plan 25, plan 34).
          * @enum {string}
          */
         OperationState: "queued" | "running" | "failed" | "done";
@@ -4902,6 +5027,24 @@ export interface components {
             /** Paused */
             paused: boolean;
         };
+        /**
+         * Phase
+         * @description Pre and Post of a development (plan 34; were the pre_dev and post_dev tasks of plan 22).
+         * @enum {string}
+         */
+        Phase: "pre" | "post";
+        /** PhaseRequest */
+        PhaseRequest: {
+            /** Task */
+            task: string;
+            phase: components["schemas"]["Phase"];
+        };
+        /**
+         * PhaseState
+         * @description How a development's Pre or Post finished (plan 34).
+         * @enum {string}
+         */
+        PhaseState: "done" | "skipped";
         /**
          * PipelineRequest
          * @description Create and update: the project comes from the URL and never changes.
@@ -4984,20 +5127,21 @@ export interface components {
              */
             criteria: string[];
             /**
-             * Steps
-             * @default []
+             * @default {
+             *       "steps": [],
+             *       "commands": [],
+             *       "automation": ""
+             *     }
              */
-            steps: string[];
+            pre: components["schemas"]["DevPhase"];
             /**
-             * Commands
-             * @default []
+             * @default {
+             *       "steps": [],
+             *       "commands": [],
+             *       "automation": ""
+             *     }
              */
-            commands: string[];
-            /**
-             * Automation
-             * @default
-             */
-            automation: string;
+            post: components["schemas"]["DevPhase"];
             /** References */
             references?: string[] | null;
         };
@@ -5008,7 +5152,8 @@ export interface components {
         };
         /**
          * PlanOptions
-         * @description How the round goes: the automatic ok to Copilot's plan.
+         * @description How the round goes: the automatic ok to Copilot's plan, the empty Pre and Post skipped by themselves.
+         *     Only the options sent change.
          */
         PlanOptions: {
             /**
@@ -5016,6 +5161,11 @@ export interface components {
              * @default false
              */
             auto_approve: boolean;
+            /**
+             * Auto Skip Empty
+             * @default false
+             */
+            auto_skip_empty: boolean;
         };
         /**
          * PlanProposal
@@ -5027,7 +5177,7 @@ export interface components {
              * @description Titolo breve del task, all'imperativo.
              */
             title: string;
-            /** @description pre_dev (prima di uno sviluppo), development (cambia il codice), post_dev (dopo uno sviluppo), analysis, confluence oppure jira. */
+            /** @description development (cambia il codice), analysis, confluence oppure jira. */
             type: components["schemas"]["TaskType"];
             /**
              * Repository
@@ -5057,22 +5207,10 @@ export interface components {
              * @description Criteri di accettazione, brevi e verificabili.
              */
             criteria?: string[];
-            /**
-             * Steps
-             * @description Solo per pre_dev e post_dev: i passi da fare a parole, uno per riga; vuoto per gli altri tipi.
-             */
-            steps?: string[];
-            /**
-             * Commands
-             * @description Solo per pre_dev e post_dev: i comandi shell da lanciare nel repository, uno per voce (es. mvn -B clean install); vuoto per gli altri tipi.
-             */
-            commands?: string[];
-            /**
-             * Automation
-             * @description Solo per pre_dev e post_dev: il nome di un'automation del progetto da lanciare dopo i comandi, una dell'elenco; vuoto se non serve.
-             * @default
-             */
-            automation: string;
+            /** @description Solo per development: cosa fare prima di delegare (branch, aggiornamento, build); vuoto per gli altri tipi. */
+            pre?: components["schemas"]["PlannedPhase"];
+            /** @description Solo per development: cosa fare dopo lo sviluppo (pulizia, test, commit); vuoto per gli altri tipi. */
+            post?: components["schemas"]["PlannedPhase"];
             /** Id */
             id: number;
             /**
@@ -5098,6 +5236,28 @@ export interface components {
              * @default
              */
             repository: string;
+        };
+        /**
+         * PlannedPhase
+         * @description A development's Pre or Post as the model proposes it.
+         */
+        PlannedPhase: {
+            /**
+             * Steps
+             * @description I passi da fare a parole, uno per voce.
+             */
+            steps?: string[];
+            /**
+             * Commands
+             * @description I comandi shell da lanciare nel repository, sicuri e ripetibili, uno per voce (es. mvn -B clean install); vuoto se non servono.
+             */
+            commands?: string[];
+            /**
+             * Automation
+             * @description Il nome di un'automation del progetto da lanciare dopo i comandi, una dell'elenco; vuoto se non serve.
+             * @default
+             */
+            automation: string;
         };
         /**
          * ProcessName
@@ -5491,6 +5651,46 @@ export interface components {
             /** Linked From */
             linked_from: string[];
         };
+        /** RegexProposal */
+        RegexProposal: {
+            /**
+             * Regex
+             * @default
+             */
+            regex: string;
+            /**
+             * Explanation
+             * @default
+             */
+            explanation: string;
+            /**
+             * Example
+             * @default
+             */
+            example: string;
+            /**
+             * Valid
+             * @default true
+             */
+            valid: boolean;
+            /**
+             * Example Matches
+             * @default false
+             */
+            example_matches: boolean;
+            /** Run Id */
+            run_id: string;
+            /**
+             * Cost Eur
+             * @default 0
+             */
+            cost_eur: number;
+        };
+        /** RegexRequest */
+        RegexRequest: {
+            /** Description */
+            description: string;
+        };
         /** RepositoryResponse */
         RepositoryResponse: {
             /** Path */
@@ -5669,6 +5869,60 @@ export interface components {
             /** Aliases */
             aliases?: string[];
         };
+        /** SavedSearchBody */
+        SavedSearchBody: {
+            /** Name */
+            name: string;
+            /** Query */
+            query: string;
+            /**
+             * Regex
+             * @default true
+             */
+            regex: boolean;
+            /**
+             * Files
+             * @default
+             */
+            files: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Replacing
+             * @default
+             */
+            replacing: string;
+        };
+        /** SavedSearchView */
+        SavedSearchView: {
+            /** Name */
+            name: string;
+            /** Query */
+            query: string;
+            /**
+             * Regex
+             * @default true
+             */
+            regex: boolean;
+            /**
+             * Files
+             * @default
+             */
+            files: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Origin
+             * @default app
+             */
+            origin: string;
+        };
         /** StatusResponse */
         StatusResponse: {
             /** Branch */
@@ -5740,7 +5994,7 @@ export interface components {
          * StepKey
          * @enum {string}
          */
-        StepKey: "delegate" | "copilot_plan" | "execution" | "answer" | "final" | "operation" | "publish";
+        StepKey: "pre" | "delegate" | "copilot_plan" | "execution" | "answer" | "final" | "post" | "publish";
         /** StepRequest */
         StepRequest: {
             /** Task */
@@ -5800,11 +6054,6 @@ export interface components {
             /** Only */
             only?: components["schemas"]["DefinitionKeyRequest"][] | null;
         };
-        /** TaskRequest */
-        TaskRequest: {
-            /** Task */
-            task: string;
-        };
         /**
          * TaskStatus
          * @description In this order: created (by hand) and refinement (being refined with an
@@ -5821,7 +6070,7 @@ export interface components {
          *     (type_prompts) and how Copilot works on it (``plan_only``).
          * @enum {string}
          */
-        TaskType: "development" | "analysis" | "confluence" | "jira" | "pre_dev" | "post_dev";
+        TaskType: "development" | "analysis" | "confluence" | "jira";
         /**
          * TestKind
          * @enum {string}
@@ -11034,7 +11283,43 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TaskRequest"];
+                "application/json": components["schemas"]["PhaseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    skip_phase_projects__project__activities__activity__plan_skip_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                activity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhaseRequest"];
             };
         };
         responses: {
@@ -11070,7 +11355,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TaskRequest"];
+                "application/json": components["schemas"]["PhaseRequest"];
             };
         };
         responses: {
@@ -11250,6 +11535,139 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActivityDraft"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_saved_projects__project__code_search_saved_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedSearchView"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_saved_projects__project__code_search_saved_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedSearchBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedSearchView"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_saved_projects__project__code_search_saved__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedSearchView"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    propose_regex_projects__project__code_search_regex_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegexRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegexProposal"];
                 };
             };
             /** @description Validation Error */

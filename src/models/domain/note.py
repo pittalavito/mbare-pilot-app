@@ -63,10 +63,6 @@ class TaskType(StrEnum):
     """Write a Confluence page: Copilot writes the draft; it becomes a note."""
     JIRA = "jira"
     """Refine a Jira issue (was «refinement»): Copilot writes the draft; it becomes a note."""
-    PRE_DEV = "pre_dev"
-    """Before a development (plan 22): branch, update, build. Done by Dev or by hand, never by Copilot."""
-    POST_DEV = "post_dev"
-    """After a development (plan 22): cleaning, tests, commit. Done by Dev or by hand, never by Copilot."""
 
     @property
     def plan_only(self) -> bool:
@@ -79,9 +75,32 @@ class TaskType(StrEnum):
         return self in (TaskType.CONFLUENCE, TaskType.JIRA)
 
     @property
-    def operations(self) -> bool:
-        """Pre or post development: not for Copilot, Dev or the user does it and says «Fatto»."""
-        return self in (TaskType.PRE_DEV, TaskType.POST_DEV)
+    def phases(self) -> bool:
+        """A development (plan 34): Pre before the delegation, Post after the final confirmation."""
+        return self is TaskType.DEVELOPMENT
+
+
+class Phase(StrEnum):
+    """Pre and Post of a development (plan 34; were the pre_dev and post_dev tasks of plan 22)."""
+    PRE = "pre"
+    """Before the delegation: branch, update, build."""
+    POST = "post"
+    """After the final confirmation: cleaning, tests, commit."""
+
+
+class DevPhase(BaseModel):
+    """What to do in a Pre or a Post: done without an agent when it can («🤖 Automatico»), by hand or by Dev."""
+    steps: list[str] = []
+    """The suggested steps, in words."""
+    commands: list[str] = []
+    """Shell commands, one each, run in the task's repository without an agent (plan 25)."""
+    automation: str = ""
+    """An automation of the project (by name), run after the commands; ``""`` = none."""
+
+    @property
+    def empty(self) -> bool:
+        """Neither commands nor an automation: «Salta da solo Pre e Post vuoti» skips it."""
+        return not any(command.strip() for command in self.commands) and not self.automation.strip()
 
 
 class ChecklistItem(BaseModel):
@@ -102,12 +121,10 @@ class AgentTask(BaseModel):
     """The linked reference notes, by name (``code-reference-<title>.md``...)."""
     tests: TestScope | None = None
     """``run_tests``: every test or only the touched ones; None = the project's default."""
-    steps: list[str] = []
-    """The suggested steps of a pre/post development task, in words, for Dev or by hand."""
-    commands: list[str] = []
-    """A pre/post development task's shell commands, one each, run in its repository without an agent (plan 25)."""
-    automation: str = ""
-    """A pre/post development task's automation of the project (by name), run after the commands; ``""`` = none."""
+    pre: DevPhase = DevPhase()
+    """A development's Pre (plan 34): before the delegation."""
+    post: DevPhase = DevPhase()
+    """A development's Post (plan 34): after the final confirmation."""
     publish_space: str = ""
     """A Confluence task's space for a new page (plan 32); ``""`` = the project's."""
     publish_parent: str = ""

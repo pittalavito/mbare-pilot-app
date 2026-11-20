@@ -25,8 +25,16 @@ Agent task::
     - [x] Nessuna API cambiata
     ## Vincoli
     ...
+    ## Pre
+    Automation: build
+    - Crea il branch dal main aggiornato
+    - `git switch -c feature/login`
+    ## Post
+    - `mvn -B test`
     ## Riferimenti
     - code-reference-login.md
+
+(``## Pre`` and ``## Post``, a development's, only when they have something.)
 
 Activity (status, description, its todo list with optional priority and due
 date per item, the agent tasks born from it)::
@@ -76,7 +84,9 @@ from models.domain.note import (
     ActivityStatus,
     AgentTask,
     ChecklistItem,
+    DevPhase,
     NoteType,
+    Phase,
     Reference,
     TaskStatus,
     TaskType,
@@ -88,8 +98,7 @@ STATUS_LABELS = {
     TaskStatus.CREATED: "creato", TaskStatus.REFINEMENT: "in rifinitura",
     TaskStatus.TODO: "da fare", TaskStatus.IN_PROGRESS: "in corso", TaskStatus.TO_VERIFY: "da verificare", TaskStatus.DONE: "fatto",
 }
-TYPE_LABELS = {TaskType.DEVELOPMENT: "sviluppo", TaskType.ANALYSIS: "analisi", TaskType.CONFLUENCE: "doc confluence", TaskType.JIRA: "task jira",
-               TaskType.PRE_DEV: "pre sviluppo", TaskType.POST_DEV: "post sviluppo"}
+TYPE_LABELS = {TaskType.DEVELOPMENT: "sviluppo", TaskType.ANALYSIS: "analisi", TaskType.CONFLUENCE: "doc confluence", TaskType.JIRA: "task jira"}
 NOTE_PREFIXES_BY_TYPE = {TaskType.ANALYSIS: "analisi-", TaskType.CONFLUENCE: "bozza-confluence-", TaskType.JIRA: "bozza-jira-"}
 """The generic note where Copilot's answer to a plan-only task is saved (``analisi-<task>.md``, ``bozza-confluence-<task>.md``,
 ``bozza-jira-<task>.md``: plan 32, the kind in the name)."""
@@ -101,10 +110,9 @@ _TYPE = "Tipo:"
 _TESTS = "Test:"
 _SECTIONS = {"objective": "Obiettivo", "context": "Contesto", "criteria": "Criteri di accettazione", "constraints": "Vincoli"}
 _REFERENCES = "Riferimenti"
-_STEPS = "Passi suggeriti"
-"""The suggested steps of a pre/post development task, as bullets (only when there are)."""
-_COMMANDS = "Comandi"
-"""A pre/post development task's commands, one bullet each in backticks (only when there are)."""
+_PHASES = {Phase.PRE: "Pre", Phase.POST: "Post"}
+"""A development's Pre and Post (plan 34), each a section only when it has something: ``Automation: <name>``,
+then one bullet per step and one bullet in backticks per command."""
 _AUTOMATION = "Automation:"
 _PUBLISH_SPACE = "Spazio Confluence:"
 _PUBLISH_PARENT = "Pubblica sotto:"
@@ -123,7 +131,6 @@ _DETAILS = re.compile(r"^(.*?)\s+\((?:(alta|media|bassa)(?:,\s*)?)?(\d{4}-\d{2}-
 def render_agent_task(task: AgentTask) -> str:
     lines = [f"# {_line(task.title)}", "", f"{_STATUS} {STATUS_LABELS[task.status]}", f"{_TYPE} {TYPE_LABELS[task.type]}"]
     lines += [f"{_TESTS} {SCOPE_LABELS[task.tests]}"] if task.tests else []
-    lines += [f"{_AUTOMATION} {_line(task.automation)}"] if task.automation.strip() else []
     lines += [f"{_PUBLISH_SPACE} {_line(task.publish_space)}"] if task.publish_space.strip() else []
     lines += [f"{_PUBLISH_PARENT} {_line(task.publish_parent)}"] if task.publish_parent.strip() else []
     for field, heading in _SECTIONS.items():
@@ -132,15 +139,31 @@ def render_agent_task(task: AgentTask) -> str:
             lines += [_check(item) for item in task.criteria]
         elif text := getattr(task, field).strip():
             lines.append(text)
-    if task.steps:
-        lines += ["", f"## {_STEPS}", *(f"- {_line(step)}" for step in task.steps)]
-    if task.commands:
-        lines += ["", f"## {_COMMANDS}", *(f"- `{_line(command)}`" for command in task.commands)]
+    for phase, heading in _PHASES.items():
+        lines += _phase(heading, task.pre if phase is Phase.PRE else task.post)
     return "\n".join(lines + _references(task.references)) + "\n"
 
 
+def _phase(heading: str, phase: DevPhase) -> list[str]:
+    if not phase.steps and not phase.commands and not phase.automation.strip():
+        return []
+    lines = ["", f"## {heading}"]
+    lines += [f"{_AUTOMATION} {_line(phase.automation)}"] if phase.automation.strip() else []
+    lines += [f"- {_line(step)}" for step in phase.steps if step.strip()]
+    lines += [f"- `{_line(command)}`" for command in phase.commands if command.strip()]
+    return lines
+
+
+def _parse_phase(lines: list[str]) -> DevPhase:
+    bullets = _bullets(lines)
+    is_command = lambda text: len(text) > 1 and text.startswith("`") and text.endswith("`")  # noqa: E731
+    return DevPhase(steps=[text for text in bullets if not is_command(text)],
+                    commands=[text.strip("`").strip() for text in bullets if is_command(text) and text.strip("`").strip()],
+                    automation=_value(lines, _AUTOMATION))
+
+
 def parse_agent_task(text: str, fallback_title: str) -> AgentTask:
-    title, head, sections = _split(text, fallback_title, {*_SECTIONS.values(), _STEPS, _COMMANDS, _REFERENCES})
+    title, head, sections = _split(text, fallback_title, {*_SECTIONS.values(), *_PHASES.values(), _REFERENCES})
     status, kind = (_value(head, label).lower() for label in (_STATUS, _TYPE))
     by_heading = {heading.lower(): field for field, heading in _SECTIONS.items()}
     fields = {by_heading[heading]: body for heading, body in sections.items() if heading in by_heading}
@@ -154,9 +177,8 @@ def parse_agent_task(text: str, fallback_title: str) -> AgentTask:
         constraints=_text(fields.get("constraints", [])),
         references=_bullets(sections.get(_REFERENCES.lower(), [])),
         tests=next((key for key, label in SCOPE_LABELS.items() if label == _value(head, _TESTS).lower()), None),
-        steps=_bullets(sections.get(_STEPS.lower(), [])),
-        commands=[command.strip("`").strip() for command in _bullets(sections.get(_COMMANDS.lower(), [])) if command.strip("`").strip()],
-        automation=_value(head, _AUTOMATION),
+        pre=_parse_phase(sections.get(_PHASES[Phase.PRE].lower(), [])),
+        post=_parse_phase(sections.get(_PHASES[Phase.POST].lower(), [])),
         publish_space=_value(head, _PUBLISH_SPACE),
         publish_parent=_value(head, _PUBLISH_PARENT),
     )

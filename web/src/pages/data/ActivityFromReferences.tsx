@@ -8,7 +8,8 @@ import { ConfluenceImport, JiraImport } from "./AtlassianImport";
 /** «📎 Parto da riferimenti», the second way of «➕ Nuova attività» (plans 16
  * and 18): choose references of the project (also copied from Jira or
  * Confluence, they become references) and pieces of the context index (only
- * their titles, for the proposal); the agent ``bozza-attivita`` proposes title,
+ * their titles, for the proposal), plus «Cosa vuoi fare» (plan 34, enough
+ * alone); the agent ``bozza-attivita`` proposes title,
  * description and todo items in one call; the user corrects them and creates
  * the activity, with the references linked. */
 
@@ -17,12 +18,13 @@ type Created = { name: string };
 export function FromReferences({ project, onCreated }: { project: string; onCreated: (created: Created) => void }) {
   const [references, setReferences] = useState<string[]>([]);
   const [context, setContext] = useState<string[]>([]);
+  const [wish, setWish] = useState("");
   const draft = useDraftActivity(project);
   const save = useSaveActivity(project);
   const [form, setForm] = useState<{ title: string; description: string; items: string }>();
-  const reset = () => { setReferences([]); setContext([]); setForm(undefined); draft.reset(); save.reset(); };
+  const reset = () => { setReferences([]); setContext([]); setWish(""); setForm(undefined); draft.reset(); save.reset(); };
   const toggle = (list: string[], value: string) => (list.includes(value) ? list.filter((item) => item !== value) : [...list, value]);
-  const propose = () => draft.mutate({ references, context }, {
+  const propose = () => draft.mutate({ references, context, description: wish }, {
     onSuccess: (proposal) => setForm({ title: proposal.title, description: proposal.description, items: (proposal.items ?? []).join("\n") }),
   });
   const create = () => form && save.mutate({
@@ -54,7 +56,7 @@ export function FromReferences({ project, onCreated }: { project: string; onCrea
       ) : (
         <Stack gap="sm">
           <Text size="sm" c="dimmed">
-            Scegli da dove nasce: il Segretario legge solo i titoli (una chiamata) e propone titolo, descrizione e voci della todo.
+            Scrivi cosa vuoi fare e scegli da dove nasce: il Segretario legge la descrizione e solo i titoli (una chiamata) e propone titolo, descrizione e voci della todo.
           </Text>
           <Tabs defaultValue="references" keepMounted={false}>
             <Tabs.List>
@@ -78,9 +80,11 @@ export function FromReferences({ project, onCreated }: { project: string; onCrea
           </Tabs>
           <Chosen references={references} context={context}
                   onRemove={(value) => { setReferences(references.filter((item) => item !== value)); setContext(context.filter((item) => item !== value)); }} />
+          <Textarea label="Cosa vuoi fare" description="Facoltativo: l'intenzione da cui parte la proposta, basta anche da sola"
+                    autosize minRows={2} value={wish} onChange={(event) => setWish(event.currentTarget.value)} />
           {draft.error && <Alert color="red" p="xs">{draft.error.message}</Alert>}
           <Group justify="flex-end">
-            <Button onClick={propose} loading={draft.isPending} disabled={!references.length && !context.length}>✨ Proponi</Button>
+            <Button onClick={propose} loading={draft.isPending} disabled={!references.length && !context.length && !wish.trim()}>✨ Proponi</Button>
           </Group>
         </Stack>
       )}

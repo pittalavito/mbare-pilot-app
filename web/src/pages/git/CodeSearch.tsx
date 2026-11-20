@@ -4,12 +4,15 @@ import { Link } from "react-router-dom";
 
 import { useRepositories } from "../../api/git";
 import { type CodeQuery, type CodeSearchResult, useAgentTasks, useCodeSearch, useSaveCodeSearch } from "../../api/projectData";
+import { RegexModal, SaveSearchModal, SavedSearchSelect } from "./SavedSearches";
 
 type Match = CodeSearchResult["matches"][number];
 
 /** «🔎 Cerca nel codice»: a free search in the files git knows of the project's
  * repositories (plain text, or a regex), results grouped by file; the search can
- * be saved as a code reference and linked to a task. */
+ * be saved as a code reference and linked to a task. Plan 34: a saved search
+ * fills it («⭐ Ricerche salvate»), «⭐ Salva ricerca» names it in the project,
+ * «✨ Regex» asks an agent for the regex from words. */
 export function CodeSearch({ project }: { project: string }) {
   const repos = useRepositories(project);
   const tasks = useAgentTasks(project);
@@ -19,6 +22,8 @@ export function CodeSearch({ project }: { project: string }) {
   const [searched, setSearched] = useState<CodeQuery>();
   const [title, setTitle] = useState("");
   const [task, setTask] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [helper, setHelper] = useState(false);
   const set = (patch: Partial<CodeQuery>) => setQuery((current) => ({ ...current, ...patch }));
 
   const run = () => {
@@ -34,19 +39,26 @@ export function CodeSearch({ project }: { project: string }) {
     <Stack gap="md">
       <form onSubmit={(event) => { event.preventDefault(); run(); }}>
         <Stack gap="sm">
+          <SavedSearchSelect project={project} onPick={(search) => set({ query: search.query, regex: search.regex ?? true, files: search.files ?? "" })} />
           <Group align="flex-end">
             <TextInput label="Cerca" placeholder="es. @Deprecated, OrderService" style={{ flex: 1 }} value={query.query}
               onChange={(event) => set({ query: event.currentTarget.value })} />
             <Switch label="Regex" checked={query.regex} onChange={(event) => set({ regex: event.currentTarget.checked })} mb={8} />
+            <Button variant="default" onClick={() => setHelper(true)}>✨ Regex</Button>
           </Group>
           <Group grow align="flex-end">
             <TextInput label="File" placeholder="es. *.java, src/main/**" value={query.files} onChange={(event) => set({ files: event.currentTarget.value })} />
             <Select label="Repository" placeholder="Tutti" clearable data={(repos.data ?? []).map((repo) => ({ value: repo.path, label: repo.path || "(cartella del progetto)" }))}
               value={query.repository || null} onChange={(value) => set({ repository: value ?? "" })} />
           </Group>
-          <Group><Button type="submit" loading={search.isPending} disabled={!query.query.trim()}>🔎 Cerca</Button></Group>
+          <Group>
+            <Button type="submit" loading={search.isPending} disabled={!query.query.trim()}>🔎 Cerca</Button>
+            <Button variant="default" disabled={!query.query.trim()} onClick={() => setSaving(true)}>⭐ Salva ricerca</Button>
+          </Group>
         </Stack>
       </form>
+      <SaveSearchModal project={project} query={query} opened={saving} onClose={() => setSaving(false)} />
+      <RegexModal project={project} opened={helper} onClose={() => setHelper(false)} onUse={(regex) => set({ query: regex, regex: true })} />
       {search.error && <Alert color="orange">{search.error.message}</Alert>}
       {result && (
         <Stack gap="xs">

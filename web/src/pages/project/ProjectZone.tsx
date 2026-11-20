@@ -9,6 +9,7 @@ import { ContextTab } from "../data/ContextTab";
 import { DEFAULT_VISIBLE, DataSettings, REFERENCE_TYPES, References } from "../data/DataSettings";
 import { Files, Notes } from "../data/DataTab";
 import { GitTab } from "../git/GitTab";
+import { SavedSearchesSettings } from "../git/SavedSearches";
 import { SettingsTab } from "../settings/SettingsTab";
 import { noteZone } from "./noteZone";
 
@@ -40,6 +41,8 @@ export function ProjectZone() {
       value: "settings", label: "🔧 Impostazioni", panel: (
         <Stack gap="lg">
           <SettingsTab />
+          <Title order={5}>⭐ Ricerche salvate nel codice</Title>
+          <SavedSearchesSettings project={project} />
           <Title order={5}>Cosa mostra questa zona</Title>
           <DataSettings project={project} />
         </Stack>

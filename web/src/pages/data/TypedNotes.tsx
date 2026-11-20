@@ -16,12 +16,11 @@ import { useAgentPanel } from "../project/AgentPanel";
 import { DelegateModal } from "../copilot/DelegateModal";
 import { ActivityPage } from "../work/ActivityPage";
 import { SendBackModal } from "../copilot/SendBackModal";
-import { devRequest } from "../work/devRequest";
 import { NewActivityModal } from "./NewActivityModal";
 import { ChecklistEditor } from "./ChecklistEditor";
 import { ReferencesSection } from "./ReferencesSection";
 import { PublishButton } from "./PublishModal";
-import { OperationFields } from "../work/Operation";
+import { EMPTY_PHASE, PrePostFields } from "../work/Operation";
 
 /** The typed notes of the Dati tab: activities and agent tasks. On disk they
  * are notes (``attivita-<title>.md``, ``agent-task-<title>.md``) written with
@@ -41,21 +40,17 @@ export const STATUS = [
 
 /** What the task asks for; it picks Copilot's planning prompt (type_prompts).
  * Only a development changes the code; analysis, Confluence and Jira stay in
- * planning and Copilot's answer is saved as a note (``planOnly``); pre/post
- * development never go to Copilot: Dev or by hand, then «Fatto» (plan 22). */
+ * planning and Copilot's answer is saved as a note (``planOnly``); a development
+ * has its Pre and Post (plan 34), never Copilot's: done in the activity's round. */
 export const TYPES = [
   { value: "development", label: "Sviluppo", color: "teal", hint: "Copilot cambia il codice" },
   { value: "analysis", label: "Analisi", color: "orange", hint: "Copilot legge il codice e risponde con una nota" },
   { value: "confluence", label: "Doc Confluence", color: "blue", hint: "Copilot scrive la bozza, poi la pubblichi" },
   { value: "jira", label: "Task Jira", color: "grape", hint: "Copilot rifinisce la issue, poi la pubblichi" },
-  { value: "pre_dev", label: "Pre sviluppo", color: "cyan", hint: "Prima dello sviluppo: branch, build (automatico o a mano)" },
-  { value: "post_dev", label: "Post sviluppo", color: "indigo", hint: "Dopo lo sviluppo: pulizia, test, commit" },
 ] as const;
 
 /** Copilot only answers (analysis, Confluence, Jira): its answer becomes a note. */
 export const isPlanOnly = (type?: string) => type === "analysis" || type === "confluence" || type === "jira";
-/** Pre/post development (plan 22): never Copilot, Dev or by hand, then «Fatto». */
-export const isOperations = (type?: string) => type === "pre_dev" || type === "post_dev";
 
 const ALL = "all";
 /** The tests' choice of a task that follows the project. */
@@ -97,7 +92,7 @@ function AgentTaskList({ project, onSelected, onRefine }: {
         return <Badge size="xs" variant="outline" color={kind.color}>{kind.label}</Badge>;
       }}
       create={(title, done) => save.mutate({
-        body: { title, status: "created", type: type === ALL ? "development" : type as AgentTaskBody["type"], objective: "", context: "", criteria: [], constraints: "", references: [], steps: [], commands: [], automation: "", publish_space: "", publish_parent: "" },
+        body: { title, status: "created", type: type === ALL ? "development" : type as AgentTaskBody["type"], objective: "", context: "", criteria: [], constraints: "", references: [], pre: EMPTY_PHASE, post: EMPTY_PHASE, publish_space: "", publish_parent: "" },
       }, done)}
       creating={save.isPending}
       onSelected={onSelected}
@@ -370,19 +365,16 @@ function BornFrom({ project, task }: { project: string; task: string }) {
  * «Conferma» or «Rimanda a Copilot»; in progress is Copilot's. Only a
  * development has «to verify» in its path. «Cambia stato» is for any other
  * move, by hand. */
-function StatusPath({ status, planOnly, operations, missing, busy, dirty, onStatus, onRefine, onDelegate, onSendBack, onDev }: {
+function StatusPath({ status, planOnly, missing, busy, dirty, onStatus, onRefine, onDelegate, onSendBack }: {
   status: string;
   /** Not a development: Copilot never changes the code, no «to verify». */
   planOnly: boolean;
-  /** Pre/post development: never Copilot, «Fallo fare a Dev» or by hand, then «Fatto». */
-  operations: boolean;
-  onDev: () => void;
   /** What a refined task should have and this one lacks. */
   missing: string[];
   busy: boolean; dirty: boolean;
   onStatus: (status: AgentTaskBody["status"]) => void; onRefine: () => void; onDelegate: () => void; onSendBack: () => void;
 }) {
-  const path = STATUS.filter((item) => !(planOnly || operations) || item.value !== "to_verify" || status === "to_verify");
+  const path = STATUS.filter((item) => !planOnly || item.value !== "to_verify" || status === "to_verify");
   const index = Math.max(0, path.findIndex((item) => item.value === status));
   return (
     <Stack gap="xs">
@@ -406,19 +398,12 @@ function StatusPath({ status, planOnly, operations, missing, busy, dirty, onStat
             </Text>
           </>
         )}
-        {operations && (status === "todo" || status === "in_progress") && (
-          <>
-            <Button size="xs" onClick={onDev}>🤖 Fallo fare a Dev</Button>
-            <Button size="xs" color="green" variant="light" onClick={() => onStatus("done")} loading={busy}>✅ Fatto</Button>
-            <Text size="xs" c="dimmed">Oppure fai tu i passi: quando hai finito, «Fatto».</Text>
-          </>
-        )}
-        {status === "todo" && !operations && (
+        {status === "todo" && (
           <Button size="xs" onClick={onDelegate} disabled={dirty} title={dirty ? "Salva prima il task: Copilot legge il file" : undefined}>
             🤖 Delega a Copilot
           </Button>
         )}
-        {status === "in_progress" && !operations && (
+        {status === "in_progress" && (
           <Text size="xs">
             Copilot ci sta lavorando: la sua chat è nel pannello dell'agente, a destra
             {planOnly && <>; quando la risposta va bene, «Salva come nota»</>}.
@@ -465,7 +450,6 @@ function AgentTaskEditor({ project, task, onRefine }: { project: string; task: A
   useEffect(() => { if (outdated && !dirty) reload(); }, [latest]); // eslint-disable-line react-hooks/exhaustive-deps
   const [delegating, setDelegating] = useState(false);
   const [sendingBack, setSendingBack] = useState(false);
-  const { ask } = useAgentPanel();
   const [search, setSearch] = useSearchParams();
   /** Opened from an activity's step «Lavora» (``?from=``): «← Torna all'attività». */
   const from = search.get("from");
@@ -513,9 +497,8 @@ function AgentTaskEditor({ project, task, onRefine }: { project: string; task: A
         </Group>
       )}
       <StatusPath
-        status={form.status ?? "created"} planOnly={isPlanOnly(form.type)} operations={isOperations(form.type)} missing={missing} busy={save.isPending}
+        status={form.status ?? "created"} planOnly={isPlanOnly(form.type)} missing={missing} busy={save.isPending}
         dirty={dirty} onStatus={moveTo} onRefine={onRefine} onDelegate={() => setDelegating(true)} onSendBack={() => setSendingBack(true)}
-        onDev={() => ask(devRequest({ ...form, name: task.name }), "operator")}
       />
       <Group><PublishButton project={project} task={task} /></Group>
       <BornFrom project={project} task={task.name} />
@@ -533,14 +516,7 @@ function AgentTaskEditor({ project, task, onRefine }: { project: string; task: A
           </Stack>
         )}
       />
-      {isOperations(form.type) && (
-        <>
-          <Textarea label="Passi suggeriti" description="Uno per riga, a parole: Dev li riceve nella richiesta, o li segui tu."
-            autosize minRows={2} value={(form.steps ?? []).join("\n")}
-            onChange={(event) => set({ steps: event.currentTarget.value.split("\n") })} />
-          <OperationFields project={project} commands={form.commands ?? []} automation={form.automation ?? ""} onChange={set} />
-        </>
-      )}
+
       {form.type === "confluence" && (
         <Group grow align="flex-start">
           <TextInput label="Spazio Confluence" description="Per una pagina nuova; vuoto = quello del progetto" value={form.publish_space ?? ""}
@@ -549,7 +525,7 @@ function AgentTaskEditor({ project, task, onRefine }: { project: string; task: A
             value={form.publish_parent ?? ""} onChange={(event) => set({ publish_parent: event.currentTarget.value })} />
         </Group>
       )}
-      {form.type === "post_dev" && (
+      {form.type === "development" && (
         <div>
           <Text size="sm" fw={500} mb={4}>Test</Text>
           <SegmentedControl
@@ -558,7 +534,7 @@ function AgentTaskEditor({ project, task, onRefine }: { project: string; task: A
             value={form.tests ?? PROJECT_DEFAULT}
             onChange={(value) => set({ tests: value === PROJECT_DEFAULT ? null : value as TestScope })}
           />
-          <Text size="xs" c="dimmed" mt={4}>Quali test lancia run_tests (Dev) per questo task (il default è in Progetto → Impostazioni → Verifiche dello sviluppo).</Text>
+          <Text size="xs" c="dimmed" mt={4}>Quali test lancia run_tests (Dev, nel post) per questo task (il default è in Progetto → Impostazioni → Verifiche dello sviluppo).</Text>
         </div>
       )}
       <Textarea label="Obiettivo" description="Cosa deve ottenere l'agente." autosize minRows={2} value={form.objective ?? ""} onChange={(event) => set({ objective: event.currentTarget.value })} />
@@ -568,6 +544,9 @@ function AgentTaskEditor({ project, task, onRefine }: { project: string; task: A
         <ChecklistEditor items={form.criteria ?? []} onChange={(criteria) => set({ criteria })} addLabel="Criterio" placeholder="es. I test passano" />
       </div>
       <Textarea label="Vincoli" description="Cosa non deve fare o toccare." autosize minRows={2} value={form.constraints ?? ""} onChange={(event) => set({ constraints: event.currentTarget.value })} />
+      {form.type === "development" && (
+        <PrePostFields project={project} pre={form.pre} post={form.post} onChange={set} />
+      )}
       <ReferencesSection project={project} value={form.references ?? []} onChange={(references) => set({ references })} />
     </EditorShell>
   );

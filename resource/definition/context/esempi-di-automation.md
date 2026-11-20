@@ -1,7 +1,7 @@
 # Esempi di automation
 
 ## Quando conviene un'automation
-Una procedura che si ripete uguale (stato dei repository, aggiornare i branch, controllare i pom, coverage prima del push) e che non ha bisogno di ragionare: gli step di tipo tool non usano l'LLM, costano zero e danno sempre lo stesso risultato. Un comando singolo invece si mette nei comandi del task pre/post o si lancia a mano.
+Una procedura che si ripete uguale (stato dei repository, aggiornare i branch, controllare i pom, coverage prima del push) e che non ha bisogno di ragionare: gli step di tipo tool non usano l'LLM, costano zero e danno sempre lo stesso risultato. Un comando singolo invece si mette nei comandi del pre o del post di uno sviluppo o si lancia a mano.
 
 ## Quando no
 Quando ogni volta serve decidere qualcosa di diverso (capire un errore, scegliere cosa cambiare): lì serve un agente o l'utente.

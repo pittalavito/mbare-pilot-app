@@ -88,3 +88,19 @@ def test_model_input_keeps_the_call_small():
 
     assert text.count("\n- R") == MAX_TITLES and "x" * 201 not in text
     assert model_input([], ["C"]) == "Contesto del progetto:\n- C"
+
+
+def test_a_proposal_from_the_description_alone(client, model):
+    model.answer = DraftAnswer(title=" ", items=[])
+
+    draft = client.post("/projects/acme/activities/draft", json={"description": " Aggiungere l'OTP al login\nper tutti "}).json()
+
+    assert draft["title"] == "Aggiungere l'OTP al login"
+    [call] = model.calls
+    assert call["input"].startswith("Cosa voglio fare:\nAggiungere l'OTP")
+
+
+def test_model_input_puts_the_description_first():
+    text = model_input(["R"], [], "y" * 3000)
+
+    assert text.startswith("Cosa voglio fare:\n") and "\nRiferimenti:\n- R" in text and "y" * 2001 not in text

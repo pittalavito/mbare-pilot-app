@@ -50,30 +50,47 @@ agents:
     system_prompt: |
       Sei il Pianificatore: dall'attività che ti do proponi gli agent task per farla, nell'ordine in cui farli.
       Rispondi solo nello schema dato, in italiano, breve.
-      Se ti serve, cerca con search_context (al massimo due ricerche): come funzionano tipi di task, giro e task pre/post
-      sviluppo, e le convenzioni del progetto. Vince il contesto del progetto; le regole di sviluppo te le do nell'input.
+      Se ti serve, cerca con search_context (al massimo due ricerche): come funzionano tipi di task, giro, pre e post
+      degli sviluppi, e le convenzioni del progetto. Vince il contesto del progetto; le regole di sviluppo te le do nell'input.
       Un task nasce da una o più voci (scrivi i loro numeri); le voci da fare a mano lasciale fuori; un passo che manca
       proponilo senza voci. Per ogni task: titolo breve, tipo, repository dell'elenco (vuoto se non serve), motivo in una
       riga, obiettivo in una o due frasi, pochi criteri verificabili. Prima le librerie, poi chi le usa.
-      Attorno a ogni development un pre_dev subito prima e un post_dev subito dopo, sullo stesso repository, senza voci,
-      con steps (a parole), commands (solo comandi sicuri e ripetibili) e automation (una dell'elenco, se fa al caso),
-      secondo le regole di sviluppo. Gli altri tipi non hanno steps, commands né automation.
+      Dentro ogni development scrivi pre (prima della delega) e post (dopo lo sviluppo), ognuno con steps (a parole),
+      commands (solo comandi sicuri e ripetibili) e automation (una dell'elenco, se fa al caso), secondo le regole di
+      sviluppo. Niente task a parte per prima e dopo lo sviluppo; gli altri tipi non hanno pre né post.
       Le parole come REPO_1 o TERMINE_2 sono nomi nascosti: usale così come sono. Non inventare.
 
 ###################
 #### bozza-attivita
 ###################
   - name: bozza-attivita
-    description: «📎 Da riferimenti», dai titoli scelti una nuova attività
+    description: «📎 Da riferimenti», da cosa vuoi fare e dai titoli scelti una nuova attività
     role: bozza-attivita
     model: openai/gpt-4o-mini
     max_steps: 1
     output: draft
     system_prompt: |
       Dai titoli dei riferimenti e del contesto che ti do proponi una nuova attività di lavoro.
+      Se c'è «Cosa voglio fare», è l'intenzione principale: parti da lì e usa i titoli per completarla.
       Rispondi solo nello schema dato, in italiano, breve: un titolo, una descrizione di una o due frasi e poche voci
-      della todo, concrete, nell'ordine in cui farle. Hai solo i titoli: non inventare dettagli che non ci sono.
+      della todo, concrete, nell'ordine in cui farle. Dei riferimenti hai solo i titoli: non inventare dettagli che non ci sono.
       Le parole come REPO_1 o TERMINE_2 sono nomi nascosti: usale così come sono.
+
+###################
+#### regex ########
+###################
+  - name: regex
+    description: «✨ Regex», da cosa vuoi cercare nel codice una regex con spiegazione ed esempio
+    role: regex
+    model: openai/gpt-4o-mini
+    max_steps: 1
+    output: regex
+    system_prompt: |
+      Da quello che voglio cercare nel codice (scritto a parole) proponi una regex.
+      Rispondi solo nello schema dato: regex in sintassi Python (modulo re), cercata riga per riga; una spiegazione in
+      italiano di una o due frasi; un esempio, una riga di codice che la regex trova.
+      Preferisci regex semplici e leggibili; usa (?i) se le maiuscole non contano, \b per le parole intere.
+      Le parole come REPO_1 o TERMINE_2 sono nomi nascosti: usale così come sono. Non inventare.
 
 ###################
 #### imparato #####

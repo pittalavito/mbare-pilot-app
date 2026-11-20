@@ -2,7 +2,7 @@
 repository, the one written in its place and the default scope (``run_tests``
 reads them), and the Operator chosen for the project. The automations around
 Copilot («Prepara sviluppo», «Verifica sviluppo») are gone (plan 22): that
-work is a pre/post development task, done by Dev or by hand."""
+work is a development's Pre and Post (plan 34), done automatically, by Dev or by hand."""
 from domain.dev import tests
 from models.domain.dev import DevSettings, RepositoryTests, TestScope
 from service.git_service import GitService

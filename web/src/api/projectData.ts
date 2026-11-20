@@ -198,7 +198,7 @@ export function useDeleteFile(project: string) {
  * from the titles of the chosen references and context pieces (nothing is created). */
 export function useDraftActivity(project: string) {
   return useMutation({
-    mutationFn: (body: { references: string[]; context: string[] }) =>
+    mutationFn: (body: { references: string[]; context: string[]; description: string }) =>
       unwrap(api.POST("/projects/{project}/activities/draft", { params: { path: { project } }, body })),
   });
 }

@@ -11,7 +11,7 @@ Testo semplice o regex, con filtri sui file (glob) e sul repository; legge i fil
 
 ## Contesto del progetto
 I documenti di `context/` del progetto (Progetto → Contesto): architettura, convenzioni, decisioni, glossario. Due hanno un ruolo fisso:
-- `sviluppo.md`: le regole di sviluppo che il Pianificatore segue per i task pre e post sviluppo.
+- `sviluppo.md`: le regole di sviluppo che il Pianificatore segue per il pre e il post di ogni sviluppo.
 - `imparato.md`: quello che le attività chiuse hanno insegnato, in cima il più recente.
 Sono indicizzati (RAG) e si cercano con `search_context`.
 

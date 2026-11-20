@@ -25,12 +25,10 @@ Un esempio per tipo: obiettivo chiaro, criteri verificabili, vincoli espliciti. 
 - **Obiettivo**: la issue dice come riprodurre, cosa ci si aspetta e cosa succede, con i criteri per chiuderla.
 - **Criteri**: passi di riproduzione numerati; risultato atteso e ottenuto; criteri di accettazione verificabili.
 
-## Esempio di pre sviluppo
-- **Titolo**: Prepara il branch per l'OTP
+## Esempio di pre di uno sviluppo
 - **Passi**: branch dal develop aggiornato; build della libreria di autenticazione e poi dell'api.
 - **Comandi**: `git fetch --all --prune`, `git checkout -b feature/otp-login`, `mvn -B clean install`.
 
-## Esempio di post sviluppo
-- **Titolo**: Pulisci e testa dopo l'OTP
+## Esempio di post di uno sviluppo
 - **Passi**: togli la cartella del task per Copilot; lancia i test toccati; commit e push li fa l'utente.
 - **Comandi**: `rm -rf mbare-pilot/agent-task-aggiungi-l-otp-al-login`; poi i test con `run_tests` oppure `mvn -B test`.

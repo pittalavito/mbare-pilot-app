@@ -231,8 +231,6 @@ class CopilotService:
         settings = self.coding_agent(project_name)
         model = coding_agent.check_model(settings, model)
         task = self._data.agent_task(project_name, task_note)  # exists and is an agent task
-        if task.type.operations:
-            raise ValidationError("Un task pre o post sviluppo non va a Copilot: fallo fare a Dev o fallo tu, poi «Fatto».")
         if no_repository:
             _require_plan_only(task)
             repository = ""

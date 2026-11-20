@@ -75,9 +75,21 @@ describe("«➕ Nuova attività» · «📎 Parto da riferimenti»", () => {
     fireEvent.click(screen.getByRole("button", { name: "✨ Proponi" }));
 
     await waitFor(() => expect(drafted).toHaveBeenCalled());
-    await waitFor(() => expect(bodies[0]).toEqual({ references: ["context-reference-nav-7-login-lento.md"], context: [] }));
+    await waitFor(() => expect(bodies[0]).toEqual({ references: ["context-reference-nav-7-login-lento.md"], context: [], description: "" }));
     fireEvent.click(await screen.findByRole("button", { name: "← Indietro" }));
     expect(screen.getByRole("button", { name: "✨ Proponi" })).toBeEnabled();
+  });
+
+  it("«Cosa vuoi fare» alone is enough to propose", async () => {
+    const bodies: unknown[] = [];
+    api((body: unknown) => { bodies.push(body); return { title: "OTP", description: "", items: [], references: [], run_id: "r", cost_eur: 0 }; });
+    render();
+
+    fireEvent.change(screen.getByLabelText(/Cosa vuoi fare/), { target: { value: "Aggiungere l'OTP al login" } });
+    fireEvent.click(screen.getByRole("button", { name: "✨ Proponi" }));
+
+    expect(await screen.findByLabelText("Titolo")).toHaveValue("OTP");
+    expect(bodies[0]).toEqual({ references: [], context: [], description: "Aggiungere l'OTP al login" });
   });
 
   it("shows when the secretary does not answer", async () => {

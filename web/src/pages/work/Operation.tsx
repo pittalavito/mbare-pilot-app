@@ -1,19 +1,26 @@
-import { Alert, Badge, Button, Card, Code, Group, Select, Stack, Text, TextInput, Textarea } from "@mantine/core";
+import { Alert, Badge, Button, Card, Code, Fieldset, Group, Select, Stack, Text, TextInput, Textarea } from "@mantine/core";
 import { useEffect, useRef, useState } from "react";
 
 import { type Pipeline, isFinished, useEnqueueRun, usePipelines, useRuns } from "../../api/automation";
 import { useAnswerCommand, useRunCommand } from "../../api/dev";
 import { useGitStatus } from "../../api/git";
-import { type PathTask, useMarkDone, useStartAuto } from "../../api/plan";
+import { type PathTask, type Phase, useMarkDone, useSkipPhase, useStartAuto } from "../../api/plan";
 import type { AgentTask } from "../../api/projectData";
 import { useAgentPanel } from "../project/AgentPanel";
 import { devRequest } from "./devRequest";
 
-/** Plan 25: a pre/post development task done without an agent when it can.
- * «🤖 Automatico» runs its commands, then its automation (the worker; first
- * error = stop), or asks Dev when it has neither; «✋ A mano» opens the
+/** Plans 25 and 34: a development's Pre and Post, done without an agent when they can.
+ * «🤖 Automatico» runs the commands, then the automation (the worker; first
+ * error = stop), or asks Dev when there are neither; «✋ A mano» opens the
  * dashboard under the row: the commands one by one, the automation, the git
- * status, Dev in chat and «✅ Fatto». */
+ * status, Dev in chat and «✅ Fatto»; «⏭ Salta» when there is nothing to do. */
+
+export type DevPhase = { steps: string[]; commands: string[]; automation: string };
+export const EMPTY_PHASE: DevPhase = { steps: [], commands: [], automation: "" };
+const PHASE_TEXT: Record<Phase, { title: string; hint: string }> = {
+  pre: { title: "Pre", hint: "Prima di delegare: branch, aggiornamento, build" },
+  post: { title: "Post", hint: "Dopo la conferma finale: pulizia, test, commit" },
+};
 
 /** The task's commands (one per line) and automation, in the planner's draft and in the task's form. */
 export function OperationFields({ project, commands, automation, onChange }: {
@@ -32,35 +39,68 @@ export function OperationFields({ project, commands, automation, onChange }: {
   );
 }
 
-const hasWork = (task?: AgentTask) => !!task && (task.commands.some((command) => command.trim()) || !!task.automation.trim());
+/** A Pre or a Post: steps in words, commands, automation (the planner's draft, the task's form). */
+export function PhaseFields({ project, phase, value, onChange }: { project: string; phase: Phase; value: DevPhase; onChange: (value: DevPhase) => void }) {
+  const text = PHASE_TEXT[phase];
+  return (
+    <Fieldset legend={`${text.title} · ${text.hint}`} p="xs">
+      <Stack gap={6}>
+        <Textarea size="xs" label="Passi" description="Uno per riga, a parole: per Dev o per te" autosize minRows={1} value={value.steps.join("\n")}
+          onChange={(event) => onChange({ ...value, steps: event.currentTarget.value.split("\n") })} />
+        <OperationFields project={project} commands={value.commands} automation={value.automation} onChange={(patch) => onChange({ ...value, ...patch })} />
+      </Stack>
+    </Fieldset>
+  );
+}
 
-/** «🤖 Automatico» and «✋ A mano» on the row of a pre/post development task. */
-export function OperationButtons({ project, activity, task, found }: { project: string; activity: string; task: PathTask; found?: AgentTask }) {
+/** Pre and Post of a development. */
+export function PrePostFields({ project, pre, post, onChange }: {
+  project: string; pre?: DevPhase; post?: DevPhase; onChange: (patch: { pre?: DevPhase; post?: DevPhase }) => void;
+}) {
+  return (
+    <>
+      <PhaseFields project={project} phase="pre" value={pre ?? EMPTY_PHASE} onChange={(value) => onChange({ pre: value })} />
+      <PhaseFields project={project} phase="post" value={post ?? EMPTY_PHASE} onChange={(value) => onChange({ post: value })} />
+    </>
+  );
+}
+
+export const phaseOf = (task: AgentTask | undefined, phase: Phase): DevPhase => (task ? task[phase] ?? EMPTY_PHASE : EMPTY_PHASE);
+const hasWork = (work: DevPhase) => work.commands.some((command) => command.trim()) || !!work.automation.trim();
+
+/** «🤖 Automatico», «✋ A mano» and «⏭ Salta» on a development's Pre or Post. */
+export function OperationButtons({ project, activity, task, phase, found }: {
+  project: string; activity: string; task: PathTask; phase: Phase; found?: AgentTask;
+}) {
   const start = useStartAuto(project, activity);
+  const skip = useSkipPhase(project, activity);
   const { ask } = useAgentPanel();
   const [pending, setPending] = useState<string[]>([]);
   const [manual, setManual] = useState(false);
+  const work = phaseOf(found, phase);
   const auto = () => {
     if (!found) return;
-    if (!hasWork(found)) return ask(devRequest(found, task.repository), "operator");
-    start.mutate(task.task, { onSuccess: (result) => setPending(result.pending_commands ?? []) });
+    if (!hasWork(work)) return ask(devRequest(found, phase, task.repository), "operator");
+    start.mutate({ task: task.task, phase }, { onSuccess: (result) => setPending(result.pending_commands ?? []) });
   };
   return (
     <Stack gap={6} style={{ flex: 1 }}>
       <Group gap="xs">
+        <Text size="xs" fw={600}>{PHASE_TEXT[phase].title}:</Text>
         <Button size="compact-xs" onClick={auto} loading={start.isPending}
-          title={hasWork(found) ? "Comandi e automation del task, senza agente" : "Il task non ha comandi né automation: lo fa Dev"}>
+          title={hasWork(work) ? "Comandi e automation, senza agente" : "Niente comandi né automation: lo fa Dev"}>
           🤖 Automatico
         </Button>
         <Button size="compact-xs" variant={manual ? "filled" : "default"} onClick={() => setManual((value) => !value)}>
           {manual ? "✋ Chiudi a mano" : "✋ A mano"}
         </Button>
+        <Button size="compact-xs" variant="subtle" color="gray" onClick={() => skip.mutate({ task: task.task, phase })} loading={skip.isPending}>⏭ Salta</Button>
       </Group>
       {!!pending.length && (
         <PendingCommands project={project} commands={pending} onAnswered={(command) => setPending((items) => items.filter((item) => item !== command))} />
       )}
-      {start.error && <Text size="xs" c="red">{start.error.message}</Text>}
-      {manual && <ManualDashboard project={project} activity={activity} task={task} found={found} />}
+      {(start.error || skip.error) && <Text size="xs" c="red">{(start.error ?? skip.error)?.message}</Text>}
+      {manual && <ManualDashboard project={project} activity={activity} task={task} phase={phase} found={found} />}
     </Stack>
   );
 }
@@ -100,19 +140,26 @@ export function OperationOutput({ output }: { output: string }) {
   );
 }
 
-/** «✋ A mano»: the user's dashboard of the task. */
-function ManualDashboard({ project, activity, task, found }: { project: string; activity: string; task: PathTask; found?: AgentTask }) {
+/** «✋ A mano»: the user's dashboard of the Pre or Post. */
+function ManualDashboard({ project, activity, task, phase, found }: { project: string; activity: string; task: PathTask; phase: Phase; found?: AgentTask }) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => { box.current?.scrollIntoView?.({ behavior: "smooth", block: "nearest" }); }, []); // it opens under the row, often below the fold
-  const [commands, setCommands] = useState<string[]>(() => (found?.commands ?? []).filter((command) => command.trim()));
+  const work = phaseOf(found, phase);
+  const [commands, setCommands] = useState<string[]>(() => work.commands.filter((command) => command.trim()));
   const pipelines = usePipelines(project);
-  const [automation, setAutomation] = useState<string | null>(found?.automation || null);
+  const [automation, setAutomation] = useState<string | null>(work.automation || null);
   const markDone = useMarkDone(project, activity);
   const { ask } = useAgentPanel();
   const chosen = pipelines.data?.find((pipeline) => pipeline.name === automation);
   return (
     <Card ref={box} withBorder p="xs" bg="var(--mantine-color-default-hover)" data-testid="manual-dashboard">
       <Stack gap="xs">
+        {!!work.steps.length && (
+          <>
+            <Text size="xs" fw={700} c="dimmed" tt="uppercase">Passi</Text>
+            {work.steps.map((step, index) => <Text key={index} size="xs">• {step}</Text>)}
+          </>
+        )}
         <Text size="xs" fw={700} c="dimmed" tt="uppercase">Comandi{task.repository ? ` · ${task.repository}` : ""}</Text>
         {commands.map((command, index) => (
           <CommandLine key={index} project={project} repository={task.repository} command={command}
@@ -127,8 +174,8 @@ function ManualDashboard({ project, activity, task, found }: { project: string; 
         </Group>
         <GitStatusLine project={project} repository={task.repository} />
         <Group gap="xs">
-          <Button size="compact-xs" variant="default" onClick={() => found && ask(devRequest(found, task.repository), "operator")}>💬 Dev in chat</Button>
-          <Button size="compact-xs" color="green" variant="light" onClick={() => markDone.mutate(task.task)} loading={markDone.isPending}>✅ Fatto</Button>
+          <Button size="compact-xs" variant="default" onClick={() => found && ask(devRequest(found, phase, task.repository), "operator")}>💬 Dev in chat</Button>
+          <Button size="compact-xs" color="green" variant="light" onClick={() => markDone.mutate({ task: task.task, phase })} loading={markDone.isPending}>✅ Fatto</Button>
         </Group>
         {markDone.error && <Text size="xs" c="red">{markDone.error.message}</Text>}
       </Stack>

@@ -32,6 +32,7 @@ from service.rag_service import RagService
 from service.repository_map_service import RepositoryMapService
 from service.roadmap_service import RoadmapService
 from service.run_service import RunService
+from service.saved_search_service import SavedSearchService
 from service.today_service import TodayService
 from service.tool_request_service import ToolRequestService
 from service.wip_service import WipService
@@ -151,6 +152,10 @@ def operation_service(request: Request) -> OperationService:
 
 def activity_draft_service(request: Request) -> ActivityDraftService:
     return request.app.state.container.activity_draft_service
+
+
+def saved_search_service(request: Request) -> SavedSearchService:
+    return request.app.state.container.saved_search_service
 
 
 def activity_close_service(request: Request) -> ActivityCloseService:

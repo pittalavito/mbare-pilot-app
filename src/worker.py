@@ -85,7 +85,7 @@ def main() -> None:
                     done = copilot.run_next(on_claim=lambda claimed: heartbeat.busy(copilot_session_id=claimed.id))
                 if done is None:
                     done = evaluations.run_next()  # an evaluation launched from the Metriche page
-                if done is None and operations.run_next():  # «🤖 Automatico» of a pre/post task: commands, then automation
+                if done is None and operations.run_next():  # «🤖 Automatico» of a Pre or Post: commands, then automation
                     done = True
                 if done is None and plans.advance_all():  # «Lavora attività»: the running paths, one step on
                     done = True

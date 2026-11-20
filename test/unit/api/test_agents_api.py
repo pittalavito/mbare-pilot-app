@@ -80,7 +80,7 @@ def test_invalid_agents(client, overrides, status):
 
 def test_an_agent_with_a_structured_answer(client):
     outputs = client.get("/agents/outputs").json()
-    assert [item["name"] for item in outputs] == ["wip", "plan", "draft", "learned"] and all(item["description"] for item in outputs)
+    assert [item["name"] for item in outputs] == ["wip", "plan", "draft", "learned", "regex"] and all(item["description"] for item in outputs)
 
     created = client.post("/agents", json={**_agent(client, "bozza"), "output": "draft"}).json()
 
