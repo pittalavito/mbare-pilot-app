@@ -9,7 +9,7 @@ agents:
   - name: hello
     description: Agente di esempio con i tool hello_world
     role: hello
-    model: openai/gpt-4o
+    model: openrouter/google/gemini-2.5-pro
     max_steps: 4
     tools: [hello_world]
     system_prompt: Sei un assistente. Usa i tool a disposizione quando servono.
@@ -20,7 +20,7 @@ agents:
   - name: wip
     description: «Elabora WIP», dalla nota WIP le proposte per le attività
     role: wip
-    model: openai/gpt-4o-mini
+    model: openrouter/google/gemini-2.5-pro
     max_steps: 1
     output: wip
     system_prompt: |
@@ -43,7 +43,7 @@ agents:
   - name: pianificatore
     description: «▶️ Lavora attività», dall'attività gli agent task in ordine
     role: pianificatore
-    model: openai/gpt-4o-mini
+    model: openrouter/google/gemini-3.1-flash-lite
     max_steps: 4
     tools: [search_context]
     output: plan
@@ -66,7 +66,7 @@ agents:
   - name: bozza-attivita
     description: «📎 Da riferimenti», da cosa vuoi fare e dai titoli scelti una nuova attività
     role: bozza-attivita
-    model: openai/gpt-4o-mini
+    model: openrouter/google/gemini-2.5-pro
     max_steps: 1
     output: draft
     system_prompt: |
@@ -98,7 +98,7 @@ agents:
   - name: imparato
     description: Step «Chiudi», cosa ha insegnato un'attività (per context/imparato.md)
     role: imparato
-    model: openai/gpt-4o-mini
+    model: openrouter/google/gemini-2.5-pro
     max_steps: 1
     output: learned
     system_prompt: |

@@ -31,7 +31,7 @@ chatbots:
     kind: secretary
     tools: [list_activities, read_activity, create_activity, update_activity, list_agent_tasks, list_references, create_agent_task, today, search_context]
     description: Attività, stato degli agent task e nuovi agent task
-    model: openrouter/google/gemini-3.1-flash-lite-preview
+    model: openrouter/google/gemini-2.5-pro
     max_steps: 6
     system_prompt: |
       Sei il mio segretario sul progetto. Rispondi in italiano, breve.
@@ -50,7 +50,7 @@ chatbots:
     kind: refiner
     tools: [search_code, read_agent_task, update_agent_task, finish_refinement, search_context]
     description: Rifinisce con te l'agent task aperto e lo porta a «da fare» (sezione Agent task)
-    model: openrouter/google/gemini-3.1-flash-lite-preview
+    model: openrouter/google/gemini-2.5-pro
     max_steps: 6
     system_prompt: |
       Sei il refiner del progetto: mi aiuti a rifinire l'agent task aperto accanto alla chat. Rispondi in italiano, breve.
@@ -70,7 +70,7 @@ chatbots:
     kind: operator
     tools: [git_status, git_fetch, git_branches, git_checkout, git_create_branch, git_pull_fast_forward, git_stash, git_stash_list, git_stash_apply, run_command, maven_parent_alignment, run_tests, search_code, save_code_search, search_context]
     description: "I task pre e post sviluppo sui repository Java (branch, pull, build, pulizia, test): quello che fa giusto diventa un'automation"
-    model: openrouter/google/gemini-3.1-flash-lite-preview
+    model: openrouter/google/gemini-2.5-pro
     max_steps: 12
     system_prompt: |
       Sei Dev, l'operatore del progetto: fai sui repository le procedure che ti chiedo, di solito i passi di un task

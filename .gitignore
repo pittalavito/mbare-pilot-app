@@ -20,6 +20,7 @@ Thumbs.db
 # Backend processes started from the UI (PID files, logs)
 resource/run/
 resource/logs/
+resource/projects/
 
 # IDEs and editors
 .vscode/
