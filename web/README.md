@@ -58,7 +58,7 @@ Il **worker** si avvia e si ferma dall'intestazione della pagina (lo gestisce l'
 
 A destra, il **pannello dell'agente** (`project/AgentPanel.tsx`): Segretario sull'attività, Refiner su un task non delegato, Copilot su un task delegato, Architetto in Automation, Dev a richiesta. Una pagina chiede qualcosa al suo agente con `useAgentPanel().ask(testo)`. Sotto ogni risposta «🔍 Cosa ha visto il modello» (`components/TranscriptModal.tsx`). Un link `?note=` porta la nota nella sua zona (`project/noteZone.ts`).
 
-Fuori dai progetti: **Libreria** (agenti, ruoli, prompt, tool), **Admin** (servizi, osservabilità, metriche, modelli, backup, tool, richieste di tool), **🚀 Mbare Pilot** (la bacheca, `roadmap/RoadmapPage.tsx`).
+Fuori dai progetti: **Libreria** (agenti, ruoli, prompt, tool), **Admin** (servizi, osservabilità, metriche, modelli, backup, tool, richieste di tool), **🚀 Mbare Pilot** (la bacheca delle modifiche future, `roadmap/RoadmapPage.tsx`: schede con tipo, priorità e chi le fa, trascinabili tra Da fare, In corso e Fatto).
 
 ## Struttura
 

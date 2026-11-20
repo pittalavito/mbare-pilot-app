@@ -1,6 +1,6 @@
 # Bacheca di Mbare Pilot modificabile
 
-Stato: **da realizzare**.
+Stato: **fatto**.
 
 ## Obiettivo
 Tracciare dalla UI le modifiche future di Mbare Pilot: la bacheca «🚀 Mbare Pilot» smette di essere in sola lettura.

@@ -1,6 +1,7 @@
-# La bacheca di Mbare Pilot (piano 30): le attività future dell'app, verso la demo.
-# status: todo | in_progress | done · kind: uso | progettazione | refactoring | documentazione | rag | integrazione
-# owner: tu | claude | copilot | agente remoto. Si sovrascrive mettendo un roadmap.yml nella cartella dati (definition/).
+# La bacheca di Mbare Pilot: le modifiche future dell'app. Si cambia dalla UI («🚀 Mbare Pilot»), che scrive
+# roadmap.yml nella cartella dati (definition/); questo è il punto di partenza.
+# status: todo | in_progress | done · priority: high | medium | low
+# kind: bug | funzione | refactoring | documentazione | integrazione | uso | progettazione | rag · owner: tu | claude | copilot | agente remoto
 
 goal: Demo datapizza
 vision: >-

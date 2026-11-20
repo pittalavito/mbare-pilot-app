@@ -30,7 +30,7 @@ src/controller/
   pipeline_controller.py       automation, run, YAML, tool degli step, worker
   definition_controller.py     /projects/{p}/definitions: anteprima e sincronizzazione dai file
   metrics_controller.py        /observability/metrics, /observability/evaluations
-  admin_controller.py          /admin/config, /observability/runs (trace, cosa ha visto il modello), backup, /roadmap
+  admin_controller.py          /admin/config, /observability/runs (trace, cosa ha visto il modello), backup, /roadmap (la bacheca: lettura, testata, schede)
   process_controller.py        /admin/worker, /admin/logs/{processo}
   tool_request_controller.py   /admin/tool-requests: richieste di tool e token di Claude Code
   mcp_server.py                /mcp: server MCP per Copilot (un'app montata, non un router)

@@ -44,6 +44,7 @@ class LogPrefix(StrEnum):
     CLOSE_SERVICE = "CLOSE_SERVICE"
     RAG_SERVICE = "RAG_SERVICE"
     EVALUATION_SERVICE = "EVALUATION_SERVICE"
+    ROADMAP_SERVICE = "ROADMAP_SERVICE"
 
 
 def configure_logging(log_level: str) -> None:

@@ -1,14 +1,16 @@
 """Admin endpoints: the app config with secrets masked (/admin/config), the
 observability facts (/observability/...: runs and tool calls from Postgres,
-the verbatim trace of a run from Redis) and the DB backups (/admin/backups)."""
+the verbatim trace of a run from Redis), the DB backups (/admin/backups) and
+the board of Mbare Pilot (/roadmap: read and written by the UI)."""
 from typing import Any
 
 from fastapi import APIRouter, Depends, Response, status
+from pydantic import BaseModel
 
 from config import Config
 from controller.dependencies import backup_service, roadmap_service, run_service
 from models.controller.admin import BackupResponse, BackupsResponse, ConfigResponse, RunSummaryResponse, ToolCallResponse
-from models.domain.roadmap import Roadmap
+from models.domain.roadmap import Roadmap, RoadmapCard, RoadmapStatus
 from models.domain.transcript import RunTranscript
 from service.backup_service import BackupService
 from service.roadmap_service import RoadmapService
@@ -47,8 +49,46 @@ def run_transcript(run_id: str, service: RunService = Depends(run_service)) -> R
 
 @router.get("/roadmap")
 def roadmap(service: RoadmapService = Depends(roadmap_service)) -> Roadmap:
-    """«🚀 Mbare Pilot»: the app's future activities, from roadmap.yml of the definitions."""
+    """«🚀 Mbare Pilot»: the app's future changes, from roadmap.yml of the definitions."""
     return service.roadmap()
+
+
+class RoadmapHeader(BaseModel):
+    goal: str = ""
+    vision: str = ""
+
+
+class RoadmapMove(BaseModel):
+    status: RoadmapStatus
+
+
+@router.put("/roadmap/header")
+def save_roadmap_header(request: RoadmapHeader, service: RoadmapService = Depends(roadmap_service)) -> Roadmap:
+    """Goal and vision; the board is written into the data folder."""
+    return service.save_header(request.goal, request.vision)
+
+
+@router.post("/roadmap/items", status_code=status.HTTP_201_CREATED)
+def add_roadmap_item(request: RoadmapCard, service: RoadmapService = Depends(roadmap_service)) -> Roadmap:
+    """A new card at the end of the board."""
+    return service.add(request)
+
+
+@router.put("/roadmap/items/{item_id}")
+def update_roadmap_item(item_id: str, request: RoadmapCard, service: RoadmapService = Depends(roadmap_service)) -> Roadmap:
+    """The card changed (404 when there is none)."""
+    return service.update(item_id, request)
+
+
+@router.post("/roadmap/items/{item_id}/move")
+def move_roadmap_item(item_id: str, request: RoadmapMove, service: RoadmapService = Depends(roadmap_service)) -> Roadmap:
+    """The card to another column (dragged, or «Sposta»)."""
+    return service.move(item_id, request.status)
+
+
+@router.delete("/roadmap/items/{item_id}")
+def delete_roadmap_item(item_id: str, service: RoadmapService = Depends(roadmap_service)) -> Roadmap:
+    return service.delete(item_id)
 
 
 @router.get("/observability/tool-calls")
