@@ -128,6 +128,11 @@ class Launcher:
         url = api_url_quiet()
         if not (ROOT / ".env").is_file():
             raise RuntimeError(".env non trovato: copialo da .env.example (vedi README).")
+        if _port(url, 8000) == launcher_address()[1]:
+            raise RuntimeError(
+                f"API_URL ({url}) usa la stessa porta del launcher: nel .env metti LAUNCHER_URL "
+                "su un'altra porta (es. http://127.0.0.1:8091), poi rilancia install-launcher.py."
+            )
         self._ensure_docker()
         self._say("Avvio Postgres e Redis...")
         if self._command([shutil.which("docker"), *COMPOSE, "up", "-d", "--wait"], ROOT) != 0:
@@ -218,6 +223,16 @@ def api_url_quiet() -> str:
     return os.environ.get("API_URL", "http://127.0.0.1:8000").rstrip("/")
 
 
+def _port(url: str, default: int) -> int:
+    return urlparse(url).port or default
+
+
+def launcher_address() -> tuple[str, int]:
+    """Where the launcher listens (LAUNCHER_URL)."""
+    address = urlparse(os.environ.get("LAUNCHER_URL", "http://127.0.0.1:8090"))
+    return address.hostname or "127.0.0.1", address.port or 8090
+
+
 def make_handler(launcher: Launcher, allowed_hosts: set[str]):
     page = HERE / "launcher.html"
 
@@ -268,8 +283,7 @@ def make_handler(launcher: Launcher, allowed_hosts: set[str]):
 
 def main() -> int:
     load_env()
-    address = urlparse(os.environ.get("LAUNCHER_URL", "http://127.0.0.1:8090"))
-    host, port = address.hostname or "127.0.0.1", address.port or 8090
+    host, port = launcher_address()
     launcher = Launcher()
     allowed = {f"{host}:{port}", f"localhost:{port}", f"127.0.0.1:{port}"}
     try:

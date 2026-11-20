@@ -13,6 +13,7 @@ import sys
 import time
 import webbrowser
 from pathlib import Path
+from urllib.parse import urlparse
 
 from utils import get_project_root
 
@@ -21,11 +22,15 @@ LAUNCHER = ROOT / "resource" / "scripts" / "launcher.py"
 NAME = "mbare-pilot-launcher"
 
 
-def _env_url() -> str:
+def _env(name: str, default: str) -> str:
     for line in (ROOT / ".env").read_text(encoding="utf-8").splitlines() if (ROOT / ".env").is_file() else []:
-        if line.strip().startswith("LAUNCHER_URL="):
-            return line.split("=", 1)[1].strip().rstrip("/") + "/"
-    return "http://127.0.0.1:8090/"
+        if line.strip().startswith(f"{name}="):
+            return line.split("=", 1)[1].strip().strip('"').strip("'") or default
+    return default
+
+
+def _env_url() -> str:
+    return _env("LAUNCHER_URL", "http://127.0.0.1:8090").rstrip("/") + "/"
 
 
 def _python(windowless: bool) -> Path:
@@ -89,6 +94,11 @@ def install() -> int:
         return 1
     if not (ROOT / ".env").is_file():
         print("Manca .env: copialo da .env.example (vedi README), poi riprova.")
+        return 1
+    api = _env("API_URL", "http://127.0.0.1:8000")
+    if (urlparse(api).port or 8000) == (urlparse(_env_url()).port or 8090):
+        print(f"API_URL ({api}) e LAUNCHER_URL ({_env_url()}) usano la stessa porta: nel .env metti")
+        print("LAUNCHER_URL su un'altra porta, es. LAUNCHER_URL=http://127.0.0.1:8091, e riprova.")
         return 1
     target = _autostart_file()
     target.parent.mkdir(parents=True, exist_ok=True)
