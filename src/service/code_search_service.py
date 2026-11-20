@@ -4,8 +4,7 @@
 
 ``search`` reads the files git knows in each repository of the project (or
 the one asked: tracked, plus new ones not ignored, so ``.gitignore`` is
-respected), skipping binaries, files that are not UTF-8, big files and the
-task folders for Copilot (``mbare-pilot/``). ``save`` writes the matches as
+respected), skipping binaries, files that are not UTF-8 and big files. ``save`` writes the matches as
 a code reference (one per search title, rewritten when saved again) and links
 it from the agent tasks asked."""
 from collections.abc import Callable, Sequence
@@ -14,7 +13,7 @@ from pathlib import Path
 
 from core.error import ConflictError, NotFoundError
 from core.observability import LogPrefix, observed
-from domain.project import code_search, task_folder
+from domain.project import code_search
 from domain.project.data_paths import typed_note_file_name
 from models.domain.code_search import CodeMatch, CodeQuery, CodeSearchResult, CodeSearchSaved
 from models.domain.note import NoteType
@@ -52,7 +51,7 @@ class CodeSearchService:
         for repository in repositories:
             folder = self._git.repository_folder(project_name, repository)
             for path in self._git.files(project_name, repository):
-                if task_folder.is_task_path(path) or not code_search.wanted(path, query.files):
+                if not code_search.wanted(path, query.files):
                     continue
                 text = _read_text(folder / path)
                 if not text:

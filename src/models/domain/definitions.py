@@ -103,8 +103,8 @@ class ModelFile(ModelPriceFile):
 class CodingAgentFile(_File):
     """``global-coding-agent.yml`` (and ``project/<slug>/coding-agent.yml``,
     whose fields replace the global ones): what the app tells Copilot.
-    ``plan_prompt`` is the first planning turn (``{task_folder}`` = the
-    repository folder with the task and its references), ``execute_prompt`` the turn that starts the execution,
+    ``plan_prompt`` is the first planning turn (``{task}`` = the
+    task's note, read from the MCP server), ``execute_prompt`` the turn that starts the execution,
     ``denied_tools`` the ``--deny-tool`` of the execution (e.g. ``shell(git
     commit)``): the whole list, nothing is added by the code. A prompt can be
     in a file next to this one (``*_prompt_file``), used as it is."""

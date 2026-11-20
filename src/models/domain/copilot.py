@@ -113,8 +113,7 @@ class CopilotModel(BaseModel):
 class CodingAgentSettings(BaseModel):
     """What the app tells Copilot, from the coding-agent definition files."""
     plan_prompt: str
-    """The first planning turn; ``{task_folder}`` becomes the task's folder in
-    the repository (``mbare-pilot/<task note>``)."""
+    """The first planning turn; ``{task}`` becomes the task's note (Copilot reads it from the MCP server)."""
     execute_prompt: str
     denied_tools: list[str]
     """``--deny-tool`` of the execution, e.g. ``shell(git commit)``."""

@@ -86,7 +86,7 @@ _RULES_CHARS = 4000
 TYPE_WORDS = {TaskType.DEVELOPMENT: "sviluppo", TaskType.ANALYSIS: "analisi", TaskType.CONFLUENCE: "Confluence", TaskType.JIRA: "Jira"}
 _TYPES = ("development (cambia il codice, con pre e post), analysis (analisi del codice), confluence (pagina Confluence), jira (issue Jira)")
 _DEFAULT_RULES = ("Nessuna regola scritta: nel pre di ogni sviluppo branch feature/<task> dal branch corrente, aggiornato, build; "
-                  "nel post togli la cartella mbare-pilot/<task>/ e lancia i test.")
+                  "nel post lancia i test.")
 
 
 class PlanService:

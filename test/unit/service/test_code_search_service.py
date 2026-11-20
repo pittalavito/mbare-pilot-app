@@ -20,7 +20,7 @@ def service(tmp_path, project_store, git_service, project_data_service) -> CodeS
     """Project «acme» with repositories ``api`` and ``web``."""
     for name, files in {
         "api": {"src/Order.java": "class Order {}\n  @Deprecated void old() {}\n", "README.md": "Order service\n",
-                ".gitignore": "build/\n", "build/Gen.java": "@Deprecated\n", "mbare-pilot/agent-task-x/task.md": "@Deprecated\n",
+                ".gitignore": "build/\n", "build/Gen.java": "@Deprecated\n",
                 "logo.bin": b"@Deprecated\0\0", "latin.txt": "@Deprecated \xe8".encode("latin-1")},
         "web": {"app.ts": "// @deprecated old\nconst order = 1;\n"},
     }.items():
@@ -38,7 +38,7 @@ def _found(result):
     return [(match.path, match.line, match.text) for match in result.matches]
 
 
-def test_plain_text_skips_ignored_binary_non_utf8_and_task_folders(service):
+def test_plain_text_skips_ignored_binary_and_non_utf8(service):
     result = service.search("acme", CodeQuery(query="@Deprecated"))
 
     assert _found(result) == [("api/src/Order.java", 2, "@Deprecated void old() {}")]

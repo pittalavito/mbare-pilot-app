@@ -70,11 +70,6 @@ def _turns(tmp_path, session) -> list[dict]:
     return json.loads((tmp_path / "copilot-state" / f"{session.copilot_session_id}.json").read_text(encoding="utf-8"))
 
 
-def _task_dir(project, note, repository="api") -> Path:
-    """Where the app writes the task for Copilot: ``<repo>/mbare-pilot/<note>``."""
-    return project / repository / "mbare-pilot" / note.removesuffix(".md")
-
-
 def _roles(service, session) -> list[str]:
     return [message.role.value for message in service.messages(session.id)]
 
@@ -91,9 +86,8 @@ def test_delegating_a_task_starts_the_planning_chat_on_the_same_copilot_session(
     assert session.status == CopilotSessionStatus.PLANNING and session.premium_requests == 2
     messages = service.messages(session.id)
     assert [m.role for m in messages] == [CopilotMessageRole.USER, CopilotMessageRole.COPILOT] * 2
-    assert f"mbare-pilot/{note.removesuffix('.md')}/task.md" in messages[0].content and "aspetta il mio ok" in messages[0].content
-    assert "# Aggiungi copilot.txt" not in messages[0].content  # the task is a file, not text of the prompt
-    assert "# Aggiungi copilot.txt" in (_task_dir(project, note) / "task.md").read_text(encoding="utf-8")
+    assert f"Ti affido il task {note}:" in messages[0].content and "dal server MCP" in messages[0].content
+    assert not (project / "api" / "mbare-pilot").exists()  # plan 37: nothing in the repository
     assert messages[3].content.endswith("(turni in questa sessione: 2)")  # Copilot remembered the first turn
     turns = _turns(tmp_path, session)
     assert all(turn["mode"] == "plan" and "--allow-all-tools" not in turn["args"] for turn in turns)
@@ -362,7 +356,7 @@ def test_executions_left_running_by_a_dead_worker_fail_at_restart(data, project,
 def test_the_project_definition_replaces_the_global_fields_and_prompts_can_be_files(data, project, config, tmp_path, stores):
     folder = config.definitions_root / "project" / "acme"
     folder.mkdir(parents=True)
-    (folder / "piano.md").write_text("Piano su misura con {braces} JSON.\n\nIl task: {task_folder}/task.md\n", encoding="utf-8")
+    (folder / "piano.md").write_text("Piano su misura con {braces} JSON.\n\nIl task: {task}\n", encoding="utf-8")
     (folder / "coding-agent.yml").write_text("plan_prompt_file: piano.md\ndenied_tools: []\n", encoding="utf-8")
     service = _service(stores, data)
 
@@ -370,7 +364,7 @@ def test_the_project_definition_replaces_the_global_fields_and_prompts_can_be_fi
     assert settings.denied_tools == [] and settings.execute_prompt.startswith("Ok, procedi")  # execute_prompt from the global
     note = _task(data)
     session = service.start("acme", note, "api")
-    assert service.messages(session.id)[0].content == f"Piano su misura con {{braces}} JSON.\n\nIl task: mbare-pilot/{note.removesuffix('.md')}/task.md"
+    assert service.messages(session.id)[0].content == f"Piano su misura con {{braces}} JSON.\n\nIl task: {note}"
     service.approve(session.id)
     assert "--deny-tool" not in _turns(tmp_path, service.run_next())[-1]["args"]
     assert service.coding_agent().denied_tools  # other projects: the global list
@@ -381,11 +375,11 @@ def test_delegating_with_a_chosen_prompt_and_model_uses_them_for_every_turn(data
     (root / "global-coding-agent.yml").write_text(
         (root / "global-coding-agent.yml").read_text(encoding="utf-8") + "models: [gpt-5, claude-sonnet-4.5]\n", encoding="utf-8")
     (root / "coding-agent").mkdir()
-    (root / "coding-agent" / "refactor.md").write_text("Solo refactoring.\n{task_folder}", encoding="utf-8")
-    (root / "coding-agent" / "bug.md").write_text("Trova il bug.\n{task_folder}", encoding="utf-8")
+    (root / "coding-agent" / "refactor.md").write_text("Solo refactoring.\n{task}", encoding="utf-8")
+    (root / "coding-agent" / "bug.md").write_text("Trova il bug.\n{task}", encoding="utf-8")
     (root / "coding-agent" / "note.txt").write_text("non è un prompt", encoding="utf-8")
     (root / "project" / "acme" / "coding-agent").mkdir(parents=True)
-    (root / "project" / "acme" / "coding-agent" / "bug.md").write_text("Bug, a modo di acme.\n{task_folder}", encoding="utf-8")
+    (root / "project" / "acme" / "coding-agent" / "bug.md").write_text("Bug, a modo di acme.\n{task}", encoding="utf-8")
     service = _service(stores, data)
 
     assert list(service.coding_agent("acme").prompts) == ["bug", "refactor"]
@@ -397,7 +391,7 @@ def test_delegating_with_a_chosen_prompt_and_model_uses_them_for_every_turn(data
     session = service.run_next()
 
     assert (session.prompt, session.model) == ("bug", "gpt-5")
-    assert service.messages(session.id)[0].content == f"Bug, a modo di acme.\nmbare-pilot/{note.removesuffix('.md')}"
+    assert service.messages(session.id)[0].content == f"Bug, a modo di acme.\n{note}"
     turns = _turns(tmp_path, session)
     assert len(turns) == 3 and all(turn["args"][turn["args"].index("--model") + 1] == "gpt-5" for turn in turns)
     with pytest.raises(ValidationError, match="Modello non previsto"):
@@ -423,8 +417,8 @@ def test_a_task_not_refined_yet_can_be_delegated_with_a_warning(data, project, t
 def test_the_task_type_picks_the_planning_prompt_unless_one_is_chosen(data, project, config, tmp_path, stores):
     root = config.definitions_root
     (root / "coding-agent").mkdir()
-    (root / "coding-agent" / "analisi.md").write_text("Solo analisi, non cambiare il codice.\n{task_folder}", encoding="utf-8")
-    (root / "coding-agent" / "bug.md").write_text("Trova il bug.\n{task_folder}", encoding="utf-8")
+    (root / "coding-agent" / "analisi.md").write_text("Solo analisi, non cambiare il codice.\n{task}", encoding="utf-8")
+    (root / "coding-agent" / "bug.md").write_text("Trova il bug.\n{task}", encoding="utf-8")
     path = root / "global-coding-agent.yml"
     path.write_text(path.read_text(encoding="utf-8") + "type_prompts:\n  analysis: analisi\n  development: ''\n", encoding="utf-8")
     service = _service(stores, data)
@@ -474,17 +468,17 @@ def test_a_prompt_file_without_the_task_placeholder_is_an_error(data, project, c
     (config.definitions_root / "coding-agent").mkdir()
     (config.definitions_root / "coding-agent" / "rotto.md").write_text("Niente segnaposto", encoding="utf-8")
 
-    assert "coding-agent/rotto.md deve contenere {task_folder}" in _service(stores, data).coding_agent_or_error()[1]
+    assert "coding-agent/rotto.md deve contenere {task}" in _service(stores, data).coding_agent_or_error()[1]
 
 
 @pytest.mark.parametrize("text, error", [
     (None, "Manca definition/global-coding-agent.yml"),
-    ("plan_prompt: senza segnaposto\nexecute_prompt: vai\ndenied_tools: []\n", "deve contenere {task_folder}"),
-    ("plan_prompt: '{task}'\nexecute_prompt: vai\ndenied_tools: []\n", "deve contenere {task_folder}"),  # the old placeholder
-    ("plan_prompt: '{task_folder}'\nexecute_prompt: vai\ndenied_tools: []\nreferences_prompt: 'in {task_folder}'\n", "references_prompt: Extra inputs"),
-    ("plan_prompt: '{task_folder}'\ndenied_tools: []\n", "manca execute_prompt"),
-    ("plan_prompt: '{task_folder}'\nexecute_prompt: vai\ndenied_tools: []\ndenyed: []\n", "denyed"),
-    ("plan_prompt: '{task_folder}'\nplan_prompt_file: p.md\nexecute_prompt: vai\ndenied_tools: []\n", "uno dei due"),
+    ("plan_prompt: senza segnaposto\nexecute_prompt: vai\ndenied_tools: []\n", "deve contenere {task}"),
+    ("plan_prompt: '{task_folder}'\nexecute_prompt: vai\ndenied_tools: []\n", "deve contenere {task}"),  # the old placeholder
+    ("plan_prompt: '{task}'\nexecute_prompt: vai\ndenied_tools: []\nreferences_prompt: 'in {task}'\n", "references_prompt: Extra inputs"),
+    ("plan_prompt: '{task}'\ndenied_tools: []\n", "manca execute_prompt"),
+    ("plan_prompt: '{task}'\nexecute_prompt: vai\ndenied_tools: []\ndenyed: []\n", "denyed"),
+    ("plan_prompt: '{task}'\nplan_prompt_file: p.md\nexecute_prompt: vai\ndenied_tools: []\n", "uno dei due"),
     ("plan_prompt_file: manca.md\nexecute_prompt: vai\ndenied_tools: []\n", "non trovato o vuoto"),
     ("plan_prompt: [rotto\n", "YAML non valido"),
 ])
@@ -653,73 +647,31 @@ def test_deleting_a_tasks_sessions_keeps_the_others_and_the_usage(data, project,
     assert service.delete_task_sessions("acme", note) == 0
 
 
-# --------------------------------------------------------------- task folder
+# --------------------------------------------------------------- the task (plan 37)
 
-def test_the_repository_gets_only_a_minimal_task_md_the_rest_is_read_through_mcp(data, project, tmp_path, stores):
-    from models.domain.note import NoteType, Reference
-
+def test_nothing_is_written_in_the_repository_the_task_is_read_through_mcp(data, project, tmp_path, stores):
     service = _service(stores, data)
-    ref = data.create_reference("acme", NoteType.CODE_REFERENCE, Reference(title="Login", path="src/a.py", content="v1"))
-    note = data.create_agent_task("acme", AgentTask(title="Con riferimenti", objective="Segreto dell'obiettivo",
-                                                    references=[ref, "context-reference-sparito.md"]))
-    other = project / "api" / "mbare-pilot" / "agent-task-altro"
-    other.mkdir(parents=True)
-    (other / "task.md").write_text("di un altro task", encoding="utf-8")
+    note = data.create_agent_task("acme", AgentTask(title="Con riferimenti", objective="Segreto dell'obiettivo"))
 
     session = service.start("acme", note, "api")
-
-    folder = _task_dir(project, note)
-    turn = _turns(tmp_path, session)[0]
-    assert f"mbare-pilot/{folder.name}/task.md" in turn["prompt"]
-    assert turn["args"].count("--add-dir") == 1  # only the repository: the task is inside it
-    assert [item.name for item in folder.iterdir()] == ["task.md"]  # no copies of the references
-    task_md = (folder / "task.md").read_text(encoding="utf-8")
-    assert task_md.startswith("# Con riferimenti\n\nTipo: sviluppo · Task: agent-task-con-riferimenti.md")
-    assert "read_task" in task_md and "Segreto dell'obiettivo" not in task_md  # the rest through MCP
-
-    data.save_agent_task("acme", note, data.agent_task("acme", note).model_copy(update={"title": "Titolo nuovo"}))
-    (folder / "appunti-di-copilot.md").write_text("vecchio", encoding="utf-8")
     service.send(session.id, "e adesso?")
-    assert [item.name for item in folder.iterdir()] == ["task.md"]  # rebuilt from scratch
-    assert (folder / "task.md").read_text(encoding="utf-8").startswith("# Titolo nuovo")  # always current
-    assert (other / "task.md").read_text(encoding="utf-8") == "di un altro task"  # other tasks' folders untouched
 
+    turn = _turns(tmp_path, session)[0]
+    assert note in turn["prompt"] and "Segreto dell'obiettivo" not in turn["prompt"]  # the task through MCP
+    assert turn["args"].count("--add-dir") == 1
     session = service.approve(session.id)
-    assert not any("già" in message.content for message in service.messages(session.id))  # mbare-pilot/ is not a change
     session = service.run_next()
     assert session.changed_files == ["copilot.txt"]
-
-    service.delete(session.id)
-    assert (folder / "task.md").is_file()  # the folder stays after the session
-    service.delete_task_sessions("acme", note)
-    assert (folder / "task.md").is_file()
+    assert not (project / "api" / "mbare-pilot").exists()
 
 
-def test_a_deleted_task_keeps_its_last_folder_and_the_chat_goes_on(data, project, tmp_path, stores):
+def test_a_deleted_task_does_not_stop_the_chat(data, project, tmp_path, stores):
     service = _service(stores, data)
     note = _task(data)
     session = service.start("acme", note, "api")
 
     data.delete_note("acme", note)
     session = service.send(session.id, "ci sei?")
-
-    assert session.status == CopilotSessionStatus.PLANNING and len(_turns(tmp_path, session)) == 2
-    assert "# Aggiungi copilot.txt" in (_task_dir(project, note) / "task.md").read_text(encoding="utf-8")
-
-
-def test_a_task_folder_that_cannot_be_written_stops_the_start_but_not_the_chat(data, project, tmp_path, stores):
-    service = _service(stores, data)
-    note = _task(data)
-    (project / "web" / "mbare-pilot").write_text("un file, non una cartella", encoding="utf-8")
-
-    with pytest.raises(ValidationError, match="deve essere una cartella"):
-        service.start("acme", note, "web")
-    assert service.sessions("acme") == []  # nothing saved
-
-    session = service.start("acme", note, "api")
-    shutil.rmtree(project / "api" / "mbare-pilot")
-    (project / "api" / "mbare-pilot").write_text("ora è un file", encoding="utf-8")
-    session = service.send(session.id, "vai avanti")  # the folder is best effort after the start
 
     assert session.status == CopilotSessionStatus.PLANNING and len(_turns(tmp_path, session)) == 2
 
@@ -734,9 +686,9 @@ def test_a_task_without_code_is_delegated_without_a_repository_in_the_projects_d
     service.send(session.id, "Approfondisci")
 
     folder = data.copilot_folder("acme", note)
-    assert session.no_repository and session.repository == ""
-    assert (folder / "mbare-pilot" / note.removesuffix(".md") / "task.md").is_file()
-    assert not _task_dir(project, note).exists()
+    assert session.no_repository and session.repository == "" and folder.is_dir()
+    assert not any(folder.iterdir())  # the working folder, without files of the task
+    assert not (project / "api" / "mbare-pilot").exists()
 
     service.save_as_note(session.id)  # the answer is a note: the working folder goes away
     assert not folder.exists()
@@ -756,8 +708,8 @@ def test_deleting_a_session_without_a_repository_removes_its_folder(data, projec
     service.start("acme", second, no_repository=True)
     service.delete_task_sessions("acme", second)
 
-    assert not data.copilot_folder("acme", first).joinpath("mbare-pilot").exists()
-    assert not data.copilot_folder("acme", second).joinpath("mbare-pilot").exists()
+    assert not data.copilot_folder("acme", first).joinpath("appunti.md").exists()
+    assert not data.copilot_folder("acme", second).joinpath("appunti.md").exists()
 
 
 def test_the_repository_changes_before_the_first_execution_and_the_chat_stays(data, project, stores):
@@ -768,8 +720,9 @@ def test_the_repository_changes_before_the_first_execution_and_the_chat_stays(da
     session = service.change_repository(session.id, "web")
 
     assert session.repository == "web" and not session.no_repository
-    assert (_task_dir(project, note, "web") / "task.md").is_file()
-    assert not (project / "api" / "mbare-pilot").exists()  # moved out of the old one
+    assert not (project / "web" / "mbare-pilot").exists() and not (project / "api" / "mbare-pilot").exists()
+    with pytest.raises(ValidationError, match="Cartella inesistente"):
+        service.change_repository(session.id, "nope")
     assert "🔀 Repository cambiato: api → web" in service.messages(session.id)[-1].content
     assert service.send(session.id, "Vai").status == CopilotSessionStatus.PLANNING  # the chat goes on there
     with pytest.raises(ValidationError, match="È già"):
@@ -789,12 +742,12 @@ def test_a_task_without_code_moves_to_and_from_no_repository(data, project, stor
     session = service.start("acme", note, "api")
 
     session = service.change_repository(session.id, no_repository=True)
-    assert session.no_repository and not _task_dir(project, note).exists()
-    assert (data.copilot_folder("acme", note) / "mbare-pilot").is_dir()
+    assert session.no_repository
     assert "api → nessun repository" in service.messages(session.id)[-1].content
+    (data.copilot_folder("acme", note) / "appunti.md").write_text("di Copilot", encoding="utf-8")
 
     session = service.change_repository(session.id, "web")
     assert not session.no_repository and session.repository == "web"
-    assert not (data.copilot_folder("acme", note) / "mbare-pilot").exists()
+    assert not (data.copilot_folder("acme", note) / "appunti.md").exists()  # the old working folder goes
 
 

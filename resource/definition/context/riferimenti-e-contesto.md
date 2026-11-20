@@ -7,7 +7,7 @@ Note collegate a task e attività, che Copilot legge con il task.
 Il Segretario li collega per titolo senza leggerli. Cancellare un riferimento lo scollega ovunque.
 
 ## Ricerca nel codice
-Testo semplice o regex, con filtri sui file (glob) e sul repository; legge i file che git conosce e salta binari, file grandi e `mbare-pilot/`. Agli agenti arrivano poche righe corte e mascherate, mai file interi. Solo Dev salva una ricerca come riferimento codice collegato a un task, con l'ok dell'utente; l'utente lo fa da Progetto → Git, «🔎 Cerca nel codice».
+Testo semplice o regex, con filtri sui file (glob) e sul repository; legge i file che git conosce e salta binari e file grandi. Agli agenti arrivano poche righe corte e mascherate, mai file interi. Solo Dev salva una ricerca come riferimento codice collegato a un task, con l'ok dell'utente; l'utente lo fa da Progetto → Git, «🔎 Cerca nel codice».
 
 ## Contesto del progetto
 I documenti di `context/` del progetto (Progetto → Contesto): architettura, convenzioni, decisioni, glossario. Due hanno un ruolo fisso:

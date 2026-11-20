@@ -80,7 +80,7 @@ def test_status_and_validation(client):
 
 def test_the_status_says_which_prompt_each_task_type_uses(client, config):
     (config.definitions_root / "coding-agent").mkdir()
-    (config.definitions_root / "coding-agent" / "analisi.md").write_text("Analizza.\n{task_folder}", encoding="utf-8")
+    (config.definitions_root / "coding-agent" / "analisi.md").write_text("Analizza.\n{task}", encoding="utf-8")
     path = config.definitions_root / "global-coding-agent.yml"
     path.write_text(path.read_text(encoding="utf-8") + "type_prompts: {analysis: analisi}\n", encoding="utf-8")
 

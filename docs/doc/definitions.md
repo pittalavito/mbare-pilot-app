@@ -9,7 +9,7 @@ mbare-pilot-data/
     global-chat-bots.yml      chatbot di ogni progetto (salvo stesso nome)          chatbots: [...]
     global-automation.yml     automation di ogni progetto (salvo stesso nome)       automations: [...]
     global-coding-agent.yml   prompt e divieti di Copilot (obbligatorio per usarlo) un coding agent
-    coding-agent/<nome>.md    prompt di preparazione da scegliere quando deleghi    testo con {task_folder}
+    coding-agent/<nome>.md    prompt di preparazione da scegliere quando deleghi    testo con {task}
     coding-agent/templates/   template delle bozze: confluence.md, jira.md          markdown (le sezioni)
     context/<tema>.md         contesto generale per gli agenti: come funziona l'app markdown, un «##» per argomento
     project/
@@ -170,8 +170,8 @@ automations:
 Quello che l'app dice a GitHub Copilot negli agent task delegati ([service](src/service/README.md#copilot)). **Non si sincronizza**: Copilot lo legge a ogni uso (inizio della preparazione, avvio dell'esecuzione), quindi una modifica vale dal turno successivo.
 
 ```yaml
-plan_prompt: |                     # primo turno della preparazione; {task_folder} = mbare-pilot/<nome del task>
-  Ti affido il task descritto in {task_folder}/task.md, con i suoi riferimenti nella stessa cartella...
+plan_prompt: |                     # primo turno della preparazione; {task} = il nome del task
+  Ti affido il task {task}: leggilo con i suoi riferimenti dal server MCP...
 # oppure: plan_prompt_file: piano.md   (un file accanto a questo)
 execute_prompt: Ok, procedi con il piano concordato...   # oppure execute_prompt_file
 type_prompts:                      # facoltativo: il prompt di ogni tipo di task se alla delega non se ne sceglie uno
@@ -195,7 +195,7 @@ models:                            # facoltativo: i modelli tra cui scegliere qu
 
 **Scelta alla delega**: nella finestra «Delega a Copilot» si scelgono il **prompt** e il **modello**. Restano salvati nella sessione (`prompt`, `model`) e il modello vale per ogni turno, esecuzione compresa.
 
-- **Prompt**: «Predefinito» è `plan_prompt`; le altre opzioni sono i file `<nome>.md` di `definition/coding-agent/` e di `definition/project/<slug>/coding-agent/` (a parità di nome vince quello del progetto). Ognuno deve contenere `{task_folder}`: un file senza è un errore come un yml rotto.
+- **Prompt**: «Predefinito» è `plan_prompt`; le altre opzioni sono i file `<nome>.md` di `definition/coding-agent/` e di `definition/project/<slug>/coding-agent/` (a parità di nome vince quello del progetto). Ognuno deve contenere `{task}`: un file senza è un errore come un yml rotto.
 - **Prompt del tipo**: con `type_prompts` il «Predefinito» dipende dal tipo del task (`development`, `analysis`, `confluence`, `jira`): la finestra mostra «Predefinito del tipo (analisi)». Vale anche per il chatbot (`delegate_task`), che non sceglie il prompt. Un nome che non è tra i prompt, o un tipo che non esiste, è un errore. Analisi, Confluence e Jira lavorano **solo in piano**: il loro prompt chiede a Copilot di rispondere con il documento, che l'utente salva come nota («Salva come nota»).
 - **Template delle bozze** (blocco 10): `coding-agent/templates/confluence.md` e `jira.md` (quelli di `project/<slug>/coding-agent/templates/` vincono per nome; altri nomi ignorati). Un prompt mette il template del tipo del task dove scrive `{template}` (senza template: «nessun template: scegli tu le sezioni»). La bozza salvata si pubblica con «📤 Pubblica su Confluence/Jira» ([service](src/service/README.md#pubblicare-una-bozza-publishservice-blocco-10)). I prompt `confluence.md` e `jira.md` già copiati nella cartella dei dati non si aggiornano da soli: per usare i template va aggiunto `{template}`.
 - **Checklist del tipo**: `task_checklists` dice, per tipo, cosa deve avere un task rifinito (un elenco di punti, nessuno vuoto). Il Refiner riceve solo quella del tipo del task aperto (con `read_agent_task`) e la controlla prima di proporre «da fare»; il codice non blocca niente. Un tipo assente: niente checklist. Come `type_prompts`, l'override del progetto la sostituisce per intero.
@@ -206,10 +206,9 @@ models:                            # facoltativo: i modelli tra cui scegliere qu
 - **Il globale è obbligatorio**: senza `global-coding-agent.yml`, o con un file rotto, Copilot non parte. L'errore si vede nella finestra «Delega a Copilot» e in Admin → Servizi. Non ci sono testi di riserva nel codice: un file sbagliato non deve allentare i divieti.
 - **Override per progetto**: `project/<slug>/coding-agent.yml` può avere solo alcuni campi; quelli che scrive sostituiscono i globali per quel progetto. `denied_tools` e `models` si sostituiscono per intero (anche con `[]`).
 - **Divieti**: nessuno è aggiunto dal codice. La rete di sicurezza resta il controllo dell'HEAD prima e dopo l'esecuzione.
-- **Il task via MCP, nel repository solo un `task.md` minimo**: il task non va nel prompt. Prima di ogni turno (preparazione ed esecuzione) l'app riscrive `<repository>/mbare-pilot/<nome del task>/task.md` (es. `mbare-pilot/agent-task-login/task.md`) con titolo, tipo, nome del task e dove trovare il resto; il prompt dice dove sta, con `{task_folder}` (relativo al repository). Il task completo e i riferimenti collegati Copilot li legge con i **tool MCP** del server `mbare-pilot` dell'app (`read_task`, `list_references`, `read_reference`); in esecuzione può chiedere con `ask_user` e chiude con `finish` ([service](src/service/README.md#copilot)). I prompt devono dirglielo (gli esempi lo fanno). Si cancella e riscrive solo la cartella di quel task, mai il resto di `mbare-pilot/`.
-- **La cartella resta** dopo la sessione (anche se la cancelli). È **visibile a git**: la ignori (`.gitignore`) o la committi tu. L'app la toglie dai suoi elenchi dei file modificati (l'avviso prima dell'esecuzione e i file cambiati da Copilot). Se `mbare-pilot` (o la cartella del task) è un file o un link, la delega non parte: l'app non scrive mai attraverso un link.
-- **Regole**: `plan_prompt` deve contenere `{task_folder}` (le altre graffe restano come sono); uno solo tra `x_prompt` e `x_prompt_file`; un campo sconosciuto è un errore.
-- **Dalle definizioni di prima**: `{task}` (il markdown del task nel prompt) e `references_prompt` non ci sono più. Un prompt senza `{task_folder}` (come quelli di prima, con `{task}`) è un errore: scrivi dove leggere il task con `{task_folder}` (es. «Il task è in `{task_folder}/task.md`»); `{task}` non viene più sostituito. `references_prompt` (e `references_prompt_file`) è ora un campo sconosciuto, quindi un errore come gli altri: toglilo, i riferimenti sono già in `{task_folder}`. La vecchia cartella `project/<slug>/copilot/` della cartella dei dati non serve più: si può cancellare.
+- **Il task via MCP, niente nel repository** (piano 37): il prompt nomina il task con `{task}` (il nome della nota, es. `agent-task-login.md`). Il task completo e i riferimenti collegati Copilot li legge con i **tool MCP** del server `mbare-pilot` dell'app (`read_task`, `list_references`, `read_reference`); in esecuzione può chiedere con `ask_user` e chiude con `finish` ([service](src/service/README.md#copilot)). I prompt devono dirglielo (gli esempi lo fanno). Le cartelle `mbare-pilot/` lasciate nei repository dalle versioni di prima si cancellano a mano.
+- **Regole**: `plan_prompt` deve contenere `{task}` (le altre graffe restano come sono); uno solo tra `x_prompt` e `x_prompt_file`; un campo sconosciuto è un errore.
+- **Dalle definizioni di prima**: `{task_folder}` non c'è più: un prompt che lo usa ancora (senza `{task}`) è un errore. `references_prompt` è un campo sconosciuto, quindi un errore come gli altri.
 
 ## Codice
 

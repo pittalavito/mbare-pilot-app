@@ -5,7 +5,7 @@
 #### Prompt di preparazione ####
 ################################
 plan_prompt: |
-  Ti affido il task indicato in {task_folder}/task.md, sul repository in cui ti trovi. Il task completo lo leggi
+  Ti affido il task {task}, sul repository in cui ti trovi. Il task completo lo leggi
   con il tool MCP read_task del server «mbare-pilot», i riferimenti collegati con list_references e read_reference.
   Per architettura, convenzioni e decisioni del progetto cerca con search_context (cita documento e sezione).
   Prima di cambiare qualcosa:
@@ -13,7 +13,6 @@ plan_prompt: |
   2. fammi le domande necessarie per chiarire il task, poche e precise;
   3. quando non hai più domande, proponi un piano breve e aspetta il mio ok.
   Parliamo attraverso un'app, a turni: ogni mio messaggio ti arriva come un nuovo turno, quindi fai pure le tue domande e aspetta la risposta. Adesso sei in modalità piano e non puoi modificare niente: è giusto così. Il via lo do io con il pulsante «Ok, parti» dell'app, che ti riattiva per eseguire il piano; non chiedermi di uscire dalla modalità piano né di premere tasti. Anche dopo l'ok non farai commit, push né altre operazioni git che cambiano la storia, l'indice o i branch: il commit lo faccio io.
-  Non modificare i file di {task_folder}: li riscrive l'app a ogni turno.
 
 ##############################
 #### Prompt di esecuzione ####

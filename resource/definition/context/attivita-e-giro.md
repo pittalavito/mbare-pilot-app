@@ -9,7 +9,7 @@ Un'attività è una nota (`attivita-<titolo>.md`) con descrizione, todo list (vo
 4. **Chiudi**: riepilogo, cosa si è imparato (in cima a `context/imparato.md`), attività fatta.
 
 ## Il Pianificatore
-Per ogni voce scoperta propone un task (anche per più voci insieme, o senza voci se serve un passo in più). Dentro ogni sviluppo scrive il pre e il post (passi, comandi, automation), seguendo le regole di sviluppo del progetto (`context/sviluppo.md`, sezioni «Prima dello sviluppo», «Dopo lo sviluppo», «Comandi»). Senza regole: pre = branch `feature/<task>` dal branch corrente, aggiornato, build; post = togli `mbare-pilot/<task>/`, lancia i test. Prima le librerie, poi chi le usa.
+Per ogni voce scoperta propone un task (anche per più voci insieme, o senza voci se serve un passo in più). Dentro ogni sviluppo scrive il pre e il post (passi, comandi, automation), seguendo le regole di sviluppo del progetto (`context/sviluppo.md`, sezioni «Prima dello sviluppo», «Dopo lo sviluppo», «Comandi»). Senza regole: pre = branch `feature/<task>` dal branch corrente, aggiornato, build; post = lancia i test. Prima le librerie, poi chi le usa.
 
 ## Il giro
 Si avvia con «▶️ Avvia» e si ferma con «⏸ Pausa». Lo esegue il worker: al task corrente delega a Copilot e, con l'ok automatico attivo, approva da solo il piano di Copilot; con «Salta da solo pre e post vuoti» salta i pre e post senza comandi né automation. Si ferma dove serve l'utente: il pre e il post di uno sviluppo, rispondere a Copilot, confermare il risultato. Il task corrente è il primo non finito (uno sviluppo è finito quando è fatto e il suo post è fatto o saltato).

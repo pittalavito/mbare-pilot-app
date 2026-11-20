@@ -3,7 +3,7 @@ project's over the global ones, put where a prompt writes {template}."""
 from domain.project import coding_agent
 from models.domain.note import TaskType
 
-GLOBAL = "plan_prompt: \"Piano {task_folder}\"\nexecute_prompt: Vai\ndenied_tools: []\n"
+GLOBAL = "plan_prompt: \"Piano {task}\"\nexecute_prompt: Vai\ndenied_tools: []\n"
 
 
 class Files:
@@ -20,7 +20,7 @@ class Files:
 def test_templates_by_type_and_the_project_wins():
     files = Files({
         "global-coding-agent.yml": GLOBAL,
-        "coding-agent/confluence.md": "Pagina in {task_folder}:\n{template}",
+        "coding-agent/confluence.md": "Pagina in {task}:\n{template}",
         "coding-agent/templates/confluence.md": "## Contesto\n",
         "coding-agent/templates/jira.md": "## Descrizione\n",
         "coding-agent/templates/altro.md": "ignorato",
@@ -31,6 +31,6 @@ def test_templates_by_type_and_the_project_wins():
 
     assert settings.templates == {TaskType.CONFLUENCE: "## Contesto", TaskType.JIRA: "## Storia"}
     assert "templates/confluence" not in settings.prompts and list(settings.prompts) == ["confluence"]
-    assert coding_agent.plan_prompt(settings, "mbare-pilot/t", "confluence", TaskType.CONFLUENCE) == "Pagina in mbare-pilot/t:\n## Contesto"
-    assert coding_agent.plan_prompt(settings, "mbare-pilot/t", "confluence", TaskType.ANALYSIS).endswith("(nessun template: scegli tu le sezioni)")
-    assert coding_agent.plan_prompt(settings, "mbare-pilot/t") == "Piano mbare-pilot/t"
+    assert coding_agent.plan_prompt(settings, "agent-task-t.md", "confluence", TaskType.CONFLUENCE) == "Pagina in agent-task-t.md:\n## Contesto"
+    assert coding_agent.plan_prompt(settings, "agent-task-t.md", "confluence", TaskType.ANALYSIS).endswith("(nessun template: scegli tu le sezioni)")
+    assert coding_agent.plan_prompt(settings, "agent-task-t.md") == "Piano agent-task-t.md"

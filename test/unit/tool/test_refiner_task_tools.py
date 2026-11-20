@@ -28,7 +28,7 @@ class _Copilot:
     def coding_agent(self, project_name: str | None = None) -> CodingAgentSettings:
         if self._error:
             raise ValidationError("definizione rotta")
-        return CodingAgentSettings(plan_prompt="{task_folder}", execute_prompt="vai", denied_tools=[], task_checklists=self._checklists)
+        return CodingAgentSettings(plan_prompt="{task}", execute_prompt="vai", denied_tools=[], task_checklists=self._checklists)
 
 
 @pytest.fixture
