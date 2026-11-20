@@ -2,7 +2,6 @@
 at startup. Seeding only inserts missing models: edits made in Admin → Modelli win."""
 from models.domain.chat import ChatModel, ModelProvider
 
-
 DEFAULT_CHAT_MODELS: list[ChatModel] = [
     # Cheap and fast, reliable with tools: the one for tests (0.10 / 0.40 USD on OpenRouter).
     ChatModel(provider=ModelProvider.OPENROUTER, model="google/gemini-2.5-flash-lite", input_per_1m=0.09, output_per_1m=0.37),
