@@ -18,7 +18,7 @@ Ogni piano descrive **cosa fare**, non com'è fatto oggi; le parti che esistono 
 | 33 | [Pubblica nel giro, risultati come riferimenti, archivio](33-pubblica-nel-giro-e-archivio.md) | fatto | app | flusso |
 | 34 | [Ricerche salvate e pre/post dentro lo sviluppo](34-ricerche-salvate-e-pre-post-nello-sviluppo.md) | fatto | app | flusso, strumenti |
 | 35 | [Presentazione: pagina GitHub Pages e demo live](35-presentazione.md) | fatto | app | presentazione |
-| 36 | [Pulizia leggera del codice, docstring e doc per package](36-pulizia-codice-e-doc.md) | da realizzare | app | pulizia, documentazione |
+| 36 | [Pulizia leggera del codice, docstring e doc per package](36-pulizia-codice-e-doc.md) | fatto | app | pulizia, documentazione |
 | 37 | [Niente file del task nei repository, pagina più chiara](37-niente-file-task-nei-repository.md) | fatto | app | copilot, presentazione |
 | — | [Backlog](backlog.md) | idee | — | — |
 

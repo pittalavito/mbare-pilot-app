@@ -18,7 +18,7 @@ I modelli (`JiraProject`, `JiraIssue`, `ConfluenceSpace`, `ConfluencePage`, …)
 
 - Un client httpx per sito, con **email + API token** in basic auth. Il token si crea su [id.atlassian.com](https://id.atlassian.com/manage-profile/security/api-tokens).
 - Timeout: 20 s (5 s per connettersi).
-- **Scrittura** (blocco 10): `post` e `put` con un corpo JSON; una risposta vuota (il 204 di Jira) dà None. Si usa lo stesso token: se non ha il permesso, 403 → `ValidationError` «credenziali o permessi rifiutati».
+- **Scrittura**: `post` e `put` con un corpo JSON; una risposta vuota (il 204 di Jira) dà None. Si usa lo stesso token: se non ha il permesso, 403 → `ValidationError` «credenziali o permessi rifiutati».
 - **Paginazione**: `paginate_offset` (Jira, `startAt`/`maxResults`) e `paginate_cursor` (Confluence, link `next`); entrambe si fermano al `limit` richiesto.
 
 Errori HTTP tradotti in errori dell'app:

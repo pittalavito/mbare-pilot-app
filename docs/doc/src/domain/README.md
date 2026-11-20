@@ -5,14 +5,17 @@ La logica che non è un servizio applicativo: come si parla con l'esterno (LLM, 
 ```
 src/domain/
   chat/       client LLM per modello del catalogo, costi, catalogo di default
-  agent/      costruzione degli agenti, tracing di token e costi
-  client/     client git, Maven, Atlassian, Copilot CLI ed embedding
+  agent/      costruzione degli agenti, masking della run, tracing di token e costi, risposte strutturate
+  atlassian/  la bozza in markdown come la vogliono Confluence e Jira
+  client/     client git, Maven, Atlassian, Copilot CLI, comandi, pg_dump ed embedding
+  dev/        test di un repository e input dei tool di sviluppo
   rag/        divisione dei documenti in pezzi per titolo (RAG)
   evaluation/ come le valutazioni giudicano i risultati (regole, senza LLM)
   masking/    mascheramento: Masker (mappa del progetto) e preview (testo libero: mask{}, riconoscimento automatico)
   maven/      lettura di pom.xml e del report JaCoCo
-  pipeline/   regole del grafo delle automation (validazione, ordine di esecuzione)
-  project/    percorsi dei dati e navigazione delle cartelle
+  pipeline/   regole del grafo delle automation e formato YAML
+  process/    avvio e arresto del worker sul PC
+  project/    percorsi dei dati, note tipizzate, cartelle, coding agent, ricerca nel codice
   store/      repository su Postgres, Redis e file
 ```
 

@@ -19,6 +19,9 @@ src/domain/store/db/
   wip_repository.py           le «Elabora WIP» di un progetto (wip_run)
   rag_repository.py           l'indice del contesto (document, chunk con pgvector)
   evaluation_repository.py    le valutazioni lanciate dalla pagina Metriche (evaluation_run, anche coda del worker)
+  copilot_repository.py       sessioni di Copilot (anche coda del worker), messaggi, uso dei turni
+  plan_repository.py          i piani delle attività (activity_plan)
+  tool_request_repository.py  le richieste di tool e il token del server MCP di Claude Code
   mapper.py                   condiviso dai mapper: as_utc, saved_id
   run_mapper.py               Adapter/Factory delle run
   catalog_mapper.py           …dei modelli e dei tool
@@ -43,7 +46,7 @@ Le tabelle stanno in [`models/store/db.py`](../../../models/README.md), con la m
 2. controlla le tabelle esistenti: se le colonne nel codice sono diverse, la tabella va ricreata;
 3. `create_all` crea le tabelle che mancano.
 
-**Niente migrazioni né retrocompatibilità** (piano 17). Una tabella cambiata nel codice viene ricreata, insieme alle tabelle che la referenziano, **solo se sono tutte vuote**. Se ha dati l'app non parte e dice di **cancellare il database**: così non si perde mai niente in silenzio. Il tipo di una colonna esistente non viene confrontato.
+**Niente migrazioni né retrocompatibilità**. Una tabella cambiata nel codice viene ricreata, insieme alle tabelle che la referenziano, **solo se sono tutte vuote**. Se ha dati l'app non parte e dice di **cancellare il database**: così non si perde mai niente in silenzio. Il tipo di una colonna esistente non viene confrontato.
 
 ## Base dei repository (`SqlRepository`)
 
@@ -95,7 +98,6 @@ Il token Atlassian entra e esce già cifrato: la cifratura con [`SecretBox`](../
 ## Cose da sapere
 
 - **Cancellazione a cascata**: rimuovere un progetto cancella dal DB quello che gli appartiene (agenti, chatbot con le conversazioni, automation con le loro esecuzioni, sito e preferiti Atlassian). Restano le run degli agenti (`agent_run`, `tool_call`: lo storico di Observability, senza chiave esterna verso il progetto), l'uso dei turni di Copilot (`copilot_turn`, senza chiave esterna nemmeno verso la sessione) e le cartelle sul disco.
-- **RAG non ancora implementato**: le tabelle `document` e `chunk` (con l'embedding pgvector) esistono, ma non hanno repository né codice che le usi.
 
 ## Aggiungere una tabella
 
