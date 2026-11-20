@@ -45,15 +45,15 @@ describe("agent task status and type", () => {
 
     fireEvent.click(await screen.findByRole("tab", { name: /Tutti i task/ }));
     await screen.findByText("Login", { selector: ".mantine-NavLink-label" });
-    expect(group("Creati")).toHaveTextContent("Creati0");
+    expect(group("Creati")).toBeUndefined(); // an empty status is not shown
     expect(group("In rifinitura")).toHaveTextContent("In rifinitura1");
     expect(group("Fatti")).toHaveAttribute("aria-expanded", "false");
     expect(item("Vecchio")).toBeNull(); // in the closed «Fatti»
-    expect(within(item("Login") as HTMLElement).getByText("Analisi")).toBeInTheDocument();
+    expect(within(item("Login") as HTMLElement).getByText("🔍 Analisi")).toBeInTheDocument();
     fireEvent.click(group("Fatti")!);
     expect(item("Vecchio")).not.toBeNull();
 
-    fireEvent.click(within(screen.getByRole("radiogroup", { name: "Filtra per tipo" })).getByRole("radio", { name: "Sviluppo" }));
+    fireEvent.click(within(screen.getByRole("radiogroup", { name: "Filtra per tipo" })).getByRole("radio", { name: /Sviluppo/ }));
     await waitFor(() => expect(item("Login")).toBeNull());
     expect(item("Export")).not.toBeNull();
 
