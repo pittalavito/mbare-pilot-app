@@ -80,7 +80,7 @@ def test_the_run_is_the_agent_s(client, stores):
     draft = client.post("/projects/acme/activities/draft", json={"context": ["Architettura"]}).json()
 
     [run] = [run for run in stores.runs.list_runs() if run.run_id == draft["run_id"]]
-    assert (run.origin, run.config_name, run.model) == ("draft", "bozza-attivita", "gpt-4o-mini")
+    assert (run.origin, run.config_name, run.model) == ("draft", "bozza-attivita", "google/gemini-2.5-pro")
 
 
 def test_model_input_keeps_the_call_small():

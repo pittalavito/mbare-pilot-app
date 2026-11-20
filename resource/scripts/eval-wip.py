@@ -3,7 +3,7 @@ the same as the button in Admin → Observability → Metriche. Postgres must be
 running (start-docker.py); the API is not needed. The report goes in
 <MBARE_PILOT_HOME>/evaluations/.
 
-    python resource/scripts/eval-wip.py --model openrouter/google/gemini-3.1-flash-lite-preview [--model ...]
+    python resource/scripts/eval-wip.py --model openrouter/google/gemini-3.1-flash-lite [--model ...]
 """
 import os
 import subprocess
