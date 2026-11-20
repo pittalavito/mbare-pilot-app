@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mbare Pilot</title>
+<meta name="description" content="Mbare Pilot: un'app agentica che porta il lavoro di tutti i giorni (Jira, Confluence, repository, Copilot) in un flusso unico, con le persone ai punti di controllo.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%234f46e5'/%3E%3Cpath d='M16 44 32 14l16 30-16-8z' fill='white'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f7f7fb;
+  --surface: #ffffff;
+  --surface-2: #f0f1f7;
+  --text: #15172a;
+  --muted: #5b607a;
+  --border: #e2e4ee;
+  --accent: #4f46e5;
+  --accent-soft: #eceafe;
+  --accent-text: #3f37c9;
+  --ok: #0f9d6b;
+  --ok-soft: #e3f6ee;
+  --warn: #b7791f;
+  --warn-soft: #fbf1df;
+  --human: #d9480f;
+  --human-soft: #fdeee6;
+  --code-bg: #f3f4f9;
+  --shadow: 0 1px 2px rgba(20, 22, 50, .05), 0 8px 24px rgba(20, 22, 50, .06);
+  --radius: 14px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e0f19;
+    --surface: #161827;
+    --surface-2: #1d2033;
+    --text: #e9eaf4;
+    --muted: #9da2bd;
+    --border: #2a2d44;
+    --accent: #8b85ff;
+    --accent-soft: #24234a;
+    --accent-text: #b3aeff;
+    --ok: #3ccf95;
+    --ok-soft: #14322a;
+    --warn: #e7b354;
+    --warn-soft: #362c18;
+    --human: #ff8a5b;
+    --human-soft: #3a2219;
+    --code-bg: #1b1d2e;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e0f19;
+  --surface: #161827;
+  --surface-2: #1d2033;
+  --text: #e9eaf4;
+  --muted: #9da2bd;
+  --border: #2a2d44;
+  --accent: #8b85ff;
+  --accent-soft: #24234a;
+  --accent-text: #b3aeff;
+  --ok: #3ccf95;
+  --ok-soft: #14322a;
+  --warn: #e7b354;
+  --warn-soft: #362c18;
+  --human: #ff8a5b;
+  --human-soft: #3a2219;
+  --code-bg: #1b1d2e;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.6 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased; overflow-x: hidden;
+}
+a { color: var(--accent-text); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, pre, .mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+code { background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; padding: .05em .35em; font-size: .88em; }
+
+/* ---------------------------------------------------------------- nav */
+.nav {
+  position: sticky; top: 0; z-index: 20; backdrop-filter: saturate(160%) blur(10px);
+  background: color-mix(in srgb, var(--bg) 82%, transparent); border-bottom: 1px solid var(--border);
+}
+.nav-inner { max-width: 1160px; margin: 0 auto; padding: 0 16px; height: 60px; display: flex; align-items: center; gap: 18px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: -.01em; color: var(--text); }
+.brand:hover { text-decoration: none; }
+.logo { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; flex: none; }
+.nav-links { display: flex; gap: 4px; margin-left: auto; align-items: center; }
+.nav-links a, .nav-links button {
+  font: 500 14px Inter, sans-serif; color: var(--muted); padding: 7px 11px; border-radius: 8px; border: 0; background: none; cursor: pointer;
+}
+.nav-links a:hover, .nav-links button:hover { background: var(--surface-2); color: var(--text); text-decoration: none; }
+.nav-links a.active { color: var(--accent-text); background: var(--accent-soft); }
+.theme-btn { width: 36px; height: 36px; display: grid; place-items: center; padding: 0 !important; }
+
+/* ---------------------------------------------------------------- layout */
+.wrap { max-width: 1160px; margin: 0 auto; padding: 0 16px; }
+section.block { padding: 72px 0; border-bottom: 1px solid var(--border); }
+section.block:last-of-type { border-bottom: 0; }
+.eyebrow { font: 600 12px/1 Inter, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--accent-text); margin: 0 0 12px; }
+h1, h2, h3 { letter-spacing: -.02em; line-height: 1.15; margin: 0; }
+h2 { font-size: clamp(26px, 3.6vw, 38px); font-weight: 800; }
+h3 { font-size: 18px; font-weight: 700; }
+.lead { font-size: clamp(16px, 1.6vw, 19px); color: var(--muted); max-width: 760px; margin: 14px 0 0; }
+.grid { display: grid; gap: 16px; }
+.g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 900px) { .g3, .g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .g2, .g3, .g4 { grid-template-columns: minmax(0, 1fr); } section.block { padding: 52px 0; } }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); min-width: 0; }
+.card p { margin: 8px 0 0; color: var(--muted); font-size: 15px; }
+.card .ico { font-size: 22px; line-height: 1; margin-bottom: 10px; }
+.mt { margin-top: 36px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font: 600 12px/1 Inter, sans-serif; padding: 6px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); }
+.pill.accent { background: var(--accent-soft); color: var(--accent-text); border-color: transparent; }
+.pill.human { background: var(--human-soft); color: var(--human); border-color: transparent; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.pill.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+
+/* ---------------------------------------------------------------- hero */
+.hero { padding: 88px 0 72px; position: relative; overflow: hidden; border-bottom: 1px solid var(--border); }
+.hero::before {
+  content: ""; position: absolute; inset: -40% -10% auto auto; width: 720px; height: 720px; border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 22%, transparent), transparent); pointer-events: none;
+}
+.hero h1 { font-size: clamp(38px, 6.4vw, 68px); font-weight: 800; letter-spacing: -.035em; max-width: 900px; }
+.hero h1 .hl { color: var(--accent-text); }
+.hero .lead { font-size: clamp(17px, 2vw, 21px); }
+.cta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 28px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 10px; font-weight: 600; font-size: 15px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+.btn:hover { text-decoration: none; border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn.primary:hover { filter: brightness(1.08); }
+.stats { display: flex; gap: 28px; flex-wrap: wrap; margin-top: 44px; }
+.stat b { display: block; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+.stat span { color: var(--muted); font-size: 14px; }
+
+/* ---------------------------------------------------------------- diagrams */
+.diagram { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); overflow-x: auto; }
+.diagram svg { display: block; width: 100%; height: auto; min-width: 640px; }
+.diagram .caption { font-size: 13px; color: var(--muted); margin-top: 10px; display: flex; gap: 14px; flex-wrap: wrap; }
+.d-box { fill: var(--surface-2); stroke: var(--border); }
+.d-accent { fill: var(--accent-soft); stroke: var(--accent); }
+.d-human { fill: var(--human-soft); stroke: var(--human); }
+.d-ok { fill: var(--ok-soft); stroke: var(--ok); }
+.d-ext { fill: var(--surface); stroke: var(--muted); stroke-dasharray: 5 4; }
+.d-t { fill: var(--text); font: 600 14px Inter, sans-serif; }
+.d-s { fill: var(--muted); font: 500 12px Inter, sans-serif; }
+.d-a { fill: var(--accent-text); font: 700 12px Inter, sans-serif; letter-spacing: .06em; }
+.d-line { stroke: var(--muted); stroke-width: 1.6; fill: none; }
+.d-line-a { stroke: var(--accent); stroke-width: 2; fill: none; }
+.d-arrow { fill: var(--muted); }
+.d-arrow-a { fill: var(--accent); }
+
+/* ---------------------------------------------------------------- steps */
+.steps { counter-reset: s; display: grid; gap: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 900px) { .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .steps { grid-template-columns: minmax(0, 1fr); } }
+.step { position: relative; padding-top: 44px; }
+.step::before {
+  counter-increment: s; content: counter(s); position: absolute; top: 16px; left: 20px; width: 26px; height: 26px; border-radius: 8px;
+  background: var(--accent); color: #fff; font: 700 13px/26px Inter, sans-serif; text-align: center;
+}
+.step ul { margin: 10px 0 0; padding-left: 18px; color: var(--muted); font-size: 14.5px; }
+.step li { margin: 3px 0; }
+
+/* ---------------------------------------------------------------- tables */
+.tbl { width: 100%; border-collapse: collapse; font-size: 15px; }
+.tbl th, .tbl td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.tbl th { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl td:first-child { font-weight: 600; white-space: nowrap; }
+.tbl-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+
+/* ---------------------------------------------------------------- masking */
+.mask-demo { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 14px; align-items: stretch; }
+@media (max-width: 760px) { .mask-demo { grid-template-columns: minmax(0, 1fr); } .mask-demo .arrow { transform: rotate(90deg); justify-self: center; } }
+.mask-demo .arrow { display: grid; place-items: center; color: var(--accent-text); font-size: 26px; font-weight: 800; }
+.mask-demo pre { margin: 10px 0 0; white-space: pre-wrap; word-break: break-word; font-size: 13.5px; line-height: 1.6; background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+mark.al { background: var(--accent-soft); color: var(--accent-text); border-radius: 4px; padding: 0 3px; font-weight: 600; }
+mark.cl { background: var(--warn-soft); color: var(--warn); border-radius: 4px; padding: 0 3px; font-weight: 600; }
+
+/* ---------------------------------------------------------------- tech */
+.tech { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.tech span { font: 500 13.5px Inter, sans-serif; padding: 6px 11px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); }
+
+/* ---------------------------------------------------------------- repo tree */
+pre.tree { margin: 0; font-size: 13.5px; line-height: 1.7; background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; overflow-x: auto; }
+pre.tree .c { color: var(--muted); }
+pre.tree b { color: var(--accent-text); font-weight: 600; }
+
+/* ---------------------------------------------------------------- docs view */
+#docs { display: none; }
+body.docs-mode #home { display: none; }
+body.docs-mode #docs { display: block; }
+.docs { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 28px; max-width: 1160px; margin: 0 auto; padding: 28px 16px 64px; }
+@media (max-width: 860px) { .docs { grid-template-columns: minmax(0, 1fr); } }
+.docs aside { position: sticky; top: 76px; align-self: start; max-height: calc(100vh - 92px); overflow: auto; padding-right: 6px; }
+@media (max-width: 860px) { .docs aside { position: static; max-height: none; } }
+.docs aside h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 18px 0 6px; }
+.docs aside h4:first-child { margin-top: 0; }
+.docs aside a { display: block; padding: 6px 10px; border-radius: 8px; color: var(--text); font-size: 14px; }
+.docs aside a:hover { background: var(--surface-2); text-decoration: none; }
+.docs aside a.active { background: var(--accent-soft); color: var(--accent-text); font-weight: 600; }
+.docs aside a small { display: block; color: var(--muted); font-size: 12px; font-weight: 400; line-height: 1.35; }
+.md { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px 32px; box-shadow: var(--shadow); min-width: 0; }
+@media (max-width: 620px) { .md { padding: 20px 16px; } }
+.md h1 { font-size: 30px; margin: 0 0 14px; }
+.md h2 { font-size: 22px; margin: 32px 0 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+.md h3 { font-size: 17px; margin: 24px 0 8px; }
+.md p, .md li { font-size: 15.5px; overflow-wrap: anywhere; }
+.md :not(pre) > code { overflow-wrap: anywhere; }
+.md table { border-collapse: collapse; width: 100%; display: block; overflow-x: auto; font-size: 14px; margin: 14px 0; }
+.md th, .md td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
+.md th { background: var(--surface-2); }
+.md pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px; overflow-x: auto; font-size: 13px; line-height: 1.55; }
+.md pre code { background: none; border: 0; padding: 0; }
+.md blockquote { margin: 14px 0; padding: 8px 16px; border-left: 3px solid var(--accent); background: var(--surface-2); border-radius: 0 8px 8px 0; color: var(--muted); }
+.md img { max-width: 100%; }
+.md .src { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+.md .loading { color: var(--muted); }
+
+footer { padding: 36px 0 48px; color: var(--muted); font-size: 14px; }
+footer .wrap { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+@media (max-width: 620px) { .nav-links a.hide-sm { display: none; } }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="#top" data-home>
+      <span class="logo"><svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true"><path d="M8 52 32 6l24 46-24-12z" fill="#fff"/></svg></span>
+      Mbare Pilot
+    </a>
+    <div class="nav-links">
+      <a href="#soluzione" class="hide-sm" data-home>Soluzione</a>
+      <a href="#architettura" class="hide-sm" data-home>Architettura</a>
+      <a href="#agenti" class="hide-sm" data-home>Agenti</a>
+      <a href="#doc/README.md" id="nav-docs">Documentazione</a>
+      <a href="https://github.com/pittalavito/mbare-pilot-app" rel="noopener">GitHub</a>
+      <button class="theme-btn" id="theme" aria-label="Cambia tema" title="Cambia tema">◐</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ================================================================ HOME -->
+<main id="home">
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <p class="eyebrow">App agentica · open source · in sviluppo</p>
+    <h1>Il lavoro di tutti i giorni, <span class="hl">in un flusso solo</span>.</h1>
+    <p class="lead">
+      Mbare Pilot mette insieme Jira, Confluence, i repository e GitHub Copilot. Da un'attività un agente pianifica i task,
+      Copilot sviluppa e scrive le bozze, Dev esegue le procedure. Tu decidi nei punti di controllo, e i dati del cliente
+      escono solo mascherati.
+    </p>
+    <div class="cta">
+      <a class="btn primary" href="#flusso">Guarda il flusso →</a>
+      <a class="btn" href="#doc/README.md">Documentazione</a>
+      <a class="btn" href="https://github.com/pittalavito/mbare-pilot-app" rel="noopener">Codice su GitHub</a>
+    </div>
+    <div class="stats">
+      <div class="stat"><b>1</b><span>flusso, dai riferimenti al rilascio</span></div>
+      <div class="stat"><b>10+</b><span>agenti, ognuno col suo compito</span></div>
+      <div class="stat"><b>0</b><span>nomi del cliente in chiaro verso i modelli</span></div>
+      <div class="stat"><b>€</b><span>costo di ogni chiamata, sempre visibile</span></div>
+    </div>
+  </div>
+</header>
+
+<!-- ------------------------------------------------------------ problema -->
+<section class="block" id="problema">
+  <div class="wrap">
+    <p class="eyebrow">Il problema</p>
+    <h2>Gli strumenti ci sono. Manca il filo.</h2>
+    <p class="lead">Un'attività vera passa da quattro o cinque posti diversi, e ogni passaggio si porta via un pezzo di contesto.</p>
+    <div class="grid g4 mt">
+      <div class="card"><div class="ico">🧩</div><h3>Contesto sparso</h3><p>Issue su Jira, specifiche su Confluence, codice in più repository, appunti nelle note: nessuno strumento li vede tutti insieme.</p></div>
+      <div class="card"><div class="ico">🤖</div><h3>Agenti scollegati</h3><p>Copilot, chat e script sono potenti, ma ognuno riparte da zero: il task va rispiegato ogni volta.</p></div>
+      <div class="card"><div class="ico">🔒</div><h3>Dati del cliente</h3><p>Nomi, repository e persone del cliente non devono finire in chiaro nei prompt dei modelli.</p></div>
+      <div class="card"><div class="ico">🧾</div><h3>Costi invisibili</h3><p>Non si sa quanto costa una risposta, né cosa ha visto davvero il modello quando ha sbagliato.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------ soluzione -->
+<section class="block" id="soluzione">
+  <div class="wrap">
+    <p class="eyebrow">La soluzione</p>
+    <h2>Dall'attività ai task, con le persone ai punti di controllo</h2>
+    <p class="lead">
+      Ogni lavoro parte da un'<b>attività</b> con i suoi riferimenti. Il Pianificatore la scompone in task, il giro li porta
+      avanti uno alla volta e si ferma dove serve una persona.
+    </p>
+    <div class="diagram mt" role="img" aria-label="Flusso: riferimenti, attività, pianificatore, giro dei task, chiusura">
+      <svg viewBox="0 0 1140 300" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10z" class="d-arrow-a"/></marker>
+        </defs>
+        <rect x="10" y="40" width="170" height="220" rx="14" class="d-ext"/>
+        <text x="95" y="68" text-anchor="middle" class="d-a">RIFERIMENTI</text>
+        <rect x="28" y="84" width="134" height="36" rx="9" class="d-box"/><text x="95" y="107" text-anchor="middle" class="d-s">Issue Jira</text>
+        <rect x="28" y="128" width="134" height="36" rx="9" class="d-box"/><text x="95" y="151" text-anchor="middle" class="d-s">Pagine Confluence</text>
+        <rect x="28" y="172" width="134" height="36" rx="9" class="d-box"/><text x="95" y="195" text-anchor="middle" class="d-s">Codice e ricerche</text>
+        <rect x="28" y="216" width="134" height="30" rx="9" class="d-box"/><text x="95" y="236" text-anchor="middle" class="d-s">Contesto e note</text>
+        <path d="M180 150 H218" class="d-line-a" marker-end="url(#ar)"/>
+        <rect x="222" y="98" width="150" height="104" rx="14" class="d-accent"/>
+        <text x="297" y="134" text-anchor="middle" class="d-t">Attività</text>
+        <text x="297" y="156" text-anchor="middle" class="d-s">titolo, descrizione,</text>
+        <text x="297" y="174" text-anchor="middle" class="d-s">voci della todo</text>
+        <path d="M372 150 H410" class="d-line-a" marker-end="url(#ar)"/>
+        <rect x="414" y="98" width="150" height="104" rx="14" class="d-accent"/>
+        <text x="489" y="134" text-anchor="middle" class="d-t">Pianificatore</text>
+        <text x="489" y="156" text-anchor="middle" class="d-s">propone i task</text>
+        <text x="489" y="174" text-anchor="middle" class="d-s">in ordine</text>
+        <rect x="424" y="216" width="130" height="28" rx="14" class="d-human"/><text x="489" y="235" text-anchor="middle" class="d-s" style="fill:var(--human)">✋ li confermi tu</text>
+        <path d="M564 150 H602" class="d-line-a" marker-end="url(#ar)"/>
+        <rect x="606" y="16" width="370" height="268" rx="14" class="d-box"/>
+        <text x="791" y="40" text-anchor="middle" class="d-a">IL GIRO DEI TASK</text>
+        <rect x="622" y="54" width="338" height="78" rx="10" class="d-ok"/>
+        <text x="638" y="78" class="d-t">Sviluppo</text>
+        <text x="638" y="98" class="d-s">Pre → Copilot: piano ✋ ed esecuzione</text>
+        <text x="638" y="116" class="d-s">→ Conferma ✋ → Post</text>
+        <rect x="622" y="140" width="338" height="58" rx="10" class="d-ok"/>
+        <text x="638" y="164" class="d-t">Analisi</text>
+        <text x="638" y="184" class="d-s">Copilot legge il codice e risponde in una nota</text>
+        <rect x="622" y="206" width="338" height="66" rx="10" class="d-ok"/>
+        <text x="638" y="230" class="d-t">Confluence · Jira</text>
+        <text x="638" y="250" class="d-s">Copilot scrive la bozza → ✋ «Pubblica»</text>
+        <text x="638" y="266" class="d-s">il risultato passa al task dopo</text>
+        <path d="M976 150 H1014" class="d-line-a" marker-end="url(#ar)"/>
+        <rect x="1018" y="98" width="116" height="104" rx="14" class="d-accent"/>
+        <text x="1076" y="134" text-anchor="middle" class="d-t">Chiudi</text>
+        <text x="1076" y="156" text-anchor="middle" class="d-s">riepilogo e</text>
+        <text x="1076" y="174" text-anchor="middle" class="d-s">cosa ricordare</text>
+      </svg>
+      <div class="caption"><span class="pill human">✋ punto di controllo: decidi tu</span><span class="pill ok">eseguito da un agente</span><span class="pill">il giro gira nel worker, anche a pagina chiusa</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------ flusso -->
+<section class="block" id="flusso">
+  <div class="wrap">
+    <p class="eyebrow">Il flusso, passo per passo</p>
+    <h2>Un'attività in quattro step</h2>
+    <p class="lead">È il flusso della demo live: un'attività vera, creata dai riferimenti e portata fino in fondo.</p>
+    <div class="steps mt">
+      <div class="card step">
+        <h3>Descrivi</h3>
+        <ul>
+          <li>«Nuova attività» → <b>parto da riferimenti</b>: issue Jira, pagine Confluence, riferimenti al codice, contesto</li>
+          <li>Scrivi <b>«Cosa vuoi fare»</b>: il Segretario propone titolo, descrizione e voci</li>
+        </ul>
+      </div>
+      <div class="card step">
+        <h3>Pianifica</h3>
+        <ul>
+          <li>Il <b>Pianificatore</b> cerca nel contesto e propone i task in ordine</li>
+          <li>Ogni sviluppo ha già il suo <b>pre</b> e il suo <b>post</b>: branch, build, test</li>
+          <li>Correggi, riordina e crei i task</li>
+        </ul>
+      </div>
+      <div class="card step">
+        <h3>Lavora</h3>
+        <ul>
+          <li>«▶️ Avvia»: il giro delega a <b>Copilot</b> e lo segue da solo</li>
+          <li>Pre e post: <b>automatico</b>, a mano con <b>Dev</b>, o salta</li>
+          <li>Bozze Confluence o Jira: <b>«📤 Pubblica»</b></li>
+        </ul>
+      </div>
+      <div class="card step">
+        <h3>Chiudi</h3>
+        <ul>
+          <li>Riepilogo scritto dal codice: task, file cambiati, costi</li>
+          <li>L'agente <b>imparato</b> propone cosa ricordare: va nel contesto del progetto</li>
+          <li>Archivia quando vuoi</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------ architettura -->
+<section class="block" id="architettura">
+  <div class="wrap">
+    <p class="eyebrow">Architettura</p>
+    <h2>Due processi, tre archivi, gli strumenti di sempre</h2>
+    <p class="lead">
+      Gira sul PC di chi lavora, accanto ai repository. L'API serve il frontend e le regole dell'app; il worker esegue il
+      lavoro lungo: Copilot, il giro, le automation.
+    </p>
+    <div class="diagram mt" role="img" aria-label="Architettura: frontend React, API FastAPI, worker, Postgres, Redis, file, servizi esterni">
+      <svg viewBox="0 0 1100 470" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10z" class="d-arrow"/></marker>
+        </defs>
+        <!-- browser -->
+        <rect x="20" y="30" width="230" height="110" rx="14" class="d-accent"/>
+        <text x="135" y="64" text-anchor="middle" class="d-t">Frontend</text>
+        <text x="135" y="86" text-anchor="middle" class="d-s">React · Vite · Mantine</text>
+        <text x="135" y="106" text-anchor="middle" class="d-s">client tipizzato dall'OpenAPI</text>
+        <path d="M250 85 H318" class="d-line" marker-end="url(#ar2)"/>
+        <text x="284" y="76" text-anchor="middle" class="d-s">/api</text>
+        <!-- app box -->
+        <rect x="322" y="20" width="440" height="300" rx="16" class="d-box"/>
+        <text x="542" y="46" text-anchor="middle" class="d-a">MBARE PILOT · PYTHON</text>
+        <rect x="342" y="62" width="196" height="160" rx="12" class="d-accent"/>
+        <text x="440" y="90" text-anchor="middle" class="d-t">API · FastAPI</text>
+        <text x="440" y="114" text-anchor="middle" class="d-s">controller</text>
+        <text x="440" y="132" text-anchor="middle" class="d-s">↓ service</text>
+        <text x="440" y="150" text-anchor="middle" class="d-s">↓ domain</text>
+        <text x="440" y="168" text-anchor="middle" class="d-s">↓ store</text>
+        <text x="440" y="200" text-anchor="middle" class="d-s">server MCP per Copilot</text>
+        <rect x="548" y="62" width="196" height="160" rx="12" class="d-accent"/>
+        <text x="646" y="90" text-anchor="middle" class="d-t">Worker</text>
+        <text x="646" y="116" text-anchor="middle" class="d-s">giro delle attività</text>
+        <text x="646" y="136" text-anchor="middle" class="d-s">sessioni Copilot</text>
+        <text x="646" y="156" text-anchor="middle" class="d-s">pre e post automatici</text>
+        <text x="646" y="176" text-anchor="middle" class="d-s">automation, valutazioni</text>
+        <rect x="342" y="236" width="402" height="68" rx="12" class="d-ok"/>
+        <text x="543" y="262" text-anchor="middle" class="d-t">datapizza-ai</text>
+        <text x="543" y="284" text-anchor="middle" class="d-s">agenti, tool, risposte strutturate, tracing, masking</text>
+        <!-- storage -->
+        <rect x="322" y="360" width="140" height="88" rx="12" class="d-box"/>
+        <text x="392" y="392" text-anchor="middle" class="d-t">Postgres</text>
+        <text x="392" y="412" text-anchor="middle" class="d-s">+ pgvector (RAG)</text>
+        <text x="392" y="430" text-anchor="middle" class="d-s">dati dell'app</text>
+        <rect x="472" y="360" width="140" height="88" rx="12" class="d-box"/>
+        <text x="542" y="392" text-anchor="middle" class="d-t">Redis</text>
+        <text x="542" y="412" text-anchor="middle" class="d-s">tracce delle run</text>
+        <text x="542" y="430" text-anchor="middle" class="d-s">heartbeat worker</text>
+        <rect x="622" y="360" width="140" height="88" rx="12" class="d-box"/>
+        <text x="692" y="392" text-anchor="middle" class="d-t">File</text>
+        <text x="692" y="412" text-anchor="middle" class="d-s">note, task, attività</text>
+        <text x="692" y="430" text-anchor="middle" class="d-s">definizioni YAML</text>
+        <path d="M392 320 V356" class="d-line" marker-end="url(#ar2)"/>
+        <path d="M542 320 V356" class="d-line" marker-end="url(#ar2)"/>
+        <path d="M692 320 V356" class="d-line" marker-end="url(#ar2)"/>
+        <!-- external -->
+        <text x="935" y="30" text-anchor="middle" class="d-a">ESTERNI</text>
+        <rect x="830" y="44" width="250" height="56" rx="12" class="d-ext"/>
+        <text x="848" y="68" class="d-t">Modelli LLM</text>
+        <text x="848" y="88" class="d-s">OpenRouter, OpenAI, Ollama</text>
+        <rect x="830" y="110" width="250" height="56" rx="12" class="d-ext"/>
+        <text x="848" y="134" class="d-t">GitHub Copilot CLI</text>
+        <text x="848" y="154" class="d-s">legge il task via MCP e sviluppa</text>
+        <rect x="830" y="176" width="250" height="56" rx="12" class="d-ext"/>
+        <text x="848" y="200" class="d-t">Atlassian Cloud</text>
+        <text x="848" y="220" class="d-s">Jira e Confluence: leggi, pubblica</text>
+        <rect x="830" y="242" width="250" height="56" rx="12" class="d-ext"/>
+        <text x="848" y="266" class="d-t">Repository git locali</text>
+        <text x="848" y="286" class="d-s">git sicuro, build, test, comandi</text>
+        <rect x="830" y="308" width="250" height="56" rx="12" class="d-ext"/>
+        <text x="848" y="332" class="d-t">Claude Code</text>
+        <text x="848" y="352" class="d-s">scrive i tool che mancano (MCP dev)</text>
+        <path d="M762 72 H826" class="d-line" marker-end="url(#ar2)"/>
+        <path d="M762 138 H826" class="d-line" marker-end="url(#ar2)"/>
+        <path d="M762 204 H826" class="d-line" marker-end="url(#ar2)"/>
+        <path d="M762 270 H826" class="d-line" marker-end="url(#ar2)"/>
+        <path d="M762 300 C800 300 800 336 826 336" class="d-line" marker-end="url(#ar2)"/>
+      </svg>
+      <div class="caption"><span>Flusso del codice: <code>frontend → /api → controller → service → domain → store</code></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------ tecnologie -->
+<section class="block" id="tecnologie">
+  <div class="wrap">
+    <p class="eyebrow">Tecnologie</p>
+    <h2>Uno stack semplice e tipizzato</h2>
+    <div class="grid g3 mt">
+      <div class="card"><h3>Backend</h3><div class="tech"><span>Python 3.12</span><span>FastAPI</span><span>Uvicorn</span><span>SQLModel</span><span>Pydantic</span><span>uv</span></div></div>
+      <div class="card"><h3>AI</h3><div class="tech"><span>datapizza-ai</span><span>OpenRouter</span><span>OpenAI</span><span>Ollama</span><span>GitHub Copilot CLI</span><span>MCP</span></div></div>
+      <div class="card"><h3>Dati</h3><div class="tech"><span>PostgreSQL 17</span><span>pgvector</span><span>Redis 7</span><span>Markdown su disco</span><span>YAML</span></div></div>
+      <div class="card"><h3>Frontend</h3><div class="tech"><span>React 18</span><span>TypeScript</span><span>Vite</span><span>Mantine</span><span>TanStack Query</span><span>React Flow</span></div></div>
+      <div class="card"><h3>Integrazioni</h3><div class="tech"><span>Jira Cloud</span><span>Confluence Cloud</span><span>Git</span><span>Maven</span><span>Docker</span></div></div>
+      <div class="card"><h3>Qualità</h3><div class="tech"><span>pytest · coverage ≥ 95%</span><span>Vitest</span><span>ruff</span><span>mypy</span><span>GitHub Actions</span></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------ agenti -->
+<section class="block" id="agenti">
+  <div class="wrap">
+    <p class="eyebrow">Agenti</p>
+    <h2>Ognuno fa una cosa, e la fa con i suoi tool</h2>
+    <p class="lead">
+      Agenti, chatbot e prompt sono file YAML versionati con l'app: si cambiano dalla UI o dai file, e chi li cambia
+      nella sua cartella dati vince sul default.
+    </p>
+    <div class="tbl-wrap mt">
+      <table class="tbl">
+        <thead><tr><th>Agente</th><th>Tipo</th><th>Cosa fa</th></tr></thead>
+        <tbody>
+          <tr><td>Segretario</td><td><span class="pill accent">chat</span></td><td>Lavora con te sull'attività: voci, stato dei task, nuovi task.</td></tr>
+          <tr><td>Refiner</td><td><span class="pill accent">chat</span></td><td>Rifinisce un task con le sue domande e lo porta a «da fare».</td></tr>
+          <tr><td>Pianificatore</td><td><span class="pill ok">strutturato</span></td><td>Dall'attività i task in ordine, con pre e post degli sviluppi; cerca nel contesto prima di proporre.</td></tr>
+          <tr><td>Copilot</td><td><span class="pill warn">coding agent</span></td><td>Legge task e riferimenti via MCP, propone il piano, sviluppa dopo il tuo ok; scrive analisi e bozze. Mai commit.</td></tr>
+          <tr><td>Dev</td><td><span class="pill accent">chat</span></td><td>L'operatore: git sicuro, build, test, comandi permessi. Quello che fa bene può diventare un'automation.</td></tr>
+          <tr><td>Architetto</td><td><span class="pill accent">chat</span></td><td>Progetta con te le automation, le valida e chiede un tool nuovo quando manca.</td></tr>
+          <tr><td>Agenti piccoli</td><td><span class="pill ok">strutturato</span></td><td>Una chiamata sola, risposta in uno schema: bozza dell'attività, note WIP, regex delle ricerche, cosa si è imparato.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="grid g3 mt">
+      <div class="card"><div class="ico">📚</div><h3>Contesto con RAG</h3><p>Il contesto generale (come funziona l'app) e quello di ogni progetto sono indicizzati con pgvector: gli agenti cercano con <code>search_context</code> invece di avere prompt enormi.</p></div>
+      <div class="card"><div class="ico">🔌</div><h3>MCP</h3><p>Copilot legge task, riferimenti e note dal server MCP dell'app; Claude Code usa un secondo server MCP per scrivere i tool che servono alle automation.</p></div>
+      <div class="card"><div class="ico">🛡️</div><h3>Permessi</h3><p>I comandi girano solo se sono nella lista del progetto: gli altri diventano una richiesta, e decidi tu («Sempre», «Solo stavolta», «No»).</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------ osservabilità -->
+<section class="block" id="osservabilita">
+  <div class="wrap">
+    <p class="eyebrow">Osservabilità</p>
+    <h2>Ogni chiamata si vede, si misura e si paga in chiaro</h2>
+    <div class="grid g3 mt">
+      <div class="card"><div class="ico">🔍</div><h3>Cosa ha visto il modello</h3><p>Per ogni risposta: system prompt, input e storia, chiamate ai tool, risposta. Versione mascherata, come è uscita, o in chiaro.</p></div>
+      <div class="card"><div class="ico">💶</div><h3>Token e costi</h3><p>Ogni run registra modello, token e costo in euro; anche gli embedding del RAG e i crediti AI di Copilot.</p></div>
+      <div class="card"><div class="ico">🧵</div><h3>Tracce</h3><p>Il tracing di datapizza-ai segue ogni passo degli agenti; le tracce stanno in Redis, le run in Postgres.</p></div>
+      <div class="card"><div class="ico">📊</div><h3>Metriche</h3><p>Costi e chiamate per agente, modello e progetto, nel tempo.</p></div>
+      <div class="card"><div class="ico">🧪</div><h3>Valutazioni</h3><p>Set di prova versionati: le stesse domande a più modelli o embedder, con report in markdown e JSON.</p></div>
+      <div class="card"><div class="ico">🩺</div><h3>Stato dei servizi</h3><p>API, worker, Postgres e Redis: stato, log e dashboard a un clic.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------ masking -->
+<section class="block" id="masking">
+  <div class="wrap">
+    <p class="eyebrow">Masking</p>
+    <h2>I nomi del cliente non escono mai</h2>
+    <p class="lead">
+      Prima di ogni chiamata i nomi sensibili diventano alias; nella risposta tornano in chiaro. La mappa è per progetto,
+      e si vede sempre cosa è uscito davvero.
+    </p>
+    <div class="mask-demo mt">
+      <div class="card">
+        <span class="pill warn">Quello che scrivi</span>
+        <pre>Sul repo <mark class="cl">acme-billing</mark> il login di
+<mark class="cl">Mario Rossi</mark> fallisce: scrivi a
+<mark class="cl">mario.rossi@acme.it</mark> quando è
+corretto, come da specifica <mark class="cl">Orion</mark>.</pre>
+      </div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div class="card">
+        <span class="pill accent">Quello che vede il modello</span>
+        <pre>Sul repo <mark class="al">REPO_1</mark> il login di
+<mark class="al">PERSONA_1</mark> fallisce: scrivi a
+<mark class="al">MAIL_1</mark> quando è
+corretto, come da specifica <mark class="al">TERMINE_1</mark>.</pre>
+      </div>
+    </div>
+    <div class="grid g3 mt">
+      <div class="card"><h3>Mappa del progetto</h3><p>Repository, persone, email e termini: alias stabili, scritti a mano o aggiunti da soli (i repository entrano appena il progetto li vede).</p></div>
+      <div class="card"><h3>Riconoscimento automatico</h3><p>Email, URL, indirizzi IP, token e chiavi trovati nel testo diventano alias temporanei (<code>MAIL_1</code>, <code>URL_1</code>…), validi solo per quella chiamata.</p></div>
+      <div class="card"><h3>Ovunque</h3><p>Chat, agenti strutturati, risultati dei tool e contesto: tutto passa dalla stessa maschera, prima di uscire.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------ automation -->
+<section class="block" id="automation">
+  <div class="wrap">
+    <p class="eyebrow">Automation <span class="pill warn" style="margin-left:8px;letter-spacing:0;text-transform:none">pronte, oggi non usate</span></p>
+    <h2>Quello che si ripete uguale, senza LLM</h2>
+    <p class="lead">
+      Un'automation è un grafo di step che il worker esegue: step <b>tool</b> (deterministici, costo zero) e step
+      <b>agente</b> quando serve ragionare. L'Architetto le progetta in chat e si esportano in YAML.
+      Il motore è pronto e testato; nel flusso di oggi il lavoro ripetitivo lo fanno i comandi del pre e del post.
+    </p>
+    <div class="diagram mt" role="img" aria-label="Esempio di automation: stato git, aggiorna i branch, build, salva nota">
+      <svg viewBox="0 0 1100 150" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10z" class="d-arrow"/></marker></defs>
+        <rect x="20" y="40" width="200" height="70" rx="12" class="d-box"/><text x="120" y="70" text-anchor="middle" class="d-t">git status</text><text x="120" y="92" text-anchor="middle" class="d-s">tool · tutti i repository</text>
+        <path d="M220 75 H284" class="d-line" marker-end="url(#ar3)"/>
+        <rect x="288" y="40" width="220" height="70" rx="12" class="d-box"/><text x="398" y="70" text-anchor="middle" class="d-t">aggiorna i branch</text><text x="398" y="92" text-anchor="middle" class="d-s">tool · solo fast-forward</text>
+        <path d="M508 75 H572" class="d-line" marker-end="url(#ar3)"/>
+        <rect x="576" y="40" width="220" height="70" rx="12" class="d-accent"/><text x="686" y="70" text-anchor="middle" class="d-t">riassumi</text><text x="686" y="92" text-anchor="middle" class="d-s">agente · solo se serve</text>
+        <path d="M796 75 H860" class="d-line" marker-end="url(#ar3)"/>
+        <rect x="864" y="40" width="216" height="70" rx="12" class="d-box"/><text x="972" y="70" text-anchor="middle" class="d-t">salva nota</text><text x="972" y="92" text-anchor="middle" class="d-s">tool · nel progetto</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------ visione -->
+<section class="block" id="visione">
+  <div class="wrap">
+    <p class="eyebrow">Visione</p>
+    <h2>Da strumento personale a strumento di Aitho</h2>
+    <p class="lead">
+      Nasce per rendere più semplice il lavoro di ogni giorno, mio e dei colleghi. Continuo a usarlo e a svilupparlo:
+      se funziona davvero, l'obiettivo è portarlo in azienda e farlo crescere insieme.
+    </p>
+    <div class="grid g4 mt">
+      <div class="card"><div class="ico">👥</div><h3>Login e utenti</h3><p>Più persone sulla stessa installazione, ognuna con i suoi progetti e permessi.</p></div>
+      <div class="card"><div class="ico">🔁</div><h3>Contribuire dall'app</h3><p>Bug e idee aperti dall'app stessa, affidati a un agente, con la PR aperta al progetto comune.</p></div>
+      <div class="card"><div class="ico">🧭</div><h3>Bacheca dell'app</h3><p>Le attività su Mbare Pilot si gestiscono con gli stessi strumenti dei progetti.</p></div>
+      <div class="card"><div class="ico">🔗</div><h3>Più integrazioni</h3><p>Bitbucket, Jenkins e Dynatrace come ultimi passi di un'attività: fattibilità già verificata.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------ repository -->
+<section class="block" id="repository">
+  <div class="wrap">
+    <p class="eyebrow">Il repository</p>
+    <h2>Dove sta cosa</h2>
+    <div class="grid g2 mt">
+<pre class="tree"><b>src/</b>                <span class="c">backend Python</span>
+  api.py, worker.py   <span class="c">i due processi</span>
+  <b>core/</b>             <span class="c">app, container, errori, logging</span>
+  <b>controller/</b>       <span class="c">endpoint HTTP e server MCP</span>
+  <b>service/</b>          <span class="c">regole dell'app, giro, automation</span>
+  <b>domain/</b>           <span class="c">LLM, agenti, git, Atlassian, store</span>
+  <b>tool/</b>             <span class="c">tool degli agenti (un registro)</span>
+  <b>models/</b>           <span class="c">domain, store, controller</span>
+<b>web/</b>                <span class="c">frontend React</span>
+<b>test/</b>               <span class="c">pytest</span>
+<b>resource/</b>
+  <b>definition/</b>       <span class="c">agenti, chatbot, prompt, contesto</span>
+  <b>scripts/</b>          <span class="c">avvio, test, export, valutazioni</span>
+  <b>eval/</b>             <span class="c">set di prova</span>
+  <b>plans/</b>            <span class="c">i piani di lavoro</span>
+<b>docs/</b>               <span class="c">questo sito e la documentazione</span></pre>
+      <div class="grid">
+        <div class="card"><h3>Documentazione per package</h3><p>Un README per ogni package, con la stessa struttura del codice: endpoint, servizi, tool, definizioni.</p><p><a href="#doc/README.md">Apri la documentazione →</a></p></div>
+        <div class="card"><h3>Come si lavora</h3><p>Ogni blocco ha un piano in <code>resource/plans</code>, una PR, test con coverage ≥ 95%, ruff, mypy e vitest verdi in CI.</p></div>
+        <div class="card"><h3>Avvio</h3><p>Python 3.12, uv, Docker e Node: <code>start-venv.py</code>, <code>start-docker.py</code>, <code>run-app.py</code>. Dettagli nel <a href="https://github.com/pittalavito/mbare-pilot-app#readme" rel="noopener">README</a>.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ================================================================ DOCS -->
+<div id="docs">
+  <div class="docs">
+    <aside id="docs-nav" aria-label="Indice della documentazione"></aside>
+    <article class="md" id="docs-body"><p class="loading">Caricamento…</p></article>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>Mbare Pilot · progetto open source, in sviluppo</span>
+    <span><a href="https://github.com/pittalavito/mbare-pilot-app" rel="noopener">github.com/pittalavito/mbare-pilot-app</a></span>
+  </div>
+</footer>
+
+<script src="vendor/marked-12.0.2.min.js"></script>
+<script src="vendor/purify-3.1.6.min.js"></script>
+<script>
+(() => {
+  const REPO = "pittalavito/mbare-pilot-app";
+  const BLOB = `https://github.com/${REPO}/blob/main/`;
+  const RAW = `https://raw.githubusercontent.com/${REPO}/main/`;
+  const DOC_ROOT = "docs/doc/";
+
+  // ---------------------------------------------------------- theme
+  const root = document.documentElement;
+  const saved = (() => { try { return localStorage.getItem("mp-theme"); } catch { return null; } })();
+  if (saved) root.dataset.theme = saved;
+  document.getElementById("theme").addEventListener("click", () => {
+    const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("mp-theme", root.dataset.theme); } catch { /* private mode */ }
+  });
+
+  // ---------------------------------------------------------- paths
+  /** A repo path ("docs/doc/x.md", "web/README.md") from a link written in the md at ``from``. */
+  const resolve = (from, href) => {
+    const parts = from.split("/").slice(0, -1);
+    for (const piece of href.split("/")) {
+      if (piece === "..") parts.pop();
+      else if (piece !== "." && piece !== "") parts.push(piece);
+    }
+    return parts.join("/");
+  };
+  /** Where the md of a repo path is read: the site for docs/doc, GitHub raw for the rest of the repo. */
+  const source = (path) => (path.startsWith(DOC_ROOT) ? path.slice("docs/".length) : RAW + path);
+  const route = (path) => "#doc/" + (path.startsWith(DOC_ROOT) ? path.slice(DOC_ROOT.length) : "~/" + path);
+  const fromRoute = (hash) => {
+    const rest = decodeURIComponent(hash.slice("#doc/".length)) || "README.md";
+    return rest.startsWith("~/") ? rest.slice(2) : DOC_ROOT + rest;
+  };
+
+  // ---------------------------------------------------------- index
+  const nav = document.getElementById("docs-nav");
+  const body = document.getElementById("docs-body");
+  let index = null;
+
+  /** The sidebar from docs/doc/README.md: its table of docs, grouped by area. */
+  async function loadIndex() {
+    if (index) return index;
+    const text = await (await fetch(source(DOC_ROOT + "README.md"))).text();
+    const rows = [...text.matchAll(/^\|\s*\[([^\]]+)\]\(([^)]+)\)\s*\|\s*(.+?)\s*\|\s*$/gm)];
+    const items = rows.map(([, name, href, what]) => ({ name, path: resolve(DOC_ROOT + "README.md", href), what: what.replace(/`/g, "") }));
+    const group = (item) => item.path.includes("/src/domain/") ? "Domain" : item.path.includes("/src/") ? "Backend" : "Generale";
+    index = { items, groups: ["Generale", "Backend", "Domain"].map((name) => ({ name, items: items.filter((item) => group(item) === name) })) };
+    return index;
+  }
+
+  function renderNav(current) {
+    if (!index) return;
+    const link = (path, name, what) =>
+      `<a href="${route(path)}" class="${path === current ? "active" : ""}">${name}${what ? `<small>${what}</small>` : ""}</a>`;
+    nav.innerHTML = `<h4>Inizio</h4>${link(DOC_ROOT + "README.md", "Indice", "")}${link("README.md", "README del repository", "")}`
+      + index.groups.filter((g) => g.items.length).map((g) => `<h4>${g.name}</h4>${g.items.map((i) => link(i.path, i.name, i.what)).join("")}`).join("");
+  }
+
+  // ---------------------------------------------------------- page
+  async function show(path) {
+    body.innerHTML = '<p class="loading">Caricamento…</p>';
+    await loadIndex().catch(() => null);
+    renderNav(path);
+    try {
+      const response = await fetch(source(path));
+      if (!response.ok) throw new Error(response.status);
+      const html = DOMPurify.sanitize(marked.parse(await response.text()));
+      body.innerHTML = `<div class="src"><span class="mono">${path}</span><a href="${BLOB + path}" rel="noopener">Apri su GitHub ↗</a></div>${html}`;
+      body.querySelectorAll("a[href]").forEach((a) => {
+        const href = a.getAttribute("href");
+        if (/^(https?:|mailto:|#)/.test(href)) return;
+        const [file, anchor] = href.split("#");
+        const target = resolve(path, file);
+        if (target.endsWith(".md")) a.setAttribute("href", route(target));
+        else { a.setAttribute("href", BLOB + target + (anchor ? "#" + anchor : "")); a.rel = "noopener"; }
+      });
+      body.querySelectorAll("h1, h2, h3").forEach((h) => { h.id = h.textContent.trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-"); });
+    } catch (error) {
+      body.innerHTML = `<p>Non riesco a leggere <code>${path}</code>. <a href="${BLOB + path}" rel="noopener">Aprilo su GitHub ↗</a></p>`;
+    }
+    window.scrollTo({ top: 0 });
+  }
+
+  // ---------------------------------------------------------- router
+  function onRoute() {
+    const hash = location.hash;
+    const docs = hash.startsWith("#doc/");
+    document.body.classList.toggle("docs-mode", docs);
+    document.getElementById("nav-docs").classList.toggle("active", docs);
+    if (docs) show(fromRoute(hash));
+  }
+  window.addEventListener("hashchange", onRoute);
+  onRoute();
+})();
+</script>
+</body>
+</html>

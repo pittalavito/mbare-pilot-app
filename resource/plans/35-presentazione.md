@@ -1,6 +1,6 @@
 # Presentazione: pagina GitHub Pages e demo live
 
-Stato: **da realizzare**.
+Stato: **fatto**.
 
 ## Obiettivo
 Presentare Mbare Pilot in modo eccellente: un **sito** (GitHub Pages) che lo racconta e ne tiene la documentazione, un **README** rifatto e un **flusso live** su un'attività vera.
@@ -35,6 +35,10 @@ Presentare Mbare Pilot in modo eccellente: un **sito** (GitHub Pages) che lo rac
 
 ## Da fare dopo, a mano
 - In GitHub → Settings → Pages: Source «Deploy from a branch», branch `main`, cartella `/docs`.
+
+## Come è fatto
+- `docs/index.html`: presentazione e lettore della documentazione nella stessa pagina. `#doc/<percorso>` apre un md di `docs/doc`, `#doc/~/<percorso>` un md del resto del repo, letto da GitHub. L'indice a sinistra viene dalla tabella di `docs/doc/README.md`.
+- `marked` e `DOMPurify` sono copiati in `docs/vendor` (niente CDN durante la presentazione). `docs/.nojekyll` fa servire gli md così come sono.
 
 ## Test e documentazione
 - La pagina si controlla aprendola nel browser (Playwright): chiaro e scuro, larghezza del telefono, niente scroll orizzontale, ogni md della sezione Documentazione si apre.

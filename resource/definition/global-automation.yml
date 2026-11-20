@@ -1,5 +1,5 @@
 # Automation di ogni progetto (salvo che il progetto ne abbia una con lo stesso nome).
-# Campi: resource/doc/definitions.md
+# Campi: docs/doc/definitions.md
 # Si rifanno da capo poco alla volta (piano 24): per ora solo la prova.
 
 automations:
