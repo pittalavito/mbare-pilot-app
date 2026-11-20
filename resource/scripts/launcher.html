@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mbare Pilot · Avvio</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1d2330; --muted:#6b7280; --line:#e3e6eb;
+          --ok:#16a34a; --off:#9ca3af; --warn:#d97706; --err:#dc2626; --accent:#2563eb; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14161b; --card:#1d2027; --text:#e6e8ec; --muted:#9aa1ad; --line:#2c3039; --accent:#4f8cff; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 system-ui, sans-serif; }
+  main { max-width:640px; margin:48px auto; padding:0 16px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sub { color:var(--muted); margin:0 0 24px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; margin-bottom:16px; }
+  .row { display:flex; align-items:center; gap:10px; padding:6px 0; }
+  .dot { width:10px; height:10px; border-radius:50%; background:var(--off); flex:none; }
+  .dot.ok { background:var(--ok); } .dot.warn { background:var(--warn); }
+  .row span.label { flex:1; } .row span.val { color:var(--muted); }
+  .buttons { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
+  button, a.btn { font:inherit; border-radius:8px; padding:9px 16px; border:1px solid var(--line);
+                  background:var(--card); color:var(--text); cursor:pointer; text-decoration:none; }
+  button.primary, a.btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button:disabled { opacity:.5; cursor:default; }
+  a.btn[aria-disabled="true"] { opacity:.5; pointer-events:none; }
+  .step { margin-top:14px; color:var(--muted); min-height:1.5em; }
+  .error { color:var(--err); }
+  details summary { cursor:pointer; color:var(--muted); }
+  pre { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:10px; max-height:300px;
+        overflow:auto; font-size:12px; white-space:pre-wrap; word-break:break-all; }
+  .offline { text-align:center; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Mbare Pilot</h1>
+  <p class="sub">Avvia e ferma l'app senza terminali.</p>
+
+  <div class="card" id="panel">
+    <div class="row"><span class="dot" id="d-docker"></span><span class="label">Postgres e Redis (Docker)</span><span class="val" id="v-docker">…</span></div>
+    <div class="row"><span class="dot" id="d-api"></span><span class="label">App (API)</span><span class="val" id="v-api">…</span></div>
+    <div class="buttons">
+      <button class="primary" id="b-start">Avvia</button>
+      <a class="btn primary" id="b-open" target="_blank" aria-disabled="true">Apri l'app</a>
+      <button id="b-stop">Ferma</button>
+      <button id="b-stop-all">Ferma anche Docker</button>
+    </div>
+    <label class="step"><input type="checkbox" id="auto-open" checked> Apri l'app quando è pronta</label>
+    <div class="step" id="step"></div>
+  </div>
+
+  <div class="card">
+    <details id="log-box"><summary>Log del launcher</summary><pre id="log"></pre></details>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+let wasBusyStarting = false, lastStatus = null;
+
+try { $("auto-open").checked = localStorage.getItem("autoOpen") !== "0"; } catch {}
+$("auto-open").onchange = e => { try { localStorage.setItem("autoOpen", e.target.checked ? "1" : "0"); } catch {} };
+
+async function post(action) {
+  try {
+    const r = await fetch("/" + action, { method: "POST", headers: { "X-Launcher": "1" } });
+    const body = await r.json();
+    if (!body.ok) $("step").innerHTML = `<span class="error">${body.error}</span>`;
+    if (action === "start") wasBusyStarting = true;
+  } catch { offline(); }
+  refresh();
+}
+
+function offline() {
+  $("panel").innerHTML = `<div class="offline"><p class="error"><b>Il launcher non è attivo.</b></p>
+    <p>Riavvia il PC oppure lancia una volta <code>python resource/scripts/install-launcher.py</code>.</p>
+    <button onclick="location.reload()">Riprova</button></div>`;
+}
+
+function set(dot, val, state, text) { $(dot).className = "dot " + state; $(val).textContent = text; }
+
+async function refresh() {
+  let s;
+  try { s = await (await fetch("/status")).json(); } catch { return offline(); }
+  lastStatus = s;
+  set("d-docker", "v-docker", s.docker === null ? "" : s.docker ? "ok" : "",
+      s.docker === null ? "docker non trovato" : s.docker ? "attivi" : "fermi");
+  set("d-api", "v-api", s.api ? "ok" : s.busy ? "warn" : "", s.api ? "attiva" : s.busy ? "in avvio…" : "ferma");
+  $("b-start").disabled = s.busy || s.api;
+  $("b-stop").disabled = s.busy || !s.api;
+  $("b-stop-all").disabled = s.busy || (!s.api && !s.docker);
+  $("b-open").href = s.app_url;
+  $("b-open").setAttribute("aria-disabled", s.api ? "false" : "true");
+  $("step").innerHTML = s.error ? `<span class="error">${s.error}</span>` : (s.step || "");
+  if (wasBusyStarting && !s.busy) {
+    wasBusyStarting = false;
+    if (s.api && $("auto-open").checked) window.open(s.app_url, "_blank");
+  }
+  if ($("log-box").open) {
+    try { const pre = $("log"); pre.textContent = await (await fetch("/log")).text(); pre.scrollTop = pre.scrollHeight; } catch {}
+  }
+}
+
+$("b-start").onclick = () => post("start");
+$("b-stop").onclick = () => post("stop");
+$("b-stop-all").onclick = () => post("stop-all");
+$("log-box").ontoggle = refresh;
+refresh();
+setInterval(refresh, 2000);
+</script>
+</body>
+</html>

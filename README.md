@@ -27,6 +27,12 @@ python resource/scripts/start-docker.py
 python resource/scripts/run-app.py
 ```
 
+   **Senza terminali**: installa una volta il launcher, che parte da solo a ogni accesso al PC (in background, senza finestre) e serve una pagina su `LAUNCHER_URL` (default http://127.0.0.1:8090) da salvare nei preferiti del browser. Da lì «Avvia» fa i passi 3 e 5 (accende anche Docker Desktop se è spento) e apre l'app; «Ferma» ferma API e worker, «Ferma anche Docker» anche i container. Log in `resource/logs/launcher.log`; `--remove` toglie l'avvio automatico.
+
+```bash
+python resource/scripts/install-launcher.py
+```
+
    Per sviluppare il frontend, con la ricarica a caldo: API e Vite su `WEB_PORT` ([web/README.md](web/README.md)).
 
 ```bash
