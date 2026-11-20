@@ -114,6 +114,38 @@ def test_claude_code_works_the_requests_through_its_mcp_server(server):  # noqa:
     assert sorted(tool["name"] for tool in tools) == ["list_tool_requests", "read_tool_request", "update_tool_request"]
 
 
+def _written(config) -> str:
+    return (config.definitions_root / "coding-agents/claude/tool-requests.md").read_text(encoding="utf-8").strip()
+
+
+def test_claude_code_is_told_the_instructions_of_the_definitions(stores, config):
+    service = ToolRequestService(stores.tool_requests, stores.pipelines, stores.definitions)
+    assert service.instructions() == _written(config)  # the data folder's (conftest)
+    stores.definitions.save_definition("coding-agents/claude/tool-requests.md", "Le mie regole.\r\nUna riga.\n")
+    assert service.instructions() == "Le mie regole.\nUna riga."
+
+    (config.definitions_root / "coding-agents/claude/tool-requests.md").unlink()
+    with pytest.raises(ValidationError, match="Manca definition/coding-agents/claude/tool-requests.md"):
+        service.instructions()  # no built-in text
+    with pytest.raises(ValidationError, match="Manca"):
+        ToolRequestService(stores.tool_requests).instructions()
+
+
+def test_the_dev_mcp_server_sends_the_instructions_when_claude_connects(server, config):  # noqa: F811
+    _, base = server
+    body = {"jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "test", "version": "1"}}}
+    result = httpx.post(f"{base}/mcp-dev/", json=body, headers={"Accept": "application/json, text/event-stream"}, timeout=10).json()["result"]
+    assert result["instructions"] == _written(config)
+
+
+def test_without_the_instructions_the_api_starts_and_says_why(stores, config, caplog):
+    (config.definitions_root / "coding-agents/claude/tool-requests.md").unlink()
+    with TestClient(create_app(Container(stores=stores))) as client:
+        assert client.get("/health").status_code == 200
+    assert "Manca definition/coding-agents/claude/tool-requests.md" in caplog.text
+
+
 def test_the_admin_api(stores, project_store, tmp_path, config):
     project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(tmp_path)))
     container = Container(stores=stores)

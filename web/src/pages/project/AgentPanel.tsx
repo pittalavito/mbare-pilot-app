@@ -118,7 +118,7 @@ export function AgentPanel({ project, zone }: { project: string; zone: Zone }) {
   if (!resolved) return <Loader size="sm" />;
   const { choices, preferred, openNote } = resolved;
   const current = choices.find((choice) => choice.key === (manual ?? preferred)) ?? choices[0];
-  if (!current) return <Text size="sm" c="dimmed">Nessun agente nel progetto: i chatbot vengono da global-chat-bots.yml (Progetto → Impostazioni → Definizioni da file).</Text>;
+  if (!current) return <Text size="sm" c="dimmed">Nessun agente nel progetto: i chatbot vengono da agents/chatbots.yml (Progetto → Impostazioni → Definizioni da file).</Text>;
   return (
     <Stack gap="xs" data-testid="agent-panel">
       <Select

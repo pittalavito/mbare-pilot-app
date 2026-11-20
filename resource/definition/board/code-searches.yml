@@ -1,4 +1,4 @@
-# Ricerche salvate nel codice (piano 34): nel menu di «🔎 Cerca nel codice» e di «Nuovo riferimento» da codice.
+# Ricerche salvate nel codice: nel menu di «🔎 Cerca nel codice» e di «Nuovo riferimento» da codice.
 # Ogni progetto aggiunge le sue in Impostazioni (o con «⭐ Salva ricerca»); una con lo stesso nome sostituisce questa.
 # Campi: name, query (regex in sintassi Python, o testo con regex: false), regex, files (glob, vuoto = tutti), description.
 

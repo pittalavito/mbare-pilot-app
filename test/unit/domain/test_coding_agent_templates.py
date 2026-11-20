@@ -1,4 +1,4 @@
-"""The drafts' templates (coding-agent/templates/<type>.md), the
+"""The drafts' templates (templates/<type>.md), the
 project's over the global ones, put where a prompt writes {template}."""
 from domain.project import coding_agent
 from models.domain.note import TaskType
@@ -19,12 +19,12 @@ class Files:
 
 def test_templates_by_type_and_the_project_wins():
     files = Files({
-        "global-coding-agent.yml": GLOBAL,
-        "coding-agent/confluence.md": "Pagina in {task}:\n{template}",
-        "coding-agent/templates/confluence.md": "## Contesto\n",
-        "coding-agent/templates/jira.md": "## Descrizione\n",
-        "coding-agent/templates/altro.md": "ignorato",
-        "project/acme/coding-agent/templates/jira.md": "## Storia\n",
+        "coding-agents/copilot/coding-agent.yml": GLOBAL,
+        "coding-agents/copilot/prompts/confluence.md": "Pagina in {task}:\n{template}",
+        "templates/confluence.md": "## Contesto\n",
+        "templates/jira.md": "## Descrizione\n",
+        "templates/altro.md": "ignorato",
+        "project/acme/templates/jira.md": "## Storia\n",
     })
 
     settings = coding_agent.load(files, "acme")

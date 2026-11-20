@@ -1,6 +1,6 @@
 """«Elabora WIP»: the new text of a project's WIP note (``wip.md``, after the
 last sign) turned into proposals for its activities by **one call** to the
-agent ``wip`` of global-agent.yml, with a **structured answer** (``WipAnswer``), then applied
+agent ``wip`` of agents/agents.yml, with a **structured answer** (``WipAnswer``), then applied
 by the app **without LLM** once the user chose them.
 
 1. **Preview** (no LLM): the text the model would get, exactly, masked: the
@@ -10,7 +10,7 @@ by the app **without LLM** once the user chose them.
    (domain/masking/preview.py). Over ``WORD_LIMIT`` words the user may
    process only the first paragraphs.
 2. **Process**: the same text, masked again the same way, to the agent
-   ``wip`` (its prompt and model from global-agent.yml). The
+   ``wip`` (its prompt and model from agents/agents.yml). The
    proposals come back with their values in clear; one naming an activity or
    an item that is not in the list is dropped. The call is recorded as an
    agent run (origin ``wip``: tokens, cost, latency) and as a ``WipRun``.

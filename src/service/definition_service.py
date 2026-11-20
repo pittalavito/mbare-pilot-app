@@ -2,15 +2,17 @@
 automations written as YAML, in two layers: the app's defaults
 (``resource/definition``) and the user's (``<MBARE_PILOT_HOME>/definition/``).
 In the global files the user's elements win **by name** over the app's (the
-user's ``global-chat-bots.yml`` may hold just the Refiner changed); the
+user's ``agents/chatbots.yml`` may hold just the Refiner changed); the
 projects' files are the user's only. The files:
 
-- ``global-agent.yml``: agents of the Library (global);
-- ``project/<slug>/agent.yml``: the project's agents;
-- ``project/<slug>/chat-bots.yml``: the project's chatbots, plus those of
-  ``global-chat-bots.yml`` with a name the project does not use;
-- ``project/<slug>/automation.yml``: the project's automations, plus those of
-  ``global-automation.yml`` with a name the project does not use.
+- ``agents/agents.yml``: agents of the Library (global);
+- ``project/<slug>/agents/agents.yml``: the project's agents;
+- ``project/<slug>/agents/chatbots.yml``: the project's chatbots, plus those of
+  ``agents/chatbots.yml`` with a name the project does not use;
+- ``project/<slug>/automations/automations.yml``: the project's automations, plus
+  those of ``automations/automations.yml`` with a name the project does not use.
+
+A ``system_prompt_file`` is relative to the folder of its file.
 
 ``sync(project)`` validates every element with the same rules as the API (the
 same services do the work) and creates or updates it, matched by name: the
@@ -28,7 +30,8 @@ defaults follow the files, a new installation has them. A chatbot of the
 files changed from the UI is written back to the user's layer
 (``save_chatbot``: it becomes «tuo» and wins on the next startup);
 ``revert_chatbot`` removes it from there («↩ Torna al default»). Every entry
-of ``preview`` says where it comes from (``origin``: app, tuo, progetto)."""
+of ``preview`` says where it comes from (``origin``: app, tuo, progetto).
+Files with the names of an old layout are not read: the startup reports them."""
 from collections.abc import Callable, Collection
 from dataclasses import dataclass
 from typing import Any
@@ -44,9 +47,8 @@ from domain.project.data_paths import (
     AGENTS_FILE,
     AUTOMATIONS_FILE,
     CHATBOTS_FILE,
-    GLOBAL_AGENTS_FILE,
-    GLOBAL_AUTOMATIONS_FILE,
-    GLOBAL_CHATBOTS_FILE,
+    LEGACY_FILES,
+    LEGACY_PROJECT_FILES,
     data_file_name,
     project_definitions,
 )
@@ -75,7 +77,7 @@ from service.store.project_store import ProjectStore
 _AGENTS_KEY = "agents"
 _AUTOMATIONS_KEY = "automations"
 _CHATBOTS_KEY = "chatbots"
-_MERGED = {GLOBAL_AGENTS_FILE: _AGENTS_KEY, GLOBAL_CHATBOTS_FILE: _CHATBOTS_KEY, GLOBAL_AUTOMATIONS_FILE: _AUTOMATIONS_KEY}
+_MERGED = {AGENTS_FILE: _AGENTS_KEY, CHATBOTS_FILE: _CHATBOTS_KEY, AUTOMATIONS_FILE: _AUTOMATIONS_KEY}
 """The global files whose lists are merged by name across the two layers."""
 ORIGIN_PROJECT = "progetto"
 
@@ -109,7 +111,7 @@ class DefinitionService:
         if self._projects.get(project_name) is None:
             raise NotFoundError(f"Progetto non trovato: {project_name}")
         folder = project_definitions(project_name)
-        elements = self._list(DefinitionKind.AGENT, GLOBAL_AGENTS_FILE, _AGENTS_KEY, AgentFile, lambda spec: self._sync_agent(None, spec))
+        elements = self._list(DefinitionKind.AGENT, AGENTS_FILE, _AGENTS_KEY, AgentFile, lambda spec: self._sync_agent(None, spec))
         elements += self._list(DefinitionKind.AGENT, f"{folder}/{AGENTS_FILE}", _AGENTS_KEY, AgentFile, lambda spec: self._sync_agent(project_name, spec))
         elements += self._chatbots_of(project_name, folder)
         elements += self._automations(project_name, folder)
@@ -142,16 +144,26 @@ class DefinitionService:
         items = [element.apply_to_item() for element in self._global_agents()]
         for project_name in project_names:
             try:
-                items += [element.apply_to_item() for element in self._elements(project_name) if element.file != GLOBAL_AGENTS_FILE]
+                items += [element.apply_to_item() for element in self._elements(project_name) if element.file != AGENTS_FILE]
             except AppError as exc:
                 log_warning(LogPrefix.DEFINITION_SERVICE, "definizioni di %s: %s", project_name, exc)
+        for path in self.legacy_files(project_names):
+            log_warning(LogPrefix.DEFINITION_SERVICE, "definition/%s: nome della struttura vecchia, non si legge più: spostalo "
+                        "(vedi resource/definition/README.md)", path)
         for item in items:
             if item.outcome is SyncOutcome.ERROR:
                 log_warning(LogPrefix.DEFINITION_SERVICE, "%s · %s: %s", item.file, item.name or "?", item.message)
         return items
 
+    def legacy_files(self, project_names: list[str]) -> list[str]:
+        """The files and folders of the user's layer with the names of an old layout."""
+        paths = list(LEGACY_FILES)
+        for project_name in project_names:
+            paths += [f"{project_definitions(project_name)}/{name}" for name in LEGACY_PROJECT_FILES]
+        return [path for path in paths if self._definitions.in_user_layer(path)]
+
     def _global_agents(self) -> list["_Element"]:
-        return self._list(DefinitionKind.AGENT, GLOBAL_AGENTS_FILE, _AGENTS_KEY, AgentFile, lambda spec: self._sync_agent(None, spec))
+        return self._list(DefinitionKind.AGENT, AGENTS_FILE, _AGENTS_KEY, AgentFile, lambda spec: self._sync_agent(None, spec))
 
     # --------------------------------------------------------------- origin
     def origin(self, file: str, name: str | None) -> str:
@@ -171,12 +183,12 @@ class DefinitionService:
     @observed(LogPrefix.DEFINITION_SERVICE)
     def save_chatbot(self, project_name: str, chatbot: Chatbot) -> str | None:
         """A chatbot of the files changed from the UI, written back as a file element: into the project's
-        ``chat-bots.yml`` when it comes from there, else into the user's ``global-chat-bots.yml`` (it wins over the
+        ``agents/chatbots.yml`` when it comes from there, else into the user's ``agents/chatbots.yml`` (it wins over the
         app's for every project). None (nothing written) for a chatbot created from the UI."""
         origin = self.chatbot_origin(project_name, chatbot.name)
         if origin is None:
             return None
-        path = f"{project_definitions(project_name)}/{CHATBOTS_FILE}" if origin == ORIGIN_PROJECT else GLOBAL_CHATBOTS_FILE
+        path = f"{project_definitions(project_name)}/{CHATBOTS_FILE}" if origin == ORIGIN_PROJECT else CHATBOTS_FILE
         element = {"name": chatbot.name, "kind": chatbot.kind.value, "tools": list(chatbot.tool_names), "description": chatbot.description,
                    "model": chatbot.model, "max_steps": chatbot.max_steps, "system_prompt": chatbot.system_prompt}
         mine, _ = self._definitions.read_layers(path)
@@ -187,16 +199,16 @@ class DefinitionService:
 
     @observed(LogPrefix.DEFINITION_SERVICE)
     def revert_chatbot(self, project_name: str, name: str) -> SyncItem:
-        """«↩ Torna al default»: the chatbot out of the user's ``global-chat-bots.yml``, the app's applied again."""
-        mine, app = self._definitions.read_layers(GLOBAL_CHATBOTS_FILE)
+        """«↩ Torna al default»: the chatbot out of the user's ``agents/chatbots.yml``, the app's applied again."""
+        mine, app = self._definitions.read_layers(CHATBOTS_FILE)
         if app is None or name.lower() not in _names(_load(app)).get(_CHATBOTS_KEY, set()):
             raise NotFoundError(f"{name} non è un chatbot dell'app: non ha un default.")
         data = _load(mine) if mine is not None else {}
         items = [item for item in data.get(_CHATBOTS_KEY) or [] if not (isinstance(item, dict) and str(item.get("name", "")).lower() == name.lower())]
         if items or set(data) - {_CHATBOTS_KEY}:
-            self._definitions.save_definition(GLOBAL_CHATBOTS_FILE, _dump({**data, _CHATBOTS_KEY: items}))
+            self._definitions.save_definition(CHATBOTS_FILE, _dump({**data, _CHATBOTS_KEY: items}))
         else:
-            self._definitions.delete_definition(GLOBAL_CHATBOTS_FILE)
+            self._definitions.delete_definition(CHATBOTS_FILE)
         element = next(item for item in self._chatbots_of(project_name, project_definitions(project_name))
                        if item.name and item.name.lower() == name.lower())
         return element.apply_to_item()
@@ -265,15 +277,15 @@ class DefinitionService:
 
     # -------------------------------------------------------------- chatbot
     def _chatbots_of(self, project_name: str, folder: str) -> list["_Element"]:
-        """The project's chatbots (chat-bots.yml), then the global ones
-        (global-chat-bots.yml) with a name the project does not use: a base for every project."""
+        """The project's chatbots (agents/chatbots.yml), then the global ones
+        (agents/chatbots.yml) with a name the project does not use: a base for every project."""
         def sync(prompt_folder: str) -> Callable[[ChatbotFile], SyncOutcome]:
             return lambda spec: self._sync_chatbot(project_name, spec, prompt_folder)
 
-        own = self._list(DefinitionKind.CHATBOT, f"{folder}/{CHATBOTS_FILE}", _CHATBOTS_KEY, ChatbotFile, sync(folder))
+        own = self._list(DefinitionKind.CHATBOT, f"{folder}/{CHATBOTS_FILE}", _CHATBOTS_KEY, ChatbotFile, sync(f"{folder}/{_folder_of(CHATBOTS_FILE)}"))
         names = {element.name.lower() for element in own if element.name}
         not_own = lambda raw: str(raw.get("name", "")).strip().lower() in names  # noqa: E731
-        shared = self._list(DefinitionKind.CHATBOT, GLOBAL_CHATBOTS_FILE, _CHATBOTS_KEY, ChatbotFile, sync(""), skip=not_own)
+        shared = self._list(DefinitionKind.CHATBOT, CHATBOTS_FILE, _CHATBOTS_KEY, ChatbotFile, sync(_folder_of(CHATBOTS_FILE)), skip=not_own)
         return own + shared
 
     def _sync_chatbot(self, project_name: str, spec: ChatbotFile, prompt_folder: str) -> SyncOutcome:
@@ -313,7 +325,7 @@ class DefinitionService:
                    for element in (self._read(path) or {}).get(_AUTOMATIONS_KEY) or [] if isinstance(element, dict)}
         except AppError:
             own = set()
-        return items + self._list(DefinitionKind.AUTOMATION, GLOBAL_AUTOMATIONS_FILE, _AUTOMATIONS_KEY, AutomationFile, sync,
+        return items + self._list(DefinitionKind.AUTOMATION, AUTOMATIONS_FILE, _AUTOMATIONS_KEY, AutomationFile, sync,
                                   skip=lambda raw: str(raw.get("name", "")).strip().lower() in own)
 
     def _sync_automation(self, project_name: str, spec: AutomationFile) -> SyncOutcome:
@@ -433,3 +445,8 @@ def _first_error(exc: PydanticValidationError) -> str:
     field = ".".join(str(part) for part in error["loc"])
     message = error["msg"].removeprefix("Value error, ")
     return f"{field}: {message}" if field else message
+
+
+def _folder_of(path: str) -> str:
+    """``agents/chatbots.yml`` → ``agents``."""
+    return path.rsplit("/", 1)[0] if "/" in path else ""

@@ -1,6 +1,6 @@
 # Struttura di resource e cartelle locali
 
-Stato: **da realizzare**.
+Stato: **fatto**.
 
 ## Obiettivo
 La struttura più chiara possibile per le definizioni: separare prompt di Copilot, template delle bozze e contesto generale, e tenere tutto quello che è locale (ignorato da git) in una sola cartella.
@@ -29,9 +29,10 @@ resource/definition/
 ```
 - La **stessa struttura** vale nella tua cartella dati (`<MBARE_PILOT_HOME>/definition/`), che vince per percorso o per nome come oggi. Anche i file di un progetto la seguono: `project/<slug>/agents/agents.yml`, `agents/chatbots.yml`, `automations/automations.yml`, `coding-agents/copilot/coding-agent.yml`, `coding-agents/copilot/prompts/`, `templates/`.
 - **Coding agent insieme, separati per agente**: `coding-agents/copilot/` e `coding-agents/claude/`; un coding agent futuro avrà la sua cartella accanto.
-- **Claude**: le istruzioni del server MCP dev escono dal codice e si leggono da `coding-agents/claude/tool-requests.md` a ogni connessione, sostituibili nella cartella dati come i prompt di Copilot. Senza il file il server MCP dev non parte (niente testo di riserva nel codice).
+- **Claude**: le istruzioni del server MCP dev escono dal codice e si leggono da `coding-agents/claude/tool-requests.md` all'avvio dell'API (una modifica vale dal riavvio), sostituibili nella cartella dati come i prompt di Copilot. Niente testo di riserva nel codice: senza il file l'avvio lo scrive nel log e Claude riceve solo i tool.
 - Il nome `definition` resta: «template» indica solo le bozze.
 - I **template** escono da Copilot: sono la struttura delle bozze Confluence e Jira e non si confondono più con i prompt omonimi.
+- Un `*_prompt_file` (Copilot) o `system_prompt_file` (chatbot) sta accanto al suo file.
 - Niente retrocompatibilità: i file con i nomi vecchi nella cartella dati non si leggono più. Vanno spostati a mano; l'app li segnala nel log all'avvio.
 
 ### Cartelle locali: `local/` in cima al repo

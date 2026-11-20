@@ -27,7 +27,7 @@ Uno store per aggregato, costruiti una volta in `stores.py` sugli stessi backend
 - **`ProjectDataService`**: i dati del progetto fuori dal codice, in `<MBARE_PILOT_HOME>/project/<slug>/`: note (anche tipate: attività, agent task, riferimenti), file caricati, contesto, cartelle di lavoro di Copilot senza repository. Collega task, voci e riferimenti; spunta una voce quando il suo task diventa fatto.
 - **`GitService`**: git in sola lettura sulla cartella del progetto o su un repository dentro.
 - **`CodeSearchService`**: ricerca libera nei file che git conosce (salta binari, file grandi, non UTF-8); salva una ricerca come riferimento codice.
-- **`SavedSearchService`**: ricerche salvate. Default in `code-searches.yml`, quelle del progetto in `Project.code_searches`; «✨ Regex» chiama l'agente `regex`.
+- **`SavedSearchService`**: ricerche salvate. Default in `board/code-searches.yml`, quelle del progetto in `Project.code_searches`; «✨ Regex» chiama l'agente `regex`.
 - **`RepositoryMapService`**: «🗺 Genera mappa dei repository» in `context/repository.md`.
 
 ## Agenti e chatbot
@@ -38,7 +38,7 @@ Uno store per aggregato, costruiti una volta in `stores.py` sugli stessi backend
 - **`ChatbotService`**: i chatbot del progetto, ognuno con il suo agente, conversazioni e messaggi.
 - **`AutomationCacheService`**: «questa richiesta → quella automation»; un messaggio abbastanza simile lancia l'automation senza LLM.
 - **`ModelService`**: catalogo dei modelli (Admin → Modelli); `require_usable_model` è il controllo che usano tutti.
-- **`DefinitionService`**: agenti, chatbot e automation dai file YAML, a due livelli (app e cartella dati, vince per nome il secondo); allineamento all'avvio e «Sincronizza da file». Vedi [definizioni](../../definitions.md).
+- **`DefinitionService`**: agenti, chatbot e automation dai file YAML, a due livelli (app e cartella dati, vince per nome il secondo); allineamento all'avvio (che segnala i file con i nomi della struttura vecchia) e «Sincronizza da file». Vedi [definizioni](../../definitions.md).
 - **`MaskingService`**: mappa del masking per progetto (repository, persone, email, termini) e anteprima di un testo mascherato.
 
 ## Attività
@@ -76,7 +76,7 @@ Collegati:
 - **`PipelineService`**: automation come grafi di step (agente, agente della Libreria, tool) con archi condizionati, validate al salvataggio; anche in YAML (`domain/pipeline/yaml_format.py`). `enqueue` mette una run in coda.
 - **`PipelineRunner`**: il worker esegue una run alla volta, step dopo step in ordine topologico.
 - **`LearnService`**: da una run dell'Operatore a un'automation, senza LLM («✅ Giusto: fanne un'automation»).
-- **`ToolRequestService`**: richieste di tool che l'Architetto scrive e Claude Code lavora dal server MCP dev.
+- **`ToolRequestService`**: richieste di tool che l'Architetto scrive e Claude Code lavora dal server MCP dev; le istruzioni per Claude da `coding-agents/claude/tool-requests.md`.
 
 ## Contesto e Atlassian
 
@@ -89,8 +89,8 @@ Collegati:
 - **`MetricsService`**: pagina Metriche: costi e tempi per agente e modello, Copilot, embedding.
 - **`EvaluationService`**: valutazioni (Elabora WIP, RAG) sui set di `resource/eval`, nel worker o da terminale.
 - **`ProcessService`**: il worker avviato e fermato dall'API, i log.
-- **`BackupService`**: export del DB in `<BACKUP_DIR>/db/`.
-- **`RoadmapService`**: la bacheca da `roadmap.yml`; la UI la scrive nella cartella dati (testata, schede nuove, modificate, spostate, eliminate; ogni scheda con un `id` stabile).
+- **`BackupService`**: export del DB in `<BACKUP_DIR>/db/` (default `local/backups/db/`).
+- **`RoadmapService`**: la bacheca da `board/roadmap.yml`; la UI la scrive nella cartella dati (testata, schede nuove, modificate, spostate, eliminate; ogni scheda con un `id` stabile).
 
 ## Test
 

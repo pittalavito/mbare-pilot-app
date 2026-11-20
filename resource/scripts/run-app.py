@@ -35,7 +35,7 @@ def run_app() -> int:
     try:
         while api.poll() is None:
             time.sleep(1)
-        print("L'API si è fermata: guarda resource/logs/api.log.")
+        print("L'API si è fermata: guarda local/logs/api.log.")
         return api.returncode or 1
     except KeyboardInterrupt:
         return 0

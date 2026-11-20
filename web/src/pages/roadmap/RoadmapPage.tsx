@@ -7,10 +7,10 @@ import {
 } from "../../api/roadmap";
 import { ConfirmButton } from "../../components/ConfirmButton";
 
-/** «🚀 Mbare Pilot»: the board of the app's future changes, from roadmap.yml.
+/** «🚀 Mbare Pilot»: the board of the app's future changes, from board/roadmap.yml.
  * Cards are created, changed and deleted here, dragged between the columns (or
  * moved with «Sposta»); goal and vision change too. Every write goes into
- * roadmap.yml of the data folder. */
+ * board/roadmap.yml of the data folder. */
 
 const COLUMNS: { status: RoadmapStatus; label: string; color: string }[] = [
   { status: "todo", label: "Da fare", color: "gray" },

@@ -101,7 +101,7 @@ def test_every_session_has_its_own_token_and_the_tools_see_only_its_task(project
 
 
 def test_the_checklist_of_the_task_s_type_comes_with_it(project, project_data_service, stores, config):
-    path = config.definitions_root / "global-coding-agent.yml"
+    path = config.definitions_root / "coding-agents/copilot/coding-agent.yml"
     path.write_text(path.read_text(encoding="utf-8") + "task_checklists:\n  development: [repository, criteri]\n", encoding="utf-8")
     service = _service(stores, project_data_service)
 

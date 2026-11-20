@@ -1,5 +1,5 @@
 # La bacheca di Mbare Pilot: le modifiche future dell'app. Si cambia dalla UI («🚀 Mbare Pilot»), che scrive
-# roadmap.yml nella cartella dati (definition/); questo è il punto di partenza.
+# board/roadmap.yml nella cartella dati (definition/); questo è il punto di partenza.
 # status: todo | in_progress | done · priority: high | medium | low
 # kind: bug | funzione | refactoring | documentazione | integrazione | uso | progettazione | rag · owner: tu | claude | copilot | agente remoto
 

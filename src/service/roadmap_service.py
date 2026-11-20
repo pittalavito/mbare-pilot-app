@@ -1,4 +1,4 @@
-"""The board of Mbare Pilot: ``roadmap.yml`` of the definitions, read (the
+"""The board of Mbare Pilot: ``board/roadmap.yml`` of the definitions, read (the
 data folder's wins over the app's, like the other files) and written by the UI
 into the data folder: header (goal, vision) and cards (new, changed, moved,
 deleted). Every card has a stable ``id``; one without (written by hand) gets
@@ -11,10 +11,10 @@ from pydantic import ValidationError as PydanticValidationError
 
 from core.error import NotFoundError, ValidationError
 from core.observability import LogPrefix, observed
+from domain.project.data_paths import ROADMAP_FILE
 from models.domain.roadmap import Roadmap, RoadmapCard, RoadmapItem, RoadmapStatus
 from service.store.definition_store import DefinitionStore
 
-ROADMAP_FILE = "roadmap.yml"
 _HEADER = ("# La bacheca di Mbare Pilot: le modifiche future dell'app. La scrive la UI («🚀 Mbare Pilot»), si può anche a mano.\n"
            "# status: todo | in_progress | done · priority: high | medium | low\n"
            "# kind: bug | funzione | refactoring | documentazione | integrazione | uso | progettazione | rag\n"

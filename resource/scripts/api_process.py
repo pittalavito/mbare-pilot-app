@@ -1,5 +1,5 @@
 """The API process, shared by run-app.py and run-web.py: started in the
-background with its output in resource/logs/api.log (the frontend shows it),
+background with its output in local/logs/api.log (the frontend shows it),
 checked through /api/health, stopped with everything it started."""
 import os
 import signal
@@ -30,7 +30,7 @@ def start_api(root: Path, url: str) -> subprocess.Popen:
         command = [python, str(root / "resource" / "scripts" / "api_reloader.py"), app, app_dir, host, port]
     else:
         command = [python, "-m", "uvicorn", app, "--app-dir", app_dir, "--host", host, "--port", port]
-    logs = root / "resource" / "logs"
+    logs = root / "local" / "logs"
     logs.mkdir(parents=True, exist_ok=True)
     with (logs / "api.log").open("ab") as log:
         return subprocess.Popen(
@@ -77,9 +77,9 @@ def ensure_api(root: Path, url: str) -> tuple[subprocess.Popen | None, bool]:
         print(f"API già attiva su {url}: uso quella.")
         return None, True
     api = start_api(root, url)
-    print(f"API in avvio su {url} (log: resource/logs/api.log)...")
+    print(f"API in avvio su {url} (log: local/logs/api.log)...")
     if not wait_healthy(url, api):
-        print("L'API non risponde: guarda resource/logs/api.log.")
+        print("L'API non risponde: guarda local/logs/api.log.")
         stop(api)
         return None, False
     print("API attiva.")

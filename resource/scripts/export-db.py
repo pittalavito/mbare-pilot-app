@@ -1,5 +1,5 @@
-"""Export the Postgres DB as SQL into <BACKUP_DIR>/db/ (default: the
-mbare-pilot-back-up folder next to the project), the same as Admin → Backup.
+"""Export the Postgres DB as SQL into <BACKUP_DIR>/db/ (default:
+local/backups), the same as Admin → Backup.
 Postgres must be running (start-docker.py); the API is not needed.
 
     python resource/scripts/export-db.py

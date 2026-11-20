@@ -15,9 +15,9 @@ AUTOMATIONS = """automations:
 @pytest.fixture
 def client(stores, tmp_path, project_store, definition_store):
     project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(tmp_path)))
-    definition_store.save_definition("global-agent.yml", "")
+    definition_store.save_definition("agents/agents.yml", "")
     with TestClient(create_app(Container(stores=stores))) as client:
-        definition_store.save_definition("project/acme/automation.yml", AUTOMATIONS)  # after the startup's sync
+        definition_store.save_definition("project/acme/automations/automations.yml", AUTOMATIONS)  # after the startup's sync
         yield client
 
 

@@ -20,7 +20,7 @@ class DefinitionStore:
         self._defaults = LocalFileRepository(defaults) if defaults is not None and defaults.is_dir() else None
 
     def read_definition(self, path: str) -> str | None:
-        """A file (e.g. ``project/acme/agent.yml``): the user's, else the app's; None when missing."""
+        """A file (e.g. ``project/acme/agents/agents.yml``): the user's, else the app's; None when missing."""
         mine, app = self.read_layers(path)
         return mine if mine is not None else app
 
@@ -42,6 +42,10 @@ class DefinitionStore:
             if files is not None:
                 found |= {stored.file_id for stored in files.list(prefix) if stored.file_id.rsplit("/", 1)[0] == prefix}
         return sorted(found)
+
+    def in_user_layer(self, path: str) -> bool:
+        """A file, or a folder with files, at ``path`` in the user's layer."""
+        return self._files.get(path) is not None or bool(self._files.list(path))
 
     def save_definition(self, path: str, text: str) -> None:
         """Into the user's layer."""

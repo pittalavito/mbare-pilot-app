@@ -1,13 +1,13 @@
 """The coding agent's definition (Copilot's prompts, denied tools and models)
-from the data folder: ``definition/global-coding-agent.yml``, whose fields
-``definition/project/<slug>/coding-agent.yml`` replaces for its project.
-The planning prompts to choose from when delegating are the ``<name>.md`` of
-``definition/coding-agent/`` and ``definition/project/<slug>/coding-agent/``
-(the project's win by name); ``type_prompts`` picks one per task type when
+from the definitions: ``coding-agents/copilot/coding-agent.yml``, whose fields
+the same file under ``project/<slug>/`` replaces for its project (a
+``*_prompt_file`` is next to its file). The planning prompts to choose from
+when delegating are the ``<name>.md`` of ``coding-agents/copilot/prompts/``,
+global and of the project (the project's win by name); ``type_prompts`` picks one per task type when
 the user does not choose; ``task_checklists`` say, per task type, what a
 refined task should have (the Refiner checks it). Every planning prompt names the task with
 ``{task}``: Copilot reads it and its references through the app's MCP
-server, nothing is written in the repository. The drafts' templates are ``coding-agent/templates/<type>.md`` (``confluence.md``,
+server, nothing is written in the repository. The drafts' templates are ``templates/<type>.md`` (``confluence.md``,
 ``jira.md``; the project's win by name): a prompt puts the template of the
 task's type where it writes ``{template}``.
 
@@ -19,14 +19,13 @@ import yaml
 from pydantic import ValidationError as PydanticValidationError
 
 from core.error import ValidationError
-from domain.project.data_paths import CODING_AGENT_FILE, CODING_AGENT_PROMPTS_DIR, GLOBAL_CODING_AGENT_FILE, NOTE_SUFFIX, data_file_name, project_definitions
+from domain.project.data_paths import CODING_AGENT_FILE, CODING_AGENT_PROMPTS_DIR, NOTE_SUFFIX, TEMPLATES_DIR, data_file_name, project_definitions
 from models.domain.copilot import CodingAgentSettings, CopilotModel, CopilotPrice
 from models.domain.definitions import CodingAgentFile, ModelFile
 from models.domain.note import TaskType
 
 TASK_PLACEHOLDER = "{task}"
 TEMPLATE_PLACEHOLDER = "{template}"
-TEMPLATES_DIR = "templates"
 _PROMPTS = ("plan_prompt", "execute_prompt")
 
 
@@ -41,21 +40,21 @@ class DefinitionFiles(Protocol):
 def load(files: DefinitionFiles, project_name: str | None = None) -> CodingAgentSettings:
     """The global definition, with the project's fields and prompts over it
     (``project_name`` None = only the global one)."""
-    values = _values(files, GLOBAL_CODING_AGENT_FILE, "", required=True)
+    values = _values(files, CODING_AGENT_FILE, required=True)
     prompts, templates = _prompts(files, ""), _templates(files, "")
     if project_name is not None:
         folder = project_definitions(project_name)
-        values |= _values(files, f"{folder}/{CODING_AGENT_FILE}", folder, required=False)
+        values |= _values(files, f"{folder}/{CODING_AGENT_FILE}", required=False)
         prompts |= _prompts(files, folder)
         templates |= _templates(files, folder)
     missing = [name for name in (*_PROMPTS, "denied_tools") if name not in values]
     if missing:
-        raise ValidationError(f"definition/{GLOBAL_CODING_AGENT_FILE}: manca {', '.join(missing)}.")
+        raise ValidationError(f"definition/{CODING_AGENT_FILE}: manca {', '.join(missing)}.")
     _check_placeholder("plan_prompt", values["plan_prompt"])
     unknown = sorted({name for name in values.get("type_prompts", {}).values() if name and name not in prompts})
     if unknown:
         raise ValidationError(f"type_prompts: prompt non trovati: {', '.join(unknown)}. "
-                              f"Disponibili: {', '.join(sorted(prompts)) or 'nessuno'} (i file .md di coding-agent/).")
+                              f"Disponibili: {', '.join(sorted(prompts)) or 'nessuno'} (i file .md di {CODING_AGENT_PROMPTS_DIR}/).")
     return CodingAgentSettings(**values, prompts=dict(sorted(prompts.items())), templates=templates)
 
 
@@ -89,8 +88,9 @@ def check_model(settings: CodingAgentSettings, model: str) -> str:
     return model
 
 
-def _values(files: DefinitionFiles, path: str, folder: str, required: bool) -> dict:
-    """The fields one file sets, prompts read from their files."""
+def _values(files: DefinitionFiles, path: str, required: bool) -> dict:
+    """The fields one file sets, prompts read from their files (next to it)."""
+    folder = path.rsplit("/", 1)[0]
     text = files.read_definition(path)
     raw = _yaml(path, text) if text is not None else None
     if raw is None:
@@ -140,7 +140,7 @@ def _model(item: ModelFile) -> CopilotModel:
 
 
 def _prompts(files: DefinitionFiles, folder: str) -> dict[str, str]:
-    """The ``<name>.md`` of ``<folder>/coding-agent/``: name → text."""
+    """The ``<name>.md`` of ``<folder>/coding-agents/copilot/prompts/``: name → text."""
     prompts = {}
     for path in files.list_definitions(f"{folder}/{CODING_AGENT_PROMPTS_DIR}".lstrip("/")):
         name = path.rsplit("/", 1)[-1]
@@ -155,9 +155,9 @@ def _prompts(files: DefinitionFiles, folder: str) -> dict[str, str]:
 
 
 def _templates(files: DefinitionFiles, folder: str) -> dict[TaskType, str]:
-    """The ``<type>.md`` of ``<folder>/coding-agent/templates/``: task type → text (other names are ignored)."""
+    """The ``<type>.md`` of ``<folder>/templates/``: task type → text (other names are ignored)."""
     templates = {}
-    for path in files.list_definitions(f"{folder}/{CODING_AGENT_PROMPTS_DIR}/{TEMPLATES_DIR}".lstrip("/")):
+    for path in files.list_definitions(f"{folder}/{TEMPLATES_DIR}".lstrip("/")):
         name = path.rsplit("/", 1)[-1]
         stem = name[: -len(NOTE_SUFFIX)] if name.lower().endswith(NOTE_SUFFIX) else ""
         if stem in {kind.value for kind in TaskType} and (text := _text(files, path)):

@@ -5,7 +5,10 @@ PR, marks the request done). Separate from Copilot's server (``/mcp``).
 
 Every call carries the token generated in Admin → «Richieste di tool»
 (``Authorization: Bearer <token>``); a wrong or missing one is refused. The
-logic is in ToolRequestService; here only the tools and the token."""
+logic is in ToolRequestService; here only the tools and the token. What
+Claude Code is told on connecting is the definition
+``coding-agents/claude/tool-requests.md``, read when the API starts
+(``set_instructions``)."""
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Annotated
 
@@ -18,11 +21,6 @@ from models.domain.tool_request import ToolRequest, ToolRequestDetail, ToolReque
 if TYPE_CHECKING:
     from service.tool_request_service import ToolRequestService
 
-_INSTRUCTIONS = (
-    "Requests of tools for the code of mbare-pilot-app (the tools agents and automations call, src/tool/list/). "
-    "List them, read one, write the tool with its tests in the repository, open the PR, then mark the request done "
-    "with the PR's link (or dismissed, saying why)."
-)
 DEV_MCP_TOOLS: dict[str, str] = {
     "list_tool_requests": "The requests of tools still open or being worked, newest first.",
     "read_tool_request": "One request: title, objective, acceptance criteria, where it was asked and, if any, the YAML of the "
@@ -34,7 +32,7 @@ DEV_MCP_TOOLS: dict[str, str] = {
 
 def build_dev_mcp_server(requests: Callable[[], "ToolRequestService"]) -> MCPServer:
     """The server and its tools; ``requests`` gives the service at call time (the Container is built at startup)."""
-    server = MCPServer("mbare-pilot-dev", instructions=_INSTRUCTIONS)
+    server = MCPServer("mbare-pilot-dev")
 
     def service(ctx: Context) -> "ToolRequestService":
         current = requests()
@@ -65,3 +63,8 @@ def build_dev_mcp_server(requests: Callable[[], "ToolRequestService"]) -> MCPSer
         return service(ctx).update(request, status, pr_url, reason)
 
     return server
+
+
+def set_instructions(server: MCPServer, text: str) -> None:
+    """The text the client receives when it connects (the SDK keeps it on its low-level server)."""
+    server._lowlevel_server.instructions = text

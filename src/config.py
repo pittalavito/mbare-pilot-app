@@ -43,12 +43,12 @@ class Config(BaseSettings):
 
     # --- Backups ---
     backup_dir: str = ""
-    """Where DB exports are written (``<backup_dir>/db/``). Empty = the
-    ``mbare-pilot-back-up`` folder next to the project."""
+    """Where DB exports are written (``<backup_dir>/db/``). Empty =
+    ``local/backups``."""
 
     # --- Projects ---
     project_roots: str = ""
-    """Folders the project picker may browse, separated by ``;``. Empty = the
+    """Folders the project picker may browse, separated by ``;``. Empty =
     user's home folder. Projects can only live inside these roots."""
 
     # --- Secrets ---
@@ -132,14 +132,19 @@ class Config(BaseSettings):
         return _PROJECT_ROOT / "web" / "dist"
 
     @property
+    def local_dir(self) -> Path:
+        """What lives only on this PC, ignored by git: ``local/`` (logs, PIDs, backups, evaluations)."""
+        return _PROJECT_ROOT / "local"
+
+    @property
     def run_dir(self) -> Path:
-        """PID files of the background processes (``resource/run``)."""
-        return _PROJECT_ROOT / "resource" / "run"
+        """PID files of the background processes (``local/run``)."""
+        return self.local_dir / "run"
 
     @property
     def logs_dir(self) -> Path:
-        """Logs of the API and the worker (``resource/logs/<name>.log``)."""
-        return _PROJECT_ROOT / "resource" / "logs"
+        """Logs of the API and the worker (``local/logs/<name>.log``)."""
+        return self.local_dir / "logs"
 
     @property
     def project_data_root(self) -> Path:
@@ -148,8 +153,8 @@ class Config(BaseSettings):
 
     @property
     def evaluations_root(self) -> Path:
-        """The evaluations' reports (markdown and JSON): ``<data_home>/evaluations``."""
-        return self.data_home / "evaluations"
+        """The evaluations' reports (markdown and JSON): ``local/evaluations``."""
+        return self.local_dir / "evaluations"
 
     @property
     def eval_data_root(self) -> Path:
@@ -168,7 +173,8 @@ class Config(BaseSettings):
 
     @property
     def backup_path(self) -> Path:
-        return Path(self.backup_dir).expanduser() if self.backup_dir else _PROJECT_ROOT.parent / "mbare-pilot-back-up"
+        """The DB exports: ``BACKUP_DIR``, else ``local/backups``."""
+        return Path(self.backup_dir).expanduser() if self.backup_dir else self.local_dir / "backups"
 
     @property
     def data_home(self) -> Path:

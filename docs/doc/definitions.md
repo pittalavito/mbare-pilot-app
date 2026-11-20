@@ -1,23 +1,32 @@
 # Definizioni da file
 
-Agenti, chatbot, automation, prompt di Copilot, contesto generale, ricerche salvate e bacheca sono **file** in due livelli:
+Agenti, chatbot, automation, prompt di Copilot e di Claude, template delle bozze, contesto generale, ricerche salvate e bacheca sono **file** in due livelli:
 
 - i **default dell'app** in `resource/definition/`, versionati con il codice ([elenco](../../resource/definition/README.md)); `APP_DEFINITIONS` può puntare a un'altra cartella;
 - i **tuoi** in `<MBARE_PILOT_HOME>/definition/`, che vincono: nei file globali per **nome** dell'elemento, negli altri per **percorso**.
 
 ```
 definition/
-  global-agent.yml          agenti della Libreria                                agents: [...]
-  global-chat-bots.yml      chatbot di ogni progetto (salvo stesso nome)         chatbots: [...]
-  global-automation.yml     automation di ogni progetto (salvo stesso nome)      automations: [...]
-  global-coding-agent.yml   prompt, divieti e modelli di Copilot (obbligatorio)
-  coding-agent/<nome>.md    prompt di preparazione da scegliere quando deleghi   testo con {task}
-  coding-agent/templates/   template delle bozze: confluence.md, jira.md
-  context/<tema>.md         contesto generale per gli agenti                     un «##» per argomento
-  code-searches.yml         ricerche salvate nel codice                          searches: [...]
-  roadmap.yml               bacheca «🚀 Mbare Pilot»
-  project/<slug>/           chat-bots.yml, agent.yml, automation.yml, coding-agent.yml, coding-agent/ del progetto
+  agents/
+    agents.yml                 agenti della Libreria                              agents: [...]
+    chatbots.yml               chatbot di ogni progetto (salvo stesso nome)       chatbots: [...]
+  automations/
+    automations.yml            automation di ogni progetto (salvo stesso nome)    automations: [...]
+  coding-agents/               quello che l'app dice ai coding agent, uno per cartella
+    copilot/
+      coding-agent.yml         prompt, divieti e modelli di Copilot (obbligatorio)
+      prompts/<nome>.md        prompt di preparazione da scegliere quando deleghi testo con {task}
+    claude/
+      tool-requests.md         cosa riceve Claude Code sul server MCP dev
+  templates/<tipo>.md          template delle bozze: confluence.md, jira.md
+  context/<tema>.md            contesto generale per gli agenti                   un «##» per argomento
+  board/
+    roadmap.yml                bacheca «🚀 Mbare Pilot»
+    code-searches.yml          ricerche salvate nel codice                        searches: [...]
+  project/<slug>/              gli stessi file per un progetto: agents/, automations/, coding-agents/copilot/, templates/
 ```
+
+I nomi della struttura vecchia (`global-agent.yml`, `coding-agent/`, `chat-bots.yml`, ...) non si leggono più: l'avvio li segnala nel log ([elenco](../../resource/definition/README.md)).
 
 I dati dei progetti (note, file, contesto) stanno in `<MBARE_PILOT_HOME>/project/<slug>/`: fuori da git, con un backup.
 
@@ -33,7 +42,7 @@ I dati dei progetti (note, file, contesto) stanno in `<MBARE_PILOT_HOME>/project
 
 **Come si scrivono i file**: in testa due o tre righe di commento su cosa contiene, poi un'intestazione per elemento (`#### Nome ###`) e nessun altro commento.
 
-## Agenti (`global-agent.yml`, `agent.yml`)
+## Agenti (`agents/agents.yml`)
 
 ```yaml
 agents:
@@ -51,7 +60,7 @@ agents:
 - Un prompt diverso diventa la **versione successiva** del prompt del ruolo; le vecchie restano.
 - Gli agenti che l'app chiama per nome, con risposta strutturata: `wip` (Elabora WIP), `pianificatore` (Pianifica, con `search_context`), `bozza-attivita` (Parto da riferimenti), `imparato` (Chiudi), `regex` (✨ Regex). Se uno manca o ha un altro `output`, la sua funzione dà errore.
 
-## Chatbot (`global-chat-bots.yml`, `chat-bots.yml`)
+## Chatbot (`agents/chatbots.yml`)
 
 ```yaml
 chatbots:
@@ -63,13 +72,13 @@ chatbots:
     tools: [list_activities, today, search_context]
     system_prompt: |
       Sei il mio segretario sul progetto...
-    # oppure: system_prompt_file: prompt.md
+    # oppure: system_prompt_file: prompt.md (accanto al file)
 ```
 
 - Ogni tipo accetta solo i suoi tool: `automation` è l'Architetto, `secretary` il Segretario, `refiner` il Refiner, `operator` Dev.
 - Un progetto riceve i chatbot dei file che non ha (alla creazione e all'avvio). Dalla UI non si creano né si eliminano: se ne cambiano modello e prompt («ℹ️ Dettagli»).
 
-## Automation (`global-automation.yml`, `automation.yml`)
+## Automation (`automations/automations.yml`)
 
 ```yaml
 automations:
@@ -99,15 +108,15 @@ automations:
 - Uno step con lo stesso nome tiene il suo id e la sua posizione nel grafo; uno step tolto dal file sparisce.
 - Non ci sono automation di sistema: il lavoro prima e dopo Copilot è il pre e il post di ogni sviluppo.
 
-## Coding agent (`global-coding-agent.yml`, `coding-agent.yml`)
+## Coding agent (`coding-agents/copilot/coding-agent.yml`)
 
 Quello che l'app dice a GitHub Copilot. Non si sincronizza: si legge a ogni uso, una modifica vale dal turno dopo.
 
 ```yaml
 plan_prompt: |                     # primo turno; {task} = il nome del task (obbligatorio)
   Ti affido il task {task}: leggilo con i suoi riferimenti dal server MCP...
-execute_prompt: Ok, procedi con il piano concordato...   # oppure *_prompt_file: un file accanto
-type_prompts:                      # facoltativo: il prompt per tipo di task (coding-agent/<nome>.md)
+execute_prompt: Ok, procedi con il piano concordato...   # oppure *_prompt_file: un file accanto a questo
+type_prompts:                      # facoltativo: il prompt per tipo di task (coding-agents/copilot/prompts/<nome>.md)
   analysis: analisi
 task_checklists:                   # facoltativo: cosa deve avere un task rifinito (lo controlla il Refiner)
   development: [repository su cui lavorare, criteri di accettazione verificabili]
@@ -118,23 +127,31 @@ models:                            # facoltativo: modelli tra cui scegliere, con
 ```
 
 - **Il globale è obbligatorio**: senza, o rotto, Copilot non parte. Nessun testo di riserva nel codice: un file sbagliato non deve allentare i divieti.
-- **Override per progetto**: `project/<slug>/coding-agent.yml` sostituisce solo i campi che scrive (`denied_tools` e `models` per intero).
-- **Prompt**: «Predefinito» è `plan_prompt` (o quello del tipo, con `type_prompts`); gli altri sono i `coding-agent/<nome>.md`, globali e del progetto (vince il progetto). Ognuno deve contenere `{task}`; `{template}` diventa il template della bozza del tipo (`coding-agent/templates/`).
+- **Override per progetto**: `project/<slug>/coding-agents/copilot/coding-agent.yml` sostituisce solo i campi che scrive (`denied_tools` e `models` per intero).
+- **Prompt**: «Predefinito» è `plan_prompt` (o quello del tipo, con `type_prompts`); gli altri sono i `coding-agents/copilot/prompts/<nome>.md`, globali e del progetto (vince il progetto). Ognuno deve contenere `{task}`; `{template}` diventa il template della bozza del tipo (`templates/`).
 - **Il task via MCP**: Copilot legge task e riferimenti dal server MCP dell'app (`read_task`, `list_references`, `read_reference`); in esecuzione chiede con `ask_user` e chiude con `finish`. Nel repository l'app non scrive niente.
 - I prezzi dei modelli si copiano da [Models and pricing for GitHub Copilot](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing).
+
+## Claude (`coding-agents/claude/tool-requests.md`)
+
+Il testo che Claude Code riceve quando si collega al server MCP dev (`/mcp-dev`) per lavorare le richieste di tool: cosa sono, come si lavorano (tool con i test, PR, richiesta segnata fatta). Si legge all'avvio dell'API: una modifica vale dal riavvio. Nessun testo di riserva nel codice: senza il file l'avvio lo scrive nel log e Claude riceve solo i tool.
+
+## Template delle bozze (`templates/`)
+
+`confluence.md` e `jira.md`: la struttura di una bozza. Un prompt di Copilot la riceve dove scrive `{template}`; quelli del progetto (`project/<slug>/templates/`) vincono per nome.
 
 ## Contesto generale (`context/`)
 
 Documenti `.md` che spiegano agli agenti come funziona l'app (task e stati, attività e giro, Copilot, pre e post, riferimenti, automation, tool, esempi, errori comuni), così i loro prompt restano corti. Sono uguali per tutti i progetti e si indicizzano nel RAG di ognuno quando cambiano; `search_context` li trova insieme al contesto del progetto, che vince a parità. Copilot non li riceve. Si leggono in Progetto → Contesto, «Generale». La misura della ricerca è in `resource/eval/rag/general-questions.json`.
 
-## Ricerche salvate (`code-searches.yml`)
+## Ricerche salvate (`board/code-searches.yml`)
 
 `searches` con `name`, `query` (regex Python, riga per riga; testo con `regex: false`), `regex` (default `true`), `files` (glob) e `description`. Nel menu di «🔎 Cerca nel codice» e di «Nuovo riferimento» → «🔎 Da codice». Ogni progetto aggiunge le sue in Impostazioni; una con lo stesso nome sostituisce quella dell'app.
 
-## Bacheca (`roadmap.yml`)
+## Bacheca (`board/roadmap.yml`)
 
-`goal`, `vision`, `items` con `id`, `title`, `description`, `kind` (bug, funzione, refactoring, documentazione, integrazione, uso, progettazione, rag), `priority` (`high`, `medium`, `low`), `owner`, `status` (`todo`, `in_progress`, `done`), `feasibility`. La mostra «🚀 Mbare Pilot», dove le schede si creano, si modificano, si trascinano tra le colonne e si eliminano: ogni modifica scrive `roadmap.yml` nella tua cartella dati (quello dell'app resta il punto di partenza). Una scheda senza `id` lo prende dal titolo.
+`goal`, `vision`, `items` con `id`, `title`, `description`, `kind` (bug, funzione, refactoring, documentazione, integrazione, uso, progettazione, rag), `priority` (`high`, `medium`, `low`), `owner`, `status` (`todo`, `in_progress`, `done`), `feasibility`. La mostra «🚀 Mbare Pilot», dove le schede si creano, si modificano, si trascinano tra le colonne e si eliminano: ogni modifica scrive `board/roadmap.yml` nella tua cartella dati (quello dell'app resta il punto di partenza). Una scheda senza `id` lo prende dal titolo.
 
 ## Codice
 
-`domain/project/data_paths.py` (struttura), `models/domain/definitions.py` (modelli degli elementi e del report), `service/store/definition_store.py` (i due livelli), `service/definition_service.py` (applica), `domain/project/coding_agent.py` (Copilot), `controller/definition_controller.py` (anteprima e sincronizzazione), test in `test/unit/service/test_definition_service.py` e `test/unit/test_definition_examples.py` (i default restano validi).
+`domain/project/data_paths.py` (struttura), `models/domain/definitions.py` (modelli degli elementi e del report), `service/store/definition_store.py` (i due livelli), `service/definition_service.py` (applica), `domain/project/coding_agent.py` (Copilot), `service/tool_request_service.py` (Claude), `controller/definition_controller.py` (anteprima e sincronizzazione), test in `test/unit/service/test_definition_service.py` e `test/unit/test_definition_examples.py` (i default restano validi).

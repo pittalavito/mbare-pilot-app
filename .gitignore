@@ -17,10 +17,8 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Backend processes started from the UI (PID files, logs)
-resource/run/
-resource/logs/
-resource/projects/
+# What lives only on this PC: logs, PIDs, DB backups, evaluation reports
+local/
 
 # IDEs and editors
 .vscode/

@@ -120,7 +120,7 @@ function CopilotCard() {
 }
 
 /** What Copilot may use: the app's tools (MCP server «mbare-pilot», planning and execution) and,
- * while executing, every tool of its own except the denied ones (global-coding-agent.yml). */
+ * while executing, every tool of its own except the denied ones (coding-agents/copilot/coding-agent.yml). */
 function CopilotTools({ mcp, denied }: { mcp: { name: string; description: string }[]; denied: string[] }) {
   return (
     <Accordion variant="contained" mt="xs">
@@ -146,7 +146,7 @@ function CopilotTools({ mcp, denied }: { mcp: { name: string; description: strin
               <Text size="sm" fw={600}>Vietati nell'esecuzione</Text>
               <Text size="xs" c="dimmed" mb={4}>
                 Nel piano Copilot legge soltanto; nell'esecuzione ha tutti i suoi tool tranne questi. Si cambiano in{" "}
-                <code>denied_tools</code> di <code>global-coding-agent.yml</code> (o del <code>coding-agent.yml</code> del progetto): valgono alla prossima delega.
+                <code>denied_tools</code> di <code>coding-agents/copilot/coding-agent.yml</code> (anche nella cartella del progetto): valgono alla prossima delega.
               </Text>
               {denied.length ? (
                 <Group gap={4}>{denied.map((tool) => <Badge key={tool} size="sm" variant="light" color="red" tt="none">{tool}</Badge>)}</Group>

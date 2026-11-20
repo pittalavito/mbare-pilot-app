@@ -40,7 +40,7 @@ src/controller/
 ## Server MCP
 
 - **`/mcp`, per Copilot** (streamable HTTP, senza stato, risposte JSON): `read_task`, `list_references`, `read_reference`, `search_context`, e in esecuzione `ask_user` (la domanda va in chat e aspetta la risposta) e `finish` (uno sviluppo passa a «da verificare»). Ogni chiamata porta il token della sessione e vede solo il suo task. Niente masking: Copilot legge già il codice in chiaro.
-- **`/mcp-dev`, per Claude Code** sul clone di mbare-pilot-app: `list_tool_requests`, `read_tool_request`, `update_tool_request`, con il token generato in Admin → Richieste di tool.
+- **`/mcp-dev`, per Claude Code** sul clone di mbare-pilot-app: `list_tool_requests`, `read_tool_request`, `update_tool_request`, con il token generato in Admin → Richieste di tool. Quando Claude si collega riceve il testo di `coding-agents/claude/tool-requests.md` delle [definizioni](../../definitions.md), letto all'avvio dell'API.
 
 Entrambi stanno fuori dallo schema OpenAPI. I tool sono sincroni e girano in un thread, così `ask_user` può aspettare senza fermare il server.
 

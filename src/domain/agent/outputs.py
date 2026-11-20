@@ -1,5 +1,5 @@
 """The structured answers an agent of the Library can give (``output:`` in
-global-agent.yml): the code reads their fields to create activities and tasks."""
+agents/agents.yml): the code reads their fields to create activities and tasks."""
 from pydantic import BaseModel
 
 from models.domain.activity_close import LearnedAnswer
@@ -30,4 +30,4 @@ PLAN_AGENT = "pianificatore"
 DRAFT_AGENT = "bozza-attivita"
 LEARNED_AGENT = "imparato"
 REGEX_AGENT = "regex"
-"""The agents of global-agent.yml the code calls by name."""
+"""The agents of agents/agents.yml the code calls by name."""

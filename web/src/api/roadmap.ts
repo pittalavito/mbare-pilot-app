@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "./client";
 import type { components } from "./schema";
 
-/** «🚀 Mbare Pilot»: the app's future changes, from roadmap.yml (written by the UI into the data folder). */
+/** «🚀 Mbare Pilot»: the app's future changes, from board/roadmap.yml (written by the UI into the data folder). */
 export type RoadmapItem = components["schemas"]["RoadmapItem"];
 export type RoadmapCard = components["schemas"]["RoadmapCard"];
 export type RoadmapStatus = RoadmapItem["status"];

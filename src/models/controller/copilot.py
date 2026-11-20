@@ -86,7 +86,7 @@ class CopilotStatusResponse(BaseModel):
     definition_error: str | None = None
     """Why the coding-agent definition (prompts, denied tools) cannot be used; None when fine."""
     prompts: list[str] = []
-    """Planning prompts to choose from besides the default (``coding-agent/<name>.md``)."""
+    """Planning prompts to choose from besides the default (``coding-agents/copilot/prompts/<name>.md``)."""
     type_prompts: dict[str, str] = {}
     """The prompt used for each task type when none is chosen (``""`` = ``plan_prompt``)."""
     models: list["CopilotModelOptionResponse"] = []

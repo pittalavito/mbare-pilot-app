@@ -1,5 +1,5 @@
 """«📎 Da riferimenti»: **one call** to the agent ``bozza-attivita`` of
-global-agent.yml (structured answer ``DraftAnswer``, no tools, few tokens). It reads **only the
+agents/agents.yml (structured answer ``DraftAnswer``, no tools, few tokens). It reads **only the
 titles** of the chosen references (notes of the project, also those just copied
 from Jira or Confluence) and of the chosen pieces of the context index, plus
 what the user wrote in «Cosa vuoi fare» (the main intent; it is enough

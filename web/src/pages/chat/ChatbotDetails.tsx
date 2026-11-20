@@ -76,7 +76,7 @@ function ChatbotModel({ chatbot }: { chatbot: Chatbot }) {
       {save.error && <Alert color="red">{save.error.message}</Alert>}
       {save.isSuccess && !changed && <Text size="xs" c="teal">Modello salvato: vale dal prossimo messaggio.</Text>}
       <Text size="xs" c="dimmed">
-        Se questo chatbot è in <code>chat-bots.yml</code> / <code>global-chat-bots.yml</code>, sincronizzarlo da file rimette il modello del file.
+        Se questo chatbot è in <code>agents/chatbots.yml</code> (globale o del progetto), sincronizzarlo da file rimette il modello del file.
       </Text>
     </Stack>
   );

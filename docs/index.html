@@ -685,7 +685,7 @@ corretto, come da specifica <mark class="al">TERMINE_1</mark>.</pre>
         <ul class="steps-list" style="color:var(--muted);padding-left:18px;margin:16px 0 0">
           <li><b style="color:var(--text)">Avvia</b>: accende Docker Desktop se è spento, Postgres e Redis, compila il frontend se serve, avvia l'API e apre l'app.</li>
           <li><b style="color:var(--text)">Ferma</b>: ferma API e worker. <b style="color:var(--text)">Ferma anche Docker</b>: anche i container.</li>
-          <li>Si installa una volta con <code>install-launcher.py</code>; log in <code>resource/logs/launcher.log</code>.</li>
+          <li>Si installa una volta con <code>install-launcher.py</code>; log in <code>local/logs/launcher.log</code>.</li>
         </ul>
       </div>
       <div class="diagram" role="img" aria-label="La pagina del launcher con i pulsanti Avvia, Ferma e Ferma anche Docker" style="padding:0;overflow:hidden">
@@ -793,11 +793,12 @@ corretto, come da specifica <mark class="al">TERMINE_1</mark>.</pre>
 <b>web/</b>                <span class="c">frontend React</span>
 <b>test/</b>               <span class="c">pytest</span>
 <b>resource/</b>
-  <b>definition/</b>       <span class="c">agenti, chatbot, prompt, contesto</span>
+  <b>definition/</b>       <span class="c">agents, automations, coding-agents, templates, context, board</span>
   <b>scripts/</b>          <span class="c">avvio, test, export, valutazioni</span>
   <b>eval/</b>             <span class="c">set di prova</span>
   <b>plans/</b>            <span class="c">i piani di lavoro</span>
-<b>docs/</b>               <span class="c">questo sito e la documentazione</span></pre>
+<b>docs/</b>               <span class="c">questo sito e la documentazione</span>
+<b>local/</b>              <span class="c">solo sul PC: log, PID, backup, valutazioni</span></pre>
       <div class="grid">
         <div class="card"><h3>Documentazione per package</h3><p>Un README per ogni package, con la stessa struttura del codice: endpoint, servizi, tool, definizioni.</p><p><a href="#doc/README.md">Apri la documentazione →</a></p></div>
         <div class="card"><h3>Come si lavora</h3><p>Ogni blocco ha un piano in <code>resource/plans</code>, una PR, test con coverage ≥ 95%, ruff, mypy e vitest verdi in CI.</p></div>

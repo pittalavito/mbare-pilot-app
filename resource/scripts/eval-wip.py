@@ -1,7 +1,7 @@
 """Evaluate «Elabora WIP» on resource/eval/wip with one or more catalog models,
 the same as the button in Admin → Observability → Metriche. Postgres must be
 running (start-docker.py); the API is not needed. The report goes in
-<MBARE_PILOT_HOME>/evaluations/.
+local/evaluations/.
 
     python resource/scripts/eval-wip.py --model openrouter/google/gemini-3.1-flash-lite [--model ...]
 """

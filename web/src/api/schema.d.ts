@@ -1544,7 +1544,7 @@ export interface paths {
         };
         /**
          * Roadmap
-         * @description «🚀 Mbare Pilot»: the app's future changes, from roadmap.yml of the definitions.
+         * @description «🚀 Mbare Pilot»: the app's future changes, from board/roadmap.yml of the definitions.
          */
         get: operations["roadmap_roadmap_get"];
         put?: never;
@@ -5342,7 +5342,7 @@ export interface components {
         };
         /**
          * ProcessName
-         * @description Processes with a log in ``resource/logs/<name>.log``.
+         * @description Processes with a log in ``local/logs/<name>.log``.
          * @enum {string}
          */
         ProcessName: "api" | "worker";

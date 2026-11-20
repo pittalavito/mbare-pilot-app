@@ -1,13 +1,16 @@
 """Where things live in the app's data home (``MBARE_PILOT_HOME``), and the
 naming rules for notes and uploaded files. Pure functions: no filesystem here.
 
-    definition/                      agents, chatbots, automations as YAML
-      global-agent.yml               agents of the Library (global)
-      global-chat-bots.yml           chatbots of every project (unless it has one with that name)
-      global-automation.yml          automations of every project (unless it defines one with that name)
-      global-coding-agent.yml        Copilot's prompts, denied tools and models
-      coding-agent/<name>.md         planning prompts to choose from when delegating
-      project/<slug>/chat-bots.yml, agent.yml, automation.yml, coding-agent.yml, coding-agent/
+    definition/                      the user's definitions, same layout as resource/definition
+      agents/agents.yml              agents of the Library (global)
+      agents/chatbots.yml            chatbots of every project (unless it has one with that name)
+      automations/automations.yml    automations of every project (unless it defines one with that name)
+      coding-agents/copilot/         coding-agent.yml (Copilot's prompts, denied tools, models) and prompts/<name>.md
+      coding-agents/claude/          tool-requests.md: what Claude Code is told on the dev MCP server
+      templates/<type>.md            the drafts' templates (confluence.md, jira.md)
+      context/<topic>.md             the agents' general context
+      board/                         roadmap.yml, code-searches.yml
+      project/<slug>/                the same files for one project (agents/, automations/, coding-agents/copilot/, templates/)
     project/<slug>/
       notes/                         notes written in the app; the type is in the name:
                                      agent-task-<title>.md, attivita-<title>.md,
@@ -37,19 +40,25 @@ NOTE_PREFIXES = {
 }
 """The name of a typed note starts with the prefix of its type."""
 
-GLOBAL_AGENTS_FILE = "global-agent.yml"
-GLOBAL_CHATBOTS_FILE = "global-chat-bots.yml"
-GLOBAL_AUTOMATIONS_FILE = "global-automation.yml"
-GLOBAL_CODING_AGENT_FILE = "global-coding-agent.yml"
-"""Copilot's prompts and denied tools; required to use Copilot."""
-CHATBOTS_FILE = "chat-bots.yml"
-AGENTS_FILE = "agent.yml"
-AUTOMATIONS_FILE = "automation.yml"
-CODING_AGENT_FILE = "coding-agent.yml"
-"""Under ``definition/project/<slug>/``."""
-CODING_AGENT_PROMPTS_DIR = "coding-agent"
-"""Planning prompts to choose from when delegating (``<name>.md``), under
-``definition/`` and ``definition/project/<slug>/`` (the project's win by name)."""
+AGENTS_FILE = "agents/agents.yml"
+CHATBOTS_FILE = "agents/chatbots.yml"
+AUTOMATIONS_FILE = "automations/automations.yml"
+CODING_AGENT_FILE = "coding-agents/copilot/coding-agent.yml"
+"""Copilot's prompts and denied tools; the global one is required to use Copilot."""
+CODING_AGENT_PROMPTS_DIR = "coding-agents/copilot/prompts"
+"""Planning prompts to choose from when delegating (``<name>.md``)."""
+TEMPLATES_DIR = "templates"
+"""The drafts' templates (``<type>.md``)."""
+CLAUDE_TOOL_REQUESTS_FILE = "coding-agents/claude/tool-requests.md"
+"""What Claude Code is told on the dev MCP server."""
+ROADMAP_FILE = "board/roadmap.yml"
+SEARCHES_FILE = "board/code-searches.yml"
+"""Every path is relative to ``definition/`` (global) or to ``definition/project/<slug>/``
+(the project's; only agents, chatbots, automations, Copilot and templates)."""
+LEGACY_FILES = ("global-agent.yml", "global-chat-bots.yml", "global-automation.yml", "global-coding-agent.yml",
+                "coding-agent", "code-searches.yml", "roadmap.yml")
+LEGACY_PROJECT_FILES = ("agent.yml", "chat-bots.yml", "automation.yml", "coding-agent.yml", "coding-agent")
+"""Names of an old layout, no longer read: reported at startup when found in the user's layer."""
 
 _NOT_SLUG = re.compile(r"[^a-z0-9]+")
 _INVALID_FILE_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')

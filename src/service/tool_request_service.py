@@ -11,7 +11,9 @@ import secrets
 from datetime import datetime, timezone
 
 from core.error import NotFoundError, ValidationError
+from domain.project.data_paths import CLAUDE_TOOL_REQUESTS_FILE
 from models.domain.tool_request import ToolRequest, ToolRequestStatus
+from service.store.definition_store import DefinitionStore
 from service.store.pipeline_store import PipelineStore
 from service.store.tool_request_store import ToolRequestStore
 
@@ -24,9 +26,19 @@ def _hash(token: str) -> str:
 
 class ToolRequestService:
 
-    def __init__(self, requests: ToolRequestStore, pipelines: PipelineStore | None = None):
+    def __init__(self, requests: ToolRequestStore, pipelines: PipelineStore | None = None, definitions: DefinitionStore | None = None):
         self._requests = requests
         self._pipelines = pipelines
+        self._definitions = definitions
+
+    def instructions(self) -> str:
+        """What Claude Code is told when it connects: ``coding-agents/claude/tool-requests.md``
+        of the definitions (the data folder's wins). No built-in text: a missing file is an error."""
+        text = self._definitions.read_definition(CLAUDE_TOOL_REQUESTS_FILE) if self._definitions is not None else None
+        if not text or not text.strip():
+            raise ValidationError(f"Manca definition/{CLAUDE_TOOL_REQUESTS_FILE} (le istruzioni per Claude Code): "
+                                  "c'è nell'app (resource/definition/): controlla APP_DEFINITIONS.")
+        return text.replace("\r\n", "\n").strip()
 
     def create(self, project_name: str, title: str, objective: str, criteria: list[str], automation: str = "", activity: str = "") -> ToolRequest:
         if not title.strip():

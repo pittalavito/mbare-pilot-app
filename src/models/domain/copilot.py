@@ -53,7 +53,7 @@ class CopilotSession(BaseModel):
     copilot_session_id: str
     """Copilot's own session (UUID): every turn resumes it."""
     prompt: str = ""
-    """The planning prompt chosen when delegating (``coding-agent/<name>.md``); ``""`` = the definition's ``plan_prompt``."""
+    """The planning prompt chosen when delegating (``coding-agents/copilot/prompts/<name>.md``); ``""`` = the definition's ``plan_prompt``."""
     model: str = ""
     """Copilot's model, for every turn of the session; ``""`` = COPILOT_MODEL or Copilot's default."""
     status: CopilotSessionStatus = CopilotSessionStatus.PLANNING
@@ -126,9 +126,9 @@ class CodingAgentSettings(BaseModel):
     """The models to choose from when delegating (besides the default), as written."""
     prompts: dict[str, str] = Field(default_factory=dict)
     """The planning prompts to choose from instead of ``plan_prompt``: name
-    (file name without ``.md``) → text, from ``coding-agent/`` folders."""
+    (file name without ``.md``) → text, from ``coding-agents/copilot/prompts/`` folders."""
     templates: dict[TaskType, str] = Field(default_factory=dict)
-    """The drafts' templates (``coding-agent/templates/<type>.md``): a prompt puts its type's one at ``{template}``."""
+    """The drafts' templates (``templates/<type>.md``): a prompt puts its type's one at ``{template}``."""
 
 
 class CopilotUsage(BaseModel):

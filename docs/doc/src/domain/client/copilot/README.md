@@ -24,7 +24,7 @@ Sempre: `--add-dir <repository>`, `--output-format json`, `--no-color`; `--model
 
 **Il server MCP dell'app** (`turn(..., mcp=McpAccess(url, token))`): il client scrive la configurazione (`{"mcpServers": {"mbare-pilot": {"type": "http", "url": …, "headers": {"Authorization": "Bearer <token>"}, "tools": ["*"]}}}`) in un file nella cartella temporanea del turno e passa `--additional-mcp-config @<file>` (il token non compare sulla riga di comando) e `--allow-tool mbare-pilot`, in tutte e due le modalità. Da verificare con il CLI vero: il formato della configurazione e che `--allow-tool mbare-pilot` basti in modalità piano.
 
-I divieti **non sono nel codice**: li passa il servizio, dal file `global-coding-agent.yml` della cartella dei dati ([definizioni](../../../../definitions.md#coding-agent-global-coding-agentyml-coding-agentyml)). Bloccano i comandi per nome (anche dentro un comando composto), non uno script che faccia un commit da sé: per questo il servizio controlla l'HEAD prima e dopo (vedi [service](../../../service/README.md#copilot)).
+I divieti **non sono nel codice**: li passa il servizio, dal file `coding-agents/copilot/coding-agent.yml` delle definizioni ([definizioni](../../../../definitions.md#coding-agent-coding-agentscopilotcoding-agentyml)). Bloccano i comandi per nome (anche dentro un comando composto), non uno script che faccia un commit da sé: per questo il servizio controlla l'HEAD prima e dopo (vedi [service](../../../service/README.md#copilot)).
 
 ## `turn(cwd, session_id, prompt, mode, timeout_seconds, denied_tools, should_cancel, model)`
 

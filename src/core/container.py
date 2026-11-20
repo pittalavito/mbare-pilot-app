@@ -97,7 +97,7 @@ class Container:
             project_data_service=self.project_data_service,
         )
         self.code_search_service = CodeSearchService(git_service=self.git_service, project_data_service=self.project_data_service)
-        self.tool_request_service = ToolRequestService(requests=stores.tool_requests, pipelines=stores.pipelines)
+        self.tool_request_service = ToolRequestService(requests=stores.tool_requests, pipelines=stores.pipelines, definitions=stores.definitions)
         self.agent_service = AgentService(
             chat_service=self.chat_service,
             agent_config_service=self.agent_config_service,
