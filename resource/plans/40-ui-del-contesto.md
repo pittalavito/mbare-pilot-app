@@ -21,6 +21,10 @@ Rendere la pagina Progetto → Contesto più ordinata. Oggi la colonna a sinistr
 ### Mappa dei repository
 - Quando `repository.md` esiste, il bottone «🗺 Rigenera» sta in testa al documento aperto e riscrive solo la parte automatica, come oggi.
 
+### Anteprima
+- Il documento aperto ha due schede: «✏️ Modifica» (l'area di testo di oggi, con Ctrl+S) e «👁 Anteprima», che lo mostra formattato con il componente `Markdown` già usato nell'app (react-markdown + GFM). L'anteprima mostra il testo che stai scrivendo, anche se non è ancora salvato.
+- Anche i documenti generali, in sola lettura, si aprono in anteprima: il testo grezzo resta nell'altra scheda.
+
 ### Nomi senza maiuscole
 - Modelli, documenti speciali e il controllo «esiste già» confrontano il nome senza badare a maiuscole e minuscole: `Sviluppo.md` conta come `sviluppo.md`, e i bottoni non ricompaiono.
 - Da verificare nel backend: il Pianificatore legge `sviluppo.md` con quel nome esatto. Su un disco che distingue le maiuscole, `Sviluppo.md` non verrebbe letto: se serve, lo si cerca senza badare alle maiuscole.
@@ -29,8 +33,9 @@ Rendere la pagina Progetto → Contesto più ordinata. Oggi la colonna a sinistr
 - Menu «➕ Nuovo» e due gruppi (non schede, non lista unica con filtro), chiusi di default.
 - Mappa: «Rigenera» dal documento aperto, nel menu solo quando manca.
 - Documenti dell'app in cima, con icona.
+- Anteprima del Markdown con il componente esistente; nessuna libreria nuova (né nel frontend né nel backend).
 
 ## Test e documentazione
-- vitest di `ContextTab`: il menu mostra solo i modelli che mancano, ignorando le maiuscole; la mappa sta nel menu solo senza `repository.md`, altrimenti «Rigenera» compare sul documento; i documenti speciali sono in cima; i due gruppi partono chiusi e si aprono.
+- vitest di `ContextTab`: il menu mostra solo i modelli che mancano, ignorando le maiuscole; la mappa sta nel menu solo senza `repository.md`, altrimenti «Rigenera» compare sul documento; i documenti speciali sono in cima; i due gruppi partono chiusi e si aprono; l'anteprima mostra il testo non salvato formattato (un titolo, una tabella).
 - pytest, se si tocca il Pianificatore: `Sviluppo.md` viene letto.
 - Doc: web/README.md (Contesto), la riga di ContextTab nella doc del frontend se c'è.
