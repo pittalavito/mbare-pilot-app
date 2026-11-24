@@ -27,7 +27,7 @@ Uno store per aggregato, costruiti una volta in `stores.py` sugli stessi backend
 - **`ProjectDataService`**: i dati del progetto fuori dal codice, in `<MBARE_PILOT_HOME>/project/<slug>/`: note (anche tipate: attività, agent task, riferimenti), file caricati, contesto, cartelle di lavoro di Copilot senza repository. Collega task, voci e riferimenti; spunta una voce quando il suo task diventa fatto.
 - **`GitService`**: git in sola lettura sulla cartella del progetto o su un repository dentro.
 - **`CodeSearchService`**: ricerca libera nei file che git conosce (salta binari, file grandi, non UTF-8); salva una ricerca come riferimento codice.
-- **`SavedSearchService`**: ricerche salvate. Default in `board/code-searches.yml`, quelle del progetto in `Project.code_searches`; «✨ Regex» chiama l'agente `regex`.
+- **`SavedSearchService`**: ricerche salvate. Default in `code-search/searches.yml`, quelle del progetto in `Project.code_searches`; «✨ Regex» chiama l'agente `regex`.
 - **`RepositoryMapService`**: «🗺 Genera mappa dei repository» in `context/repository.md`.
 
 ## Agenti e chatbot

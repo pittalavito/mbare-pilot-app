@@ -2,7 +2,7 @@
 (or a text) and its file filter, chosen from a menu in «🔎 Cerca nel codice»
 and in «Nuovo riferimento» from code.
 
-The defaults are in ``board/code-searches.yml`` of the definitions (the data
+The defaults are in ``code-search/searches.yml`` of the definitions (the data
 folder's file wins over the app's, like the roadmap); the project's own are in
 its settings and replace a default with the same name. «✨ Regex» asks the
 agent ``regex`` of agents/agents.yml (one structured call, masked like the
@@ -40,7 +40,7 @@ class SavedSearchService:
         self._agents = agents
 
     def defaults(self) -> list[SavedSearch]:
-        """The searches of ``board/code-searches.yml``; none without the file, 400 when it is broken."""
+        """The searches of ``code-search/searches.yml``; none without the file, 400 when it is broken."""
         text = self._definitions.read_definition(SEARCHES_FILE)
         if text is None:
             return []

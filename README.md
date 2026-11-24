@@ -71,7 +71,7 @@ src/                  backend Python: due processi
 web/                  frontend React + Vite + Mantine (client tipizzato dall'OpenAPI)
 test/                 pytest
 resource/
-  definition/         per tema: agents/, automations/, coding-agents/ (copilot/, claude/), templates/, context/, board/
+  definition/         per tema: agents/, automations/, coding-agents/ (copilot/, claude/), templates/, context/, code-search/, board/
   scripts/            avvio (anche il launcher nel browser), test, export del DB, valutazioni
   eval/               set di prova delle valutazioni
   plans/              i piani di lavoro

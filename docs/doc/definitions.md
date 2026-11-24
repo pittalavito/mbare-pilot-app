@@ -20,9 +20,10 @@ definition/
       tool-requests.md         cosa riceve Claude Code sul server MCP dev
   templates/<tipo>.md          template delle bozze: confluence.md, jira.md
   context/<tema>.md            contesto generale per gli agenti                   un «##» per argomento
+  code-search/
+    searches.yml               ricerche salvate nel codice                        searches: [...]
   board/
     roadmap.yml                bacheca «🚀 Mbare Pilot»
-    code-searches.yml          ricerche salvate nel codice                        searches: [...]
   project/<slug>/              gli stessi file per un progetto: agents/, automations/, coding-agents/copilot/, templates/
 ```
 
@@ -144,7 +145,7 @@ Il testo che Claude Code riceve quando si collega al server MCP dev (`/mcp-dev`)
 
 Documenti `.md` che spiegano agli agenti come funziona l'app (task e stati, attività e giro, Copilot, pre e post, riferimenti, automation, tool, esempi, errori comuni), così i loro prompt restano corti. Sono uguali per tutti i progetti e si indicizzano nel RAG di ognuno quando cambiano; `search_context` li trova insieme al contesto del progetto, che vince a parità. Copilot non li riceve. Si leggono in Progetto → Contesto, «Generale». La misura della ricerca è in `resource/eval/rag/general-questions.json`.
 
-## Ricerche salvate (`board/code-searches.yml`)
+## Ricerche salvate (`code-search/searches.yml`)
 
 `searches` con `name`, `query` (regex Python, riga per riga; testo con `regex: false`), `regex` (default `true`), `files` (glob) e `description`. Nel menu di «🔎 Cerca nel codice» e di «Nuovo riferimento» → «🔎 Da codice». Ogni progetto aggiunge le sue in Impostazioni; una con lo stesso nome sostituisce quella dell'app.
 

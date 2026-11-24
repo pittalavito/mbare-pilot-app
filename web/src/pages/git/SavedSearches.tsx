@@ -120,7 +120,7 @@ export function SavedSearchesSettings({ project }: { project: string }) {
   return (
     <Stack gap="xs">
       <Text size="sm" c="dimmed">
-        Nel menu di «🔎 Cerca nel codice» e di «Nuovo riferimento» da codice. Quelle dell'app vengono da board/code-searches.yml delle definizioni:
+        Nel menu di «🔎 Cerca nel codice» e di «Nuovo riferimento» da codice. Quelle dell'app vengono da code-search/searches.yml delle definizioni:
         modificandole qui il progetto ne ha una sua versione.
       </Text>
       {searches.error && <Alert color="red" p="xs">{searches.error.message}</Alert>}
