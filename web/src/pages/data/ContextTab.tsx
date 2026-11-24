@@ -1,4 +1,4 @@
-import { Alert, Badge, Button, Card, Grid, Group, Loader, Modal, NavLink, Stack, Text, TextInput, Textarea } from "@mantine/core";
+import { Alert, Badge, Button, Card, Grid, Group, Loader, Menu, Modal, NavLink, Stack, Tabs, Text, TextInput, Textarea } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useState } from "react";
 
@@ -6,12 +6,15 @@ import {
   useContextDocument, useContextDocuments, useContextIndex, useGenerateRepositoryMap, useGeneralContext, useDeleteContext, useReindexContext, useSaveContext, useSearchContext,
 } from "../../api/context";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { Markdown } from "../../components/Markdown";
 
 /** «📚 Contesto»: the documents of the project's context/ folder
- * (architecture, conventions, decisions, runbooks, glossary). Saving one
- * indexes it; the agents search the index (search_context) together with the
- * general context of the definitions (how the app works, shown read
- * only under «Generale»; Copilot gets only the project's). */
+ * (architecture, conventions, decisions, runbooks, glossary), under «Progetto»,
+ * and the general context of the definitions (how the app works, read only),
+ * under «Generale»: both groups start closed. «➕ Nuovo» makes an empty
+ * document, a missing ready one or the repository map. Saving a document
+ * indexes it; the agents search the index (search_context), Copilot gets only
+ * the project's. A document is edited or seen formatted («👁 Anteprima»). */
 /** The project's development rules: the Pianificatore reads them to propose the pre/post development tasks. */
 export const RULES_DOCUMENT = "sviluppo.md";
 export const RULES_TEMPLATE = `# Sviluppo
@@ -67,77 +70,120 @@ export const TEMPLATES: { name: string; label: string; title: string; content: s
 ` },
 ];
 
+/** The documents the app looks for by name: on top of «Progetto», with what uses them. */
+export const SPECIAL: { name: string; icon: string; label: string; use: string }[] = [
+  { name: RULES_DOCUMENT, icon: "📐", label: "Regole di sviluppo", use: "Il Pianificatore la legge per il pre e il post" },
+  { name: "repository.md", icon: "🗺", label: "Mappa dei repository", use: "Generata da git e dai file; rigenerala dal documento" },
+];
+const MAP_DOCUMENT = "repository.md";
+const same = (left: string, right: string) => left.toLowerCase() === right.toLowerCase();
+
 export function ContextTab({ project }: { project: string }) {
   const documents = useContextDocuments(project);
   const save = useSaveContext(project);
   const generateMap = useGenerateRepositoryMap(project);
-  const [selected, setSelected] = useState<string>();
+  const general = useGeneralContext(project);
+  const [selected, setSelected] = useState<{ general: boolean; name: string }>();
   const [creating, setCreating] = useState(false);
   const names = documents.data?.map((item) => item.name) ?? [];
-  const general = useGeneralContext(project);
-  const [generalOpen, setGeneralOpen] = useState<string>();
-  const current = selected && names.includes(selected) ? selected : names[0];
-  const shownGeneral = general.data?.find((item) => item.name === generalOpen);
+  const has = (name: string) => names.some((item) => same(item, name));
+  const special = SPECIAL.flatMap((item) => names.filter((name) => same(name, item.name)).map((name) => ({ ...item, file: name })));
+  const others = names.filter((name) => !SPECIAL.some((item) => same(item.name, name)));
+  const missing = [
+    { name: RULES_DOCUMENT, label: "📐 Regole di sviluppo", title: "Le regole per i task pre e post sviluppo: il Pianificatore le legge", content: RULES_TEMPLATE },
+    ...TEMPLATES,
+  ].filter((item) => !has(item.name));
+  const open = (name: string, isGeneral = false) => setSelected({ general: isGeneral, name });
+  const createFrom = (name: string, content: string) => save.mutate({ name, content }, { onSuccess: (saved) => open(saved.name) });
+  const generate = () => generateMap.mutate(undefined, {
+    onSuccess: (result) => {
+      open(result.name);
+      notifications.show({ color: result.index_error ? "orange" : "green", message: result.index_error ?? "Mappa dei repository aggiornata." });
+    },
+  });
+  const current = selected && !selected.general && names.includes(selected.name) ? selected.name : undefined;
+  const shownGeneral = selected?.general ? general.data?.find((item) => item.name === selected.name) : undefined;
   return (
     <Stack gap="md">
       <IndexBar project={project} />
       <Grid gutter="md">
         <Grid.Col span={{ base: 12, md: 3 }}>
           <Stack gap="xs">
-            <Button onClick={() => setCreating(true)}>➕ Nuovo documento</Button>
-            {documents.data && !names.includes(RULES_DOCUMENT) && (
-              <Button variant="light" loading={save.isPending} title="Le regole per i task pre e post sviluppo: il Pianificatore le legge"
-                onClick={() => save.mutate({ name: RULES_DOCUMENT, content: RULES_TEMPLATE }, { onSuccess: () => setSelected(RULES_DOCUMENT) })}>
-                📐 Regole di sviluppo (modello)
-              </Button>
-            )}
-            {documents.data && TEMPLATES.filter((item) => !names.includes(item.name)).map((item) => (
-              <Button key={item.name} variant="light" loading={save.isPending && save.variables?.name === item.name} title={item.title}
-                onClick={() => save.mutate({ name: item.name, content: item.content }, { onSuccess: () => setSelected(item.name) })}>
-                {item.label} (modello)
-              </Button>
-            ))}
-            <Button variant="light" loading={generateMap.isPending}
-              title="Scrive repository.md dai file e da git: build, dipendenze tra repository, ordine di build, branch. Rigenerarla riscrive solo la parte automatica"
-              onClick={() => generateMap.mutate(undefined, {
-                onSuccess: (result) => {
-                  setSelected(result.name);
-                  notifications.show({ color: result.index_error ? "orange" : "green", message: result.index_error ?? "Mappa dei repository aggiornata." });
-                },
-              })}>
-              🗺 Genera mappa dei repository
-            </Button>
+            <Menu position="bottom-start" withinPortal>
+              <Menu.Target>
+                <Button loading={save.isPending || generateMap.isPending}>➕ Nuovo</Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Item onClick={() => setCreating(true)}>📄 Documento vuoto</Menu.Item>
+                {documents.data && !!missing.length && <Menu.Label>Modelli</Menu.Label>}
+                {documents.data && missing.map((item) => (
+                  <Menu.Item key={item.name} title={item.title} onClick={() => createFrom(item.name, item.content)}>{item.label}</Menu.Item>
+                ))}
+                {documents.data && !has(MAP_DOCUMENT) && (
+                  <>
+                    <Menu.Label>Dai repository</Menu.Label>
+                    <Menu.Item title="Scrive repository.md dai file e da git: build, dipendenze tra repository, ordine di build, branch"
+                      onClick={generate}>🗺 Mappa dei repository</Menu.Item>
+                  </>
+                )}
+              </Menu.Dropdown>
+            </Menu>
             {generateMap.error && <Alert color="red" p="xs">{generateMap.error.message}</Alert>}
+            {save.error && !creating && <Alert color="red" p="xs">{save.error.message}</Alert>}
             {documents.isPending && <Loader size="sm" />}
             {documents.error && <Alert color="red">{documents.error.message}</Alert>}
-            {documents.data && !names.length && <Text size="sm" c="dimmed">Nessun documento di contesto.</Text>}
-            {names.map((name) => <NavLink key={name} label={name} active={!shownGeneral && name === current}
-              onClick={() => { setSelected(name); setGeneralOpen(undefined); }} />)}
-            <Text size="xs" fw={700} c="dimmed" tt="uppercase" mt="sm" title="Come funziona l'app, uguale per tutti i progetti: si cambia nelle definizioni">
-              Generale (da definizioni)
-            </Text>
-            {general.data && !general.data.length && <Text size="xs" c="dimmed">Nessun documento in definition/context/.</Text>}
-            {general.data?.map((item) => (
-              <NavLink key={item.name} label={item.title} description={`${item.name}${item.origin === "tuo" ? " · tuo" : ""}`} active={item.name === generalOpen}
-                onClick={() => setGeneralOpen(item.name)} />
-            ))}
+            <NavLink component="button" label="Progetto" rightSection={<Badge size="sm" variant="light">{names.length}</Badge>}
+                     description="I documenti del progetto: si cambiano qui" childrenOffset={8} defaultOpened={false}>
+              {documents.data && !names.length && <Text size="xs" c="dimmed" p="xs">Nessun documento: creane uno con «➕ Nuovo».</Text>}
+              {special.map((item) => (
+                <NavLink key={item.file} label={`${item.icon} ${item.label}`} description={`${item.file} · ${item.use}`}
+                         active={item.file === current} onClick={() => open(item.file)} />
+              ))}
+              {others.map((name) => <NavLink key={name} label={name} active={name === current} onClick={() => open(name)} />)}
+            </NavLink>
+            <NavLink component="button" label="Generale (da definizioni)" rightSection={<Badge size="sm" variant="light" color="gray">{general.data?.length ?? 0}</Badge>}
+                     description="Come funziona l'app, uguale per tutti i progetti" childrenOffset={8} defaultOpened={false}>
+              {general.data && !general.data.length && <Text size="xs" c="dimmed" p="xs">Nessun documento in definition/context/.</Text>}
+              {general.data?.map((item) => (
+                <NavLink key={item.name} label={item.title} description={`${item.name}${item.origin === "tuo" ? " · tuo" : ""}`}
+                         active={item.name === shownGeneral?.name} onClick={() => open(item.name, true)} />
+              ))}
+            </NavLink>
           </Stack>
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 9 }}>
-          {shownGeneral ? (
-            <Stack gap="xs">
-              <Group gap="xs"><Badge variant="light" color="gray">sola lettura</Badge><Text size="xs" c="dimmed">definition/context/{shownGeneral.name}: si cambia nelle definizioni</Text></Group>
-              <Textarea aria-label="Documento generale" value={shownGeneral.content} readOnly autosize minRows={10} ff="monospace" />
-            </Stack>
-          ) : current ? <ContextEditor key={current} project={project} name={current} /> : (
-            <Text c="dimmed">
-              Scrivi qui quello che serve sapere sul progetto: architettura, convenzioni, decisioni, runbook, glossario. Un titolo «##» per
-              argomento: il Refiner e Copilot cercano i pezzi giusti, con la fonte.
-            </Text>
-          )}
+          {shownGeneral ? <GeneralDocument name={shownGeneral.name} content={shownGeneral.content} />
+            : current ? (
+              <ContextEditor key={current} project={project} name={current}
+                             regenerate={same(current, MAP_DOCUMENT) ? { run: generate, pending: generateMap.isPending } : undefined} />
+            ) : (
+              <Text c="dimmed">
+                Apri un documento da «Progetto» o «Generale». Scrivi qui quello che serve sapere sul progetto: architettura, convenzioni,
+                decisioni, runbook, glossario. Un titolo «##» per argomento: gli agenti e Copilot cercano i pezzi giusti, con la fonte.
+              </Text>
+            )}
         </Grid.Col>
       </Grid>
-      <NewContextModal project={project} existing={names} opened={creating} onClose={() => setCreating(false)} onCreated={setSelected} />
+      <NewContextModal project={project} existing={names} opened={creating} onClose={() => setCreating(false)} onCreated={(name) => open(name)} />
+    </Stack>
+  );
+}
+
+/** A document of the general context: read only, formatted by default. */
+function GeneralDocument({ name, content }: { name: string; content: string }) {
+  return (
+    <Stack gap="xs">
+      <Group gap="xs"><Badge variant="light" color="gray">sola lettura</Badge><Text size="xs" c="dimmed">definition/context/{name}: si cambia nelle definizioni</Text></Group>
+      <Tabs defaultValue="preview" keepMounted={false}>
+        <Tabs.List>
+          <Tabs.Tab value="preview">👁 Anteprima</Tabs.Tab>
+          <Tabs.Tab value="text">📄 Testo</Tabs.Tab>
+        </Tabs.List>
+        <Tabs.Panel value="preview" pt="xs"><Markdown>{content}</Markdown></Tabs.Panel>
+        <Tabs.Panel value="text" pt="xs">
+          <Textarea aria-label="Documento generale" value={content} readOnly autosize minRows={10} ff="monospace" />
+        </Tabs.Panel>
+      </Tabs>
     </Stack>
   );
 }
@@ -189,14 +235,17 @@ function IndexBar({ project }: { project: string }) {
   );
 }
 
-function ContextEditor({ project, name }: { project: string; name: string }) {
+type Regenerate = { run: () => void; pending: boolean };
+
+function ContextEditor({ project, name, regenerate }: { project: string; name: string; regenerate?: Regenerate }) {
   const document = useContextDocument(project, name);
   if (document.error) return <Alert color="red">{document.error.message}</Alert>;
   if (document.isPending) return <Loader size="sm" />;
-  return <ContextForm project={project} name={name} saved={document.data.content} />;
+  // a new saved text (saved here, or the map regenerated) starts the form again
+  return <ContextForm key={document.data.content} project={project} name={name} saved={document.data.content} regenerate={regenerate} />;
 }
 
-function ContextForm({ project, name, saved }: { project: string; name: string; saved: string }) {
+function ContextForm({ project, name, saved, regenerate }: { project: string; name: string; saved: string; regenerate?: Regenerate }) {
   const save = useSaveContext(project);
   const remove = useDeleteContext(project);
   const [text, setText] = useState(saved);
@@ -208,19 +257,38 @@ function ContextForm({ project, name, saved }: { project: string; name: string; 
   });
   return (
     <Stack gap="sm">
-      <Text fw={600}>{name}{dirty && <Text span c="orange" size="sm"> · modifiche non salvate</Text>}</Text>
-      <Textarea
-        autosize minRows={16} maxRows={30} aria-label="Testo del documento"
-        styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
-        value={text}
-        onChange={(event) => setText(event.currentTarget.value)}
-        onKeyDown={(event) => {
-          if (event.key === "s" && (event.ctrlKey || event.metaKey)) {
-            event.preventDefault();
-            onSave();
-          }
-        }}
-      />
+      <Group gap="xs">
+        <Text fw={600}>{name}{dirty && <Text span c="orange" size="sm"> · modifiche non salvate</Text>}</Text>
+        {regenerate && (
+          <Button size="compact-sm" variant="light" ml="auto" loading={regenerate.pending} onClick={regenerate.run}
+                  title="Riscrive solo la parte automatica (build, dipendenze, ordine di build, branch): il resto del documento resta">
+            🗺 Rigenera
+          </Button>
+        )}
+      </Group>
+      <Tabs defaultValue="edit">
+        <Tabs.List>
+          <Tabs.Tab value="edit">✏️ Modifica</Tabs.Tab>
+          <Tabs.Tab value="preview">👁 Anteprima</Tabs.Tab>
+        </Tabs.List>
+        <Tabs.Panel value="edit" pt="xs">
+          <Textarea
+            autosize minRows={16} maxRows={30} aria-label="Testo del documento"
+            styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
+            value={text}
+            onChange={(event) => setText(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if (event.key === "s" && (event.ctrlKey || event.metaKey)) {
+                event.preventDefault();
+                onSave();
+              }
+            }}
+          />
+        </Tabs.Panel>
+        <Tabs.Panel value="preview" pt="xs">
+          {text.trim() ? <Markdown>{text}</Markdown> : <Text size="sm" c="dimmed">Il documento è vuoto.</Text>}
+        </Tabs.Panel>
+      </Tabs>
       {save.error && <Alert color="red">{save.error.message}</Alert>}
       <Group>
         <Button onClick={onSave} loading={save.isPending} disabled={!dirty}>Salva</Button>

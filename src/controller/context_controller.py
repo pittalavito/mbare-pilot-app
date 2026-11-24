@@ -54,7 +54,7 @@ def delete_context(project: str, name: str, service: ProjectDataService = Depend
 
 @router.post("/context/repository-map")
 def generate_repository_map(project: str, service: RepositoryMapService = Depends(repository_map_service)) -> ContextSavedResponse:
-    """«🗺 Genera mappa dei repository»: context/repository.md, only its generated part rewritten; indexed."""
+    """«🗺 Mappa dei repository» (and «🗺 Rigenera»): context/repository.md, only its generated part rewritten; indexed."""
     name, error = service.generate(project)
     return ContextSavedResponse(name=name, index_error=error)
 

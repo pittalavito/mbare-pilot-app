@@ -402,7 +402,7 @@ def test_the_round_skips_the_empty_pre_and_post_when_asked(service, activity, co
 def test_the_pianificatore_gets_the_development_rules(service, client, activity, project_data_service):
     service.propose("acme", activity)
     assert "Nessuna regola scritta" in client.calls[0]["input"] and "nel pre di ogni sviluppo" in client.calls[0]["input"]
-    project_data_service.save_context("acme", "sviluppo.md", "# Sviluppo\n\n## Prima dello sviluppo\n- branch hotfix/<task>")
+    project_data_service.save_context("acme", "Sviluppo.md", "# Sviluppo\n\n## Prima dello sviluppo\n- branch hotfix/<task>")
     service.propose("acme", activity)
     assert "Regole di sviluppo del progetto" in client.calls[1]["input"] and "branch hotfix/<task>" in client.calls[1]["input"]
 

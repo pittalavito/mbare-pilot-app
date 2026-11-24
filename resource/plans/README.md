@@ -22,7 +22,7 @@ Ogni piano descrive **cosa fare**, non com'è fatto oggi; le parti che esistono 
 | 37 | [Niente file del task nei repository, pagina più chiara](37-niente-file-task-nei-repository.md) | fatto | app | copilot, presentazione |
 | 38 | [Bacheca di Mbare Pilot modificabile](38-bacheca-modificabile.md) | fatto | app | bacheca |
 | 39 | [Struttura di resource e cartelle locali](39-struttura-di-resource.md) | fatto | app | struttura |
-| 40 | [UI del contesto più ordinata](40-ui-del-contesto.md) | da realizzare | app | contesto, UI |
+| 40 | [UI del contesto più ordinata](40-ui-del-contesto.md) | fatto | app | contesto, UI |
 | — | [Backlog](backlog.md) | idee | — | — |
 
 I piani 01-26 sono fatti e sono stati tolti: la storia è nelle PR e nei commit. Il prossimo piano è il 41.

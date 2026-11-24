@@ -397,15 +397,21 @@ class ProjectDataService:
         return [item for item in self._list(project_name, CONTEXT_DIR, ProjectDataKind.NOTE) if item.name.endswith(NOTE_SUFFIX)]
 
     def read_context(self, project_name: str, name: str) -> str:
-        return self._files.read(self._id(project_name, CONTEXT_DIR, note_file_name(name))).decode("utf-8")
+        return self._files.read(self._id(project_name, CONTEXT_DIR, self._context_file(project_name, name))).decode("utf-8")
 
     def save_context(self, project_name: str, name: str, content: str) -> ProjectDataFile:
         """Create or overwrite a context document (``.md`` added when missing)."""
-        stored = self._files.save(self._id(project_name, CONTEXT_DIR, note_file_name(name)), content.encode("utf-8"))
+        stored = self._files.save(self._id(project_name, CONTEXT_DIR, self._context_file(project_name, name)), content.encode("utf-8"))
         return _to_data_file(stored, ProjectDataKind.NOTE)
 
     def delete_context(self, project_name: str, name: str) -> bool:
-        return self._files.delete(self._id(project_name, CONTEXT_DIR, note_file_name(name)))
+        return self._files.delete(self._id(project_name, CONTEXT_DIR, self._context_file(project_name, name)))
+
+    def _context_file(self, project_name: str, name: str) -> str:
+        """The file of a context document, matched without case: ``sviluppo.md`` finds ``Sviluppo.md``
+        on any disk (the app looks for some documents by name); a new one keeps the name as written."""
+        file_name = note_file_name(name)
+        return next((item.name for item in self.list_context(project_name) if item.name.lower() == file_name.lower()), file_name)
 
     # --------------------------------------------------------------- copilot
     def copilot_folder(self, project_name: str, task_note: str) -> Path:

@@ -1,6 +1,6 @@
 # UI del contesto più ordinata
 
-Stato: **da realizzare**.
+Stato: **fatto**.
 
 ## Obiettivo
 Rendere la pagina Progetto → Contesto più ordinata. Oggi la colonna a sinistra mette in fila tutto: i bottoni per creare i documenti (nuovo, quattro modelli, mappa), i documenti del progetto e i documenti generali. In più «🗺 Genera mappa dei repository» compare sempre e «📐 Regole di sviluppo» può ricomparire anche quando il documento esiste già.
@@ -27,7 +27,7 @@ Rendere la pagina Progetto → Contesto più ordinata. Oggi la colonna a sinistr
 
 ### Nomi senza maiuscole
 - Modelli, documenti speciali e il controllo «esiste già» confrontano il nome senza badare a maiuscole e minuscole: `Sviluppo.md` conta come `sviluppo.md`, e i bottoni non ricompaiono.
-- Da verificare nel backend: il Pianificatore legge `sviluppo.md` con quel nome esatto. Su un disco che distingue le maiuscole, `Sviluppo.md` non verrebbe letto: se serve, lo si cerca senza badare alle maiuscole.
+- Anche nel backend: un documento del contesto si legge, si salva e si elimina senza badare alle maiuscole (`ProjectDataService`), così il Pianificatore trova `Sviluppo.md` su ogni disco e la mappa riscrive `Repository.md` invece di crearne un secondo.
 
 ## Decisioni prese
 - Menu «➕ Nuovo» e due gruppi (non schede, non lista unica con filtro), chiusi di default.

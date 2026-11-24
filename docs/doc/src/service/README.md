@@ -24,11 +24,11 @@ Uno store per aggregato, costruiti una volta in `stores.py` sugli stessi backend
 ## Progetti e dati
 
 - **`ProjectService`**: apre una cartella esistente o ne crea una nuova (sempre dentro `PROJECT_ROOTS`), elenca, aggiorna, rimuove. Un progetto nuovo riceve i chatbot di default.
-- **`ProjectDataService`**: i dati del progetto fuori dal codice, in `<MBARE_PILOT_HOME>/project/<slug>/`: note (anche tipate: attività, agent task, riferimenti), file caricati, contesto, cartelle di lavoro di Copilot senza repository. Collega task, voci e riferimenti; spunta una voce quando il suo task diventa fatto.
+- **`ProjectDataService`**: i dati del progetto fuori dal codice, in `<MBARE_PILOT_HOME>/project/<slug>/`: note (anche tipate: attività, agent task, riferimenti), file caricati, contesto (un documento si trova senza badare alle maiuscole: `sviluppo.md` legge anche `Sviluppo.md`), cartelle di lavoro di Copilot senza repository. Collega task, voci e riferimenti; spunta una voce quando il suo task diventa fatto.
 - **`GitService`**: git in sola lettura sulla cartella del progetto o su un repository dentro.
 - **`CodeSearchService`**: ricerca libera nei file che git conosce (salta binari, file grandi, non UTF-8); salva una ricerca come riferimento codice.
 - **`SavedSearchService`**: ricerche salvate. Default in `code-search/searches.yml`, quelle del progetto in `Project.code_searches`; «✨ Regex» chiama l'agente `regex`.
-- **`RepositoryMapService`**: «🗺 Genera mappa dei repository» in `context/repository.md`.
+- **`RepositoryMapService`**: la mappa dei repository in `context/repository.md` («➕ Nuovo» → «🗺 Mappa dei repository», poi «🗺 Rigenera» dal documento).
 
 ## Agenti e chatbot
 

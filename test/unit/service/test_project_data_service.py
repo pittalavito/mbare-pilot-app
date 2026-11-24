@@ -56,6 +56,17 @@ def test_notes_round_trip(data_service, files_repository):
     assert data_service.list_notes("My App") == []
 
 
+def test_context_documents_are_found_without_case(data_service, files_repository):
+    data_service.save_context("My App", "Sviluppo", "# Sviluppo")
+
+    assert data_service.read_context("My App", "sviluppo.md") == "# Sviluppo"  # the Pianificatore's name, on any disk
+    data_service.save_context("My App", "SVILUPPO.md", "nuovo")
+    assert [item.name for item in data_service.list_context("My App")] == ["Sviluppo.md"]  # the same file, its name kept
+    assert data_service.read_context("My App", "Sviluppo.md") == "nuovo"
+    assert data_service.delete_context("My App", "sviluppo") is True
+    assert data_service.list_context("My App") == []
+
+
 def test_files_round_trip(data_service, files_repository):
     data_service.save_file("My App", "C:\\tmp\\report.pdf", b"%PDF")
 

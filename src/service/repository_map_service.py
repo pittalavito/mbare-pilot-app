@@ -1,4 +1,4 @@
-"""«🗺 Genera mappa dei repository»: the project's repositories
+"""«🗺 Mappa dei repository» (and «🗺 Rigenera»): the project's repositories
 read from their files and git (domain/project/repository_map.py), written
 into ``context/repository.md`` (only the generated part changes) and indexed
 for the agents' ``search_context``."""

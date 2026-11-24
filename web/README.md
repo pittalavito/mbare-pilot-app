@@ -54,7 +54,7 @@ Il **worker** si avvia e si ferma dall'intestazione della pagina (lo gestisce l'
   - **Lavora**: il giro («▶️ Avvia», ok automatico al piano di Copilot, «Salta da solo pre e post vuoti»); per ogni task i passi e l'azione che tocca a te. Pre e Post (`work/Operation.tsx`): «🤖 Automatico», «✋ A mano» (comandi, automation, stato git, Dev, «✅ Fatto»), «⏭ Salta». Bozze Confluence e Jira: «📤 Pubblica».
   - **Chiudi**: riepilogo, «✨ Proponi cosa ho imparato», chiudi, riapri, archivia.
 - **⚙️ Automation** (`/automation`): esecuzione, storico, editor del grafo, YAML.
-- **🗂️ Progetto** (`/project`): note, riferimenti (anche da Jira, Confluence e «🔎 Da codice»), file, contesto, git («🔎 Cerca nel codice» con ricerche salvate e «✨ Regex»), Atlassian, impostazioni.
+- **🗂️ Progetto** (`/project`): note, riferimenti (anche da Jira, Confluence e «🔎 Da codice»), file, contesto («➕ Nuovo» con documento vuoto, modelli e mappa dei repository; gruppi «Progetto» e «Generale» chiusi all'apertura; 📐 regole di sviluppo e 🗺 mappa in cima; «👁 Anteprima» del Markdown), git («🔎 Cerca nel codice» con ricerche salvate e «✨ Regex»), Atlassian, impostazioni.
 
 A destra, il **pannello dell'agente** (`project/AgentPanel.tsx`): Segretario sull'attività, Refiner su un task non delegato, Copilot su un task delegato, Architetto in Automation, Dev a richiesta. Una pagina chiede qualcosa al suo agente con `useAgentPanel().ask(testo)`. Sotto ogni risposta «🔍 Cosa ha visto il modello» (`components/TranscriptModal.tsx`). Un link `?note=` porta la nota nella sua zona (`project/noteZone.ts`).
 
