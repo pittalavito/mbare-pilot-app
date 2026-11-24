@@ -77,7 +77,7 @@ def config(tmp_path):
         rag_embedder="hashing",  # the context index never calls a real embedder in the tests
         app_definitions=str(tmp_path / "no-app-definitions"),  # only the tests' own files; the app's are tested on their own
     )
-    for folder in ("agents", "automations", "coding-agents/copilot", "coding-agents/claude", "templates", "board"):
+    for folder in ("agents", "automations", "coding-agents/copilot", "coding-agents/claude", "templates", "code-search", "board"):
         (test_config.definitions_root / folder).mkdir(parents=True)
     (test_config.definitions_root / "agents/agents.yml").write_text(HELLO_AGENT, encoding="utf-8")
     (test_config.definitions_root / "coding-agents/copilot/coding-agent.yml").write_text(CODING_AGENT, encoding="utf-8")

@@ -1,4 +1,4 @@
-"""Saved searches («regex parlanti») — the defaults of board/code-searches.yml,
+"""Saved searches («regex parlanti») — the defaults of code-search/searches.yml,
 the project's own (they replace a default with the same name) and «✨ Regex»
 (one structured call to the agent ``regex``, fake model)."""
 import pytest
@@ -21,7 +21,7 @@ def model():
 
 @pytest.fixture
 def client(stores, config, monkeypatch, project_store, tmp_path, model, default_chatbots):
-    (config.definitions_root / "board/code-searches.yml").write_text(yaml.safe_dump(DEFAULTS), encoding="utf-8")
+    (config.definitions_root / "code-search/searches.yml").write_text(yaml.safe_dump(DEFAULTS), encoding="utf-8")
     project_store.save(Project(name="acme", source=ProjectSource.FOLDER, root_path=str(tmp_path)))
     container = Container(stores=stores)
     monkeypatch.setattr(container.chat_service, "get_client", lambda key: model)
@@ -68,13 +68,13 @@ def test_a_broken_regex_is_a_400_plain_text_is_not(client):
 
 
 def test_a_broken_defaults_file_is_a_400(client, config):
-    (config.definitions_root / "board/code-searches.yml").write_text("searches: [{name: x}]", encoding="utf-8")
+    (config.definitions_root / "code-search/searches.yml").write_text("searches: [{name: x}]", encoding="utf-8")
 
     assert client.get("/projects/acme/code-search/saved").status_code == 400
 
 
 def test_without_the_file_no_defaults_and_an_unknown_project_is_a_404(client, config):
-    (config.definitions_root / "board/code-searches.yml").unlink()
+    (config.definitions_root / "code-search/searches.yml").unlink()
 
     assert client.get("/projects/acme/code-search/saved").json() == []
     assert client.get("/projects/nope/code-search/saved").status_code == 404
@@ -84,7 +84,7 @@ def test_the_app_s_defaults_are_valid():
     from pathlib import Path
 
     from models.domain.code_search import SavedSearchFile
-    text = (Path(__file__).parents[3] / "resource" / "definition" / "board/code-searches.yml").read_text(encoding="utf-8")
+    text = (Path(__file__).parents[3] / "resource" / "definition" / "code-search/searches.yml").read_text(encoding="utf-8")
     searches = SavedSearchFile.model_validate(yaml.safe_load(text)).searches
     assert {"TODO", "FIXME", "Commenti Mbare Pilot"} <= {search.name for search in searches}
 

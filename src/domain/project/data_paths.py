@@ -9,7 +9,8 @@ naming rules for notes and uploaded files. Pure functions: no filesystem here.
       coding-agents/claude/          tool-requests.md: what Claude Code is told on the dev MCP server
       templates/<type>.md            the drafts' templates (confluence.md, jira.md)
       context/<topic>.md             the agents' general context
-      board/                         roadmap.yml, code-searches.yml
+      code-search/searches.yml       the saved searches in the code
+      board/roadmap.yml              the board of Mbare Pilot
       project/<slug>/                the same files for one project (agents/, automations/, coding-agents/copilot/, templates/)
     project/<slug>/
       notes/                         notes written in the app; the type is in the name:
@@ -52,7 +53,7 @@ TEMPLATES_DIR = "templates"
 CLAUDE_TOOL_REQUESTS_FILE = "coding-agents/claude/tool-requests.md"
 """What Claude Code is told on the dev MCP server."""
 ROADMAP_FILE = "board/roadmap.yml"
-SEARCHES_FILE = "board/code-searches.yml"
+SEARCHES_FILE = "code-search/searches.yml"
 """Every path is relative to ``definition/`` (global) or to ``definition/project/<slug>/``
 (the project's; only agents, chatbots, automations, Copilot and templates)."""
 LEGACY_FILES = ("global-agent.yml", "global-chat-bots.yml", "global-automation.yml", "global-coding-agent.yml",

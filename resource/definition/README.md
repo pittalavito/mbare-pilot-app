@@ -10,7 +10,8 @@ coding-agents/   quello che l'app dice ai coding agent, uno per cartella
   claude/        tool-requests.md
 templates/       la struttura delle bozze: confluence.md, jira.md
 context/         il contesto generale degli agenti (RAG)
-board/           roadmap.yml (la bacheca), code-searches.yml (ricerche salvate)
+code-search/     searches.yml (ricerche salvate nel codice)
+board/           roadmap.yml (la bacheca)
 ```
 
 | File | Cosa |
@@ -24,7 +25,7 @@ board/           roadmap.yml (la bacheca), code-searches.yml (ricerche salvate)
 | `templates/*.md` | la struttura delle bozze Confluence e Jira: un prompt la riceve con `{template}` |
 | `context/*.md` | il contesto generale per gli agenti: come funziona l'app, un file per tema; si cerca con `search_context` in ogni progetto |
 | `board/roadmap.yml` | la bacheca «🚀 Mbare Pilot» (dalla UI si scrive la copia nella cartella dati) |
-| `board/code-searches.yml` | le ricerche salvate nel codice di ogni progetto: TODO, FIXME, Commenti Mbare Pilot |
+| `code-search/searches.yml` | le ricerche salvate nel codice di ogni progetto: TODO, FIXME, Commenti Mbare Pilot |
 
 **Cambiarle senza toccare l'app**: in `<MBARE_PILOT_HOME>/definition/` metti solo quello che cambi, con la **stessa struttura**.
 - In `agents/agents.yml`, `agents/chatbots.yml`, `automations/automations.yml` un elemento con lo **stesso nome** vince su quello di qui; gli altri restano questi (il tuo `agents/chatbots.yml` può contenere solo il Refiner cambiato).

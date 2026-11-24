@@ -40,7 +40,7 @@ class CodeSearchSaved(BaseModel):
 
 
 class SavedSearch(BaseModel):
-    """A search with a name («regex parlanti»): defaults in ``board/code-searches.yml``
+    """A search with a name («regex parlanti»): defaults in ``code-search/searches.yml``
     of the definitions, the project's own in its settings (by name, the project's win)."""
     name: str = Field(min_length=1, max_length=80)
     query: str = Field(min_length=1)
@@ -57,7 +57,7 @@ class SavedSearchView(SavedSearch):
 
 
 class SavedSearchFile(BaseModel):
-    """``board/code-searches.yml`` of the definitions."""
+    """``code-search/searches.yml`` of the definitions."""
     searches: list[SavedSearch] = []
 
 

@@ -23,9 +23,10 @@ resource/definition/
       tool-requests.md  come Claude Code lavora una richiesta di tool  (era _INSTRUCTIONS in controller/dev_mcp_server.py)
   templates/            confluence.md, jira.md: la struttura delle bozze  (era coding-agent/templates/)
   context/              il contesto generale degli agenti (RAG), invariato
+  code-search/
+    searches.yml        le ricerche salvate nel codice  (era code-searches.yml)
   board/
     roadmap.yml         la bacheca «🚀 Mbare Pilot»
-    code-searches.yml   le ricerche salvate nel codice
 ```
 - La **stessa struttura** vale nella tua cartella dati (`<MBARE_PILOT_HOME>/definition/`), che vince per percorso o per nome come oggi. Anche i file di un progetto la seguono: `project/<slug>/agents/agents.yml`, `agents/chatbots.yml`, `automations/automations.yml`, `coding-agents/copilot/coding-agent.yml`, `coding-agents/copilot/prompts/`, `templates/`.
 - **Coding agent insieme, separati per agente**: `coding-agents/copilot/` e `coding-agents/claude/`; un coding agent futuro avrà la sua cartella accanto.
